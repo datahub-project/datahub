@@ -9,7 +9,7 @@ from acryl_datahub_cloud.sdk.assertion import (
     AssertionMode,
     SmartFreshnessAssertion,
 )
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_SCHEDULE,
     AssertionIncidentBehavior,
     DetectionMechanism,

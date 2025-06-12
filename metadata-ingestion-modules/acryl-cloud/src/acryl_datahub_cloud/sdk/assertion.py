@@ -14,7 +14,7 @@ from typing import Optional, Union
 
 from typing_extensions import Self
 
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SCHEDULE,
@@ -760,8 +760,18 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
         )
 
 
+class SmartColumnMetricAssertion(_HasSmartFunctionality, _AssertionPublic):
+    """
+    A class that represents a smart column metric assertion.
+    """
+
+    def __init__(self) -> None:
+        raise NotImplementedError("SmartColumnMetricAssertion is not implemented yet")
+
+
 AssertionTypes = Union[
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
+    SmartColumnMetricAssertion,
     # TODO: Add other assertion types here as we add them.
 ]

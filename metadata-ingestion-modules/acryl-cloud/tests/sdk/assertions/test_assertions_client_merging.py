@@ -11,7 +11,7 @@ from acryl_datahub_cloud.sdk.assertion import (
     AssertionMode,
     SmartFreshnessAssertion,
 )
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DETECTION_MECHANISM_CONCRETE_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_SCHEDULE,

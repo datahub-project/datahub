@@ -1,24 +1,30 @@
+import dataclasses
 import re
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, ContextManager, Optional, TypedDict, Union, cast
+from typing import Any, ContextManager, Optional, Type, TypedDict, Union, cast
 
 import pytest
 from pydantic import ValidationError
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
     AssertionIncidentBehavior,
+    DatasetSourceType,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     FixedRangeExclusionWindowInputTypes,
     InferenceSensitivity,
     SDKUsageErrorWithExamples,
     _AssertionInput,
+    _AuditLog,
     _DetectionMechanismTypes,
+    _InformationSchema,
+    _is_source_type_valid,
     _SmartFreshnessAssertionInput,
     _validate_cron_schedule,
 )
@@ -1238,6 +1244,9 @@ class StubAssertionInput(_AssertionInput):
     def _create_field_spec(self) -> None:  # type: ignore[override]  # Not used
         return None
 
+    def _assertion_type(self) -> str:
+        return models.AssertionTypeClass.FRESHNESS
+
 
 def test_assertion_creation_with_invalid_source_type(
     freshness_stub_entity_client: StubEntityClient,
@@ -1396,3 +1405,163 @@ def test_validate_cron_schedule(
     """Test the validation of cron schedule expressions and timezones."""
     with expected_raises:
         _validate_cron_schedule(schedule, timezone)
+
+
+@dataclass
+class SourceTypeValidityTestParams:
+    """Test parameters for _is_source_type_valid test cases.
+
+    Contains input parameters and expected output for the _is_source_type_valid function.
+    """
+
+    # Input parameters
+    source_type: Type[_DetectionMechanismTypes]
+    platform: str
+    assertion_type: Union[models.AssertionTypeClass, str]
+    # Expected output
+    expected_result: bool
+    # Test case description
+    description: str
+    # List of invalid source types for this test case
+    invalid_source_types: set[DatasetSourceType] = dataclasses.field(
+        default_factory=set
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="databricks",
+                assertion_type="all",
+                expected_result=False,
+                description="Exact match with all assertion type",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="databricks",
+                        assertion_type="all",
+                    )
+                },
+            ),
+            id="exact_match_all_assertion_type",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="all",
+                assertion_type="all",
+                expected_result=False,
+                description="All platform and assertion type",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="all",
+                        assertion_type="all",
+                    )
+                },
+            ),
+            id="all_platform_and_assertion_type",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="databricks",
+                assertion_type=models.AssertionTypeClass.FRESHNESS,
+                expected_result=False,
+                description="Exact match with specific assertion type",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="databricks",
+                        assertion_type=models.AssertionTypeClass.FRESHNESS,
+                    )
+                },
+            ),
+            id="exact_match_specific_assertion_type",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="all",
+                assertion_type=models.AssertionTypeClass.FRESHNESS,
+                expected_result=False,
+                description="All platform with specific assertion type",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="all",
+                        assertion_type=models.AssertionTypeClass.FRESHNESS,
+                    )
+                },
+            ),
+            id="all_platform_specific_assertion_type",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="snowflake",
+                assertion_type="all",
+                expected_result=False,
+                description="Platform match with assertion_type='all'",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="snowflake",
+                        assertion_type="all",
+                    )
+                },
+            ),
+            id="platform_match_assertion_type_all",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_InformationSchema,
+                platform="snowflake",
+                assertion_type=models.AssertionTypeClass.FRESHNESS,
+                expected_result=False,
+                description="Exact match with both platform and assertion type",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="snowflake",
+                        assertion_type=models.AssertionTypeClass.FRESHNESS,
+                    )
+                },
+            ),
+            id="exact_match_both",
+        ),
+        pytest.param(
+            SourceTypeValidityTestParams(
+                source_type=_AuditLog,
+                platform="databricks",
+                assertion_type="all",
+                expected_result=True,
+                description="Different source type should be valid",
+                invalid_source_types={
+                    DatasetSourceType(
+                        source_type=_InformationSchema,
+                        platform="databricks",
+                        assertion_type="all",
+                    )
+                },
+            ),
+            id="different_source_type",
+        ),
+    ],
+)
+def test_is_source_type_valid(params: SourceTypeValidityTestParams) -> None:
+    """Test the _is_source_type_valid function with various input combinations."""
+    dataset_source_type = DatasetSourceType(
+        source_type=params.source_type,
+        platform=params.platform,
+        assertion_type=params.assertion_type,
+    )
+    assert (
+        _is_source_type_valid(
+            dataset_source_type, invalid_source_types=params.invalid_source_types
+        )
+        == params.expected_result
+    ), params.description

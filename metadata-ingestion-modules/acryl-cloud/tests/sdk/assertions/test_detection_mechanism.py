@@ -1,7 +1,9 @@
 import pytest
 
 from acryl_datahub_cloud.sdk import DetectionMechanism
-from acryl_datahub_cloud.sdk.assertion_input import _DetectionMechanismTypes
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+    _DetectionMechanismTypes,
+)
 from acryl_datahub_cloud.sdk.errors import SDKUsageErrorWithExamples
 
 
@@ -185,10 +187,7 @@ def test_parse_detection_mechanism_with_class_object() -> None:
         DetectionMechanism.parse(
             DetectionMechanism.LAST_MODIFIED_COLUMN  # type: ignore[arg-type]  # Purposely testing an invalid type
         )
-    assert (
-        "Invalid detection mechanism: <class 'acryl_datahub_cloud.sdk.assertion_input._LastModifiedColumn'>"
-        in str(e.value)
-    )
+    assert "Invalid detection mechanism:" in str(e.value)
 
 
 class NotADetectionMechanism:

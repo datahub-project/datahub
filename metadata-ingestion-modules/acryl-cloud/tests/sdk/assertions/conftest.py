@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 import pytest
 
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_SCHEDULE,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
@@ -315,6 +315,64 @@ class StubEntityClient(EntityClient):
             return self.assertion_entity
         elif isinstance(urn, MonitorUrn):
             return self.monitor_entity
+        elif str(urn).startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+        ):
+            return Dataset(
+                platform=str(DataPlatformUrn("urn:li:dataPlatform:snowflake")),
+                name=urn.name,
+                schema=[
+                    models.SchemaFieldClass(
+                        fieldPath="column_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.DateTypeClass()
+                        ),
+                        nativeDataType="DATE",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="string_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="number_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.NumberTypeClass()
+                        ),
+                        nativeDataType="NUMBER",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="boolean_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.BooleanTypeClass()
+                        ),
+                        nativeDataType="BOOLEAN",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="date_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.DateTypeClass()
+                        ),
+                        nativeDataType="DATE",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="time_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.TimeTypeClass()
+                        ),
+                        nativeDataType="TIME",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="null_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.NullTypeClass()
+                        ),
+                        nativeDataType="NULL",
+                    ),
+                ],
+            )
         return None
 
 

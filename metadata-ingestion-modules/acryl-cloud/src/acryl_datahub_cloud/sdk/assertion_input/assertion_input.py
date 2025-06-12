@@ -6,9 +6,10 @@ validate and represent the input for creating an Assertion in DataHub.
 import random
 import string
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional, TypeAlias, Union
+from typing import Literal, Optional, Type, TypeAlias, TypeVar, Union
 
 import pydantic
 import pytz
@@ -101,6 +102,23 @@ class _Query(AbstractDetectionMechanism):
     additional_filter: Optional[str] = None
 
 
+class _AllRowsQuery(AbstractDetectionMechanism):
+    type: Literal["all_rows_query"] = "all_rows_query"
+    additional_filter: Optional[str] = None
+
+
+class _AllRowsQueryDataHubDatasetProfile(AbstractDetectionMechanism):
+    type: Literal["all_rows_query_datahub_dataset_profile"] = (
+        "all_rows_query_datahub_dataset_profile"
+    )
+
+
+class _ChangedRowsQuery(AbstractDetectionMechanism):
+    type: Literal["changed_rows_query"] = "changed_rows_query"
+    column_name: str
+    additional_filter: Optional[str] = None
+
+
 class _DatasetProfile(AbstractDetectionMechanism):
     type: Literal["dataset_profile"] = "dataset_profile"
 
@@ -114,6 +132,9 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _DataHubOperation,
     _Query,
     _DatasetProfile,
+    _AllRowsQuery,
+    _ChangedRowsQuery,
+    _AllRowsQueryDataHubDatasetProfile,
 )
 _DetectionMechanismTypes = Union[
     _InformationSchema,
@@ -123,13 +144,20 @@ _DetectionMechanismTypes = Union[
     _DataHubOperation,
     _Query,
     _DatasetProfile,
+    _AllRowsQuery,
+    _ChangedRowsQuery,
+    _AllRowsQueryDataHubDatasetProfile,
 ]
 
 _DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER = (
     _LastModifiedColumn,
     _HighWatermarkColumn,
     _Query,
+    _AllRowsQuery,
+    _ChangedRowsQuery,
 )
+
+DEFAULT_DETECTION_MECHANISM = _InformationSchema()
 
 
 class DetectionMechanism:
@@ -141,6 +169,9 @@ class DetectionMechanism:
     HIGH_WATERMARK_COLUMN = _HighWatermarkColumn
     DATAHUB_OPERATION = _DataHubOperation()
     QUERY = _Query
+    ALL_ROWS_QUERY = _AllRowsQuery()
+    CHANGED_ROWS_QUERY = _ChangedRowsQuery
+    ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE = _AllRowsQueryDataHubDatasetProfile()
     DATASET_PROFILE = _DatasetProfile()
 
     _DETECTION_MECHANISM_EXAMPLES = {
@@ -170,6 +201,18 @@ class DetectionMechanism:
         "Query from DetectionMechanism (with optional additional filter)": "DetectionMechanism.QUERY(additional_filter='id > 1000')",
         "Dataset Profile from string": "dataset_profile",
         "Dataset Profile from DetectionMechanism": "DetectionMechanism.DATASET_PROFILE",
+        "All Rows Query from string": "all_rows_query",
+        "All Rows Query from DetectionMechanism": "DetectionMechanism.ALL_ROWS_QUERY",
+        "All Rows Query from DetectionMechanism (with optional additional filter)": "DetectionMechanism.ALL_ROWS_QUERY(additional_filter='id > 1000')",
+        "Changed Rows Query from dict (with optional additional filter)": {
+            "type": "changed_rows_query",
+            "column_name": "id",
+            "additional_filter": "id > 1000",
+        },
+        "Changed Rows Query from DetectionMechanism": "DetectionMechanism.CHANGED_ROWS_QUERY(column_name='id')",
+        "Changed Rows Query from DetectionMechanism (with optional additional filter)": "DetectionMechanism.CHANGED_ROWS_QUERY(column_name='id', additional_filter='id > 1000')",
+        "All Rows Query DataHub Dataset Profile from string": "all_rows_query_datahub_dataset_profile",
+        "All Rows Query DataHub Dataset Profile from DetectionMechanism": "DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE",
     }
 
     @staticmethod
@@ -177,9 +220,10 @@ class DetectionMechanism:
         detection_mechanism_config: Optional[
             Union[str, dict[str, str], _DetectionMechanismTypes]
         ] = None,
+        default_detection_mechanism: _DetectionMechanismTypes = DEFAULT_DETECTION_MECHANISM,
     ) -> _DetectionMechanismTypes:
         if detection_mechanism_config is None:
-            return DEFAULT_DETECTION_MECHANISM
+            return default_detection_mechanism
         if isinstance(detection_mechanism_config, _DETECTION_MECHANISM_CONCRETE_TYPES):
             return detection_mechanism_config
         elif isinstance(detection_mechanism_config, str):
@@ -259,8 +303,6 @@ class DetectionMechanism:
                 examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
 
-
-DEFAULT_DETECTION_MECHANISM = DetectionMechanism.INFORMATION_SCHEMA
 
 DetectionMechanismInputTypes: TypeAlias = Union[
     str, dict[str, str], _DetectionMechanismTypes, None
@@ -594,6 +636,89 @@ def _try_parse_schedule(
 FieldSpecType = Union[models.FreshnessFieldSpecClass, models.SchemaFieldSpecClass]
 
 
+T = TypeVar("T")
+
+
+def _try_parse_and_validate_schema_classes_enum(
+    value: Union[str, T],
+    enum_class: Type[T],
+) -> T:
+    if isinstance(value, enum_class):
+        return value
+    assert isinstance(value, str)
+    if value not in get_enum_options(enum_class):
+        raise SDKUsageError(
+            f"Invalid value for {enum_class.__name__}: {value}, valid options are {get_enum_options(enum_class)}"
+        )
+    return getattr(enum_class, value.upper())
+
+
+@dataclass(frozen=True)
+class DatasetSourceType:
+    """
+    DatasetSourceType is used to represent a dataset source type.
+    It is used to check if a source type is valid for a dataset type and assertion type.
+
+    Args:
+        source_type: The source type (e.g. information schema, field value, etc. aka detection mechanism)
+        platform: The platform of the dataset as a string OR "all" for all platforms.
+        assertion_type: The assertion type as a models.AssertionTypeClass string e.g. models.AssertionTypeClass.FRESHNESS OR "all" for all assertion types.
+
+    Example:
+    DatasetSourceType(
+        source_type=_InformationSchema,
+        platform="databricks",
+        assertion_type="all",
+    )
+    This means that the source type _InformationSchema is invalid for the dataset type "databricks" and assertion type "all".
+    "all" in this example means that the source type is invalid for all assertion types.
+    """
+
+    source_type: Type[_DetectionMechanismTypes]
+    platform: str
+    assertion_type: Union[models.AssertionTypeClass, str]
+
+
+INVALID_SOURCE_TYPES = {
+    # Add exceptions here if a source type (detection mechanism) is invalid for a dataset type and assertion type.
+    DatasetSourceType(
+        source_type=_InformationSchema,
+        platform="databricks",
+        assertion_type="all",
+    )
+}
+
+
+def _is_source_type_valid(
+    dataset_source_type: DatasetSourceType,
+    invalid_source_types: set[DatasetSourceType] = INVALID_SOURCE_TYPES,
+) -> bool:
+    for invalid in invalid_source_types:
+        if invalid.source_type == dataset_source_type.source_type:
+            # If both platform and assertion type are "all", the source type is invalid for all combinations
+            if invalid.platform == "all" and invalid.assertion_type == "all":
+                return False
+            # If platform matches and assertion type is "all", the source type is invalid for all assertion types on that platform
+            if (
+                invalid.platform == dataset_source_type.platform
+                and invalid.assertion_type == "all"
+            ):
+                return False
+            # If platform is "all" and assertion type matches, the source type is invalid for all platforms for that assertion type
+            if (
+                invalid.platform == "all"
+                and invalid.assertion_type == dataset_source_type.assertion_type
+            ):
+                return False
+            # If both platform and assertion type match exactly, the source type is invalid
+            if (
+                invalid.platform == dataset_source_type.platform
+                and invalid.assertion_type == dataset_source_type.assertion_type
+            ):
+                return False
+    return True
+
+
 class _AssertionInput(ABC):
     def __init__(
         self,
@@ -621,6 +746,7 @@ class _AssertionInput(ABC):
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        default_detection_mechanism: _DetectionMechanismTypes = DEFAULT_DETECTION_MECHANISM,
     ):
         """
         Create an AssertionInput object.
@@ -653,7 +779,19 @@ class _AssertionInput(ABC):
         )
         self.enabled = enabled
         self.schedule = _try_parse_schedule(schedule)
-        self.detection_mechanism = DetectionMechanism.parse(detection_mechanism)
+        self.detection_mechanism = DetectionMechanism.parse(
+            detection_mechanism, default_detection_mechanism
+        )
+        if not _is_source_type_valid(
+            DatasetSourceType(
+                source_type=type(self.detection_mechanism),
+                platform=self.dataset_urn.platform,
+                assertion_type=self._assertion_type(),
+            )
+        ):
+            raise SDKUsageError(
+                f"Invalid source type: {self.detection_mechanism} for dataset type: {self.dataset_urn.platform} and assertion type: {self._assertion_type()}"
+            )
         self.sensitivity = InferenceSensitivity.parse(sensitivity)
         self.exclusion_windows = _try_parse_exclusion_window(exclusion_windows)
         self.training_data_lookback_days = _try_parse_training_data_lookback_days(
@@ -1029,6 +1167,11 @@ class _AssertionInput(ABC):
         """Convert detection mechanism to source type and field spec."""
         pass
 
+    @abstractmethod
+    def _assertion_type(self) -> str:
+        """Get the assertion type."""
+        pass
+
 
 class _SmartFreshnessAssertionInput(_AssertionInput):
     def __init__(
@@ -1211,6 +1354,10 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             kind=kind,
         )
 
+    def _assertion_type(self) -> str:
+        """Get the assertion type."""
+        return models.AssertionTypeClass.FRESHNESS
+
 
 class _SmartVolumeAssertionInput(_AssertionInput):
     def __init__(
@@ -1333,3 +1480,7 @@ class _SmartVolumeAssertionInput(_AssertionInput):
             )
 
         return source_type, field
+
+    def _assertion_type(self) -> str:
+        """Get the assertion type."""
+        return models.AssertionTypeClass.VOLUME

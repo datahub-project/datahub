@@ -34,7 +34,7 @@ AssertionInfoInputType: TypeAlias = Union[
     models.FreshnessAssertionInfoClass,
     models.VolumeAssertionInfoClass,
     models.SqlAssertionInfoClass,
-    # TODO: models.FieldAssertionInfoClass,
+    models.FieldAssertionInfoClass,
     # TODO: models.SchemaAssertionInfoClass,
     # TODO: models.CustomAssertionInfoClass,
 ]
@@ -189,6 +189,9 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         elif isinstance(assertion, models.SqlAssertionInfoClass):
             info.sqlAssertion = assertion
             info.type = models.AssertionTypeClass.SQL
+        elif isinstance(assertion, models.FieldAssertionInfoClass):
+            info.fieldAssertion = assertion
+            info.type = models.AssertionTypeClass.FIELD
         else:
             assert_never(assertion)
 

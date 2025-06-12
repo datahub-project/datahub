@@ -2,7 +2,7 @@ from acryl_datahub_cloud.sdk.assertion import (
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
 )
-from acryl_datahub_cloud.sdk.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
     DetectionMechanism,
     FixedRangeExclusionWindow,
