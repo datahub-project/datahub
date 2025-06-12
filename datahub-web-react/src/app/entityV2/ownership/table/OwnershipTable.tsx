@@ -1,39 +1,84 @@
 import { Empty } from 'antd';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useInView } from 'react-intersection-observer';
+import styled from 'styled-components/macro';
 
 import { ActionsColumn } from '@app/entityV2/ownership/table/ActionsColumn';
 import { DescriptionColumn } from '@app/entityV2/ownership/table/DescriptionColumn';
 import { NameColumn } from '@app/entityV2/ownership/table/NameColumn';
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import { Table } from '@src/alchemy-components';
+import { Column } from '@src/alchemy-components/components/Table/types';
 
 import { OwnershipTypeEntity } from '@types';
+
+const TableContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+`;
+
+const LoadMoreIndicator = styled.div`
+    height: 20px;
+    width: 100%;
+`;
 
 type Props = {
     ownershipTypes: OwnershipTypeEntity[];
     setIsOpen: (isOpen: boolean) => void;
     setOwnershipType: (ownershipType: OwnershipTypeEntity) => void;
     refetch: () => void;
+    hasMore?: boolean;
+    isLoadingMore?: boolean;
+    onLoadMore?: () => void;
 };
 
-export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, refetch }: Props) => {
-    const tableColumns = [
+export const OwnershipTable = ({
+    ownershipTypes,
+    setIsOpen,
+    setOwnershipType,
+    refetch,
+    hasMore = false,
+    isLoadingMore = false,
+    onLoadMore,
+}: Props) => {
+    // Using react-intersection-observer to detect when user scrolls to bottom
+    const [ref, inView] = useInView({
+        threshold: 0,
+        triggerOnce: false,
+    });
+
+    // Call onLoadMore when the load more indicator comes into view
+    useEffect(() => {
+        if (inView && hasMore && !isLoadingMore && onLoadMore) {
+            onLoadMore();
+        }
+    }, [inView, hasMore, isLoadingMore, onLoadMore]);
+
+    const tableColumns: Column<OwnershipTypeEntity>[] = [
         {
             title: 'Name',
-            dataIndex: 'name',
-            sorter: (a: any, b: any) => a?.info?.name?.localeCompare(b?.info?.name),
             key: 'name',
-            render: (_, record: any) => <NameColumn ownershipType={record} />,
+            width: '30%',
+            sorter: (a, b) => {
+                const nameA = a?.info?.name || '';
+                const nameB = b?.info?.name || '';
+                return nameA.localeCompare(nameB);
+            },
+            render: (record) => <NameColumn ownershipType={record} />,
         },
         {
             title: 'Description',
-            dataIndex: 'description',
             key: 'description',
-            render: (_, record: any) => <DescriptionColumn ownershipType={record} />,
+            width: '60%',
+            render: (record) => <DescriptionColumn ownershipType={record} />,
         },
         {
-            dataIndex: 'actions',
+            title: '',
             key: 'actions',
-            render: (_, record: any) => (
+            alignment: 'right',
+            width: '10%',
+            render: (record) => (
                 <ActionsColumn
                     ownershipType={record}
                     setIsOpen={setIsOpen}
@@ -48,15 +93,21 @@ export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, re
         return ownershipType?.info?.name || ownershipType.urn;
     };
 
+    if (ownershipTypes.length === 0) {
+        return <Empty description="No Ownership Types found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    }
+
     return (
-        <StyledTable
-            columns={tableColumns}
-            dataSource={ownershipTypes}
-            rowKey={getRowKey}
-            locale={{
-                emptyText: <Empty description="No Ownership Types found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            pagination={false}
-        />
+        <TableContainer>
+            <Table
+                columns={tableColumns}
+                data={ownershipTypes}
+                rowKey={getRowKey}
+                isScrollable
+                maxHeight="100%"
+                isLoading={isLoadingMore}
+            />
+            {hasMore && <LoadMoreIndicator ref={ref} />}
+        </TableContainer>
     );
 };
