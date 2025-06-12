@@ -9,6 +9,18 @@
   //   margin-bottom: 1rem;
   // }
 
+  .visually-hidden {
+    position: absolute;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0;
+    margin: 0;
+  }
+
   .h3-block {
     display: flex;
     flex-direction: column;
@@ -20,11 +32,6 @@
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--ifm-font-color-base);
-    margin-bottom: 1rem;
-
-    .hidden-heading {
-      display: none !important;
-    }
 
     .section-heading {
       background-color: var(--ifm-background-surface-color);

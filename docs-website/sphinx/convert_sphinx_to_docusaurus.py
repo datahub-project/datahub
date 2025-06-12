@@ -90,9 +90,9 @@ def wrap_section_blocks(content: str, level: int, class_name: str) -> str:
             sidebar_text, styled_heading_text = trim_heading_text(heading_text)
             slug = slugify(sidebar_text)
 
-            wrapped_lines.append(f'<div className="{class_name}">\n\n')
-            wrapped_lines.append(f'<div className="hidden-heading">\n\n### {sidebar_text}\n\n</div>\n')
-            wrapped_lines.append(f'<div className="section-heading" id="{slug}">{styled_heading_text}{generate_anchor(slug)}</div>\n')
+            wrapped_lines.append(f'### <span className="visually-hidden">{sidebar_text}</span> {{#{slug}}}\n')
+            wrapped_lines.append(f'<div className="{class_name}">\n')
+            wrapped_lines.append(f'<div className="section-heading">{styled_heading_text}{generate_anchor(slug)}</div>\n')
             inside_block = True
 
         elif higher_header_pattern.match(line):
