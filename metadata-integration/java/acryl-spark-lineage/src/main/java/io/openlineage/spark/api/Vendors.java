@@ -22,7 +22,17 @@ public interface Vendors {
           // Add vendor classes here
           "io.openlineage.spark.agent.vendor.snowflake.SnowflakeVendor",
           // This is the only chance we have to add the RedshiftVendor to the list of vendors
-          "io.openlineage.spark.agent.vendor.redshift.RedshiftVendor");
+          "io.openlineage.spark.agent.vendor.redshift.RedshiftVendor",
+          // Add support for Delta Lake operations
+          "io.openlineage.spark.agent.vendor.delta.DeltaVendor",
+          // Add support for Hudi operations
+          "io.openlineage.spark.agent.vendor.hudi.HudiVendor",
+          // Add support for Iceberg operations
+          "io.openlineage.spark.agent.vendor.iceberg.IcebergVendor",
+          // Add support for BigQuery operations
+          "io.openlineage.spark.agent.vendor.bigquery.BigQueryVendor",
+          // Add support for Azure Synapse operations
+          "io.openlineage.spark.agent.vendor.synapse.SynapseVendor");
 
   static Vendors getVendors() {
     return getVendors(Collections.emptyList());
