@@ -1,0 +1,8 @@
+namespace com.linkedin.application
+import com.linkedin.common.Edge
+
+
+/**
+ * Represents an association of assets to a Application.
+ **/
+record ApplicationAssociation includes Edge {}

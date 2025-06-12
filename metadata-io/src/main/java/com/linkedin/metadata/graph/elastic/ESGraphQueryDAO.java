@@ -2,7 +2,6 @@ package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
-import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 import static com.linkedin.metadata.search.utils.ESUtils.queryOptimize;
 
 import com.datahub.util.exception.ESQueryException;
@@ -16,6 +15,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -57,6 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -85,8 +87,8 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
-
-  private final ElasticSearchConfiguration config;
+  @Getter private final GraphServiceConfiguration graphServiceConfig;
+  @Getter private final ElasticSearchConfiguration config;
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
@@ -132,7 +134,7 @@ public class ESGraphQueryDAO {
       @Nonnull OperationContext opContext,
       @Nonnull final QueryBuilder query,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, count);
@@ -157,11 +159,11 @@ public class ESGraphQueryDAO {
   }
 
   private SearchSourceBuilder sharedSourceBuilder(
-      @Nonnull final QueryBuilder query, final int offset, final int count) {
+      @Nonnull final QueryBuilder query, final int offset, @Nullable Integer count) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     searchSourceBuilder.from(offset);
-    searchSourceBuilder.size(applyResultLimit(config, count));
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
 
     searchSourceBuilder.query(query);
     if (config.getSearch().getGraph().isBoostViaNodes()) {
@@ -200,7 +202,7 @@ public class ESGraphQueryDAO {
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
@@ -284,9 +286,10 @@ public class ESGraphQueryDAO {
       @Nonnull Urn entityUrn,
       LineageGraphFilters lineageGraphFilters,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
     Map<Urn, LineageRelationship> result = new HashMap<>();
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
     long currentTime = System.currentTimeMillis();
     long remainingTime = config.getSearch().getGraph().getTimeoutSeconds() * 1000;
     boolean exploreMultiplePaths = config.getSearch().getGraph().isEnableMultiPathSearch();
@@ -561,7 +564,7 @@ public class ESGraphQueryDAO {
     } else {
       response =
           executeLineageSearchQuery(
-              opContext, finalQuery, 0, config.getSearch().getLimit().getResults().getMax());
+              opContext, finalQuery, 0, graphServiceConfig.getLimit().getResults().getApiDefault());
       return extractRelationships(
           entityUrnSet,
           response,
@@ -653,7 +656,7 @@ public class ESGraphQueryDAO {
             QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
                 .boostMode(CombineFunction.REPLACE));
     queryRescorerBuilder.windowSize(
-        config.getSearch().getLimit().getResults().getMax()); // Will rescore all results
+        graphServiceConfig.getLimit().getResults().getApiDefault()); // Will rescore all results
     sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
@@ -1147,7 +1150,7 @@ public class ESGraphQueryDAO {
             opContext,
             baseQuery,
             lineageGraphFilters,
-            config.getSearch().getLimit().getResults().getMax(),
+            graphServiceConfig.getLimit().getResults().getApiDefault(),
             exploreMultiplePaths,
             entitiesPerHopLimit,
             entityUrns);
@@ -1213,7 +1216,7 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count) {
+      @Nullable Integer count) {
 
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
@@ -1226,7 +1229,7 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      final int count) {
+      @Nullable Integer count) {
 
     Object[] sort = null;
     if (scrollId != null) {
@@ -1238,7 +1241,7 @@ public class ESGraphQueryDAO {
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    searchSourceBuilder.size(applyResultLimit(config, count));
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
@@ -1583,7 +1586,8 @@ public class ESGraphQueryDAO {
       Set<Urn> originalEntityUrns) {
 
     // Determine maximum page size
-    int maxPageSize = Math.min(pageSize, config.getSearch().getLimit().getResults().getMax());
+    int maxPageSize =
+        Math.min(pageSize, graphServiceConfig.getLimit().getResults().getApiDefault());
 
     // Initial page size calculation
     int currentPageSize = maxPageSize;
