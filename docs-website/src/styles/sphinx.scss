@@ -10,12 +10,9 @@
   // }
 
   .h3-block {
-    border-bottom: 1px solid var(--ifm-hr-border-color);
-    // padding-bottom: 0.25rem;
-  }
-
-  // Signature block
-   .h3-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     border: 1px solid var(--ifm-hr-border-color);
     border-radius: 6px;
     padding: 1rem;
@@ -25,11 +22,26 @@
     color: var(--ifm-font-color-base);
     margin-bottom: 1rem;
 
-    h3 {
+    .hidden-heading {
+      display: none !important;
+    }
+
+    .section-heading {
       background-color: var(--ifm-background-surface-color);
       padding: 1rem;
       margin: -1rem -1rem 1rem -1rem;
       z-index: 1;
+      font-weight: 600;
+      font-size: 1.1rem;
+
+      .class-text {
+        color: gray;
+      }
+
+      .signature-text {
+        color: var(--ifm-color-primary);
+      }
+
 
       em {
         color: gray;

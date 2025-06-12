@@ -1,6 +1,10 @@
 import pathlib
 import re
 
+SPHINX_ROOT_DIR = pathlib.Path(".")
+SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/markdown")
+DOCS_OUTPUT_DIR = pathlib.Path("../docs/python-sdk")
+
 # HTML standard tag allowlist (for mdx sanitizer)
 HTML_TAGS = {
     "html", "head", "title", "base", "link", "meta", "style", "script", "noscript",
@@ -34,6 +38,40 @@ def sanitize_mdx_unsafe_tags(content: str) -> str:
             return f"&lt;{tag}&gt;"
     return re.sub(r"<([a-zA-Z0-9_-]+)>", replacer, content)
 
+# docusaurus-style slug generator
+def slugify(text: str) -> str:
+    slug = text.lower()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"\s+", "-", slug)
+    return slug
+
+def generate_anchor(slug: str) -> str:
+    return f'<a href="#{slug}" class="hash-link" aria-label="Direct link to {slug}" title="Direct link to {slug}"></a>'
+
+def trim_heading_text(text: str) -> (str, str):
+    sidebar_text = text
+
+    # Extract class names nicely
+    class_match = re.match(r"\*class\*\s+([\w\.]+)\.([\w]+)\(", text)
+    if class_match:
+        sidebar_text = class_match.group(2)
+    else:
+        # fallback for non-class methods
+        dot_match = re.search(r"([\w]+)(\(|$)", text)
+        if dot_match:
+            sidebar_text = dot_match.group(1)
+
+    # Render styled text for section_heading
+    styled_text = text
+    styled_text = re.sub(r"\*class\*", '<span class="class-text">class</span>', styled_text)
+    styled_text = re.sub(
+        r"([\w\.]+)\.([\w]+)\(",
+        r'<span class="class-owner">\1.</span><span class="class-name">\2</span>(',
+        styled_text,
+    )
+
+    return sidebar_text, styled_text
+
 def wrap_section_blocks(content: str, level: int, class_name: str) -> str:
     lines = content.splitlines()
     wrapped_lines = []
@@ -43,12 +81,20 @@ def wrap_section_blocks(content: str, level: int, class_name: str) -> str:
     higher_header_pattern = re.compile(rf"^\s*({'#' * (level - 1)})\s+(.+)$")
 
     for line in lines:
-        if header_pattern.match(line):
+        match = header_pattern.match(line)
+        if match:
             if inside_block:
                 wrapped_lines.append("\n\n</div>\n\n")
+
+            heading_text = match.group(2)
+            sidebar_text, styled_heading_text = trim_heading_text(heading_text)
+            slug = slugify(sidebar_text)
+
             wrapped_lines.append(f'<div className="{class_name}">\n\n')
-            wrapped_lines.append(line)
+            wrapped_lines.append(f'<div className="hidden-heading">\n\n### {sidebar_text}\n\n</div>\n')
+            wrapped_lines.append(f'<div className="section-heading" id="{slug}">{styled_heading_text}{generate_anchor(slug)}</div>\n')
             inside_block = True
+
         elif higher_header_pattern.match(line):
             if inside_block:
                 wrapped_lines.append("\n\n</div>\n\n")
@@ -71,7 +117,7 @@ def extract_title_and_remove(content: str, default_title: str = "Untitled") -> (
         title = default_title
     return title, content
 
-def convert_file(doc: pathlib.Path, outfile: pathlib.Path, wrap_blocks: bool = True, is_cli: bool = False) -> None:
+def convert_file(doc: pathlib.Path, outfile: pathlib.Path) -> None:
     with open(doc, "r") as f:
         content = f.read()
 
@@ -79,11 +125,7 @@ def convert_file(doc: pathlib.Path, outfile: pathlib.Path, wrap_blocks: bool = T
         content = content.replace(old, new)
 
     content = sanitize_mdx_unsafe_tags(content)
-
-    if is_cli:
-        content = process_cli_content(content)
-    elif wrap_blocks:
-        content = wrap_section_blocks(content, level=3, class_name="h3-block")
+    content = wrap_section_blocks(content, level=3, class_name="h3-block")
 
     title, content = extract_title_and_remove(content, default_title=doc.stem)
 
@@ -95,45 +137,14 @@ def convert_file(doc: pathlib.Path, outfile: pathlib.Path, wrap_blocks: bool = T
         f.write(final_content)
     print(f"Generated {outfile}")
 
-def process_sphinx_build_dir(SPHINX_BUILD_DIR, DOCS_OUTPUT_DIR):
+def main():
     DOCS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for doc in SPHINX_BUILD_DIR.glob("**/*.md"):
-        wrap_blocks = True
-        is_cli = False
-
-        if "cli" in str(doc):
-            wrap_blocks = False
-            is_cli = True
-
-        outfile = DOCS_OUTPUT_DIR / doc.relative_to(SPHINX_BUILD_DIR).with_suffix(".mdx")
-        convert_file(doc, outfile, wrap_blocks=wrap_blocks, is_cli=is_cli)
-
-# CLI content cleaner
-def process_cli_content(content: str) -> str:
-    lines = content.splitlines()
-    processed = []
-    for line in lines:
-        if line.startswith("### -"):
-            # Turn option headers into bold lines
-            processed.append(f"* {line[4:].strip()}\n")
-        elif re.match(r"^### Options$", line):
-            processed.append("#### Options\n")  # demote heading for better hierarchy
-        elif re.match(r"^### Arguments$", line):
-            processed.append("#### Arguments\n")
-        else:
-            processed.append(line)
-    return "\n".join(processed)
-
-def main():
-    SPHINX_ROOT_DIR = pathlib.Path(".")
-    build_output_pairs = [
-        (SPHINX_ROOT_DIR / pathlib.Path("_build/markdown/apidocs"), pathlib.Path("../docs/python-sdk")),
-        (SPHINX_ROOT_DIR / pathlib.Path("_build/markdown/clidocs"), pathlib.Path("../docs/cli-reference")),
-    ]
-
-    for SPHINX_BUILD_DIR, DOCS_OUTPUT_DIR in build_output_pairs:
-        process_sphinx_build_dir(SPHINX_BUILD_DIR, DOCS_OUTPUT_DIR)
+        if doc.stem == "index":
+            continue
+        outfile = DOCS_OUTPUT_DIR / doc.relative_to(SPHINX_BUILD_DIR / "apidocs").with_suffix(".mdx")
+        convert_file(doc, outfile)
 
 if __name__ == "__main__":
     main()
