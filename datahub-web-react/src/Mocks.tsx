@@ -3895,6 +3895,7 @@ export const mocks = [
                         manageOrganizationDisplayPreferences: true,
                         proposeCreateGlossaryTerm: true,
                         proposeCreateGlossaryNode: true,
+                        canViewIngestionPage: true,
                     },
                 },
             },
@@ -4188,6 +4189,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageOrganizationDisplayPreferences: true,
     proposeCreateGlossaryTerm: true,
     proposeCreateGlossaryNode: true,
+    canViewIngestionPage: true,
 };
 
 export const DomainMock1 = {

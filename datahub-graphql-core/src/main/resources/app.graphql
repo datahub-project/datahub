@@ -233,6 +233,11 @@ type PlatformPrivileges {
   Whether the user should be able to propose creation of glossary node
   """
   proposeCreateGlossaryNode: Boolean!
+
+  """
+  Whether the user should be able to view the ingestion page
+  """
+  canViewIngestionPage: Boolean!
 }
 
 """
@@ -1528,6 +1533,11 @@ type FeatureFlagsConfig {
   Enables the redesign of the lineage v2 graph
   """
   lineageGraphV3: Boolean!
+
+  """
+  Enables getting to the ingestion source page if you have permission to view any ingestion sources
+  """
+  viewIngestionSourcePrivilegesEnabled: Boolean!
 }
 
 """

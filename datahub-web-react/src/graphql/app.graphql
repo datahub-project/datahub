@@ -147,6 +147,7 @@ query appConfig {
             showProductUpdates
             formsNotificationsEnabled
             lineageGraphV3
+            viewIngestionSourcePrivilegesEnabled
         }
         chromeExtensionConfig {
             enabled

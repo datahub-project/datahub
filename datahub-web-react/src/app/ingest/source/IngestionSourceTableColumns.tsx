@@ -189,10 +189,9 @@ export function ActionsColumn({
                 <Button
                     data-testid="ingestion-source-table-edit-button"
                     style={{ marginRight: 16 }}
-                    disabled={!canEdit}
                     onClick={() => onEdit(record.urn)}
                 >
-                    EDIT
+                    {canEdit ? 'EDIT' : 'VIEW'}
                 </Button>
             )}
             {record.cliIngestion && (

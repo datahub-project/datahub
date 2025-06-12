@@ -13,6 +13,7 @@ import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
@@ -156,7 +157,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
     );
 }
 interface ActionsColumnProps {
-    record: any;
+    record: IngestionSourceTableData;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onEdit: (urn: string) => void;
@@ -178,6 +179,9 @@ export function ActionsColumn({
     onDelete,
 }: ActionsColumnProps) {
     const items: MenuOption[] = [];
+    const canEdit = record.privileges?.canEdit;
+    const canExecute = record.privileges?.canExecute;
+    const canDelete = record.privileges?.canDelete;
 
     if (!record.cliIngestion)
         items.push({
@@ -188,7 +192,7 @@ export function ActionsColumn({
                         onEdit(record.urn);
                     }}
                 >
-                    Edit
+                    {canEdit ? 'Edit' : 'View'}
                 </MenuItem>
             ),
         });
@@ -224,7 +228,7 @@ export function ActionsColumn({
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
+                        setFocusExecutionUrn(record.lastExecUrn || '');
                     }}
                 >
                     Details
@@ -236,10 +240,13 @@ export function ActionsColumn({
         label: (
             <MenuItem
                 onClick={() => {
-                    onDelete(record.urn);
+                    if (canDelete) {
+                        onDelete(record.urn);
+                    }
                 }}
+                $disabled={!canDelete}
             >
-                <Text color="red">Delete </Text>
+                <Text color={canDelete ? 'red' : 'gray'}>Delete </Text>
             </MenuItem>
         ),
     });
@@ -252,9 +259,17 @@ export function ActionsColumn({
                     <Icon
                         icon="Play"
                         source="phosphor"
+                        color={canExecute ? 'white' : undefined}
+                        style={
+                            canExecute
+                                ? { backgroundColor: colors.primary[500], border: 'none' }
+                                : { cursor: 'not-allowed' }
+                        }
                         onClick={(e) => {
-                            e.stopPropagation();
-                            onExecute(record.urn);
+                            if (canExecute) {
+                                e.stopPropagation();
+                                onExecute(record.urn);
+                            }
                         }}
                     />
                 ) : null

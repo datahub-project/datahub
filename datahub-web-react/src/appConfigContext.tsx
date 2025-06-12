@@ -124,6 +124,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showProductUpdates: false,
         formsNotificationsEnabled: false,
         lineageGraphV3: false,
+        viewIngestionSourcePrivilegesEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

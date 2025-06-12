@@ -117,11 +117,14 @@ export const NavSidebar = () => {
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
         (showFormAnalytics || formCreationEnabled);
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const { viewIngestionSourcePrivilegesEnabled } = config.featureFlags;
     /* End SaaS Only */
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
-        (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
+        (me.platformPrivileges?.manageIngestion ||
+            me.platformPrivileges?.manageSecrets ||
+            (me.platformPrivileges?.canViewIngestionPage && viewIngestionSourcePrivilegesEnabled));
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showDataSources, HOME_PAGE_INGESTION_ID);

@@ -70,6 +70,7 @@ interface Props {
     onChange: (owners: PendingOwner[]) => void;
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
+    canEdit?: boolean;
 }
 
 /**
@@ -82,6 +83,7 @@ const OwnersSection = ({
     onChange,
     sourceRefetch,
     isEditForm = false,
+    canEdit = true,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -203,6 +205,7 @@ const OwnersSection = ({
                     loading={isSelectLoading}
                     notFoundContent={notFoundContent}
                     optionLabelProp="label"
+                    disabled={!canEdit}
                 >
                     {finalResults.map((entity) => renderSearchResult(entity))}
                 </SelectInput>
@@ -216,6 +219,7 @@ const OwnersSection = ({
                                 entityUrn={owner.associatedUrn}
                                 owner={owner}
                                 refetch={sourceRefetch}
+                                readOnly={!canEdit}
                             />
                         ))
                     ) : (

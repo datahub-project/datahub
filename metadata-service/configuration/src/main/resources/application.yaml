@@ -823,6 +823,8 @@ featureFlags:
   # Whether to show product updates on app sidebar. Will go to OSS.
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
   # Enables the redesign of the lineage v2 graph
+  viewIngestionSourcePrivilegesEnabled: ${VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED:false}
+  # Enables getting to the ingestion source page if you have permission to view any ingestion sources
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

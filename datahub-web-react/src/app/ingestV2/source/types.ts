@@ -1,4 +1,4 @@
-import { Owner } from '@types';
+import { IngestionSourcePrivileges, Owner } from '@types';
 
 export interface IngestionSourceTableData {
     urn: string;
@@ -13,4 +13,5 @@ export interface IngestionSourceTableData {
     lastExecStatus?: string | null;
     cliIngestion: boolean;
     owners?: Owner[] | null;
+    privileges?: IngestionSourcePrivileges | null;
 }

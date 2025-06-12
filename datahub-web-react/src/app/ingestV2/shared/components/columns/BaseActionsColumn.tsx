@@ -4,13 +4,15 @@ import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React from 'react';
 import styled from 'styled-components';
 
-export const MenuItem = styled.div`
+export const MenuItem = styled.div<{ $disabled?: boolean }>`
     display: flex;
     padding: 5px 50px 5px 5px;
     font-size: 14px;
     font-weight: 500;
     color: ${colors.gray[600]};
     font-family: ${typography.fonts.body};
+
+    ${(props) => props.$disabled && 'cursor: not-allowed;'}
 `;
 
 const ActionIcons = styled.div`

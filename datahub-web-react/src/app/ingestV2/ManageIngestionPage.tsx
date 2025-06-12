@@ -75,9 +75,13 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
+    const canViewIngestionPage =
+        platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
-    const canManagePools = platformPrivileges?.manageIngestion;
+    const canManagePools = canManageIngestion;
+    const canViewPools = canViewIngestionPage;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
@@ -159,7 +163,7 @@ export const ManageIngestionPage = () => {
         },
         // SaaS only
         showRemoteExecutorsTab &&
-            canManagePools && {
+            canViewPools && {
                 component: (
                     <RemoteExecutorPoolsList
                         showCreatePoolModal={showCreatePoolModal}
@@ -213,6 +217,7 @@ export const ManageIngestionPage = () => {
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
+                            disabled={!canManageIngestion}
                         >
                             Create new source
                         </Button>
@@ -228,13 +233,14 @@ export const ManageIngestionPage = () => {
                             Create new secret
                         </Button>
                     )}
-                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canManagePools && (
+                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canViewPools && (
                         <Button
                             variant="filled"
                             onClick={handleCreatePool}
                             data-testid="create-pool-button"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                             id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
+                            disabled={!canManagePools}
                         >
                             Create new pool
                         </Button>

@@ -87,6 +87,7 @@ function IngestionSourceTable({
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
         executorPoolId: source.config.executorId, // SaaS only
+        privileges: source.privileges,
     }));
 
     const tableColumns: Column<IngestionSourceTableData>[] = [

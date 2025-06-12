@@ -83,9 +83,12 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
+    const canViewIngestionPage =
+        platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
-    const canManagePools = platformPrivileges?.manageIngestion;
+    const canManagePools = canManageIngestion;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
@@ -186,6 +189,7 @@ export const ManageIngestionPage = () => {
                             id={INGESTION_CREATE_SOURCE_ID}
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
+                            disabled={!canManageIngestion}
                         >
                             <PlusOutlined style={{ marginRight: '4px' }} /> Create new source
                         </Button>

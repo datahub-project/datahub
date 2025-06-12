@@ -331,6 +331,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setFormsNotificationsEnabled(_featureFlags.isFormsNotificationsEnabled())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
+            .setViewIngestionSourcePrivilegesEnabled(
+                _featureFlags.isViewIngestionSourcePrivilegesEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

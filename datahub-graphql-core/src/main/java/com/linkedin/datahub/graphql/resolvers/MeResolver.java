@@ -20,6 +20,8 @@ import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GraphQL resolver responsible for resolving information about the currently logged in User,
@@ -36,6 +39,7 @@ import javax.annotation.Nonnull;
  * <p>1. User profile information 2. User privilege information, i.e. which features to display in
  * the UI.
  */
+@Slf4j
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
   private final EntityClient _entityClient;
@@ -106,6 +110,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 AuthorizationUtils.canViewForms(context));
             platformPrivileges.setManageOrganizationDisplayPreferences(
                 AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
+            platformPrivileges.setCanViewIngestionPage(canViewIngestionPage(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(
@@ -199,5 +204,29 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+  /** A user can view the ingestion page if they have access to view any ingestion source */
+  private boolean canViewIngestionPage(@Nonnull QueryContext context) {
+    boolean canManageIngestion = AuthorizationUtils.canManageIngestion(context);
+    if (canManageIngestion) {
+      return true;
+    }
+    try {
+      SearchFlags searchFlags = new SearchFlags();
+      searchFlags.setSkipCache(true);
+      SearchResult result =
+          _entityClient.search(
+              context.getOperationContext().withSearchFlags(flags -> searchFlags),
+              INGESTION_SOURCE_ENTITY_NAME,
+              "*",
+              null,
+              0,
+              1);
+      return result.getEntities().size() > 0;
+    } catch (Exception e) {
+      log.error("Error searching for ingestion sources to determine view ingestion privilege", e);
+      return false;
+    }
   }
 }

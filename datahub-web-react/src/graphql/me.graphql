@@ -83,6 +83,7 @@ query getMe {
             manageOrganizationDisplayPreferences
             proposeCreateGlossaryTerm
             proposeCreateGlossaryNode
+            canViewIngestionPage
         }
     }
 }

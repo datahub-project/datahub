@@ -33,6 +33,7 @@ export const NameSourceStep = ({
 }: StepProps) => {
     const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -212,6 +213,7 @@ export const NameSourceStep = ({
                     onChange={setOwners}
                     sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
+                    canEdit={!!canEditSource}
                 />
 
                 <Collapse ghost>
@@ -300,14 +302,14 @@ export const NameSourceStep = ({
                     <Button
                         variant="outline"
                         data-testid="ingestion-source-save-button"
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        disabled={!canEditSource || !(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
                         Save
                     </Button>
-                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                    <Tooltip showArrow={false} title="Save and start syncing data source">
                         <Button
-                            disabled={!(state.name !== undefined && state.name.length > 0)}
+                            disabled={!canEditSource || !(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
                         >
                             Save & Run
