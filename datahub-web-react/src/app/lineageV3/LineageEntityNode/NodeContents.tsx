@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Pill, Tooltip, colors } from '@components';
 import { Spin } from 'antd';
-import React, { Dispatch, SetStateAction, useCallback, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -17,13 +17,20 @@ import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLine
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
 import useAvoidIntersections from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
-import { DisplayedColumns, LINEAGE_NODE_HEIGHT } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
+import { DisplayedColumns } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
-import { FetchStatus, LineageEntity, isGhostEntity, onClickPreventSelect } from '@app/lineageV3/common';
+import {
+    FetchStatus,
+    LINEAGE_NODE_HEIGHT,
+    LineageEntity,
+    VERTICAL_HANDLE,
+    isGhostEntity,
+    onClickPreventSelect,
+} from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
-import { getLineageUrl } from '@app/lineageV3/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -32,8 +39,6 @@ import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/Depr
 import { EntityType, LineageDirection } from '@types';
 
 import LinkOut from '@images/link-out.svg?react';
-
-const BASE_SKELETON_HEIGHT = 52;
 
 export const LoadingWrapper = styled.div`
     color: ${LINEAGE_COLORS.PURPLE_3};
@@ -45,12 +50,17 @@ export const LoadingWrapper = styled.div`
     transform: translateY(-50%);
 `;
 
-const CustomHandle = styled(Handle)<{ position: Position }>`
+const HorizontalHandle = styled(Handle)<{ position: Position }>`
     background: initial;
     border: initial;
-    top: 50%;
-    // -1 for border
-    ${({ position }) => (position === Position.Left ? 'left: 0px;' : 'right: 0px;')}
+    ${({ position }) => (position === Position.Left ? 'left: 0;' : 'right: 0;')}
+`;
+
+const VerticalHandle = styled(Handle)<{ position: Position }>`
+    background: initial;
+    border: initial;
+    left: 50%;
+    ${({ position }) => (position === Position.Top ? 'top: 0;' : 'bottom: 0;')}
 `;
 
 const PropertyBadgeWrapper = styled.div`
@@ -59,13 +69,13 @@ const PropertyBadgeWrapper = styled.div`
     top: -20px;
 `;
 
-const HomeIndicatorWrapper = styled.div<{ yOffset: number }>`
+const HomeIndicatorWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
 
     position: absolute;
-    top: -${({ yOffset }) => yOffset / 2 + 20}px;
+    top: -20px;
     left: 12px;
     z-index: -1;
 `;
@@ -121,6 +131,8 @@ interface Props {
     entity?: FetchedEntityV2;
     transitionDuration: number;
     rootUrn: string;
+    rootType: EntityType;
+    parentDataJob?: string;
     searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     showColumns: boolean;
@@ -139,6 +151,8 @@ interface Props {
     setHoveredColumn: Dispatch<SetStateAction<string | null>>;
     refetch: Record<LineageDirection, () => void>;
     ignoreSchemaFieldStatus: boolean;
+    numUpstreams?: number;
+    numDownstreams?: number;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -156,6 +170,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         isExpanded,
         transitionDuration,
         rootUrn,
+        rootType,
+        parentDataJob,
         searchQuery,
         setHoveredNode,
         showColumns,
@@ -179,14 +195,16 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numColumnsWithLineage,
         refetch,
         ignoreSchemaFieldStatus,
+        numUpstreams,
+        numDownstreams,
     } = props;
 
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
-    const [baseNodeHeight, setBaseNodeHeight] = useState<number>(BASE_SKELETON_HEIGHT);
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
+    const isVertical = !!parentDataJob;
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const columnsHeight =
@@ -197,11 +215,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 17 : 0) + // Column divider
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 40 : 0); // Pagination
 
-    useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT);
+    useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
     const highlightColor = isSearchedEntity ? colors.yellow[400] : colors.yellow[200];
-    const hasUpstreamChildren = !!entity?.numUpstreamChildren;
-    const hasDownstreamChildren = !!entity?.numDownstreamChildren;
+
+    const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
+    const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
     const isExpandedUpstream = isExpanded[LineageDirection.Upstream];
     const isDownstreamHidden =
@@ -273,7 +292,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const contents = (
         <>
             {urn === rootUrn && (
-                <HomeIndicatorWrapper yOffset={baseNodeHeight}>
+                <HomeIndicatorWrapper>
                     <HomePill showText />
                 </HomeIndicatorWrapper>
             )}
@@ -283,14 +302,16 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
-                height={baseNodeHeight}
             >
                 <LineageCard
+                    urn={urn}
                     type={type}
                     loading={!entity}
                     onMouseEnter={() => setHoveredNode(urn)}
                     onMouseLeave={() => setHoveredNode(null)}
-                    onDoubleClick={() => history.push(getLineageUrl(urn, type, location, entityRegistry))}
+                    onDoubleClick={
+                        isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))
+                    }
                     name={entity?.name || urn || ''}
                     nameHighlight={{ text: searchQuery, color: highlightColor }}
                     nameExtra={
@@ -317,13 +338,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         )
                     }
                     toggleChildren={showHideColumns}
-                    baseNodeHeight={baseNodeHeight}
-                    setBaseNodeHeight={setBaseNodeHeight}
                     menuActions={menuActions}
                     sideElements={
                         <>
-                            <CustomHandle type="target" position={Position.Left} isConnectable={false} />
-                            <CustomHandle type="source" position={Position.Right} isConnectable={false} />
+                            <HorizontalHandle type="target" position={Position.Left} isConnectable={false} />
+                            <HorizontalHandle type="source" position={Position.Right} isConnectable={false} />
                             {hasUpstreamChildren &&
                                 ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(
                                     fetchStatus[LineageDirection.Upstream],
@@ -339,6 +358,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                         }
                                         fetchStatus={fetchStatus}
                                         ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
+                                        count={numUpstreams}
+                                        parentDataJob={parentDataJob}
                                     />
                                 )}
                             {hasDownstreamChildren &&
@@ -356,6 +377,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                         }
                                         fetchStatus={fetchStatus}
                                         ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
+                                        count={numDownstreams}
+                                        parentDataJob={parentDataJob}
                                     />
                                 )}
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
@@ -379,6 +402,24 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 </LoadingWrapper>
                             )}
                         </>
+                    }
+                    verticalElements={
+                        isVertical && (
+                            <>
+                                <VerticalHandle
+                                    id={VERTICAL_HANDLE}
+                                    type="target"
+                                    position={Position.Top}
+                                    isConnectable={false}
+                                />
+                                <VerticalHandle
+                                    id={VERTICAL_HANDLE}
+                                    type="source"
+                                    position={Position.Bottom}
+                                    isConnectable={false}
+                                />
+                            </>
+                        )
                     }
                 />
                 <ColumnsWrapper transitionDuration={transitionDuration} height={columnsHeight}>

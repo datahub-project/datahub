@@ -8,6 +8,8 @@ interface VisualizationContext {
     searchedEntity: Urn | null;
     setSearchedEntity: (entity: Urn | null) => void;
     isFocused: boolean;
+    isDraggingBoundingBox: boolean; // Used to prevent transition when dragging bounding boxes
+    setIsDraggingBoundingBox: (dragging: boolean) => void;
 }
 
 const LineageVisualizationContext = React.createContext<VisualizationContext>({
@@ -16,6 +18,8 @@ const LineageVisualizationContext = React.createContext<VisualizationContext>({
     searchedEntity: null,
     setSearchedEntity: () => {},
     isFocused: false,
+    isDraggingBoundingBox: false,
+    setIsDraggingBoundingBox: () => {},
 });
 
 export default LineageVisualizationContext;

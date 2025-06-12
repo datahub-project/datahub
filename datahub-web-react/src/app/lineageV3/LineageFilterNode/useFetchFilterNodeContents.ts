@@ -2,8 +2,8 @@ import { useContext } from 'react';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters';
-import { LineageNodesContext } from '@app/lineageV3/common';
-import { DEFAULT_IGNORE_AS_HOPS, DEFAULT_SEARCH_FLAGS } from '@app/lineageV3/useSearchAcrossLineage';
+import { LineageNodesContext, generateIgnoreAsHops } from '@app/lineageV3/common';
+import { DEFAULT_SEARCH_FLAGS } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
@@ -22,7 +22,7 @@ interface Return {
 
 export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection, skip: boolean): Return {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { hideTransformations, showDataProcessInstances } = useContext(LineageNodesContext);
+    const { rootType, hideTransformations, showDataProcessInstances } = useContext(LineageNodesContext);
 
     const orFilters = computeOrFilters(
         [{ field: DEGREE_FILTER_NAME, values: ['1'] }],
@@ -41,7 +41,7 @@ export default function useFetchFilterNodeContents(parent: string, direction: Li
                 lineageFlags: {
                     startTimeMillis,
                     endTimeMillis,
-                    ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
+                    ignoreAsHops: generateIgnoreAsHops(rootType),
                 },
                 searchFlags: {
                     ...DEFAULT_SEARCH_FLAGS,

@@ -1,29 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { ReactFlowProvider } from 'reactflow';
+import React, { useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import LineageDisplay from '@app/lineageV3/LineageDisplay';
-import {
-    EdgeId,
-    FetchStatus,
-    LINEAGE_FILTER_PAGINATION,
-    LineageEdge,
-    LineageEntity,
-    LineageNodesContext,
-    NodeContext,
-    useIgnoreSchemaFieldStatus,
-} from '@app/lineageV3/common';
+import { EdgeId, LineageEdge, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
+import DAGNodeInitializer from '@app/lineageV3/initialize/DataFlowGraphInitializer';
+import ImpactAnalysisNodeInitializer from '@app/lineageV3/initialize/ImpactAnalysisNodeInitializer';
 import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideTransformations';
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV3/settings/useShouldShowGhostEntities';
-import useSearchAcrossLineage from '@app/lineageV3/useSearchAcrossLineage';
 
 import { EntityType, LineageDirection } from '@types';
 
-type Props = {
+interface Props {
     urn: string;
     type: EntityType;
-};
+}
 
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
@@ -65,72 +54,10 @@ export default function LineageExplorer(props: Props) {
         setShowGhostEntities,
     };
 
-    const initialized = useInitializeNodes(context, urn, type);
-
     return (
         <LineageNodesContext.Provider value={context}>
-            <ReactFlowProvider>
-                <LineageDisplay {...props} initialized={initialized} />
-            </ReactFlowProvider>
+            {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
+            {type !== EntityType.DataFlow && <ImpactAnalysisNodeInitializer urn={urn} type={type} />}
         </LineageNodesContext.Provider>
     );
-}
-
-/**
- * Initialize lineage node context with upstreams and downstreams of the given urn.
- */
-function useInitializeNodes(context: NodeContext, urn: string, type: EntityType): boolean {
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion, showGhostEntities } = context;
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-
-    useEffect(() => {
-        // Reset graph if home node or time range changes
-        nodes.clear();
-        adjacencyList[LineageDirection.Upstream].clear();
-        adjacencyList[LineageDirection.Downstream].clear();
-        edges.clear();
-        nodes.set(urn, makeInitialNode(urn, type));
-        setNodeVersion(0);
-        setDisplayVersion([0, []]);
-    }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
-
-    useEffect(() => {
-        // Reset edges if showGhostEntities changes. Not necessary if on schema field page and ignoring status
-        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
-            adjacencyList[LineageDirection.Upstream].clear();
-            adjacencyList[LineageDirection.Downstream].clear();
-            edges.clear();
-            nodes.forEach((node) => {
-                // eslint-disable-next-line no-param-reassign
-                node.entity = undefined;
-            });
-            setDisplayVersion([0, []]);
-        }
-    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
-
-    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
-    const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
-
-    return upstreamProcessed && downstreamProcessed;
-}
-
-function makeInitialNode(urn: string, type: EntityType): LineageEntity {
-    return {
-        id: urn,
-        urn,
-        type,
-        isExpanded: {
-            [LineageDirection.Upstream]: true,
-            [LineageDirection.Downstream]: true,
-        },
-        fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.LOADING,
-            [LineageDirection.Downstream]: FetchStatus.LOADING,
-        },
-        filters: {
-            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
-            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
-        },
-    };
 }

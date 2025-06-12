@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
@@ -9,33 +8,20 @@ import {
     LineageEntity,
     NodeContext,
     addToAdjacencyList,
+    generateIgnoreAsHops,
     getEdgeId,
     isQuery,
     isTransformational,
     reverseDirection,
     setDefault,
 } from '@app/lineageV3/common';
-import pruneAllDuplicateEdges from '@app/lineageV3/pruneAllDuplicateEdges';
+import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
-
-export const DEFAULT_IGNORE_AS_HOPS = [
-    {
-        entityType: EntityType.Dataset,
-        platforms: [DBT_URN],
-    },
-    {
-        entityType: EntityType.SchemaField,
-        platforms: [DBT_URN],
-    },
-    { entityType: EntityType.DataJob },
-    { entityType: EntityType.DataProcessInstance },
-];
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -64,16 +50,15 @@ export default function useSearchAcrossLineage(
     fetchLineage: () => void;
     processed: boolean;
 } {
-    const entityRegistry = useEntityRegistryV2();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, edges, adjacencyList, rootUrn, setNodeVersion, setDisplayVersion } = context;
+    const { nodes, edges, adjacencyList, rootUrn, rootType, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
         direction,
         types: type === EntityType.SchemaField ? [EntityType.SchemaField] : undefined,
         start: 0,
-        count: 2000,
+        count: 10000,
         orFilters: [
             {
                 and: [
@@ -88,7 +73,7 @@ export default function useSearchAcrossLineage(
             startTimeMillis,
             endTimeMillis,
             entitiesExploredPerHopLimit: maxDepth ? PER_HOP_LIMIT : undefined,
-            ignoreAsHops: DEFAULT_IGNORE_AS_HOPS,
+            ignoreAsHops: generateIgnoreAsHops(rootType),
         },
         searchFlags: {
             ...DEFAULT_SEARCH_FLAGS,
@@ -102,12 +87,12 @@ export default function useSearchAcrossLineage(
         variables: { input },
         fetchPolicy: skipCache ? 'no-cache' : undefined,
         onCompleted: (data) => {
-            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
+            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let addedNode = false;
 
             data?.searchAcrossLineage?.searchResults?.forEach((result) => {
                 addedNode = addedNode || !nodes.has(result.entity.urn);
-                const node = setEntityNodeDefault(result.entity.urn, result.entity.type, direction, nodes);
+                const node = setEntityNodeDefault(result.entity.urn, result.entity.type, direction, smallContext);
                 if (result.explored || result.ignoredAsHop) {
                     node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
                     node.isExpanded = { ...node.isExpanded, [direction]: true };
@@ -138,7 +123,7 @@ export default function useSearchAcrossLineage(
             }
 
             if (data) {
-                pruneAllDuplicateEdges(urn, direction, smallContext, entityRegistry);
+                pruneAllDuplicateEdges(urn, direction, smallContext);
                 processed.add(urn);
                 if (addedNode) setNodeVersion((version) => version + 1);
 
@@ -161,9 +146,9 @@ export function setEntityNodeDefault(
     urn: string,
     type: EntityType,
     direction: LineageDirection,
-    nodes: NodeContext['nodes'],
+    { nodes, rootType }: Pick<NodeContext, 'nodes' | 'rootType'>,
 ): LineageEntity {
-    const node = setDefault(nodes, urn, entityNodeDefault(urn, type, direction));
+    const node = setDefault(nodes, urn, entityNodeDefault(urn, type, direction, rootType));
     if (node.direction && node.direction !== direction && !node.inCycle) {
         // Node is both upstream and downstream
         node.inCycle = true;
@@ -178,7 +163,12 @@ function defaultLineageFilter(): Filters {
     return { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() };
 }
 
-export function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
+export function entityNodeDefault(
+    urn: string,
+    type: EntityType,
+    direction: LineageDirection,
+    rootType: EntityType,
+): LineageEntity {
     const otherDirection =
         direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
     return {
@@ -187,7 +177,7 @@ export function entityNodeDefault(urn: string, type: EntityType, direction: Line
         type,
         direction, // TODO: Handle a node that is both upstream and downstream?
         isExpanded: {
-            [direction]: isTransformational({ urn, type }),
+            [direction]: isTransformational({ urn, type }, rootType),
             [otherDirection]: false,
         } as Record<LineageDirection, boolean>,
         fetchStatus: {

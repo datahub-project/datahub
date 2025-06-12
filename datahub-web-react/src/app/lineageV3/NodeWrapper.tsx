@@ -2,17 +2,14 @@ import { colors } from '@components';
 import React, { HTMLAttributes } from 'react';
 import styled from 'styled-components';
 
-import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
+import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/common';
 
 const Wrapper = styled.div<{
     selected: boolean;
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
-    height?: number;
 }>`
-    // Center node around edge handles
-    transform: translateY(${({ height }) => (height ? `-${height / 2}px` : '-50%')});
     width: ${LINEAGE_NODE_WIDTH}px;
 
     background-color: white;
@@ -29,7 +26,6 @@ const Wrapper = styled.div<{
         opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
     }
 
-    pointer-events: all;
     cursor: ${({ isGhost, dragging }) => {
         if (isGhost) return 'not-allowed';
         if (dragging) return 'grabbing';
@@ -43,8 +39,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
-    height?: number;
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }
 
 /** Base component to wrap graph nodes */

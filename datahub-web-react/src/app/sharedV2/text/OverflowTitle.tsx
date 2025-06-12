@@ -11,14 +11,14 @@ const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     line-height: 1.25;
     max-height: 2.5em; // 2 lines with 1.25 line height
     overflow: hidden;
-    white-space: normal; // Used to be: computedRatio ? 'normal' : 'nowrap'
+    white-space: ${({ computedRatio }) => (computedRatio ? 'normal' : 'nowrap')};
     word-break: break-all;
 
     // Position at start, vertically, as parent aligns center
     // Makes it so overflow does not offset the text vertically
     display: flex;
     align-items: start;
-    height: 100%;
+    height: fit-content;
 
     mark {
         padding: 0;

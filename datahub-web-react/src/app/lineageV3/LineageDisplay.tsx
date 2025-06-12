@@ -5,20 +5,17 @@ import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/Linea
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
-import useBulkEntityLineage from '@app/lineageV3/useBulkEntityLineage';
+import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
+import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import useComputeGraph from '@app/lineageV3/useComputeGraph/useComputeGraph';
 import useNodeHighlighting from '@app/lineageV3/useNodeHighlighting';
 
-import { EntityType } from '@types';
-
 type Props = {
-    urn: string;
-    type: EntityType;
     initialized: boolean;
 };
 
-export default function LineageDisplay({ urn, type, initialized }: Props) {
+export default function LineageDisplay({ initialized }: Props) {
     const { getEdge, setNodes, setEdges } = useReactFlow();
 
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
@@ -26,7 +23,7 @@ export default function LineageDisplay({ urn, type, initialized }: Props) {
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions } = useComputeGraph(urn, type);
+    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions } = useComputeGraph();
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -62,7 +59,7 @@ export default function LineageDisplay({ urn, type, initialized }: Props) {
                         selectable: newNodeMap.get(n.id)?.selectable ?? n.selectable,
                     })),
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
-            ];
+            ].sort((a, b) => getNodePriority(b) - getNodePriority(a));
         });
     }, [flowNodes, setNodes, resetPositions]);
 
@@ -92,7 +89,7 @@ export default function LineageDisplay({ urn, type, initialized }: Props) {
             }}
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
-            <LineageSidebar urn={urn} />
+            <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
 }

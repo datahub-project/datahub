@@ -7,6 +7,8 @@ import LineageExplorerV2 from '@app/lineageV2/LineageExplorer';
 import LineageExplorerV3 from '@app/lineageV3/LineageExplorer';
 import { useAppConfig } from '@app/useAppConfig';
 
+import { EntityType } from '@types';
+
 const LineageFullscreenWrapper = styled.div`
     background-color: white;
     height: 100%;
@@ -28,7 +30,12 @@ export default function LineageGraph({ isFullscreen }: Props) {
 
     const lineageUrn = (!onIndividualSiblingPage && entityData?.lineageUrn) || urn;
     const props = { urn: lineageUrn, type: entityType };
-    const explorer = lineageGraphV3 ? <LineageExplorerV3 {...props} /> : <LineageExplorerV2 {...props} />;
+    const explorer =
+        lineageGraphV3 || entityType === EntityType.DataFlow ? (
+            <LineageExplorerV3 {...props} />
+        ) : (
+            <LineageExplorerV2 {...props} />
+        );
     if (isFullscreen) {
         return <LineageFullscreenWrapper>{explorer}</LineageFullscreenWrapper>;
     }

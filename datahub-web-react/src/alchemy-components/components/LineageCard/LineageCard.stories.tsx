@@ -55,6 +55,7 @@ const meta = {
 
     // Define defaults
     args: {
+        urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,entity-name,PROD)',
         loading: false,
         type: EntityType.Dataset,
         name: 'Entity name',
@@ -143,14 +144,7 @@ export const sandbox: Story = {
             <MockedProvider>
                 <Router>
                     <EntityRegistryContext.Provider value={entityRegistry}>
-                        <NodeWrapper
-                            urn=""
-                            selected={false}
-                            dragging={false}
-                            isGhost={false}
-                            isSearchedEntity={false}
-                            height={1}
-                        >
+                        <NodeWrapper urn="" selected={false} dragging={false} isGhost={false} isSearchedEntity={false}>
                             <LineageCard
                                 {...props}
                                 childrenOpen={childrenOpen}

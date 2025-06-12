@@ -55,8 +55,9 @@ export default function LineageSearchFilters() {
     const mustShowGhostEntities = rootType === EntityType.SchemaField && ignoreSchemaFieldStatus;
 
     const hasTransformations = useMemo(
-        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)), // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, nodeVersion],
+        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node, rootType)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [rootUrn, rootType, nodes, nodeVersion],
     );
     return (
         <ControlPanel>

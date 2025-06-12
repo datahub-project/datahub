@@ -1,9 +1,10 @@
 import { Icon, colors } from '@components';
 import { Skeleton } from 'antd';
-import React, { HTMLAttributes, useCallback } from 'react';
+import React, { HTMLAttributes } from 'react';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/common';
 import MultiLineSkeleton from '@app/lineageV3/components/MultiLineSkeleton';
 import { GenericPropertiesContextPath } from '@app/previewV2/ContextPath';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
@@ -11,7 +12,6 @@ import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { EntityType } from '@types';
 
 const UnexpandedCardWrapper = styled.div`
-    background-color: ${colors.white};
     border-radius: 12px;
 
     flex-shrink: 0;
@@ -23,12 +23,19 @@ const UnexpandedCardWrapper = styled.div`
     justify-content: space-between;
 `;
 
-// Mimics height of primary card (without columns) for edge handles + actions
-const SideElementsWrapper = styled.div<{ height?: number }>`
+const SideElementsWrapper = styled.div`
     position: absolute;
-    height: ${({ height }) => height || 0}px;
-    width: calc(100% - 1px); // Offset so arrows align with border
-    left: -1px;
+    top: ${LINEAGE_HANDLE_OFFSET}px;
+    width: 100%;
+    left: 0;
+    z-index: -2;
+`;
+
+const VerticalElementsWrapper = styled.div`
+    position: absolute;
+    left: 50%;
+    top: 0;
+    height: 100%;
     z-index: -2;
 `;
 
@@ -53,6 +60,7 @@ const BodyWrapper = styled.div`
 
     display: flex;
     flex-direction: column;
+    justify-content: center;
     min-width: 0;
     width: 100%;
 `;
@@ -127,6 +135,7 @@ const StyledContextPath = styled(GenericPropertiesContextPath)`
 `;
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
+    urn: string;
     type: EntityType;
     loading: boolean;
 
@@ -143,19 +152,16 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     extraDetails?: React.ReactNode;
 
     // For rendering upstream / downstream elements like handles and expand/collapse buttons
-    // Allows centering these elements on the main card (not including columns selector)
     sideElements?: React.ReactNode;
+    verticalElements?: React.ReactNode;
 
     childrenOpen: boolean;
     toggleChildren?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
     childrenText?: React.ReactNode;
-
-    // Used to center the node around the edge handles
-    baseNodeHeight?: number;
-    setBaseNodeHeight?: (height: number) => void;
 }
 
 export default function LineageCard({
+    urn,
     type,
     loading,
     properties,
@@ -166,29 +172,18 @@ export default function LineageCard({
     menuActions,
     extraDetails,
     sideElements,
+    verticalElements,
     childrenOpen,
     toggleChildren,
     childrenText,
-    baseNodeHeight,
-    setBaseNodeHeight,
     ...props
 }: Props) {
-    const ref = useCallback(
-        (node: HTMLDivElement | null) => {
-            if (node !== null) {
-                // No resize observer: make sure height on initial render is stable
-                setBaseNodeHeight?.(node.scrollHeight);
-            }
-        },
-        [setBaseNodeHeight],
-    );
-
     return (
-        <UnexpandedCardWrapper>
+        <UnexpandedCardWrapper data-testid={`unexpanded-lineage-card-${urn}`}>
             {loading || !name ? (
                 <CardSkeleton extraDetails={extraDetails} />
             ) : (
-                <CardWrapper {...props} ref={ref}>
+                <CardWrapper {...props}>
                     <PlatformIconsWrapper>
                         {platformIcons.map((icon) => (
                             <PlatformIcon key={icon} src={icon} />
@@ -196,9 +191,7 @@ export default function LineageCard({
                     </PlatformIconsWrapper>
                     <BodyWrapper>
                         <TopRowWrapper>
-                            {!!properties && (
-                                <StyledContextPath properties={properties} numVisible={2} hideTypeIcons linksDisabled />
-                            )}
+                            {!!properties && <StyledContextPath properties={properties} hideTypeIcons linksDisabled />}
                             <MenuActionsWrapper>
                                 {/* eslint-disable-next-line react/no-array-index-key */}
                                 {menuActions?.map((action, index) => action && <span key={index}>{action}</span>)}
@@ -214,7 +207,8 @@ export default function LineageCard({
                     </BodyWrapper>
                 </CardWrapper>
             )}
-            <SideElementsWrapper height={baseNodeHeight}>{sideElements}</SideElementsWrapper>
+            <SideElementsWrapper>{sideElements}</SideElementsWrapper>
+            <VerticalElementsWrapper>{verticalElements}</VerticalElementsWrapper>
             {loading
                 ? (type === EntityType.Dataset || type === EntityType.Chart) && <ColumnDropdownSkeleton />
                 : !!childrenText && (

@@ -3,6 +3,13 @@ import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, Nod
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
 
+import LineageBoundingBoxNode, {
+    LINEAGE_BOUNDING_BOX_NODE_NAME,
+} from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import {
+    DATA_JOB_INPUT_OUTPUT_EDGE_NAME,
+    DataJobInputOutputEdge,
+} from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
@@ -13,22 +20,21 @@ import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
-import { LineageVisualizationNode } from '@app/lineageV3/NodeBuilder';
 import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import LineageControls from '@app/lineageV3/controls/LineageControls';
 import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
 import LineageSVGs from '@app/lineageV3/lineageSVGs';
+import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 
-const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
-    .react-flow__node {
-        pointer-events: none !important; // Prevent pointer events on node parent because node itself is offset
-    }
+const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
+    ${({ isDraggingBoundingBox }) =>
+        !isDraggingBoundingBox &&
+        `.react-flow__node-lineage-entity:not(.dragging) {
+            transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
+        }`}
 
-    .react-flow__node-lineage-entity:not(.dragging) {
-        transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
-    }
-
+    // On node hover, bring edges to the top
     ${({ $edgesOnTop }) =>
         $edgesOnTop &&
         `.react-flow__node-lineage-entity:not(.selected) {
@@ -40,11 +46,13 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_ENTITY_NODE_NAME]: LineageEntityNode,
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
+    [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
 };
 
 const edgeTypes: EdgeTypes = {
     [LINEAGE_TABLE_EDGE_NAME]: LineageTableEdge,
     [TENTATIVE_EDGE_NAME]: TentativeEdge,
+    [DATA_JOB_INPUT_OUTPUT_EDGE_NAME]: DataJobInputOutputEdge,
 };
 
 interface Props {
@@ -59,6 +67,7 @@ export default MemoizedLineageVisualization;
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
+    const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
 
@@ -67,10 +76,19 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
 
     return (
         <LineageVisualizationContext.Provider
-            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
+            value={{
+                searchQuery,
+                setSearchQuery,
+                searchedEntity,
+                setSearchedEntity,
+                isFocused,
+                isDraggingBoundingBox,
+                setIsDraggingBoundingBox,
+            }}
         >
             <LineageSVGs />
             <StyledReactFlow
+                isDraggingBoundingBox={isDraggingBoundingBox}
                 defaultNodes={initialNodes}
                 defaultEdges={initialEdges}
                 // Selection change event does not get emitted without timeout

@@ -1,5 +1,6 @@
 import { Icon } from '@components';
 import React from 'react';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV3/LineageEntityNode/components';
@@ -9,22 +10,38 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { EntityType, LineageDirection } from '@types';
 
+const CountWrapper = styled.span<{ direction: LineageDirection }>`
+    ${({ direction }) => direction === LineageDirection.Upstream && 'transform: scaleX(-1);'}
+`;
+
 interface Props {
     urn: string;
     type: EntityType;
     direction: LineageDirection;
     display: boolean;
     fetchStatus: Record<LineageDirection, FetchStatus>;
+    count?: number;
+    parentDataJob?: string; // Only one expansion per direction allowed among nodes with the same parent data job
     ignoreSchemaFieldStatus: boolean;
 }
 
-export function ExpandLineageButton({ urn, type, direction, display, fetchStatus, ignoreSchemaFieldStatus }: Props) {
+export function ExpandLineageButton({
+    urn,
+    type,
+    direction,
+    display,
+    fetchStatus,
+    count,
+    parentDataJob,
+    ignoreSchemaFieldStatus,
+}: Props) {
     const { config } = useAppConfig();
-    const expandOneLevel = useOnClickExpandLineage(urn, type, direction, false);
-    const expandAll = useOnClickExpandLineage(urn, type, direction, true);
+    const expandOneLevel = useOnClickExpandLineage(urn, type, direction, false, parentDataJob);
+    const expandAll = useOnClickExpandLineage(urn, type, direction, true, parentDataJob);
     const isFetchComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
     const showExpandAll =
         config.featureFlags.showLineageExpandMore &&
+        !count &&
         !isFetchComplete &&
         (type === EntityType.SchemaField ? !ignoreSchemaFieldStatus : true);
 
@@ -64,6 +81,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
             >
+                <CountWrapper direction={direction}>{count}</CountWrapper>
                 <Icon icon="CaretRight" source="phosphor" size="lg" />
             </Button>
             {showExpandAll && (

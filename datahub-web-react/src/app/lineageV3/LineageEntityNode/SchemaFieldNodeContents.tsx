@@ -13,8 +13,8 @@ import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLine
 import { LoadingWrapper } from '@app/lineageV3/LineageEntityNode/NodeContents';
 import NodeSkeleton from '@app/lineageV3/LineageEntityNode/NodeSkeleton';
 import { FetchStatus } from '@app/lineageV3/common';
-import { downgradeV2FieldPath, useGetLineageUrl } from '@app/lineageV3/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { downgradeV2FieldPath, useGetLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { COLORS } from '@app/sharedV2/colors';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';

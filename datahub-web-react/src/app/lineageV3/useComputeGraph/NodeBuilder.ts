@@ -1,17 +1,23 @@
 import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, Node } from 'reactflow';
 
+import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
-import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
 } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import {
+    DataJobInputOutputEdgeData,
     EdgeId,
     LINEAGE_FILTER_TYPE,
+    LINEAGE_HANDLE_OFFSET,
+    LINEAGE_NODE_HEIGHT,
+    LINEAGE_NODE_WIDTH,
+    LineageBoundingBox,
     LineageEntity,
     LineageFilter,
     LineageNode,
@@ -29,14 +35,25 @@ import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 
 import { EntityType, LineageDirection } from '@types';
 
-const MAIN_X_SEP_RATIO = 0.5;
+export const MAIN_X_SEP_RATIO = 0.75;
 const MAIN_TO_MINI_X_SEP_RATIO = 0.25;
 const MINI_X_SEP_RATIO = 0.125;
 const MAIN_Y_SEP_RATIO = 0.5;
 const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
-export type LineageVisualizationNode = Node<LineageEntity | LineageFilter>;
+export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox>;
+export type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
+
+export function getNodePriority(node: LineageVisualizationNode) {
+    switch (node.type) {
+        case LINEAGE_BOUNDING_BOX_NODE_NAME:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
 
 type Layer = string; // [main (entity) layer, mini (transformation) layer]
@@ -65,8 +82,28 @@ interface NodeInformation {
     y?: number;
 }
 
+/**
+ * Mega class used to determine node positions and edges to render for lineage visualizations.
+ *
+ * Also generates nodes and edges into a form consumable by ReactFlow,
+ * assigning node and edge types, markers, parent nodes for subgraphs, whether the node is selectable, etc.
+ * This should probably be factored out.
+ *
+ * Arranges nodes into layers, where each layer contains nodes of the same type, main (big rectangle) or mini (small circle).
+ * Nodes are assigned to layers based on the shortest path from the root (home node, at layer 0).
+ *
+ * Also supports having no explicit home node for the data flow DAG visualization; in this case,
+ * nodes must be in topological order, and all root nodes are assigned layer 0.
+ *
+ * In the future, would like to build another node positioner that assigns layers based on longest path distance instead.
+ * Can also consider creating one that uses a force-directed layout.
+ */
 export default class NodeBuilder {
     homeUrn: string;
+
+    homeType: EntityType;
+
+    roots: Set<string>;
 
     isHomeTransformational: boolean;
 
@@ -77,6 +114,8 @@ export default class NodeBuilder {
     nodeHeight: number;
 
     separationNodeHeight: number;
+
+    isHorizontal: boolean;
 
     // Must set node layers in rough topological order
     // A node must be preceded by all its min-parents, the parents along the shortest paths from the home node to it
@@ -99,15 +138,26 @@ export default class NodeBuilder {
     transformationChildren = new Map<string, Set<string>>();
 
     // Note: nodes must be provided in shortest-path order
-    constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[], parents: Map<string, Set<string>>) {
-        this.homeUrn = homeUrn;
+    constructor(
+        rootUrn: string,
+        rootType: EntityType,
+        roots: LineageEntity[],
+        nodes: LineageNode[],
+        parents: Map<string, Set<string>>,
+        isHorizontal = true,
+    ) {
+        this.homeUrn = rootUrn;
+        this.homeType = rootType;
+        this.roots = new Set(roots.map((node) => node.urn));
         this.parents = parents;
-        this.nodeHeight = LINEAGE_NODE_HEIGHT;
-        this.nodeWidth = LINEAGE_NODE_WIDTH;
-        // +15 accounts for column footer
-        this.separationNodeHeight = this.nodeHeight + (homeType === EntityType.SchemaField ? 15 : 0);
+        this.isHorizontal = isHorizontal;
+        this.nodeHeight = rootType === EntityType.DataFlow ? LINEAGE_NODE_WIDTH : LINEAGE_NODE_HEIGHT;
+        this.nodeWidth = rootType === EntityType.DataFlow ? LINEAGE_NODE_HEIGHT - 10 : LINEAGE_NODE_WIDTH;
 
-        this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
+        // +15 accounts for column footer
+        this.separationNodeHeight = this.nodeHeight + (rootType === EntityType.SchemaField ? 15 : 0);
+
+        this.isHomeTransformational = isTransformational({ urn: rootUrn, type: rootType }, rootType);
         nodes.forEach((node) => {
             this.nodeInformation[node.id] = {
                 urn: node.urn,
@@ -118,17 +168,19 @@ export default class NodeBuilder {
             this.#getNodeList(node).push(node);
             this.topologicalNodes.push(node);
         });
-        this.nodeInformation[homeUrn] = { urn: homeUrn, type: homeType, y: 0 };
+        roots.forEach((node) => {
+            this.nodeInformation[node.urn] = { urn: node.urn, type: node.type, y: 0 };
+        });
     }
 
     #getNodeList(node: LineageNode): LineageNode[] {
         if (node.type === LINEAGE_FILTER_TYPE) return this.filterNodes;
-        if (isTransformational(node)) return this.transformations;
+        if (isTransformational(node, this.homeType)) return this.transformations;
         return this.entities;
     }
 
     #isMainNode(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-        return !isTransformational(node);
+        return !isTransformational(node, this.homeType);
     }
 
     #getMarker(information?: NodeInformation): EdgeMarkerType | undefined {
@@ -138,6 +190,8 @@ export default class NodeBuilder {
     createNodes(
         context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
         ignoreSchemaFieldStatus: boolean,
+        offsets: Map<LineageDirection | undefined, [number, number]>,
+        parent?: string,
     ): LineageVisualizationNode[] {
         this.computeNodeX(context);
         this.computeNodeY();
@@ -145,15 +199,30 @@ export default class NodeBuilder {
         const nodes: LineageVisualizationNode[] = [];
         nodes.push(
             ...this.entities.map((n) =>
-                this.createNode(n, LINEAGE_ENTITY_NODE_NAME, !isGhostEntity(n.entity, ignoreSchemaFieldStatus)),
+                this.createNode(
+                    n,
+                    LINEAGE_ENTITY_NODE_NAME,
+                    !isGhostEntity(n.entity, ignoreSchemaFieldStatus),
+                    offsets.get(n.direction) || [0, 0],
+                    parent,
+                ),
             ),
         );
         nodes.push(
             ...this.transformations.map((n) =>
-                this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME, !isGhostEntity(n.entity, ignoreSchemaFieldStatus)),
+                this.createNode(
+                    n,
+                    LINEAGE_TRANSFORMATION_NODE_NAME,
+                    !isGhostEntity(n.entity, ignoreSchemaFieldStatus),
+                    offsets.get(n.direction) || [0, 0],
+                    parent,
+                ),
             ),
         );
-        nodes.push(...this.filterNodes.map((n) => this.createFilterNode(n)));
+        nodes.push(
+            ...this.filterNodes.map((n) => this.createFilterNode(n, offsets.get(n.direction) || [0, 0], parent)),
+        );
+        console.debug(this);
         return nodes;
     }
 
@@ -173,8 +242,23 @@ export default class NodeBuilder {
         }
     }
 
-    createEdges(edges: NodeContext['edges']): Edge<LineageTableEdgeData>[] {
-        const baseEdges = new Map<EdgeId, BaseEdge<LineageTableEdgeData>>();
+    createEdge<T>(edge: BaseEdge<T>, handle: string | undefined, edgeType: string = LINEAGE_TABLE_EDGE_NAME): Edge {
+        return {
+            ...edge,
+            id: createEdgeId(edge.source, edge.target),
+            type: edgeType,
+            sourceHandle: handle,
+            targetHandle: handle,
+        };
+    }
+
+    createEdges(
+        edges: NodeContext['edges'],
+        offsets: Map<LineageDirection | undefined, [number, number]>,
+        handle?: string,
+        isDataJobInputOutput = false,
+    ): Edge<LineageTableEdgeData>[] {
+        const baseEdges = new Map<EdgeId, BaseEdge<LineageVisualizationEdgeData>>();
         edges.forEach((edge, edgeId) => {
             const [upstream, downstream] = parseEdgeId(edgeId);
             if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
@@ -208,7 +292,21 @@ export default class NodeBuilder {
                 this.#addEdge(baseEdges, node.parent, node.id);
             }
         });
-        return Array.from(baseEdges.values()).map(createEdge);
+        return Array.from(baseEdges.values()).map((v) => {
+            if (isDataJobInputOutput) {
+                const isUpstreamOfHome = v.target === this.homeUrn;
+                const isDownstreamOfHome = v.source === this.homeUrn;
+                const direction = isUpstreamOfHome ? LineageDirection.Upstream : LineageDirection.Downstream;
+                if (isUpstreamOfHome || isDownstreamOfHome) {
+                    return this.createEdge(
+                        { ...v, data: { ...v.data, direction, yOffset: offsets.get(direction)?.[1] } },
+                        handle,
+                        DATA_JOB_INPUT_OUTPUT_EDGE_NAME,
+                    );
+                }
+            }
+            return this.createEdge(v, handle, LINEAGE_TABLE_EDGE_NAME);
+        });
     }
 
     #isLayerMini(layer?: Layer): boolean {
@@ -239,10 +337,16 @@ export default class NodeBuilder {
         this.topologicalNodes.forEach((node) => {
             // Filter out parents that are in the opposite direction
             // Exemptions for lineage filter node and queries because they aren't fully in the adjacency list
-            const minParentLayer = getParents(node, adjacencyList)
+            // As well as the data flow graph, in which nodes have no direction
+            // TODO: Unify into single function + figure out why this.parents doesn't work
+            const parents = this.isHorizontal
+                ? getParents(node, adjacencyList)
+                : Array.from(this.parents.get(node.id) || []);
+            const minParentLayer = parents
                 .map<NodeInformation | undefined>((parent) => this.nodeInformation[parent])
                 .filter(
                     (parent) =>
+                        this.homeType === EntityType.DataFlow ||
                         node.type === LINEAGE_FILTER_TYPE ||
                         (node.type === EntityType.Query && [node.direction, undefined].includes(parent?.direction)) ||
                         (parent?.urn && node.direction && edges.has(getEdgeId(parent.urn, node.id, node.direction))),
@@ -269,7 +373,7 @@ export default class NodeBuilder {
                 this.nodeInformation[node.id].positionalParents = new Set([node.parent]);
             } else {
                 const positionalParents = Array.from(this.parents.get(node.id) || [])
-                    .map((p) => [p, this.nodeInformation[p].layer])
+                    .map((p) => [p, this.nodeInformation[p]?.layer])
                     .filter(([_p, l]) => parseLayer(l).main === parseLayer(minParentLayer).main)
                     .map(([p]) => p)
                     .filter((p): p is string => !!p);
@@ -287,8 +391,6 @@ export default class NodeBuilder {
                 this.transformationChildren.set(node.urn, new Set(children));
             }
         });
-
-        console.debug(this);
     }
 
     addNodeToLayer(node: LineageNode, layer: Layer): void {
@@ -362,7 +464,7 @@ export default class NodeBuilder {
                     if (mini) {
                         relatives.push(...(this.transformationChildren.get(id) || []));
                     }
-                    if (!relatives.length && id !== this.homeUrn) {
+                    if (!relatives.length && !this.roots.has(id)) {
                         console.debug(`MISSING RELATIVES: ${id}`);
                     }
                     const relativesY = relatives
@@ -426,30 +528,56 @@ export default class NodeBuilder {
                 }
             }
         });
+
+        // Offset transformation nodes to align handles
+        this.transformations.forEach((node) => {
+            const info = this.nodeInformation[node.id];
+            if (info.y !== undefined) {
+                info.y += LINEAGE_HANDLE_OFFSET - TRANSFORMATION_NODE_SIZE / 2;
+            }
+        });
+
+        this.filterNodes.forEach((node) => {
+            const info = this.nodeInformation[node.id];
+            if (info.y !== undefined) {
+                info.y -= 15; // Manual offset until filter node positioning is improved
+            }
+        });
     }
 
     createNode<T extends LineageNode>(
         node: T,
         type: string,
         selectable: boolean,
+        [offsetX, offsetY]: [number, number],
+        parent: string | undefined,
         transformData = (v: T) => v,
     ): LineageVisualizationNode {
         const info = this.nodeInformation[node.id];
         const layer = info.layer || '';
+        const x = this.layerPositions.get(layer) || 0;
+        const y = info.y || 0;
+
         return {
             type,
+            parentId: parent,
             id: node.id,
             position: {
-                x: this.layerPositions.get(layer) || 0,
-                y: info.y || 0,
+                x: (this.isHorizontal ? x : y) + offsetX,
+                y: (this.isHorizontal ? y : x) + offsetY,
             },
             data: transformData(node),
             selectable: selectable && node.type !== EntityType.SchemaField,
+            extent: parent ? 'parent' : undefined,
         };
     }
 
-    createFilterNode(filter: LineageFilter): LineageVisualizationNode {
-        return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, false, (node) => ({
+    createFilterNode(
+        filter: LineageFilter,
+        offset: [number, number],
+        parent: string | undefined,
+    ): LineageVisualizationNode {
+        return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, false, offset, parent, (node) => ({
             ...node,
             numShown: Array.from(node.allChildren).filter((urn) => urn in this.nodeInformation).length,
         }));
@@ -472,12 +600,4 @@ function compareLayersMinisLast(a: Layer, b: Layer): number {
         return -1;
     }
     return compareLayers(a, b);
-}
-
-function createEdge<T>(edge: BaseEdge<T>): Edge {
-    return {
-        ...edge,
-        id: createEdgeId(edge.source, edge.target),
-        type: LINEAGE_TABLE_EDGE_NAME,
-    };
 }

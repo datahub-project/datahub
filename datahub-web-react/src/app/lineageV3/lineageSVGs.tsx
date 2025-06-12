@@ -4,7 +4,7 @@ export const LINEAGE_ARROW_MARKER = 'lineage-arrow';
 
 export default function LineageSVGs() {
     return (
-        <svg style={{ position: 'absolute', top: 0, left: 0 }}>
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0 }}>
             <defs>
                 <marker
                     id={LINEAGE_ARROW_MARKER}

@@ -8,8 +8,8 @@ import styled from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
-import { getLineageUrl } from '@app/lineageV3/lineageUtils';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
+import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
