@@ -50,6 +50,7 @@ interface EntityAutocompleteItemProps {
     query?: string;
     siblings?: Entity[];
     matchedFields?: MatchedField[];
+    dataTestId?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -57,13 +58,14 @@ export default function AutoCompleteEntityItem({
     query,
     siblings,
     matchedFields,
+    dataTestId,
 }: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
 
     return (
-        <Container>
+        <Container data-testid={dataTestId}>
             <ContentContainer>
                 <IconContainer>
                     <EntityIcon entity={entity} siblings={siblings} />

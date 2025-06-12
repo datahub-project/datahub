@@ -135,9 +135,9 @@ describe("incidents", () => {
     cy.get('[data-testid="status-options-list"]').contains("Resolved").click();
     cy.get('[data-testid="incident-create-button"]').click();
     cy.wait(3000);
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="child-option-RESOLVED"]').click();
-    cy.get('[data-testid="nested-options-dropdown-container"]').click();
+    cy.get('[data-testid="filter-base"]').click();
     cy.get('[data-testid="incident-group-HIGH"]').scrollIntoView();
     cy.get('[data-testid="incident-group-HIGH"]').within(() => {
       cy.get('[data-testid="group-header-collapsed-icon"]')

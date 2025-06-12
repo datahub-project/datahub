@@ -65,6 +65,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     renderCustomOptionText,
     selectLabelProps,
     onSearchChange,
+    dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -177,7 +178,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -255,6 +259,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                     >
                         <SelectLabelContainer>
