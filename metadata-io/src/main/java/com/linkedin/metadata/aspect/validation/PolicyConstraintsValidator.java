@@ -16,6 +16,8 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -24,6 +26,8 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
@@ -72,35 +76,31 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
         // We skip UI events, these are handled by LabelUtils.
         continue;
       }
+      AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:
           validateGlobalTags(
                   session,
                   item,
-                  item.getAspect(GlobalTags.class),
-                  retrieverContext
-                      .getAspectRetriever()
-                      .getLatestAspectObject(item.getUrn(), GLOBAL_TAGS_ASPECT_NAME))
+                  aspectRetriever,
+                  aspectRetriever.getLatestAspectObject(item.getUrn(), GLOBAL_TAGS_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
           validateSchemaMetadata(
                   session,
                   item,
-                  item.getAspect(SchemaMetadata.class),
-                  retrieverContext
-                      .getAspectRetriever()
-                      .getLatestAspectObject(item.getUrn(), SCHEMA_METADATA_ASPECT_NAME))
+                  aspectRetriever,
+                  aspectRetriever.getLatestAspectObject(item.getUrn(), SCHEMA_METADATA_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
           validateEditableSchemaMetadata(
                   session,
                   item,
-                  item.getAspect(EditableSchemaMetadata.class),
-                  retrieverContext
-                      .getAspectRetriever()
-                      .getLatestAspectObject(item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                  aspectRetriever,
+                  aspectRetriever.getLatestAspectObject(
+                      item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         default:
@@ -114,8 +114,26 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
   private List<AspectValidationException> validateGlobalTags(
       AuthorizationSession session,
       BatchItem item,
-      GlobalTags newTags,
-      @Nullable Aspect currentTags) {
+      AspectRetriever aspectRetriever,
+      @Nullable Aspect currentTagsAspect) {
+    GlobalTags newTags;
+    GlobalTags currentTags =
+        currentTagsAspect == null
+            ? null
+            : RecordUtils.toRecordTemplate(GlobalTags.class, currentTagsAspect.data());
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
+      ProposedItem proposedItem = (ProposedItem) item;
+      PatchItemImpl patchItem =
+          PatchItemImpl.builder()
+              .build(
+                  proposedItem.getMetadataChangeProposal(),
+                  proposedItem.getAuditStamp(),
+                  aspectRetriever.getEntityRegistry());
+      ;
+      newTags = patchItem.applyPatch(currentTags, aspectRetriever).getAspect(GlobalTags.class);
+    } else {
+      newTags = item.getAspect(GlobalTags.class);
+    }
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
       if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
@@ -129,15 +147,6 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
       }
     }
     return Collections.emptyList();
-  }
-
-  private Set<Urn> extractTagDifference(GlobalTags newTags, @Nullable Aspect currentTags) {
-    if (currentTags == null) {
-      return extractTagDifference(newTags, (GlobalTags) null);
-    } else {
-      GlobalTags existingTags = RecordUtils.toRecordTemplate(GlobalTags.class, currentTags.data());
-      return extractTagDifference(newTags, existingTags);
-    }
   }
 
   private Set<Urn> extractTagDifference(GlobalTags newTags, @Nullable GlobalTags currentTags) {
@@ -172,16 +181,31 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
   private List<AspectValidationException> validateSchemaMetadata(
       AuthorizationSession session,
       BatchItem item,
-      SchemaMetadata schemaMetadata,
-      @Nullable Aspect currentSchema) {
+      AspectRetriever aspectRetriever,
+      @Nullable Aspect currentSchemaAspect) {
+    SchemaMetadata schemaMetadata;
+    SchemaMetadata currentSchema =
+        currentSchemaAspect == null
+            ? null
+            : RecordUtils.toRecordTemplate(SchemaMetadata.class, currentSchemaAspect.data());
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
+      ProposedItem proposedItem = (ProposedItem) item;
+      PatchItemImpl patchItem =
+          PatchItemImpl.builder()
+              .build(
+                  proposedItem.getMetadataChangeProposal(),
+                  proposedItem.getAuditStamp(),
+                  aspectRetriever.getEntityRegistry());
+      schemaMetadata =
+          patchItem.applyPatch(currentSchema, aspectRetriever).getAspect(SchemaMetadata.class);
+    } else {
+      schemaMetadata = item.getAspect(SchemaMetadata.class);
+    }
     if (schemaMetadata != null) {
-      SchemaMetadata existingSchemaMetadata = null;
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {
-        existingSchemaMetadata =
-            RecordUtils.toRecordTemplate(SchemaMetadata.class, currentSchema.data());
         existingTagsMap.putAll(
-            existingSchemaMetadata.getFields().stream()
+            currentSchema.getFields().stream()
                 .collect(
                     Collectors.toMap(
                         SchemaField::getFieldPath,
@@ -214,16 +238,34 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
   private List<AspectValidationException> validateEditableSchemaMetadata(
       AuthorizationSession session,
       BatchItem item,
-      EditableSchemaMetadata editableSchemaMetadata,
-      @Nullable Aspect currentSchema) {
+      AspectRetriever aspectRetriever,
+      @Nullable Aspect currentSchemaAspect) {
+    EditableSchemaMetadata editableSchemaMetadata;
+    EditableSchemaMetadata currentSchema =
+        currentSchemaAspect == null
+            ? null
+            : RecordUtils.toRecordTemplate(
+                EditableSchemaMetadata.class, currentSchemaAspect.data());
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
+      ProposedItem proposedItem = (ProposedItem) item;
+      PatchItemImpl patchItem =
+          PatchItemImpl.builder()
+              .build(
+                  proposedItem.getMetadataChangeProposal(),
+                  proposedItem.getAuditStamp(),
+                  aspectRetriever.getEntityRegistry());
+      editableSchemaMetadata =
+          patchItem
+              .applyPatch(currentSchema, aspectRetriever)
+              .getAspect(EditableSchemaMetadata.class);
+    } else {
+      editableSchemaMetadata = item.getAspect(EditableSchemaMetadata.class);
+    }
     if (editableSchemaMetadata != null) {
-      EditableSchemaMetadata existingSchemaMetadata = null;
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {
-        existingSchemaMetadata =
-            RecordUtils.toRecordTemplate(EditableSchemaMetadata.class, currentSchema.data());
         existingTagsMap.putAll(
-            existingSchemaMetadata.getEditableSchemaFieldInfo().stream()
+            currentSchema.getEditableSchemaFieldInfo().stream()
                 .collect(
                     Collectors.toMap(
                         EditableSchemaFieldInfo::getFieldPath,

@@ -6,6 +6,9 @@ import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -14,15 +17,20 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -33,8 +41,12 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.mockito.MockedStatic;
@@ -59,6 +71,13 @@ public class PolicyConstraintsValidatorTest {
   private RetrieverContext retrieverContext;
   private AuthorizationSession mockAuthSession;
   private MockedStatic<AuthUtil> authUtilMockedStatic;
+  private final OperationContext operationContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
+  private EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+  private ObjectMapper objectMapper = operationContext.getObjectMapper();
+
+  private final AuditStamp auditStamp =
+      new AuditStamp().setTime(1000L).setActor(UrnUtils.getUrn("urn:li:corpuser:testUser"));
 
   @BeforeMethod
   public void setup() {
@@ -661,6 +680,127 @@ public class PolicyConstraintsValidatorTest {
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(Collections.emptyList(), retrieverContext);
     Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  @Test
+  public void testValidateGlobalTagsPatchAuthorized() throws Exception {
+    GlobalTags existingGlobalTags = createGlobalTags(TEST_TAG_URN);
+
+    // Create a patch MCP
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
+    patchOp.setValue(
+        objectMapper.convertValue(
+            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            JsonNode.class));
+    Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
+    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(patchOp))
+            .arrayPrimaryKeys(arrayPrimaryKeys)
+            .build();
+    mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+
+    // Create ProposedItem
+    ProposedItem proposedItem = ProposedItem.builder().build(mcp, auditStamp, entityRegistry);
+
+    // Mock existing tags
+    Aspect existingAspect = new Aspect(existingGlobalTags.data());
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+        .thenReturn(existingAspect);
+    Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+
+    // Mock the patch result to add TEST_TAG_URN_2
+    GlobalTags patchedTags = createGlobalTags(TEST_TAG_URN, TEST_TAG_URN_2);
+    // You'll need to mock the PatchItemImpl behavior or use a real implementation
+
+    // Only TEST_TAG_URN_2 is being added (difference)
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    Mockito.eq(mockAuthSession),
+                    Mockito.eq(ApiOperation.UPDATE),
+                    Mockito.eq(List.of(TEST_DATASET_URN)),
+                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+        .thenReturn(true);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(proposedItem), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  @Test
+  public void testValidateGlobalTagsPatchUnauthorized() throws Exception {
+    GlobalTags existingGlobalTags = createGlobalTags(TEST_TAG_URN);
+
+    // Create a patch MCP
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
+    patchOp.setValue(
+        objectMapper.convertValue(
+            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            JsonNode.class));
+    Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
+    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(patchOp))
+            .arrayPrimaryKeys(arrayPrimaryKeys)
+            .build();
+    mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+
+    // Create ProposedItem
+    ProposedItem proposedItem = ProposedItem.builder().build(mcp, auditStamp, entityRegistry);
+
+    // Mock existing tags
+    Aspect existingAspect = new Aspect(existingGlobalTags.data());
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+        .thenReturn(existingAspect);
+    Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+
+    // Only TEST_TAG_URN_2 is being added (difference) - unauthorized
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    Mockito.eq(mockAuthSession),
+                    Mockito.eq(ApiOperation.UPDATE),
+                    Mockito.eq(List.of(TEST_DATASET_URN)),
+                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+        .thenReturn(false);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(proposedItem), retrieverContext, mockAuthSession);
+
+    Optional<AspectValidationException> maybeResult = result.findFirst();
+    Assert.assertTrue(maybeResult.isPresent());
+    AspectValidationException exception = maybeResult.get();
+    Assert.assertNotNull(exception);
+    Assert.assertTrue(
+        exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
   }
 
   private GlobalTags createGlobalTags(TagUrn... tagUrns) {
