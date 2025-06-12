@@ -21,7 +21,7 @@ def download_file(url, destination):
 def fetch_urls(
     repo_url: str, folder_path: str, file_format: str, active_versions: list, max_retries=3, retry_delay=5
 ):
-    api_url = f"{repo_url}/contents/{folder_path}"
+    api_url = f"{repo_url}/contents/{folder_path}?ref=fix-python-ref"
     for attempt in range(max_retries + 1):
         try:
             response = urllib.request.urlopen(api_url)
