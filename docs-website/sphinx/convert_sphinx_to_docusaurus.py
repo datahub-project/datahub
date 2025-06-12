@@ -48,29 +48,67 @@ def slugify(text: str) -> str:
 def generate_anchor(slug: str) -> str:
     return f'<a href="#{slug}" class="hash-link" aria-label="Direct link to {slug}" title="Direct link to {slug}"></a>'
 
+# argument parsing
+def parse_args(arg_str: str) -> str:
+    args = []
+    for arg in arg_str.split(","):
+        arg = arg.strip()
+        if not arg:
+            continue
+
+        match = re.match(r"([\w]+)\s*:\s*([^=]+)\s*=\s*(.+)", arg)
+        if match:
+            name, typ, default = match.groups()
+            args.append(f'<span class="arg-name">{name}</span>: <span class="arg-type">{typ}</span> = <span class="arg-default">{default}</span>')
+            continue
+
+        match = re.match(r"([\w]+)\s*=\s*(.+)", arg)
+        if match:
+            name, default = match.groups()
+            args.append(f'<span class="arg-name">{name}</span> = <span class="arg-default">{default}</span>')
+            continue
+
+        match = re.match(r"([\w]+)\s*:\s*(.+)", arg)
+        if match:
+            name, typ = match.groups()
+            args.append(f'<span class="arg-name">{name}</span>: <span class="arg-type">{typ}</span>')
+            continue
+
+        args.append(f'<span class="arg-name">{arg}</span>')
+
+    return ", ".join(args)
+
+# universal heading parser
 def trim_heading_text(text: str) -> (str, str):
     sidebar_text = text
 
-    # Extract class names nicely
-    class_match = re.match(r"\*class\*\s+([\w\.]+)\.([\w]+)\(", text)
-    if class_match:
-        sidebar_text = class_match.group(2)
-    else:
-        # fallback for non-class methods
-        dot_match = re.search(r"([\w]+)(\(|$)", text)
-        if dot_match:
-            sidebar_text = dot_match.group(1)
+    # Match both class & function form universally
+    match = re.match(r"(?:\*class\*\s+)?([\w\.]+)\.([\w]+)\((.*)\)", text)
+    if match:
+        owner, name, arg_str = match.groups()
+        sidebar_text = name
+        parsed_args = parse_args(arg_str)
 
-    # Render styled text for section_heading
-    styled_text = text
-    styled_text = re.sub(r"\*class\*", '<span class="class-text">class</span>', styled_text)
-    styled_text = re.sub(
-        r"([\w\.]+)\.([\w]+)\(",
-        r'<span class="class-owner">\1.</span><span class="class-name">\2</span>(',
-        styled_text,
-    )
+        styled_text = ""
+        if "*class*" in text:
+            styled_text += '<span class="class-text">class</span> '
 
-    return sidebar_text, styled_text
+        styled_text += (
+            f'<span class="class-owner">{owner}.</span>'
+            f'<span class="class-name">{name}</span>({parsed_args})'
+        )
+        return sidebar_text, styled_text
+
+    # fallback — no owner
+    match = re.match(r"([\w]+)\((.*)\)", text)
+    if match:
+        name, arg_str = match.groups()
+        sidebar_text = name
+        parsed_args = parse_args(arg_str)
+        styled_text = f'<span class="class-name">{name}</span>({parsed_args})'
+        return sidebar_text, styled_text
+
+    return sidebar_text, text
 
 def wrap_section_blocks(content: str, level: int, class_name: str) -> str:
     lines = content.splitlines()

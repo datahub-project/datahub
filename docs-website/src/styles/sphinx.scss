@@ -15,131 +15,100 @@
       padding: 0;
       margin: 0;
     }
-    
     .hash-link {
       display: none;
     }
   }
 
   .h3-block {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
     border: 1px solid var(--ifm-hr-border-color);
     border-radius: 6px;
     padding: 1rem;
-    font-family: var(--ifm-font-family-monospace);
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--ifm-font-color-base);
     margin-bottom: 2rem;
+    overflow: hidden;
 
     .section-heading {
-      background-color: var(--ifm-background-surface-color);
-      padding: 1rem;
-      margin: -1rem -1rem 1rem -1rem;
-      z-index: 1;
-      font-weight: 600;
-      font-size: 1.1rem;
+      background-color: var(--ifm-color-primary-opaque);
+      font-family: var(--ifm-font-family-monospace);
+      padding: 1rem 1.5rem;
+      font-weight: 700;
+      font-size: 1.2rem;
 
       .class-text {
-        color: gray;
+        color: #999;
+        margin-right: 0.3rem;
       }
-
-      .signature-text {
+      .class-owner {
+        color: var(--ifm-font-color-secondary);
+      }
+      .class-name {
         color: var(--ifm-color-primary);
+        font-weight: 700;
       }
-
-
-      em {
-        color: gray;
-        padding-right: 0.5rem;
+      .arg-name {
+        color: var(--ifm-font-color-base);
+        font-weight: 600;
+      }
+      .arg-type {
+        color: var(--ifm-color-primary-light);
+      }
+      .arg-default {
+        color: #999;
+        font-weight: 600;
       }
     }
-    
+
     p {
-      padding: 0rem 1rem;
+      padding: 0.5rem 1.5rem;
     }
 
     h4 {
-        background-color: var(--ifm-code-background);
-        border-radius: 6px;
-        padding: 1rem;
-        font-family: var(--ifm-font-family-monospace);
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--ifm-font-color-base);
-
-
-        em {
-          color: var(--ifm-color-primary);
-        }
-    }
-  }
-
-  p {
-    margin-bottom: 1rem;
-  }
-
-  ul {
-    margin-bottom: 1.5rem;
-
-    &:has(li strong) {
-      border-radius: 8px;
-      padding: 1rem 1rem 1rem 2rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-
-    li {
-      margin-bottom: 0.75rem;
-
-      strong {
-        display: inline-block;
-        color: #2774b3;
-        font-weight: 600;
-        min-width: 90px;
+      background-color: var(--ifm-code-background);
+      border-radius: 6px;
+      padding: 1rem 1.5rem;
+      font-family: var(--ifm-font-family-monospace);
+      font-weight: 600;
+      color: var(--ifm-font-color-base);
+      em {
+        color: var(--ifm-color-primary);
       }
-
-      // code {
-      //   background: transparent;
-      //   color: #66b327;
-      //   padding: 0;
-      // }
     }
 
-    // nested ul for params or return type formatting
     ul {
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-      padding-left: 1rem;
-      border-left: 2px dotted var(--ifm-color-emphasis-300);
+      margin: 1rem 0;
+      padding: 1rem 2rem;
+      background-color: var(--ifm-background-surface-color);
+      border-radius: 8px;
+
+      li {
+        margin-bottom: 0.5rem;
+        strong {
+          display: inline-block;
+          color: var(--ifm-color-primary-darker);
+          min-width: 100px;
+          font-weight: 600;
+        }
+        ul {
+          margin-top: 0.5rem;
+          padding-left: 1rem;
+        }
+      }
     }
   }
 
-  // Return type section
   li:has(strong:contains("Return type")) {
     font-style: italic;
     color: var(--ifm-font-color-secondary);
   }
 
-  // Parameter type callouts like (Optional[str])
   em > code {
     color: #c678dd;
   }
 
-  // code styling
-    code {
-
-      &:has(span) {
-        padding: 1rem;
-        background-color: var(--ifm-code-background);
-        span {
-          color: var(--ifm-font-color-base);
-        }
-      }
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
+  code {
+    background-color: var(--ifm-code-background);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
 }
-
