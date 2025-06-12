@@ -403,7 +403,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            nonnull_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select(sa.func.count(sa.column(column))).select_from(
+                        self.dataset._table
+                    )
+                ).scalar()
+            )
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
