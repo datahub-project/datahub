@@ -385,7 +385,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         ]
 
     @lru_cache(maxsize=None)
-    def get_dataset_info(self, dataset_id: int) -> dict:
+    def get_dataset_response(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
             timeout=self.config.timeout,
@@ -395,34 +395,53 @@ class SupersetSource(StatefulIngestionSourceBase):
             return {}
         return dataset_response.json()
 
-    def get_datasource_urn_from_id(
-        self, dataset_response: dict, platform_instance: str
-    ) -> str:
-        schema_name = dataset_response.get("result", {}).get("schema")
-        table_name = dataset_response.get("result", {}).get("table_name")
-        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+    def get_dataset_info(self, response: dict) -> dict:
+        platform = response.get("result", {}).get("database", {}).get("backend")
         database_name = (
-            dataset_response.get("result", {}).get("database", {}).get("database_name")
+            response.get("result", {}).get("database", {}).get("database_name")
         )
+        database_id = response.get("result", {}).get("database", {}).get("id")
+        schema_name = response.get("result", {}).get("schema")
+
+        table_name = response.get("result", {}).get("table_name")
+
         database_name = self.config.database_alias.get(database_name, database_name)
 
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
         # redundant to systemically store them both in the URN.
-        if platform_instance in platform_without_databases:
+        if platform == "druid":
             database_name = None
+            if schema_name == "druid":
+                # Follow DataHub's druid source convention.
+                schema_name = None
 
-        if platform_instance == "druid" and schema_name == "druid":
-            # Follow DataHub's druid source convention.
-            schema_name = None
+        return {
+            "platform": platform,
+            "database_name": database_name,
+            "database_id": database_id,
+            "schema_name": schema_name,
+            "table_name": table_name,
+        }
+
+    def build_urn_for_platform(
+        self, dataset_response: dict, platform_instance: str
+    ) -> str:
+        dataset_info = self.get_dataset_info(dataset_response)
 
         # If the information about the datasource is already contained in the dataset response,
         # can just return the urn directly
-        if table_name and database_id:
+        if dataset_info["table_name"] and dataset_info["database_id"]:
             return make_dataset_urn(
                 platform=platform_instance,
                 name=".".join(
-                    name for name in [database_name, schema_name, table_name] if name
+                    name
+                    for name in [
+                        dataset_info["database_name"],
+                        dataset_info["schema_name"],
+                        dataset_info["table_name"],
+                    ]
+                    if name
                 ),
                 env=self.config.env,
             )
@@ -656,8 +675,10 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # parses the superset dataset's column info, to build type and description info
         if datasource_id:
-            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
-            dataset_column_info = dataset_info.get("columns", [])
+            dataset_response = self.get_dataset_response(datasource_id).get(
+                "result", {}
+            )
+            dataset_column_info = dataset_response.get("columns", [])
 
             for column in dataset_column_info:
                 col_name = column.get("column_name", "")
@@ -745,8 +766,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             datasource_urn = None
         else:
-            dataset_response = self.get_dataset_info(datasource_id)
-            datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response = self.get_dataset_response(datasource_id)
+            datasource_urn = self.build_urn_for_platform(
                 dataset_response, self.platform
             )
 
@@ -910,7 +931,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             if self.config.dataset_pattern != AllowDenyPattern.allow_all():
                 datasource_id = chart_data.get("datasource_id")
                 if datasource_id:
-                    dataset_response = self.get_dataset_info(datasource_id)
+                    dataset_response = self.get_dataset_response(datasource_id)
                     dataset_name = dataset_response.get("result", {}).get(
                         "table_name", ""
                     )
@@ -1081,12 +1102,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
     ) -> DatasetSnapshot:
-        dataset_response = self.get_dataset_info(dataset_data.get("id"))
+        dataset_response = self.get_dataset_response(dataset_data.get("id"))
+        dataset_info = self.get_dataset_info(dataset_response)
         dataset = SupersetDataset(**dataset_response["result"])
 
-        datasource_urn = self.get_datasource_urn_from_id(
-            dataset_response, self.platform
-        )
+        datasource_urn = self.build_urn_for_platform(dataset_response, self.platform)
         dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
@@ -1095,13 +1115,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             dp.parse(dataset_data.get("changed_on_utc", now)).timestamp() * 1000
         )
         last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
-
-        upstream_warehouse_platform = (
-            dataset_response.get("result", {}).get("database", {}).get("backend")
-        )
-        upstream_warehouse_db_name = (
-            dataset_response.get("result", {}).get("database", {}).get("database_name")
-        )
 
         # if we have rendered sql, we always use that and defualt back to regular sql
         sql = dataset_response.get("result", {}).get(
@@ -1116,11 +1129,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             "postgresql": "postgres",
         }
 
-        if upstream_warehouse_platform in warehouse_naming:
-            upstream_warehouse_platform = warehouse_naming[upstream_warehouse_platform]
+        dataset_info["platform"] = warehouse_naming.get(
+            dataset_info["platform"], dataset_info["platform"]
+        )
 
-        upstream_dataset = self.get_datasource_urn_from_id(
-            dataset_response, upstream_warehouse_platform
+        upstream_dataset = self.build_urn_for_platform(
+            dataset_response, dataset_info["platform"]
         )
 
         # Sometimes the field will be null instead of not existing
@@ -1133,8 +1147,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             tag_urn = f"urn:li:tag:{self.platform}:virtual"
             parsed_query_object = create_lineage_sql_parsed_result(
                 query=sql,
-                default_db=upstream_warehouse_db_name,
-                platform=upstream_warehouse_platform,
+                default_db=dataset_info["database_name"],
+                default_schema=dataset_info["schema_name"],
+                platform=dataset_info["platform"],
                 platform_instance=None,
                 env=self.config.env,
             )
@@ -1142,7 +1157,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 parsed_query_object, datasource_urn
             )
 
-        dataset_info = DatasetPropertiesClass(
+        dataset_properties = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
             externalUrl=dataset_url,
@@ -1154,7 +1169,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         aspects_items.extend(
             [
                 self.gen_schema_metadata(dataset_response),
-                dataset_info,
+                dataset_properties,
                 upstream_lineage,
                 global_tags,
             ]
