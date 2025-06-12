@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import { AxisScaleOutput } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { ScaleConfig, scaleOrdinal } from '@visx/scale';
@@ -144,6 +145,63 @@ export const TimeSeriesChart = ({
                 margin={{ top: MARGIN.TOP, right: MARGIN.RIGHT, bottom: MARGIN.BOTTOM, left: MARGIN.LEFT }}
                 xScale={{ type: 'time' }}
                 yScale={yScale ?? { type: 'linear' }}
+                theme={{
+                    colors: [colors.violet[600]],
+                    backgroundColor: 'white',
+                    htmlLabel: {
+                        color: colors.gray[600],
+                        fontSize: 10,
+                        fontFamily: 'sans-serif',
+                    },
+                    svgLabelBig: {
+                        fill: colors.gray[600],
+                        fontSize: 12,
+                        fontFamily: 'sans-serif',
+                    },
+                    svgLabelSmall: {
+                        fill: colors.gray[600],
+                        fontSize: 10,
+                        fontFamily: 'sans-serif',
+                    },
+                    gridStyles: {
+                        stroke: colors.gray[200],
+                        strokeWidth: 1,
+                    },
+                    axisStyles: {
+                        x: {
+                            top: {
+                                axisLine: { stroke: colors.gray[300] },
+                                tickLine: { stroke: colors.gray[300] },
+                                tickLength: 4,
+                                axisLabel: {},
+                                tickLabel: {},
+                            },
+                            bottom: {
+                                axisLine: { stroke: colors.gray[300] },
+                                tickLine: { stroke: colors.gray[300] },
+                                tickLength: 4,
+                                axisLabel: {},
+                                tickLabel: {},
+                            },
+                        },
+                        y: {
+                            left: {
+                                axisLine: { stroke: colors.gray[300] },
+                                tickLine: { stroke: colors.gray[300] },
+                                tickLength: 4,
+                                axisLabel: {},
+                                tickLabel: {},
+                            },
+                            right: {
+                                axisLine: { stroke: colors.gray[300] },
+                                tickLine: { stroke: colors.gray[300] },
+                                tickLength: 4,
+                                axisLabel: {},
+                                tickLabel: {},
+                            },
+                        },
+                    },
+                }}
             >
                 <Axis
                     orientation="bottom"
