@@ -4,6 +4,7 @@ plugins {
 }
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
+import org.yaml.snakeyaml.Yaml
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -169,6 +170,7 @@ dockerCompose {
             environment.put "METADATA_TESTS_ENABLED", "true"
             environment.put "DATAHUB_REPO", "${docker_registry}"
 
+
             // Additional environment variables if specified
             if (config.additionalEnv) {
                 config.additionalEnv.each { key, value ->
@@ -213,12 +215,26 @@ task generateQuickstartComposeConfig {
         def composeExecutor = composeUpTask.get().getComposeExecutor().get()
         composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
-        
+
         def configOutput = composeExecutor.execute('config')
         
         // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
+
+        // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
+        // This needs to be matched with the version of the CLI used to launch quickstart
+        def yaml = new Yaml()
+        def config = yaml.load(configOutput)
+        config['services']['datahub-gms-quickstart']['environment']['UI_INGESTION_DEFAULT_CLI_VERSION'] = '${UI_INGESTION_DEFAULT_CLI_VERSION}'
+
+        // Configure YAML dump options to match Docker Compose format
+        def dumpOptions = new org.yaml.snakeyaml.DumperOptions()
+        dumpOptions.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK)
+        dumpOptions.setIndent(2)
+        dumpOptions.setWidth(120)
+        yaml = new Yaml(dumpOptions)
+        configOutput = yaml.dump(config)
 
         configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
         

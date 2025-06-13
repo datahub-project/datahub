@@ -20,7 +20,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub._version import nice_version_name
+from datahub._version import __version__, is_dev_mode, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
@@ -197,6 +197,15 @@ def _set_environment_variables(
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
 
     os.environ["METADATA_SERVICE_AUTH_ENABLED"] = "false"
+
+    cliVersion = nice_version_name()
+    if is_dev_mode():  # This should only happen during development/CI.
+        cliVersion = __version__.replace(".dev0", "")
+        logger.info(
+            f"Development build: Using {cliVersion} instead of '{__version__}' version of CLI for UI ingestion"
+        )
+
+    os.environ["UI_INGESTION_DEFAULT_CLI_VERSION"] = cliVersion
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
