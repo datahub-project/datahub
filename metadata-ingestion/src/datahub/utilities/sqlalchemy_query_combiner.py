@@ -1,7 +1,6 @@
 import collections
 import contextlib
 import dataclasses
-import itertools
 import logging
 import random
 import string
@@ -27,7 +26,7 @@ SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
 IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
 
 
-MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
+MAX_QUERIES_TO_COMBINE_AT_ONCE = 500
 
 
 # We need to make sure that only one query combiner attempts to patch
@@ -417,38 +416,34 @@ class SQLAlchemyQueryCombiner:
 
         pending_queue = {k: v for k, v in full_queue.items() if not v.done}
 
-        pending_queue = dict(
-            itertools.islice(pending_queue.items(), MAX_QUERIES_TO_COMBINE_AT_ONCE)
-        )
-
         if pending_queue:
-            queue_item = next(iter(pending_queue.values()))
+            queue_items_iter = iter(pending_queue.values())
+            first_queue_item = next(queue_items_iter)
 
-            # Actually combine these queries together. We do this by (1) putting
-            # each query into its own CTE, (2) selecting all the columns we need
-            # and (3) extracting the results once the query finishes.
+            # Combine queries together when they SELECT from the same table.
+            assert is_simple_query(first_queue_item.query)
+            combined_queue_items = [first_queue_item]
+            combined_columns = get_query_columns(first_queue_item.query)
+            combined_from = get_query_froms(first_queue_item.query)[0]
 
-            ctes = {
-                k: query_future.query.cte(k)
-                for k, query_future in pending_queue.items()
-            }
+            for queue_item in queue_items_iter:
+                if len(combined_queue_items) >= MAX_QUERIES_TO_COMBINE_AT_ONCE:
+                    break
+                if are_query_froms_equal(
+                    combined_from,
+                    get_query_froms(queue_item.query)[0],
+                ):
+                    combined_queue_items.append(queue_item)
+                    combined_columns += get_query_columns(queue_item.query)
 
-            combined_cols = itertools.chain(
-                *[
-                    [
-                        col  # .label(self._generate_sql_safe_identifier())
-                        for col in get_query_columns(cte)
-                    ]
-                    for _, cte in ctes.items()
-                ]
+            combined_query = sqlalchemy.select(*combined_columns).select_from(
+                combined_from
             )
-            combined_query = sqlalchemy.select(combined_cols)
-            for cte in ctes.values():
-                combined_query.append_from(cte)
-
             logger.debug(f"Executing combined query: {str(combined_query)}")
             self.report.combined_queries_issued += 1
-            sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+            sa_res = _sa_execute_underlying_method(
+                first_queue_item.conn, combined_query
+            )
 
             # Fetch the results and ensure that exactly one row is returned.
             results = sa_res.fetchall()
@@ -457,11 +452,8 @@ class SQLAlchemyQueryCombiner:
 
             # Extract the results into a result for each query.
             index = 0
-            for _, query_future in pending_queue.items():
+            for query_future in combined_queue_items:
                 query = query_future.query
-                if IS_SQLALCHEMY_1_4:
-                    # On 1.4, it prints a warning if we don't call subquery.
-                    query = query.subquery()  # type: ignore
                 cols = get_query_columns(query)
 
                 data = {}
