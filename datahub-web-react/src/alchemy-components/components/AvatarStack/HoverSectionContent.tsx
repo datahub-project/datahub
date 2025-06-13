@@ -51,7 +51,7 @@ const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, ty
                                     {userAvatar}
                                 </Link>
                             ) : (
-                                { userAvatar }
+                                userAvatar
                             )}
                         </>
                     );
