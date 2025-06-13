@@ -32,10 +32,11 @@ DataHub offers two primary search approaches:
 - **Query-based search** : search using simple keywords across common fields like name, description, and column names.
 - **Filter-based search** : search using structured filters to scope results by platform, environment, entity type, and other metadata fields.
 
-:::note Using Query and Filters
+:::note Combining Query and Filters
+
 Query and filters can be used together for more precise searches. Check out [this example](#find-all-snowflake-datasets-related-to-forecast) for more details.
+
 :::
-"
 
 ### Query-Based Search
 

@@ -58,7 +58,7 @@ You can add column-level lineage by using `column_lineage` parameter when linkin
 {{ inline /metadata-ingestion/examples/library/lineage_dataset_column.py show_path_as_comment }}
 ```
 
-When `column_lineage` is set to **True**, DataHub will automatically map columns based on their names, allowing for fuzzy matching. This is useful when upstream and downstream datasets have similar but not identical column names. (e.g. `customer_id` in upstream and `CustomerId` in downstream).
+When `column_lineage` is set to **True**, DataHub will automatically map columns based on their names, allowing for fuzzy matching. This is useful when upstream and downstream datasets have similar but not identical column names. (e.g. `customer_id` in upstream and `CustomerId` in downstream). See [Column Lineage Options](#column-lineage-options) for more details.
 
 #### Add Column Lineage with Strict Matching
 
@@ -78,7 +78,7 @@ For custom mapping, you can use a dictionary where keys are downstream column na
 
 ### Infer Lineage from SQL
 
-You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`. This will parse the query, determine upstream and downstream datasets, and automatically add lineage (including column-level lineage when possible).
+You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`. This will parse the query, determine upstream and downstream datasets, and automatically add lineage (including column-level lineage when possible) and a query node showing the SQL transformation logic.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/lineage_dataset_from_sql.py show_path_as_comment }}
@@ -89,7 +89,7 @@ You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`
 Check out more information on how we handle SQL parsing below.
 
 - [The DataHub SQL Parser Documentation](../../lineage/sql_parsing.md)
-- [Blog Post : Extracting Column-Level Lineage from SQL](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567)
+- [Blog Post: Extracting Column-Level Lineage from SQL](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567)
 
 :::
 
@@ -246,12 +246,12 @@ For dataset-to-dataset lineage, you can specify `column_lineage` parameter in `a
 | `"auto_strict"` | Enable column-level lineage with strict matching (exact column names required)    |
 | Column Mapping  | A dictionary mapping downstream column names to lists of upstream column names    |
 
-:::note Auto_Fuzzy vs Auto_Strict
+:::note `auto_fuzzy` vs `auto_strict`
 
-- **Auto_Fuzzy**: Automatically matches columns based on similar names, allowing for some flexibility in naming conventions. For example, these two columns would be considered a match:
+- **`auto_fuzzy`**: Automatically matches columns based on similar names, allowing for some flexibility in naming conventions. For example, these two columns would be considered a match:
   - user_id → userId
   - customer_id → CustomerId
-- **Auto_Strict**: Requires exact column name matches between upstream and downstream datasets. For example, `customer_id` in the upstream dataset must match `customer_id` in the downstream dataset exactly.
+- **`auto_strict`**: Requires exact column name matches between upstream and downstream datasets. For example, `customer_id` in the upstream dataset must match `customer_id` in the downstream dataset exactly.
 
 :::
 
