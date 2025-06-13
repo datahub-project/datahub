@@ -66,7 +66,7 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
                 <div>
                     <Typography.Title level={5}>Users</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
+                    <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={500} size={28} />
                 </div>
                 <div>
                     <Typography.Title level={5}>Associated Policies</Typography.Title>
