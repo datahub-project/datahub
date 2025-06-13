@@ -7,7 +7,6 @@ import styled from 'styled-components/macro';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
-import { AvatarType } from '@components/components/AvatarStack/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
@@ -18,7 +17,7 @@ import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/ut
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { EntityType, Owner } from '@types';
+import { Owner } from '@types';
 
 const PreviewImage = styled(Image)`
     max-height: 20px;
@@ -149,7 +148,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
                             name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
                             imageUrl={singleOwner.editableProperties?.pictureLink}
                             showInPill
-                            type={singleOwner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                            type={mapEntityTypeToAvatarType(singleOwner.type)}
                         />
                     </Link>
                 </HoverEntityTooltip>

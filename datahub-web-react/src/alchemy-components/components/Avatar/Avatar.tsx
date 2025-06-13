@@ -28,12 +28,7 @@ export const Avatar = ({
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
             {(type === AvatarType.user || imageUrl) && (
-                <AvatarImageWrapper
-                    $color={getAvatarColor(name)}
-                    $size={size}
-                    $isOutlined={isOutlined}
-                    $hasImage={!!imageUrl}
-                >
+                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
                     {!hasError && imageUrl ? (
                         <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
                     ) : (
@@ -42,7 +37,9 @@ export const Avatar = ({
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.group && !imageUrl && (
-                <Icon icon="UsersThree" source="phosphor" variant="filled" color="gray" size="lg" />
+                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                    <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                </AvatarImageWrapper>
             )}
             {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
         </Container>
