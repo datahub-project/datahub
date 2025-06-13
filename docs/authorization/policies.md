@@ -364,6 +364,41 @@ Example JSON of a policy with constraints:
 }
 ```
 
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "my-policy"
+      state: ACTIVE
+      description: "My policy"
+      privileges: ["EDIT_ENTITY_TAGS"]
+      actors: {
+        allUsers: true
+        users: []
+        groups: []
+        resourceOwners: true
+        allGroups: true
+      }
+      resources: {
+        allResources: true
+        resources: []
+        filter: { criteria: [] }
+        policyConstraints: {
+          criteria: [
+            {
+              field: "URN"
+              values: ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+              condition: EQUALS
+            }
+          ]
+        }
+      }
+    }
+  )
+}
+```
+
 ## Feedback / Questions / Concerns
 
 We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!
