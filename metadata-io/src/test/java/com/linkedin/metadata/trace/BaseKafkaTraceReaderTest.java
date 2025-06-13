@@ -2,6 +2,7 @@ package com.linkedin.metadata.trace;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,8 +28,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -533,5 +537,127 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
 
     // Verify that endOffsets was called twice
     verify(consumer, times(2)).endOffsets(anyCollection());
+  }
+
+  @Test
+  public void testGetAllPartitionOffsets_FailedToGetTopicInfo() {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Collections.emptyMap()); // Return empty map to simulate topic not found
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act
+    Map<TopicPartition, OffsetAndMetadata> result = traceReader.getAllPartitionOffsets(false);
+
+    // Assert
+    assertTrue(result.isEmpty());
+    // The error should be logged but method returns empty map
+  }
+
+  @Test
+  public void testGetEndOffsets_FailedToGetTopicInfo() {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Collections.emptyMap()); // Return empty map to simulate topic not found
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act
+    Map<TopicPartition, Long> result = traceReader.getEndOffsets(false);
+
+    // Assert
+    assertTrue(result.isEmpty());
+    // The error should be logged but method returns empty map
+  }
+
+  @Test
+  public void testGetTopicPartition_TopicNotFound() throws Exception {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> nullFuture = KafkaFuture.completedFuture(null);
+
+    when(mockDescribeTopicsResult.topicNameValues()).thenReturn(Map.of(TOPIC_NAME, nullFuture));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act - findMessages catches the exception and returns empty map
+    Map<Urn, Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>> result =
+        traceReader.findMessages(
+            Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME)),
+            TRACE_ID,
+            System.currentTimeMillis());
+
+    // Assert - the method should return an empty map for the URN that had an error
+    assertTrue(result.containsKey(TEST_URN));
+    assertTrue(result.get(TEST_URN).isEmpty());
+  }
+
+  @Test
+  public void testGetTopicPartition_ExecutionException() throws Exception {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get(anyLong(), any(TimeUnit.class)))
+        .thenThrow(new ExecutionException("Test exception", new RuntimeException()));
+
+    when(mockDescribeTopicsResult.topicNameValues()).thenReturn(Map.of(TOPIC_NAME, failedFuture));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act - findMessages catches the exception and returns empty map
+    Map<Urn, Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>> result =
+        traceReader.findMessages(
+            Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME)),
+            TRACE_ID,
+            System.currentTimeMillis());
+
+    // Assert - the method should return an empty map for the URN that had an error
+    assertTrue(result.containsKey(TEST_URN));
+    assertTrue(result.get(TEST_URN).isEmpty());
+  }
+
+  @Test
+  public void testGetTopicPartition_InterruptedException() throws Exception {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get(anyLong(), any(TimeUnit.class)))
+        .thenThrow(new InterruptedException("Test interruption"));
+
+    when(mockDescribeTopicsResult.topicNameValues()).thenReturn(Map.of(TOPIC_NAME, failedFuture));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act - findMessages catches the exception and returns empty map
+    Map<Urn, Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>> result =
+        traceReader.findMessages(
+            Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME)),
+            TRACE_ID,
+            System.currentTimeMillis());
+
+    // Assert - the method should return an empty map for the URN that had an error
+    assertTrue(result.containsKey(TEST_URN));
+    assertTrue(result.get(TEST_URN).isEmpty());
+  }
+
+  @Test
+  public void testGetTopicPartition_TimeoutException() throws Exception {
+    // Arrange
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get(anyLong(), any(TimeUnit.class)))
+        .thenThrow(new TimeoutException("Test timeout"));
+
+    when(mockDescribeTopicsResult.topicNameValues()).thenReturn(Map.of(TOPIC_NAME, failedFuture));
+    when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
+
+    // Act - findMessages catches the exception and returns empty map
+    Map<Urn, Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>> result =
+        traceReader.findMessages(
+            Collections.singletonMap(TEST_URN, Collections.singletonList(ASPECT_NAME)),
+            TRACE_ID,
+            System.currentTimeMillis());
+
+    // Assert - the method should return an empty map for the URN that had an error
+    assertTrue(result.containsKey(TEST_URN));
+    assertTrue(result.get(TEST_URN).isEmpty());
   }
 }
