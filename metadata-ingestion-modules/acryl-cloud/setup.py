@@ -105,6 +105,7 @@ setup(
                 "get_search_results_total.gql",
                 "scroll_forms_for_notification.gql",
                 "send_form_notification_request.gql",
+                "get_feature_flag.gql",
             ],
         },
     },
