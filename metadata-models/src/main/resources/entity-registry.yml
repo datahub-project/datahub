@@ -1030,15 +1030,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
     # SaaS Only Mutation Hooks
-    - className: "com.linkedin.metadata.aspect.hooks.OwnerTypeMap"
-      enabled: true
-      supportedOperations:
-        - UPSERT
-        - CREATE
-        - RESTATE
-      supportedEntityAspectNames:
-        - entityName: "*"
-          aspectName: ownership
     # Calculates md5 hash on test definitions on read/write
     - className: "com.linkedin.metadata.test.hooks.MetadataTestHash"
       enabled: true

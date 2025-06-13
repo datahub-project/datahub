@@ -12,7 +12,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
+import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -299,7 +299,7 @@ public class ESAccessControlUtil {
                           String.format(
                               "%s.%s%s",
                               OWNER_TYPES_FIELD,
-                              OwnerTypeMap.encodeFieldName(typeUrn.toString()),
+                              OwnershipOwnerTypes.encodeFieldName(typeUrn.toString()),
                               KEYWORD_SUFFIX))
                   .collect(Collectors.toSet());
 

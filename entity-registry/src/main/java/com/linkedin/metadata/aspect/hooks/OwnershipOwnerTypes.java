@@ -1,18 +1,22 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.DEFAULT_OWNERSHIP_TYPE_URN;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.util.Pair;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -25,78 +29,82 @@ import lombok.extern.slf4j.Slf4j;
 public class OwnershipOwnerTypes extends MutationHook {
   @Nonnull private AspectPluginConfig config;
 
+  @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
       @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream()
-        .map(
-            item ->
-                aspectFilter(item)
-                    ? Pair.of(item, processOwnershipAspect(item))
-                    : Pair.of(item, false));
-  }
 
-  private static boolean aspectFilter(ReadItem item) {
-    return item.getAspectName().equals(OWNERSHIP_ASPECT_NAME);
-  }
+    List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 
-  public static Map<String, List<Urn>> toMap(UrnArrayMap map) {
-    Map<String, List<Urn>> result = new HashMap<>();
-    map.forEach(
-        ((s, urns) -> {
-          result.put(s, new ArrayList<>(urns));
-        }));
-    return result;
-  }
+    for (ChangeMCP item : changeMCPS) {
+      if (OWNERSHIP_ASPECT_NAME.equals(item.getAspectName()) && item.getRecordTemplate() != null) {
+        final Map<Urn, Set<Owner>> oldTypeOwner =
+            groupByOwnerType(item.getPreviousRecordTemplate());
+        final Map<Urn, Set<Owner>> newTypeOwner = groupByOwnerType(item.getRecordTemplate());
 
-  public static UrnArrayMap toUrnArrayMap(Map<String, List<Urn>> map) {
-    UrnArrayMap result = new UrnArrayMap();
-    map.forEach(
-        (key, urns) -> {
-          result.put(key, new UrnArray(urns));
-        });
-    return result;
-  }
+        Set<Urn> removedTypes =
+            oldTypeOwner.keySet().stream()
+                .filter(typeUrn -> !newTypeOwner.containsKey(typeUrn))
+                .collect(Collectors.toSet());
 
-  public static boolean processOwnershipAspect(ChangeMCP item) {
-    boolean mutated = false;
-    Ownership ownership = item.getAspect(Ownership.class);
-    if (ownership == null) {
-      return false;
-    }
-    UrnArrayMap ownerTypes = ownership.getOwnerTypes();
-    Map<String, List<Urn>> ownerTypesMap;
-    if (ownerTypes == null) {
-      ownerTypesMap = new HashMap<>();
-      mutated = true;
-    } else {
-      ownerTypesMap = toMap(ownerTypes);
-    }
-    OwnerArray owners = ownership.getOwners();
-    for (Owner owner : owners) {
-      String typeKey =
-          Optional.ofNullable(owner.getTypeUrn())
-              .map(Urn::toString)
-              .orElseGet(
-                  () ->
-                      "urn:li:ownershipType:__system__" + owner.getType().toString().toLowerCase());
+        // Only update if there are actual changes
+        if (!removedTypes.isEmpty() || !oldTypeOwner.equals(newTypeOwner)) {
+          // Build complete typeOwners map with ALL types
+          Map<String, UrnArray> typeOwners =
+              newTypeOwner.entrySet().stream()
+                  .collect(
+                      Collectors.toMap(
+                          e -> encodeFieldName(e.getKey().toString()),
+                          e ->
+                              new UrnArray(
+                                  e.getValue().stream()
+                                      .map(Owner::getOwner)
+                                      .collect(Collectors.toSet()))));
 
-      List<Urn> ownerOfType;
-      if (ownerTypesMap.containsKey(typeKey)) {
-        ownerOfType = ownerTypesMap.get(typeKey);
+          item.getAspect(Ownership.class).setOwnerTypes(new UrnArrayMap(typeOwners));
+          results.add(Pair.of(item, true));
+        } else {
+          // No changes detected
+          results.add(Pair.of(item, false));
+        }
       } else {
-        ownerOfType = new ArrayList<>();
-        ownerTypesMap.put(typeKey, ownerOfType);
-        mutated = true;
-      }
-      Urn ownerUrn = owner.getOwner();
-      if (!ownerOfType.contains(ownerUrn)) {
-        ownerOfType.add(ownerUrn);
-        mutated = true;
+        // Not an ownership aspect
+        results.add(Pair.of(item, false));
       }
     }
-    if (mutated) {
-      ownership.setOwnerTypes((toUrnArrayMap(ownerTypesMap)));
+
+    return results.stream();
+  }
+
+  private static Map<Urn, Set<Owner>> groupByOwnerType(
+      @Nullable RecordTemplate ownershipRecordTemplate) {
+    if (ownershipRecordTemplate != null) {
+      Ownership ownership = new Ownership(ownershipRecordTemplate.data());
+      if (!ownership.getOwners().isEmpty()) {
+        return ownership.getOwners().stream()
+            .collect(
+                Collectors.groupingBy(OwnershipOwnerTypes::resolveToTypeUrn, Collectors.toSet()));
+      }
     }
-    return mutated;
+    return Collections.emptyMap();
+  }
+
+  private static Urn resolveToTypeUrn(Owner owner) {
+    if (owner.getTypeUrn() != null) {
+      return owner.getTypeUrn();
+    } else if (owner.hasType()) {
+      return UrnUtils.getUrn(
+          String.format(
+              "urn:li:ownershipType:__system__%s", owner.getType().toString().toLowerCase()));
+    } else {
+      return DEFAULT_OWNERSHIP_TYPE_URN;
+    }
+  }
+
+  public static String encodeFieldName(String value) {
+    return value.replaceAll("[.]", "%2E");
+  }
+
+  public static String decodeFieldName(String value) {
+    return value.replaceAll("%2E", ".");
   }
 }
