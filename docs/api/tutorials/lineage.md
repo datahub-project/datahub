@@ -218,6 +218,8 @@ You can check more details about the available filters in the [Search SDK docume
 
 ## Lineage SDK Reference
 
+For a full reference, see the [lineage SDK reference](../../python-sdk/sdk-v2/lineage-client.mdx).
+
 ### Supported Lineage Combinations
 
 The Lineage APIs support the following entity combinations:
@@ -324,9 +326,9 @@ For example, let's say we have the following lineage across three tables:
 ]
 ```
 
-### Lineage GraphQL Examples
+## Alternative: Lineage GraphQL API
 
-You can also use the GraphQL API to add and retrieve lineage.
+While we generally recommend using the Python SDK for lineage, you can also use the GraphQL API to add and retrieve lineage.
 
 #### Add Lineage Between Datasets with GraphQL
 
