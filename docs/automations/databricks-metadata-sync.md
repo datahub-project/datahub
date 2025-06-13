@@ -6,13 +6,13 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below. 
+This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below.
 
 :::
 
 ## Overview
 
-Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas. Typically, this will be used in conjunction with the [Databricks ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), which enables ingesting Tags & descriptions from Databricks into DataHub. 
+Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas. Typically, this will be used in conjunction with the [Databricks ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), which enables ingesting Tags & descriptions from Databricks into DataHub.
 
 This automation is exclusively available in DataHub Cloud.
 
@@ -32,7 +32,7 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 - **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
 - **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
 
-> **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.  
+> **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.
 
 ## Prerequisites
 
@@ -148,7 +148,7 @@ Choose the types of information to synchronize:
 Choose between:
 
 - **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog only)
-- **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore) 
+- **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore)
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/databricks-metadata-sync/select-action.png" alt="Select Sync Action"/>
@@ -193,7 +193,7 @@ Click **Save and Run** to activate the automation and begin real-time synchroniz
 
 ### Initializing Existing Assets
 
-For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while! 
+For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while!
 
 #### Initialization Process
 
@@ -226,7 +226,6 @@ Confirm successful metadata syncing by examining Unity Catalog objects:
 2. **Browse Catalog**: Open the Unity Catalog explorer
 3. **Inspect Objects**: Select tables or columns to view applied tags and comments
 
-
 ## Troubleshooting
 
 ### Common Issues and Solutions
@@ -252,33 +251,30 @@ Confirm successful metadata syncing by examining Unity Catalog objects:
 
 ### Support Resources
 
-For additional assistance with Databricks Metadata Sync, contact your DataHub Cloud representative. 
+For additional assistance with Databricks Metadata Sync, contact your DataHub Cloud representative.
 
 ## FAQ
 
 1. **Where should I manage Tags & Descriptions?**
 
-In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practicioners trying to find the right data. 
+In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practicioners trying to find the right data.
 
-This automation is intended to enable this style of management, allowing you to "push down" metadata from the central catalog into Databricks, where your data is stored and queried. 
+This automation is intended to enable this style of management, allowing you to "push down" metadata from the central catalog into Databricks, where your data is stored and queried.
 
 2. **How does DataHub represent key-value tags from Databricks?**
 
 During ingestion from [Databricks](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), DataHub can ingest tags and descriptions that were originally authored within Databricks. DataHub converts key-value formatted tags in Databricks into DataHub tags of the format: `key:value`. For example, if you have a tag with key `has_pii` and value `true` in Databricks, this will be ingested as a single combined tag named `has_pii: true` in DataHub.
 
-After ingestion into DataHub, you can apply this tag to tables or columns and sync it back to Databricks using this automation. Any tag with the format `key:value` that is applied on DataHub will be synced back to Databricks in proper key, value form. 
+After ingestion into DataHub, you can apply this tag to tables or columns and sync it back to Databricks using this automation. Any tag with the format `key:value` that is applied on DataHub will be synced back to Databricks in proper key, value form.
 
-If you apply a tag without a separator colon in DataHub (e.g. `has_pii`), it will be synced back to Databricks with the key being `has_pii` and value being empty. 
-
+If you apply a tag without a separator colon in DataHub (e.g. `has_pii`), it will be synced back to Databricks with the key being `has_pii` and value being empty.
 
 3. **I updated a table description in _Databricks_, but I don't see it reflecting after ingestion into DataHub. Why not?**
 
-This is usually because you've already overridden the description inside DataHub for this table. DataHub assumes that _it_ will be the source of truth for documentation, which means that any edits that have taken place in the DataHub UI (or via API) will take precedent over changes provided in Databricks. When you change the description in DataHub, the description change will overwrite the latest description in Databricks if this automation is enabled. 
+This is usually because you've already overridden the description inside DataHub for this table. DataHub assumes that _it_ will be the source of truth for documentation, which means that any edits that have taken place in the DataHub UI (or via API) will take precedent over changes provided in Databricks. When you change the description in DataHub, the description change will overwrite the latest description in Databricks if this automation is enabled.
 
-But fear not - you can always view the original underlying Databricks description underneath the DataHub description in the DataHub UI, even when it changes. 
-
+But fear not - you can always view the original underlying Databricks description underneath the DataHub description in the DataHub UI, even when it changes.
 
 4. **Can I sync DataHub Structured Properties or Glossary Terms back to Databricks as Tags?**
 
-Currently, no. Sync back is limited to Tags, to keep the concepts aligned more simply across both platforms. Reach out if you'd benefit from this capability! 
-
+Currently, no. Sync back is limited to Tags, to keep the concepts aligned more simply across both platforms. Reach out if you'd benefit from this capability!
