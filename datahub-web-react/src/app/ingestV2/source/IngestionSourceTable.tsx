@@ -16,7 +16,7 @@ import {
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
-import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -38,6 +38,8 @@ interface Props {
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
+    sourcesToRefetch: Set<string>;
+    executedUrns: Set<string>;
 }
 
 function IngestionSourceTable({
@@ -51,6 +53,8 @@ function IngestionSourceTable({
     isLoading,
     shouldPreserveParams,
     isLastPage,
+    sourcesToRefetch,
+    executedUrns,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -65,9 +69,7 @@ function IngestionSourceTable({
         execCount: source.executions?.total || 0,
         lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
         lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
-        lastExecStatus:
-            source.executions?.executionRequests?.[0]?.result &&
-            getIngestionSourceStatus(source.executions.executionRequests[0].result),
+        lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
     }));

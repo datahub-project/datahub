@@ -6,14 +6,20 @@ import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { SortingState } from '@components/components/Table/types';
 
 import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
+import {
     capitalizeMonthsAndDays,
     formatTimezone,
     getEntitiesIngestedByType,
     getSortInput,
     getTotalEntitiesIngested,
+    getSourceStatus,
 } from '@app/ingestV2/source/utils';
 
-import { ExecutionRequestResult, SortOrder } from '@types';
+import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
 
 // Extend dayjs with required plugins
 dayjs.extend(utc);
@@ -332,5 +338,76 @@ describe('capitalizeMonthsAndDays', () => {
         const input = 'monday, january 1st - tuesday, february 2nd';
         const expected = 'Monday, January 1st - Tuesday, February 2nd';
         expect(capitalizeMonthsAndDays(input)).toBe(expected);
+    });
+});
+
+describe('getSourceStatus', () => {
+    const urn = 'urn:li:source:123';
+
+    const createSource = (sourceUrn: string, requests: ExecutionRequest[] = []): IngestionSource => ({
+        urn: sourceUrn,
+        executions: {
+            executionRequests: requests,
+        },
+        config: {
+            executorId: 'executorId',
+            recipe: '',
+        },
+        name: 'source',
+        type: 'snowflake',
+    });
+
+    const createExecutionRequest = (overrides: Partial<ExecutionRequest> = {}): ExecutionRequest => ({
+        result: { status: EXECUTION_REQUEST_STATUS_SUCCESS },
+        id: 'request',
+        urn: 'urn:li:request',
+        type: EntityType.ExecutionRequest,
+        input: {
+            requestedAt: 0,
+            source: {
+                type: 'INGESTION_SOURCE',
+            },
+            task: '',
+        },
+        ...overrides,
+    });
+
+    it('returns Loading when polling and no requests', () => {
+        const source = createSource(urn, []);
+        const result = getSourceStatus(source, new Set([urn]), new Set());
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_LOADING);
+    });
+
+    it('returns Loading when polling with no active request', () => {
+        const inactiveRequest = createExecutionRequest({ result: { status: EXECUTION_REQUEST_STATUS_SUCCESS } });
+        const source = createSource(urn, [inactiveRequest]);
+        const result = getSourceStatus(source, new Set([urn]), new Set());
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_LOADING);
+    });
+
+    it('returns Loading when recently executed but no active requests', () => {
+        const source = createSource(urn, []);
+        const result = getSourceStatus(source, new Set(), new Set([urn]));
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_LOADING);
+    });
+
+    it('returns Success from the last request when not polling', () => {
+        const source = createSource(urn, [
+            createExecutionRequest({ result: { status: EXECUTION_REQUEST_STATUS_SUCCESS } }),
+        ]);
+        const result = getSourceStatus(source, new Set(), new Set());
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_SUCCESS);
+    });
+
+    it('returns Pending when not polling, not executed, and no requests', () => {
+        const source = createSource(urn);
+        const result = getSourceStatus(source, new Set(), new Set());
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
+    });
+
+    it('returns Pending when not polling, not executed and no request result,', () => {
+        const source = createSource(urn, [createExecutionRequest({ result: undefined })]);
+        const result = getSourceStatus(source, new Set(), new Set());
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
     });
 });

@@ -11,6 +11,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -149,6 +150,7 @@ export const IngestionSourceList = ({
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [sourcesToRefetch, setSourcesToRefetch] = useState<Set<string>>(new Set());
+    const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
 
     // Set of removed urns used to account for eventual consistency
@@ -224,15 +226,24 @@ export const IngestionSourceList = ({
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
     }, [removedUrns]);
 
+    useEffect(() => {
+        const activeSourceUrns = finalSources
+            .filter((source) => source.executions?.executionRequests?.some(isExecutionRequestActive))
+            .map((source) => source.urn);
+
+        setSourcesToRefetch((prev) => new Set([...prev, ...activeSourceUrns]));
+    }, [finalSources, refetch]);
+
     const executeIngestionSource = useCallback(
         (urn: string) => {
-            setSourcesToRefetch((prev) => new Set(prev).add(urn));
+            setExecutedUrns((prev) => new Set(prev).add(urn));
             createExecutionRequestMutation({
                 variables: {
                     input: { ingestionSourceUrn: urn },
                 },
             })
                 .then(() => {
+                    setSourcesToRefetch((prev) => new Set(prev).add(urn));
                     analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
                     message.success({
                         content: `Successfully submitted ingestion execution request!`,
@@ -244,6 +255,11 @@ export const IngestionSourceList = ({
                     message.error({
                         content: `Failed to submit ingestion execution request!: \n ${e.message || ''}`,
                         duration: 3,
+                    });
+                    setExecutedUrns((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.delete(urn);
+                        return newSet;
                     });
                 });
         },
@@ -540,6 +556,9 @@ export const IngestionSourceList = ({
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
+                                sourcesToRefetch={sourcesToRefetch}
+                                executedUrns={executedUrns}
+                                saasProps={{ onViewPool }}
                             />
                         </TableContainer>
                         <PaginationContainer>
@@ -580,7 +599,9 @@ export const IngestionSourceList = ({
                     urn={urn}
                     setFinalSources={setFinalSources}
                     setSourcesToRefetch={setSourcesToRefetch}
+                    setExecutedUrns={setExecutedUrns}
                     queryInputs={queryInputs}
+                    isExecutedNow={executedUrns.has(urn)}
                 />
             ))}
         </>
