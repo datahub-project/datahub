@@ -210,7 +210,8 @@ public class OperationContext implements AuthorizationSession {
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
           // Authorizer.EMPTY doesn't actually apply to system auth
-          .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
+          .authorizationContext(
+              AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
           .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
