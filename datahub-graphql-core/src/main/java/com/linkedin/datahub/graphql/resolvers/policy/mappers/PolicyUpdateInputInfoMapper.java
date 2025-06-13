@@ -89,6 +89,10 @@ public class PolicyUpdateInputInfoMapper
     if (resourceInput.getFilter() != null) {
       result.setFilter(mapFilter(resourceInput.getFilter()));
     }
+    if (resourceInput.getPolicyConstraints() != null) {
+      result.setPolicyConstraints(mapFilter(resourceInput.getPolicyConstraints()));
+    }
+
     return result;
   }
 

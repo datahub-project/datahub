@@ -9459,6 +9459,11 @@ type ResourceFilter {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilter
+
+  """
+  Constraints on the policy, what subresources can be acted upon
+  """
+  policyConstraints: PolicyMatchFilter
 }
 
 """
@@ -9613,6 +9618,11 @@ input ResourceFilterInput {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilterInput
+
+  """
+  Constraints on the policy, what subresources can be acted upon
+  """
+  policyConstraints: PolicyMatchFilterInput
 }
 
 """
