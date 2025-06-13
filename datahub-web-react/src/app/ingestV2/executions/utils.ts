@@ -24,7 +24,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === EXECUTION_REQUEST_STATUS_RUNNING && 'CircleNotch') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'Check') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'ExclamationMark') ||
+        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'WarningCircle') ||
         (status === EXECUTION_REQUEST_STATUS_FAILURE && 'X') ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'Prohibit') ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'CircleNotch') ||

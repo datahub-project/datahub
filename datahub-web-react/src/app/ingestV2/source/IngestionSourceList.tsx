@@ -52,7 +52,7 @@ const HeaderContainer = styled.div`
 const StyledTabToolbar = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 0 20px 16px 0;
+    padding: 0 0 16px 0;
     height: auto;
     z-index: unset;
     box-shadow: none;
