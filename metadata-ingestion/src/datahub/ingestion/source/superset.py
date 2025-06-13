@@ -26,10 +26,12 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_term_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -41,6 +43,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -87,6 +90,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermInfoClass,
+    GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -300,6 +306,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 cached_domains=[domain_id for domain_id in self.config.domain],
                 graph=self.ctx.graph,
             )
+        self.sink_config = ctx.pipeline_config.sink.config
         self.session = self.login()
         self.owner_info = self.parse_owner_info()
         self.filtered_dataset_to_database: Dict[int, str] = {}
@@ -340,6 +347,72 @@ class SupersetSource(StatefulIngestionSourceBase):
                 f"Failed to log in to Superset with status: {test_response.status_code}"
             )
         return requests_session
+
+    def check_if_term_exists(self, term_urn):
+        graph = DataHubGraph(
+            DatahubClientConfig(
+                server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
+        )
+        # Query multiple aspects from entity
+        result = graph.get_entity_semityped(
+            entity_urn=term_urn,
+            aspects=["glossaryTermInfo"],
+        )
+
+        if result.get("glossaryTermInfo"):
+            return True
+        return False
+
+    def parse_glossary_terms_from_metrics(
+        self, metrics, last_modified
+    ) -> GlossaryTermsClass:
+        glossary_term_urns = []
+        for metric in metrics:
+            expression = metric.get("expression", "")
+            certification_details = metric.get("extra", "")
+            metric_name = metric.get("metric_name", "")
+            description = metric.get("description", "")
+            term_urn = make_term_urn(metric_name)
+
+            if self.check_if_term_exists(term_urn):
+                logger.info(f"Term {term_urn} already exists")
+                glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+                continue
+
+            term_properties_aspect = GlossaryTermInfoClass(
+                name=metric_name,
+                definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
+                termSource="",
+            )
+
+            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                entityUrn=term_urn,
+                aspect=term_properties_aspect,
+            )
+
+            # Create rest emitter
+            rest_emitter = DatahubRestEmitter(
+                gms_server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
+            rest_emitter.emit(event)
+            logger.info(f"Created Glossary term {term_urn}")
+            glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+
+        return GlossaryTermsClass(terms=glossary_term_urns, auditStamp=last_modified)
+
+    def _is_certified_metric(self, response_result: dict) -> bool:
+        # We only want to ingest certified metrics for physical preset dataset
+        metrics = response_result.get("metrics", {})
+        extra = response_result.get("extra", {})
+        # kind = response_result.get("kind")
+        if (metrics and extra and "This table is produced by dbt" in extra):
+                # and kind == "physical"):
+            return True
+        else:
+            return False
 
     def paginate_entity_api_results(self, entity_type, page_size=100):
         current_page = 0
@@ -1159,6 +1232,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                 global_tags,
             ]
         )
+
+        response_result = dataset_response.get("result", {})
+
+        if self._is_certified_metric(response_result):
+            glossary_terms = self.parse_glossary_terms_from_metrics(
+                response_result.get("metrics", {}), last_modified
+            )
+            aspects_items.append(glossary_terms)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
