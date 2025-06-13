@@ -27,6 +27,7 @@ REPLACEMENTS = [
     (".md#", ".mdx#"),
 ]
 
+# ---- CLEAN HTML DANGEROUS TAGS ----
 def sanitize_mdx_unsafe_tags(content: str) -> str:
     return re.sub(
         r"<([a-zA-Z0-9_-]+)>",
@@ -34,6 +35,7 @@ def sanitize_mdx_unsafe_tags(content: str) -> str:
         content
     )
 
+# ---- REPAIR BROKEN MARKDOWN BOLD ----
 def repair_broken_emphasis(content: str) -> str:
     content = re.sub(r'\[\*\*([^\*]+)\*\s+\*', r'[**\1**', content)
     content = re.sub(r'\*\*([^\*]+)\*\s+\*\]', r'**\1**]', content)
@@ -41,30 +43,17 @@ def repair_broken_emphasis(content: str) -> str:
     content = re.sub(r'\*\s*\*([^\*]+)\*\s+\*\]', r'**\1**]', content)
     return content
 
-def parse_markdown_links(content: str) -> str:
-    return re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', content)
+# ---- ONLY USED INSIDE SECTION HEADINGS ----
+def convert_md_link_to_html(arg_str: str) -> str:
+    # convert markdown links inside argument types into plain text fallback
+    return re.sub(
+        r'\[([^\]]+)\]\([^)]+\)',
+        r'<code>\1</code>',
+        arg_str
+    )
 
-def parse_heading(text: str):
-    match = re.match(r"(?:\*class\*\s+)?([\w\.]+)\.([\w]+)(?:\((.*)\))?", text)
-    if match:
-        owner, name, args = match.groups()
-        parsed_args = parse_args(args or "")
-        prefix = '<span class="class-text">class</span> ' if "*class*" in text else ""
-        heading = f'{prefix}<span class="class-owner">{owner}.</span><span class="class-name">{name}</span>'
-        heading += f"({parsed_args})" if parsed_args else "()"
-        slug = f"{owner}.{name}"
-        return name, heading, slug
 
-    match = re.match(r"([\w]+)(?:\((.*)\))?", text)
-    if match:
-        name, args = match.groups()
-        parsed_args = parse_args(args or "")
-        heading = f'<span class="class-name">{name}</span>'
-        heading += f"({parsed_args})" if parsed_args else "()"
-        return name, heading, name
-
-    return text, text, text
-
+# ---- ARGUMENT PARSER ----
 def parse_args(arg_str: str) -> str:
     if not arg_str.strip():
         return ""
@@ -88,8 +77,33 @@ def parse_args(arg_str: str) -> str:
         else:
             parts.append(f'<span class="arg-name">{arg}</span>')
 
-    return ", ".join(parts)
+    parsed = ", ".join(parts)
+    parsed = convert_md_link_to_html(parsed)
+    return parsed
 
+# ---- HEADING PARSER ----
+def parse_heading(text: str):
+    match = re.match(r"(?:\*class\*\s+)?([\w\.]+)\.([\w]+)(?:\((.*)\))?", text)
+    if match:
+        owner, name, args = match.groups()
+        parsed_args = parse_args(args or "")
+        prefix = '<span class="class-text">class</span> ' if "*class*" in text else ""
+        heading = f'{prefix}<span class="class-owner">{owner}.</span><span class="class-name">{name}</span>'
+        heading += f"({parsed_args})" if parsed_args else "()"
+        slug = f"{owner}.{name}"
+        return name, heading, slug
+
+    match = re.match(r"([\w]+)(?:\((.*)\))?", text)
+    if match:
+        name, args = match.groups()
+        parsed_args = parse_args(args or "")
+        heading = f'<span class="class-name">{name}</span>'
+        heading += f"({parsed_args})" if parsed_args else "()"
+        return name, heading, name
+
+    return text, text, text
+
+# ---- SECTION WRAPPER ----
 def wrap_section_blocks(content: str, class_name: str) -> str:
     lines = content.splitlines()
     out = []
@@ -114,9 +128,11 @@ def wrap_section_blocks(content: str, class_name: str) -> str:
 
     return "\n".join(out)
 
+# ---- PARAMETER DASH FIX ----
 def fix_parameter_dash(content: str) -> str:
     return re.sub(r'(\*\s+\*\*[\w]+?\*\*\s+\([^\)]*\))\s+–\s*(?=\n|\r|\Z)', r'\1', content)
 
+# ---- FILE CONVERTER ----
 def convert_file(doc: pathlib.Path, outfile: pathlib.Path):
     content = doc.read_text()
 
@@ -126,7 +142,6 @@ def convert_file(doc: pathlib.Path, outfile: pathlib.Path):
     content = sanitize_mdx_unsafe_tags(content)
     content = repair_broken_emphasis(content)
     content = wrap_section_blocks(content, "h3-block")
-    content = parse_markdown_links(content)
     content = fix_parameter_dash(content)
 
     title_match = re.search(r"^# (.+)$", content, re.MULTILINE)
