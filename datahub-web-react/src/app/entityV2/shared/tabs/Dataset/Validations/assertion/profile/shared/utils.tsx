@@ -5,6 +5,7 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { getDatasetUrnFromMonitorUrn } from '@app/entity/shared/utils';
 import { removeNestedTypeNames } from '@app/shared/subscribe/drawer/utils';
 
 import {
@@ -101,7 +102,7 @@ export const useAssertionFeedbackActions = ({
             setTimeout(() => {
                 refetchResults?.();
                 resolve(undefined);
-            }, 2000);
+            }, 3000);
         });
     }, [refetchResults]);
 
@@ -179,7 +180,7 @@ export const useAssertionFeedbackActions = ({
                             assertionType: assertion.info?.type ?? 'Unknown',
                             runEventTimeMillisFromNow,
                             inferenceDetails,
-                            datasetUrn: monitor?.entity.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor?.urn),
                         });
                     } else {
                         analytics.event({
@@ -188,7 +189,7 @@ export const useAssertionFeedbackActions = ({
                             assertionType: assertion.info?.type ?? 'Unknown',
                             runEventTimeMillisFromNow,
                             inferenceDetails,
-                            datasetUrn: monitor?.entity.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor?.urn),
                         });
                     }
                 } else {
@@ -211,7 +212,7 @@ export const useAssertionFeedbackActions = ({
                             assertionType: assertion.info?.type ?? 'Unknown',
                             runEventTimeMillisFromNow,
                             inferenceDetails,
-                            datasetUrn: monitor?.entity.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor?.urn),
                         });
                     } else {
                         analytics.event({
@@ -220,7 +221,7 @@ export const useAssertionFeedbackActions = ({
                             assertionType: assertion.info?.type ?? 'Unknown',
                             runEventTimeMillisFromNow,
                             inferenceDetails,
-                            datasetUrn: monitor?.entity.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor?.urn),
                         });
                     }
                 }
@@ -295,7 +296,7 @@ export const useAssertionFeedbackActions = ({
                 assertionType: assertion.info?.type ?? 'Unknown',
                 runEventTimeMillisFromNow,
                 inferenceDetails,
-                datasetUrn: monitor.entity.urn,
+                datasetUrn: getDatasetUrnFromMonitorUrn(monitor?.urn),
             });
         } catch (error: any) {
             message.error((error as Error).message);
