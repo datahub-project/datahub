@@ -3,11 +3,10 @@ from datetime import datetime
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_HOURLY_SCHEDULE,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
     AssertionIncidentBehavior,
     AssertionInfoInputType,
-    DetectionMechanism,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     FieldSpecType,
@@ -183,8 +182,8 @@ RangeTypeInputType = Union[
 RangeTypeParsedType = tuple[ValueTypeInputType, ValueTypeInputType]
 OperatorInputType = Union[str, models.AssertionStdOperatorClass]
 
-DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION = (
-    DetectionMechanism.ALL_ROWS_QUERY
+DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION: _AllRowsQuery = (
+    _AllRowsQuery()
 )
 
 
@@ -512,7 +511,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_HOURLY_SCHEDULE
+            return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,
@@ -815,13 +814,10 @@ def _try_parse_and_validate_value_type(
 ) -> models.AssertionStdParameterTypeClass:
     if value_type is None:
         raise SDKUsageError("Value type is required")
-    if isinstance(value_type, models.AssertionStdParameterTypeClass):
-        return value_type
-    if value_type not in get_enum_options(models.AssertionStdParameterTypeClass):
-        raise SDKUsageError(
-            f"Invalid value type: {value_type}, valid options are {get_enum_options(models.AssertionStdParameterTypeClass)}"
-        )
-    return getattr(models.AssertionStdParameterTypeClass, value_type)
+
+    return _try_parse_and_validate_schema_classes_enum(
+        value_type, models.AssertionStdParameterTypeClass
+    )
 
 
 def _try_parse_and_validate_value(

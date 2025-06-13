@@ -27,12 +27,20 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     TimeWindowSizeInputTypes,
     _DetectionMechanismTypes,
 )
+from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+    MetricInputType,
+    OperatorInputType,
+    RangeInputType,
+    RangeTypeInputType,
+    ValueInputType,
+    ValueTypeInputType,
+)
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import (
     Monitor,
     _get_nested_field_for_entity_with_default,
 )
-from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
@@ -169,6 +177,159 @@ class _HasSmartFunctionality:
         return retrieved
 
 
+class _HasColumnMetricFunctionality:
+    """
+    Mixin class that provides column metric functionality for assertions.
+    """
+
+    def __init__(
+        self,
+        column_name: str,
+        metric_type: MetricInputType,
+        operator: OperatorInputType,
+        value: Optional[ValueInputType] = None,
+        value_type: Optional[ValueTypeInputType] = None,
+        range: Optional[RangeInputType] = None,
+        range_type: Optional[RangeTypeInputType] = None,
+    ):
+        self._column_name = column_name
+        self._metric_type = metric_type
+        self._operator = operator
+        self._value = value
+        self._value_type = value_type
+        self._range = range
+        self._range_type = range_type
+
+    @property
+    def column_name(self) -> str:
+        return self._column_name
+
+    @property
+    def metric_type(self) -> MetricInputType:
+        return self._metric_type
+
+    @property
+    def operator(self) -> OperatorInputType:
+        return self._operator
+
+    @property
+    def value(self) -> Optional[ValueInputType]:
+        return self._value
+
+    @property
+    def value_type(self) -> Optional[ValueTypeInputType]:
+        return self._value_type
+
+    @property
+    def range(self) -> Optional[RangeInputType]:
+        return self._range
+
+    @property
+    def range_type(self) -> Optional[RangeTypeInputType]:
+        return self._range_type
+
+    @staticmethod
+    def _get_column_name(assertion: Assertion) -> str:
+        column_name = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.field.path",
+            default=None,
+        )
+        if column_name is None:
+            raise SDKUsageError(
+                f"Column name is required for column metric assertions. Assertion {assertion.urn} does not have a column name"
+            )
+        return column_name
+
+    @staticmethod
+    def _get_metric_type(assertion: Assertion) -> MetricInputType:
+        metric_type = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.metric",
+            default=None,
+        )
+        if metric_type is None:
+            raise SDKUsageError(
+                f"Metric type is required for column metric assertions. Assertion {assertion.urn} does not have a metric type"
+            )
+        return metric_type
+
+    @staticmethod
+    def _get_operator(assertion: Assertion) -> OperatorInputType:
+        operator = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.operator",
+            default=None,
+        )
+        if operator is None:
+            raise SDKUsageError(
+                f"Operator is required for column metric assertions. Assertion {assertion.urn} does not have an operator"
+            )
+        return operator
+
+    @staticmethod
+    def _get_value(assertion: Assertion) -> Optional[ValueInputType]:
+        value = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.value.value",
+            default=None,
+        )
+        return value
+
+    @staticmethod
+    def _get_value_type(assertion: Assertion) -> Optional[ValueTypeInputType]:
+        value_type = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.value.type",
+            default=None,
+        )
+        return value_type
+
+    @staticmethod
+    def _get_range(assertion: Assertion) -> Optional[RangeInputType]:
+        min_value = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.minValue",
+            default=None,
+        )
+        max_value = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.maxValue",
+            default=None,
+        )
+
+        # If both are None, return None
+        if min_value is None and max_value is None:
+            return None
+
+        # Extract the value from the parameter objects if they exist
+        if min_value is not None and hasattr(min_value, "value"):
+            min_value = min_value.value
+        if max_value is not None and hasattr(max_value, "value"):
+            max_value = max_value.value
+
+        return (min_value, max_value)
+
+    @staticmethod
+    def _get_range_type(assertion: Assertion) -> Optional[RangeTypeInputType]:
+        min_value_range_type = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.minValue.type",
+            default=None,
+        )
+        max_value_range_type = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.maxValue.type",
+            default=None,
+        )
+
+        # If both are None, return None instead of a tuple of Nones
+        if min_value_range_type is None and max_value_range_type is None:
+            return None
+
+        return (min_value_range_type, max_value_range_type)
+
+
 class _AssertionPublic(ABC):
     """
     Abstract base class that represents a public facing assertion and contains the common properties of all assertions.
@@ -177,6 +338,7 @@ class _AssertionPublic(ABC):
     _SUPPORTED_WITH_FILTER_ASSERTION_TYPES = (
         models.FreshnessAssertionInfoClass,
         models.VolumeAssertionInfoClass,
+        models.FieldAssertionInfoClass,
     )
 
     def __init__(
@@ -278,165 +440,26 @@ class _AssertionPublic(ABC):
         return incident_behaviors
 
     @staticmethod
+    @abstractmethod
     def _get_detection_mechanism(
         assertion: Assertion,
         monitor: Monitor,
         default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
     ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism from the monitor and assertion."""
-        if not _AssertionPublic._has_valid_monitor_info(monitor):
-            return default
+        """Get the detection mechanism from the monitor and assertion.
 
-        # 1. Check if the assertion has a parameters field
-        def _warn_and_return_default_detection_mechanism(
-            field_name: str,
-            default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-        ) -> Optional[_DetectionMechanismTypes]:
-            logger.warning(
-                f"Monitor {monitor.urn} does not have an `{field_name}` field, defaulting detection mechanism to {default}"
-            )
-            return default
+        This method should be implemented by each assertion class to handle
+        its specific detection mechanism logic.
 
-        parameters = _AssertionPublic._get_assertion_parameters(monitor, default)
-        if parameters is None:
-            return _warn_and_return_default_detection_mechanism("parameters", default)
+        Args:
+            assertion: The assertion entity
+            monitor: The monitor entity
+            default: Default detection mechanism to return if none is found
 
-        # 2. Convert the raw detection mechanism to the SDK detection mechanism
-        if parameters.type in [
-            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
-            models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
-        ]:
-            if assertion.info is None:
-                return _warn_and_return_default_detection_mechanism("info", default)
-            if isinstance(assertion.info, models.VolumeAssertionInfoClass):
-                return _AssertionPublic._get_volume_detection_mechanism(
-                    assertion, parameters, default
-                )
-            elif isinstance(assertion.info, models.FreshnessAssertionInfoClass):
-                return _AssertionPublic._get_freshness_detection_mechanism(
-                    assertion, parameters, default
-                )
-            # TODO: Consider moving the detection mechanism logic to the assertion classes themselves e.g. _get_assertion_specific_detection_mechanism as an abstract method
-            # TODO: Add support here for other detection mechanisms when other assertion types are supported
-            else:
-                raise SDKNotYetSupportedError(
-                    f"AssertionType {type(assertion.info).__name__}"
-                )
-        else:
-            raise SDKNotYetSupportedError(
-                f"AssertionEvaluationParametersType {parameters.type} not supported"
-            )
-
-    @staticmethod
-    def _get_freshness_detection_mechanism(
-        assertion: Assertion,
-        parameters: models.AssertionEvaluationParametersClass,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism for freshness assertions."""
-        if parameters.datasetFreshnessParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            return default
-
-        source_type = parameters.datasetFreshnessParameters.sourceType
-        if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetFreshnessSourceTypeClass.AUDIT_LOG:
-            return DetectionMechanism.AUDIT_LOG
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE:
-            return _AssertionPublic._get_field_value_detection_mechanism(
-                assertion, parameters
-            )
-        elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
-            return DetectionMechanism.DATAHUB_OPERATION
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
-            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
-        else:
-            raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
-
-    @staticmethod
-    def _get_volume_detection_mechanism(
-        assertion: Assertion,
-        parameters: models.AssertionEvaluationParametersClass,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> _DetectionMechanismTypes:
-        """Get the detection mechanism for volume assertions."""
-        if parameters.datasetVolumeParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetVolumeParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            if default is None:
-                return DEFAULT_DETECTION_MECHANISM
-            else:
-                return default
-
-        source_type = parameters.datasetVolumeParameters.sourceType
-        if source_type == models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetVolumeSourceTypeClass.QUERY:
-            additional_filter = _AssertionPublic._get_additional_filter(assertion)
-            return DetectionMechanism.QUERY(additional_filter=additional_filter)
-        elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
-            return DetectionMechanism.DATASET_PROFILE
-        else:
-            raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
-
-    @staticmethod
-    def _get_field_value_detection_mechanism(
-        assertion: Assertion,
-        parameters: models.AssertionEvaluationParametersClass,
-    ) -> _DetectionMechanismTypes:
-        """Get the detection mechanism for field value based freshness."""
-        # We know datasetFreshnessParameters is not None from _get_freshness_detection_mechanism check
-        assert parameters.datasetFreshnessParameters is not None
-        field = parameters.datasetFreshnessParameters.field
-
-        if field is None or field.kind is None:
-            logger.warning(
-                f"Monitor does not have valid field info, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            return DEFAULT_DETECTION_MECHANISM
-
-        column_name = field.path
-        additional_filter = _AssertionPublic._get_additional_filter(assertion)
-
-        if field.kind == models.FreshnessFieldKindClass.LAST_MODIFIED:
-            return DetectionMechanism.LAST_MODIFIED_COLUMN(
-                column_name=column_name, additional_filter=additional_filter
-            )
-        elif field.kind == models.FreshnessFieldKindClass.HIGH_WATERMARK:
-            return DetectionMechanism.HIGH_WATERMARK_COLUMN(
-                column_name=column_name, additional_filter=additional_filter
-            )
-        else:
-            raise SDKNotYetSupportedError(f"FreshnessFieldKind {field.kind}")
-
-    @staticmethod
-    def _get_additional_filter(assertion: Assertion) -> Optional[str]:
-        """Get the additional filter SQL from the assertion."""
-        if assertion.info is None:
-            logger.warning(
-                f"Assertion {assertion.urn} does not have an info, defaulting additional filter to None"
-            )
-            return None
-        if (
-            not isinstance(
-                assertion.info,
-                _AssertionPublic._SUPPORTED_WITH_FILTER_ASSERTION_TYPES,
-            )
-            or assertion.info.filter is None
-        ):
-            logger.warning(
-                f"Assertion {assertion.urn} does not have a filter, defaulting additional filter to None"
-            )
-            return None
-        if assertion.info.filter.type != models.DatasetFilterTypeClass.SQL:
-            raise SDKNotYetSupportedError(
-                f"DatasetFilterType {assertion.info.filter.type}"
-            )
-        return assertion.info.filter.sql
+        Returns:
+            The detection mechanism or default if none is found
+        """
+        pass
 
     @staticmethod
     def _has_valid_monitor_info(monitor: Monitor) -> bool:
@@ -564,6 +587,124 @@ class _AssertionPublic(ABC):
         """
         pass
 
+    @staticmethod
+    def _get_additional_filter(assertion: Assertion) -> Optional[str]:
+        """Get the additional filter SQL from the assertion."""
+        if assertion.info is None:
+            logger.warning(
+                f"Assertion {assertion.urn} does not have an info, defaulting additional filter to None"
+            )
+            return None
+        if (
+            not isinstance(
+                assertion.info,
+                _AssertionPublic._SUPPORTED_WITH_FILTER_ASSERTION_TYPES,
+            )
+            or assertion.info.filter is None
+        ):
+            logger.warning(
+                f"Assertion {assertion.urn} does not have a filter, defaulting additional filter to None"
+            )
+            return None
+        if assertion.info.filter.type != models.DatasetFilterTypeClass.SQL:
+            raise SDKNotYetSupportedError(
+                f"DatasetFilterType {assertion.info.filter.type}"
+            )
+        return assertion.info.filter.sql
+
+    @staticmethod
+    def _get_field_value_detection_mechanism(
+        assertion: Assertion,
+        parameters: models.AssertionEvaluationParametersClass,
+    ) -> _DetectionMechanismTypes:
+        """Get the detection mechanism for field value based freshness."""
+        # We know datasetFreshnessParameters is not None from _get_freshness_detection_mechanism check
+        assert parameters.datasetFreshnessParameters is not None
+        field = parameters.datasetFreshnessParameters.field
+
+        if field is None or field.kind is None:
+            logger.warning(
+                f"Monitor does not have valid field info, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+            )
+            return DEFAULT_DETECTION_MECHANISM
+
+        column_name = field.path
+        additional_filter = _AssertionPublic._get_additional_filter(assertion)
+
+        if field.kind == models.FreshnessFieldKindClass.LAST_MODIFIED:
+            return DetectionMechanism.LAST_MODIFIED_COLUMN(
+                column_name=column_name, additional_filter=additional_filter
+            )
+        elif field.kind == models.FreshnessFieldKindClass.HIGH_WATERMARK:
+            return DetectionMechanism.HIGH_WATERMARK_COLUMN(
+                column_name=column_name, additional_filter=additional_filter
+            )
+        else:
+            raise SDKNotYetSupportedError(f"FreshnessFieldKind {field.kind}")
+
+    @staticmethod
+    def _warn_and_return_default_detection_mechanism(
+        monitor: Monitor,
+        field_name: str,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
+        """Helper method to log a warning and return default detection mechanism."""
+        logger.warning(
+            f"Monitor {monitor.urn} does not have an `{field_name}` field, defaulting detection mechanism to {default}"
+        )
+        return default
+
+    @staticmethod
+    def _check_valid_monitor_info(
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[models.AssertionEvaluationParametersClass]:
+        """Check if monitor has valid info and get assertion parameters.
+
+        Returns:
+            The assertion parameters if monitor info is valid, None otherwise.
+        """
+        if not _AssertionPublic._has_valid_monitor_info(monitor):
+            return None
+
+        parameters = _AssertionPublic._get_assertion_parameters(monitor)
+        if parameters is None:
+            return None
+
+        return parameters
+
+    @staticmethod
+    def _get_validated_detection_context(
+        monitor: Monitor,
+        assertion: Assertion,
+        expected_parameters_type: str,
+        expected_info_class: type,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[models.AssertionEvaluationParametersClass]:
+        """
+        Validate and extract the detection context (parameters) for detection mechanism logic.
+        Returns the parameters if all checks pass, otherwise None.
+        """
+        parameters = _AssertionPublic._check_valid_monitor_info(monitor, default)
+        if parameters is None:
+            return None
+        if parameters.type != expected_parameters_type:
+            logger.warning(
+                f"Expected {expected_parameters_type} parameters type, got {parameters.type}, defaulting detection mechanism to {default}"
+            )
+            return None
+        if assertion.info is None:
+            _AssertionPublic._warn_and_return_default_detection_mechanism(
+                monitor, "info", default
+            )
+            return None
+        if not isinstance(assertion.info, expected_info_class):
+            logger.warning(
+                f"Expected {expected_info_class.__name__}, got {type(assertion.info).__name__}, defaulting detection mechanism to {default}"
+            )
+            return None
+        return parameters
+
 
 class SmartFreshnessAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
     """
@@ -662,6 +803,43 @@ class SmartFreshnessAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPu
             tags=cls._get_tags(assertion),
         )
 
+    @staticmethod
+    def _get_detection_mechanism(
+        assertion: Assertion,
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
+        """Get the detection mechanism for freshness assertions."""
+        parameters = _AssertionPublic._get_validated_detection_context(
+            monitor,
+            assertion,
+            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+            models.FreshnessAssertionInfoClass,
+            default,
+        )
+        if parameters is None:
+            return default
+        if parameters.datasetFreshnessParameters is None:
+            logger.warning(
+                f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+            )
+            return default
+        source_type = parameters.datasetFreshnessParameters.sourceType
+        if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
+            return DetectionMechanism.INFORMATION_SCHEMA
+        elif source_type == models.DatasetFreshnessSourceTypeClass.AUDIT_LOG:
+            return DetectionMechanism.AUDIT_LOG
+        elif source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE:
+            return _AssertionPublic._get_field_value_detection_mechanism(
+                assertion, parameters
+            )
+        elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
+            return DetectionMechanism.DATAHUB_OPERATION
+        elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
+            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
+        else:
+            raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
+
 
 class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
     """
@@ -759,6 +937,41 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
             updated_at=cls._get_updated_at(assertion),
             tags=cls._get_tags(assertion),
         )
+
+    @staticmethod
+    def _get_detection_mechanism(
+        assertion: Assertion,
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
+        """Get the detection mechanism for volume assertions."""
+        parameters = _AssertionPublic._get_validated_detection_context(
+            monitor,
+            assertion,
+            models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
+            models.VolumeAssertionInfoClass,
+            default,
+        )
+        if parameters is None:
+            return default
+        if parameters.datasetVolumeParameters is None:
+            logger.warning(
+                f"Monitor does not have datasetVolumeParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+            )
+            if default is None:
+                return DEFAULT_DETECTION_MECHANISM
+            else:
+                return default
+        source_type = parameters.datasetVolumeParameters.sourceType
+        if source_type == models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA:
+            return DetectionMechanism.INFORMATION_SCHEMA
+        elif source_type == models.DatasetVolumeSourceTypeClass.QUERY:
+            additional_filter = _AssertionPublic._get_additional_filter(assertion)
+            return DetectionMechanism.QUERY(additional_filter=additional_filter)
+        elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
+            return DetectionMechanism.DATASET_PROFILE
+        else:
+            raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
 
 
 class FreshnessAssertion(_HasSchedule, _AssertionPublic):
@@ -899,20 +1112,39 @@ class FreshnessAssertion(_HasSchedule, _AssertionPublic):
             tags=cls._get_tags(assertion),
         )
 
-
-class SmartColumnMetricAssertion(_HasSmartFunctionality, _AssertionPublic):
-    """
-    A class that represents a smart column metric assertion.
-    """
-
-    def __init__(self) -> None:
-        raise NotImplementedError("SmartColumnMetricAssertion is not implemented yet")
-
-
-AssertionTypes = Union[
-    SmartFreshnessAssertion,
-    SmartVolumeAssertion,
-    FreshnessAssertion,
-    SmartColumnMetricAssertion,
-    # TODO: Add other assertion types here as we add them.
-]
+    @staticmethod
+    def _get_detection_mechanism(
+        assertion: Assertion,
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
+        """Get the detection mechanism for freshness assertions."""
+        parameters = _AssertionPublic._get_validated_detection_context(
+            monitor,
+            assertion,
+            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+            models.FreshnessAssertionInfoClass,
+            default,
+        )
+        if parameters is None:
+            return default
+        if parameters.datasetFreshnessParameters is None:
+            logger.warning(
+                f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+            )
+            return default
+        source_type = parameters.datasetFreshnessParameters.sourceType
+        if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
+            return DetectionMechanism.INFORMATION_SCHEMA
+        elif source_type == models.DatasetFreshnessSourceTypeClass.AUDIT_LOG:
+            return DetectionMechanism.AUDIT_LOG
+        elif source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE:
+            return _AssertionPublic._get_field_value_detection_mechanism(
+                assertion, parameters
+            )
+        elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
+            return DetectionMechanism.DATAHUB_OPERATION
+        elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
+            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
+        else:
+            raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")

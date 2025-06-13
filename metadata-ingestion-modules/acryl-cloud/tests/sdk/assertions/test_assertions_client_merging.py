@@ -7,7 +7,7 @@ import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud.sdk.assertion import (
+from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     AssertionMode,
     SmartFreshnessAssertion,
 )

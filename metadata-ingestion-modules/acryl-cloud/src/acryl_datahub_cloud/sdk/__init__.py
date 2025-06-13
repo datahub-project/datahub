@@ -1,7 +1,10 @@
-from acryl_datahub_cloud.sdk.assertion import (
+from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     FreshnessAssertion,
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
+)
+from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
+    SmartColumnMetricAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
@@ -17,6 +20,7 @@ from acryl_datahub_cloud.sdk.subscription_client import SubscriptionClient
 __all__ = [
     "SmartFreshnessAssertion",
     "SmartVolumeAssertion",
+    "SmartColumnMetricAssertion",
     "TimeWindowSize",
     "FreshnessAssertion",
     "DetectionMechanism",

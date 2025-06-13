@@ -408,6 +408,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         models.FreshnessAssertionInfoClass,
         models.VolumeAssertionInfoClass,
         models.SqlAssertionInfoClass,
+        models.FieldAssertionInfoClass,
     ]:
         if assertion_info.type not in get_enum_options(models.AssertionTypeClass):
             raise SDKNotYetSupportedError(f"Assertion type: {assertion_info.type}")
@@ -424,5 +425,8 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         elif assertion_info.type == models.AssertionTypeClass.SQL:
             assert assertion_info.sqlAssertion is not None
             return assertion_info.sqlAssertion
+        elif assertion_info.type == models.AssertionTypeClass.FIELD:
+            assert assertion_info.fieldAssertion is not None
+            return assertion_info.fieldAssertion
         else:
             raise AssertionError("Unreachable code, all cases should be handled above")

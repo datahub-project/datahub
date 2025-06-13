@@ -284,6 +284,20 @@ class StubEntityClient(EntityClient):
                         ),
                         nativeDataType="NUMBER",
                     ),
+                    models.SchemaFieldClass(
+                        fieldPath="amount",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.NumberTypeClass()
+                        ),
+                        nativeDataType="NUMBER",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="updated_at",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.DateTypeClass()
+                        ),
+                        nativeDataType="DATE",
+                    ),
                 ],
             )
         elif (

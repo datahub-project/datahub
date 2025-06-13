@@ -44,7 +44,7 @@ DEFAULT_NAME_PREFIX = "New Assertion"
 DEFAULT_NAME_SUFFIX_LENGTH = 8
 
 
-DEFAULT_HOURLY_SCHEDULE = models.CronScheduleClass(
+DEFAULT_HOURLY_SCHEDULE: models.CronScheduleClass = models.CronScheduleClass(
     cron="0 * * * *",  # Every hour, matches the UI default
     timezone=str(
         tzlocal.get_localzone()
@@ -54,6 +54,13 @@ DEFAULT_SCHEDULE: models.CronScheduleClass = DEFAULT_HOURLY_SCHEDULE
 
 DEFAULT_DAILY_SCHEDULE = models.CronScheduleClass(
     cron="0 0 * * *",  # Every day at midnight, matches the UI default
+    timezone=str(
+        tzlocal.get_localzone()
+    ),  # User local timezone, matches the UI default
+)
+
+DEFAULT_EVERY_SIX_HOURS_SCHEDULE = models.CronScheduleClass(
+    cron="0 */6 * * *",  # Every 6 hours, matches the UI default
     timezone=str(
         tzlocal.get_localzone()
     ),  # User local timezone, matches the UI default
@@ -181,7 +188,7 @@ class DetectionMechanism:
     HIGH_WATERMARK_COLUMN = _HighWatermarkColumn
     DATAHUB_OPERATION = _DataHubOperation()
     QUERY = _Query
-    ALL_ROWS_QUERY = _AllRowsQuery()
+    ALL_ROWS_QUERY = _AllRowsQuery
     CHANGED_ROWS_QUERY = _ChangedRowsQuery
     ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE = _AllRowsQueryDataHubDatasetProfile()
     DATASET_PROFILE = _DatasetProfile()
@@ -710,7 +717,7 @@ def _try_parse_and_validate_schema_classes_enum(
     if isinstance(value, enum_class):
         return value
     assert isinstance(value, str)
-    if value not in get_enum_options(enum_class):
+    if value.upper() not in get_enum_options(enum_class):
         raise SDKUsageError(
             f"Invalid value for {enum_class.__name__}: {value}, valid options are {get_enum_options(enum_class)}"
         )

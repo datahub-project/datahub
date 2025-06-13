@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from acryl_datahub_cloud.sdk.assertion import (
+from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SENSITIVITY,

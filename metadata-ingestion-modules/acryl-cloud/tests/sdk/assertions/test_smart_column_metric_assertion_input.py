@@ -6,11 +6,13 @@ from typing import List, Optional, Tuple, Union
 
 import pytest
 
-from acryl_datahub_cloud.sdk.assertion_input.assertion_input import InferenceSensitivity
-from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
-    FIELD_METRIC_TYPE_CONFIG,
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
     DetectionMechanism,
+    InferenceSensitivity,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+    FIELD_METRIC_TYPE_CONFIG,
     _SmartColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (

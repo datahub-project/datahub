@@ -8,15 +8,20 @@ import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud.sdk.assertion import (
+from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     FreshnessAssertion,
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
+)
+from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
+    SmartColumnMetricAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DETECTION_MECHANISM_CONCRETE_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+    DEFAULT_NAME_PREFIX,
     DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
@@ -28,6 +33,14 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
     _SmartVolumeAssertionInput,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+    MetricInputType,
+    OperatorInputType,
+    RangeInputType,
+    RangeTypeInputType,
+    ValueInputType,
+    ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -538,7 +551,7 @@ def _validate_assertion_vs_input(
         assert assertion.display_name == expected_output_params.display_name
     else:
         assert assertion.display_name.startswith(
-            "New Assertion"
+            DEFAULT_NAME_PREFIX
         )  # Generated display name
         assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
     assert isinstance(
@@ -603,7 +616,7 @@ class SmartVolumeAssertionOutputParams:
             ),
             SmartVolumeAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
-                display_name="New Assertion",
+                display_name=DEFAULT_NAME_PREFIX,
                 detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
                 sensitivity=DEFAULT_SENSITIVITY,
                 exclusion_windows=[],
@@ -1284,7 +1297,7 @@ def _validate_volume_assertion_vs_input(
         else:
             # Create case - check for generated display name
             assert assertion.display_name.startswith(
-                "New Assertion"
+                DEFAULT_NAME_PREFIX
             )  # Generated display name
             assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
     assert isinstance(
@@ -1813,3 +1826,487 @@ def _validate_freshness_assertion_vs_input(
         assert assertion.lookback_window == expected_output_params.lookback_window
     else:
         assert assertion.lookback_window is None
+
+
+@dataclass
+class SmartColumnMetricAssertionInputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    column_name: str
+    metric_type: MetricInputType
+    operator: OperatorInputType
+    value: Optional[ValueInputType] = None
+    value_type: Optional[ValueTypeInputType] = None
+    range: Optional[RangeInputType] = None
+    range_type: Optional[RangeTypeInputType] = None
+    display_name: Optional[str] = None
+    detection_mechanism: Optional[DetectionMechanismInputTypes] = None
+    sensitivity: Optional[InferenceSensitivity] = None
+    exclusion_windows: Optional[list[FixedRangeExclusionWindow]] = None
+    training_data_lookback_days: Optional[int] = None
+    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    tags: Optional[TagsInputType] = None
+    updated_by: Optional[CorpUserUrn] = None
+    schedule: Optional[Union[str, models.CronScheduleClass]] = None
+
+
+@dataclass
+class SmartColumnMetricAssertionOutputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    column_name: str
+    metric_type: MetricInputType
+    operator: OperatorInputType
+    value: Optional[str]
+    value_type: Optional[ValueTypeInputType]
+    range: Optional[tuple[str, str]]
+    range_type: Optional[RangeTypeInputType]
+    display_name: str
+    detection_mechanism: _DetectionMechanismTypes
+    sensitivity: InferenceSensitivity
+    exclusion_windows: list[FixedRangeExclusionWindow]
+    training_data_lookback_days: int
+    incident_behavior: list[AssertionIncidentBehavior]
+    tags: TagsInputType
+    created_by: CorpUserUrn
+    created_at: datetime
+    updated_by: CorpUserUrn
+    updated_at: datetime
+    schedule: models.CronScheduleClass
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "input_params, expected_output_params",
+    [
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="100",
+                value_type="number",
+            ),
+            SmartColumnMetricAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="100",
+                value_type="number",
+                range=None,
+                range_type=None,
+                display_name=DEFAULT_NAME_PREFIX,
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=DEFAULT_SENSITIVITY,
+                exclusion_windows=[],
+                training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+                incident_behavior=[],
+                tags=[],
+                created_by=DEFAULT_CREATED_BY,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=DEFAULT_CREATED_BY,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+            ),
+            id="minimal_valid_input_single_value",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="between",
+                range=("0", "100"),
+                range_type=("number", "number"),
+            ),
+            SmartColumnMetricAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="between",
+                value=None,
+                value_type=None,
+                range=("0", "100"),
+                range_type=("number", "number"),
+                display_name=DEFAULT_NAME_PREFIX,
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=DEFAULT_SENSITIVITY,
+                exclusion_windows=[],
+                training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+                incident_behavior=[],
+                tags=[],
+                created_by=DEFAULT_CREATED_BY,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=DEFAULT_CREATED_BY,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+            ),
+            id="minimal_valid_input_range",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="100",
+                value_type="number",
+                display_name="Test Assertion",
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=InferenceSensitivity.LOW,
+                exclusion_windows=[
+                    FixedRangeExclusionWindow(
+                        start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                        end=datetime(2025, 1, 2, tzinfo=timezone.utc),
+                    )
+                ],
+                training_data_lookback_days=30,
+                incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+                tags=["urn:li:tag:my_tag_1"],
+                updated_by=_any_user,
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            SmartColumnMetricAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="100",
+                value_type="number",
+                range=None,
+                range_type=None,
+                display_name="Test Assertion",
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=InferenceSensitivity.LOW,
+                exclusion_windows=[
+                    FixedRangeExclusionWindow(
+                        start=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                        end=datetime(2025, 1, 2, tzinfo=timezone.utc),
+                    )
+                ],
+                training_data_lookback_days=30,
+                incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+                tags=[TagUrn.from_string("urn:li:tag:my_tag_1")],
+                created_by=_any_user,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=_any_user,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            id="full_valid_input_single_value",
+        ),
+    ],
+)
+def test_sync_smart_column_metric_assertion_valid_simple_input(
+    freshness_stub_datahub_client: StubDataHubClient,
+    input_params: SmartColumnMetricAssertionInputParams,
+    expected_output_params: SmartColumnMetricAssertionOutputParams,
+) -> None:
+    # Arrange
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # Act
+    assertion = client.sync_smart_column_metric_assertion(**asdict(input_params))
+
+    # Assert
+    _validate_column_metric_assertion_vs_input(
+        assertion, input_params, expected_output_params
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "detection_mechanism, expected_detection_mechanism",
+    [
+        pytest.param(
+            DetectionMechanism.ALL_ROWS_QUERY(),
+            DetectionMechanism.ALL_ROWS_QUERY(),
+            id="all_rows_query",
+        ),
+        pytest.param(
+            DetectionMechanism.ALL_ROWS_QUERY(additional_filter="amount > 1000"),
+            DetectionMechanism.ALL_ROWS_QUERY(additional_filter="amount > 1000"),
+            id="all_rows_query_with_filter",
+        ),
+        pytest.param(
+            DetectionMechanism.CHANGED_ROWS_QUERY(column_name="updated_at"),
+            DetectionMechanism.CHANGED_ROWS_QUERY(column_name="updated_at"),
+            id="changed_rows_query",
+        ),
+        pytest.param(
+            DetectionMechanism.CHANGED_ROWS_QUERY(
+                column_name="updated_at", additional_filter="amount > 1000"
+            ),
+            DetectionMechanism.CHANGED_ROWS_QUERY(
+                column_name="updated_at", additional_filter="amount > 1000"
+            ),
+            id="changed_rows_query_with_filter",
+        ),
+        pytest.param(
+            DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE,
+            DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE,
+            id="all_rows_query_datahub_dataset_profile",
+        ),
+    ],
+)
+def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_input(
+    freshness_stub_datahub_client: StubDataHubClient,
+    detection_mechanism: DetectionMechanismInputTypes,
+    expected_detection_mechanism: _DetectionMechanismTypes,
+) -> None:
+    # Arrange
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # Act
+    assertion = client.sync_smart_column_metric_assertion(
+        dataset_urn=_any_dataset_urn,
+        column_name="amount",
+        metric_type="null_count",
+        operator="less_than",
+        value=100,
+        value_type="number",
+        detection_mechanism=detection_mechanism,
+    )
+
+    # Assert
+    assert assertion.detection_mechanism == expected_detection_mechanism
+
+
+@pytest.mark.parametrize(
+    "input_params, error_type, expected_error_message",
+    [
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="invalid_metric_type",  # type: ignore[arg-type] # Test invalid input
+                operator="less_than",
+                value=100,
+                value_type="number",
+            ),
+            SDKUsageError,
+            "Invalid value for FieldMetricTypeClass: invalid_metric_type, valid options are",
+            id="invalid_metric_type",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="invalid_operator",  # type: ignore[arg-type] # Test invalid input
+                value=100,
+                value_type="number",
+            ),
+            SDKUsageError,
+            "Invalid value for AssertionStdOperatorClass: invalid_operator, valid options are",
+            id="invalid_operator",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="invalid_value_type",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageError,
+            "Invalid value for AssertionStdParameterTypeClass: invalid_value_type, valid options are",
+            id="invalid_value_type",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="between",
+                range=(0, 100),
+                range_type=("invalid_type", "number"),  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageError,
+            "Invalid value for AssertionStdParameterTypeClass: invalid_type, valid options are",
+            id="invalid_range_type",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                detection_mechanism="invalid_detection_mechanism",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageErrorWithExamples,
+            "Invalid detection mechanism type: invalid_detection_mechanism",
+            id="invalid_detection_mechanism",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                sensitivity="invalid_sensitivity",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageErrorWithExamples,
+            "Invalid inference sensitivity: invalid_sensitivity",
+            id="invalid_sensitivity",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                exclusion_windows="invalid_exclusion_windows",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageErrorWithExamples,
+            "Invalid exclusion window: invalid_exclusion_windows",
+            id="invalid_exclusion_windows",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                training_data_lookback_days=-1,
+            ),
+            SDKUsageError,
+            "Training data lookback days must be non-negative",
+            id="negative_training_data_lookback_days",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                incident_behavior="invalid_incident_behavior",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageErrorWithExamples,
+            "Invalid incident behavior: invalid_incident_behavior",
+            id="invalid_incident_behavior",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                tags="invalid_tags",  # type: ignore[arg-type] # Test invalid input
+            ),
+            InvalidUrnError,
+            "Invalid urn string: invalid_tags. Urns should start with 'urn:li:'",
+            id="invalid_tag_urn",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                updated_by="invalid_updated_by",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SdkUsageError,
+            re.escape(
+                "Invalid actor for last updated tuple, expected 'urn:li:corpuser:*' or 'urn:li:corpGroup:*'"
+            ),
+            id="invalid_created_by_urn",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value=100,
+                value_type="number",
+                schedule="invalid_cron",  # type: ignore[arg-type] # Test invalid input
+            ),
+            SDKUsageError,
+            "Invalid cron expression or timezone: invalid_cron",
+            id="invalid_schedule",
+        ),
+    ],
+)
+def test_sync_smart_column_metric_assertion_invalid_input(
+    freshness_stub_datahub_client: StubDataHubClient,
+    input_params: SmartColumnMetricAssertionInputParams,
+    error_type: Type[Exception],
+    expected_error_message: str,
+) -> None:
+    # Arrange
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # Act & Assert
+    with pytest.raises(error_type, match=expected_error_message):
+        client.sync_smart_column_metric_assertion(**asdict(input_params))
+
+
+def _validate_column_metric_assertion_vs_input(
+    assertion: SmartColumnMetricAssertion,
+    input_params: SmartColumnMetricAssertionInputParams,
+    expected_output_params: SmartColumnMetricAssertionOutputParams,
+) -> None:
+    """Validate that the assertion matches the input parameters and expected output parameters."""
+    assert assertion.dataset_urn == expected_output_params.dataset_urn
+    assert assertion.column_name == expected_output_params.column_name
+    assert (
+        str(assertion.metric_type).upper()
+        if assertion.metric_type is not None
+        else str(expected_output_params.metric_type).upper() is None
+        if expected_output_params.metric_type is not None
+        else None
+    )
+    assert (
+        str(assertion.operator).upper()
+        if assertion.operator is not None
+        else str(expected_output_params.operator).upper() is None
+        if expected_output_params.operator is not None
+        else None
+    )
+    assert assertion.value == expected_output_params.value
+    assert assertion.range == expected_output_params.range
+    if (
+        assertion.range_type is not None
+        and isinstance(assertion.range_type, tuple)
+        and expected_output_params.range_type is not None
+        and isinstance(expected_output_params.range_type, tuple)
+    ):
+        assert [str(val).upper() for val in assertion.range_type] == [
+            str(val).upper() for val in expected_output_params.range_type
+        ]
+    else:
+        assert expected_output_params.range_type is None
+    assert assertion.display_name.startswith(expected_output_params.display_name)
+    assert assertion.detection_mechanism == expected_output_params.detection_mechanism
+    assert assertion.sensitivity == expected_output_params.sensitivity
+    assert assertion.exclusion_windows == expected_output_params.exclusion_windows
+    assert (
+        assertion.training_data_lookback_days
+        == expected_output_params.training_data_lookback_days
+    )
+    assert assertion.incident_behavior == expected_output_params.incident_behavior
+    assert assertion.tags == expected_output_params.tags
+    assert assertion.created_by == expected_output_params.created_by
+    assert assertion.created_at == expected_output_params.created_at
+    assert assertion.updated_by == expected_output_params.updated_by
+    assert assertion.updated_at == expected_output_params.updated_at
+    assert assertion.schedule == expected_output_params.schedule
