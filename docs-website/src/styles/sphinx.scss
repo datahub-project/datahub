@@ -1,30 +1,24 @@
 .sphinx-api-docs {
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 15px;
   color: var(--ifm-font-color-base);
 
   .anchor {
     .visually-hidden {
-      position: absolute;
       clip: rect(0 0 0 0);
       clip-path: inset(50%);
-      height: 1px;
-      width: 1px;
+      height: 10px;
+      width: 3rem;
       overflow: hidden;
       white-space: nowrap;
       padding: 0;
       margin: 0;
     }
-    .hash-link {
-      display: none;
-    }
+    .hash-link { display: none; }
   }
 
   .h3-block {
     border: 1px solid var(--ifm-hr-border-color);
-    border-radius: 6px;
-    padding: 1rem;
-    margin-bottom: 2rem;
+    border-radius: 8px;
     overflow: hidden;
 
     .section-heading {
@@ -32,83 +26,83 @@
       font-family: var(--ifm-font-family-monospace);
       padding: 1rem 1.5rem;
       font-weight: 700;
-      font-size: 1.2rem;
+      font-size: 1rem;
+      border-bottom: 1px solid var(--ifm-hr-border-color);
 
-      .class-text {
-        color: #999;
-        margin-right: 0.3rem;
-      }
-      .class-owner {
-        color: var(--ifm-font-color-secondary);
-      }
-      .class-name {
-        color: var(--ifm-color-primary);
-        font-weight: 700;
-      }
-      .arg-name {
-        color: var(--ifm-font-color-base);
-        font-weight: 600;
-      }
-      .arg-type {
-        color: var(--ifm-color-primary-light);
-      }
-      .arg-default {
-        color: #999;
-        font-weight: 600;
-      }
+      .class-text { color: #aaa; margin-right: 0.3rem; }
+      .class-owner { color: var(--ifm-font-color-secondary); }
+      .class-name { color: var(--ifm-color-primary); font-weight: 700; }
+      .arg-name { color: var(--ifm-font-color-base); font-weight: 600; }
+      .arg-type { color: gray; }
+      .arg-default { color: #999; font-weight: 600; }
     }
 
     p {
-      padding: 0.5rem 1.5rem;
+      padding: 1rem 1.5rem;
     }
 
     h4 {
-      background-color: var(--ifm-code-background);
-      border-radius: 6px;
-      padding: 1rem 1.5rem;
+      background: #FAFAFA;
       font-family: var(--ifm-font-family-monospace);
+      padding: 1rem 1.5rem;
+      margin: 0;
       font-weight: 600;
-      color: var(--ifm-font-color-base);
+      border-top: 1px solid var(--ifm-hr-border-color);
+      border-bottom: 1px solid var(--ifm-hr-border-color);
+      color: #444;  
+    
       em {
-        color: var(--ifm-color-primary);
+        color: gray;
+        font-style: normal; 
       }
     }
+    
 
     ul {
-      margin: 1rem 0;
+      margin: 0;
       padding: 1rem 2rem;
-      background-color: var(--ifm-background-surface-color);
-      border-radius: 8px;
+      background: #FDFDFD;
 
       li {
-        margin-bottom: 0.5rem;
-        strong {
-          display: inline-block;
-          color: var(--ifm-color-primary-darker);
-          min-width: 100px;
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+
+        .param-name {
+          min-width: 160px;
           font-weight: 600;
+          color: var(--ifm-color-primary-darker);
         }
-        ul {
-          margin-top: 0.5rem;
-          padding-left: 1rem;
+
+        .param-type {
+          font-family: var(--ifm-font-family-monospace);
+          font-weight: 400;
+          color: #444;
+          background: #F5F5F5;
+          padding: 0.15rem 0.4rem;
+          border-radius: 4px;
+          margin-left: 0.5rem;
         }
       }
     }
-  }
 
-  li:has(strong:contains("Return type")) {
-    font-style: italic;
-    color: var(--ifm-font-color-secondary);
-  }
+    // pre code block (full examples)
+    pre code, pre code * {
+      color: var(--ifm-font-color-secondary);
+      padding: 1rem;
+      margin: 0;
+      font-size: 0.9rem;
+      overflow-x: auto;
+    }
 
-  em > code {
-    color: #c678dd;
-  }
-
-  code {
-    background-color: var(--ifm-code-background);
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.9em;
+    code {
+      background-color: #F5F5F5;
+      padding: 0.1rem 0.4rem;
+      margin: auto 0.2rem;
+      font-size: 0.9em;
+      border: none;
+      line-height: 1.3;
+      border-radius: 6px;
+    }
   }
 }

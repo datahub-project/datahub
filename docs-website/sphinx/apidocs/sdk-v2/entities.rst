@@ -3,42 +3,27 @@ Entities
 
 The DataHub SDK provides a set of entities that can be used to interact with DataHub's metadata.
 
-Dataset
--------
 
 .. automodule:: datahub.sdk.dataset
-
-Container
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.container
-
-ML Model
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.mlmodel
-
-ML Model Group
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.mlmodelgroup
-
-Dashboard
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.dashboard
-
-Chart
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.chart
-
-DataJob
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.datajob
-
-DataFlow
--------
+   :member-order: alphabetical
 
 .. automodule:: datahub.sdk.dataflow
+   :member-order: alphabetical

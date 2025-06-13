@@ -5,18 +5,14 @@ export default function Root({ children }) {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.hash) {
-        console.log("Hash found:", location.hash);
-        const id = location.hash.replace('#', '');
+    setTimeout(() => {
+      if (location.hash) {
+        const id = decodeURIComponent(location.hash.substring(1));
         const el = document.getElementById(id);
-        console.log("Element:", el);
-      if (el) {
-        setTimeout(() => {
-          el.scrollIntoView({ behavior: 'auto' });
-        }, 0);
+        if (el) el.scrollIntoView();
       }
-    }
-  }, [location]);
+    }, 0);
+  }, []);
 
   return <>{children}</>;
 }
