@@ -565,7 +565,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "MANAGE_DATASET_COL_GLOSSARY_TERMS",
-          "Manage Dataset Column Glossary Terms",
+          "Manage Dataset Column Glossary Term Proposals",
           "The ability to manage column (field) glossary term proposals associated with a dataset schema.");
 
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
@@ -589,7 +589,7 @@ public class PoliciesConfig {
   public static final Privilege PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE =
       Privilege.of(
           "PROPOSE_DATASET_COL_PROPERTIES",
-          "Propose Column Structured Properties",
+          "Propose Dataset Column Structured Properties",
           "The ability to propose new column (field) structured properties associated with a dataset schema.");
 
   public static final Privilege MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE =
