@@ -3,30 +3,48 @@ package datahub.spark.converter;
 import static io.datahubproject.openlineage.utils.DatahubUtils.*;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.TimeStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
+import com.linkedin.dataprocess.DataProcessInstanceInput;
+import com.linkedin.dataprocess.DataProcessInstanceOutput;
+import com.linkedin.dataprocess.DataProcessInstanceProperties;
+import com.linkedin.dataprocess.DataProcessInstanceRelationships;
+import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataprocess.DataProcessInstanceRunResult;
+import com.linkedin.dataprocess.DataProcessRunStatus;
+import com.linkedin.dataprocess.DataProcessType;
+import com.linkedin.dataprocess.RunResultType;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.spark.conf.SparkLineageConf;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.apache.spark.SparkConf;
 import org.apache.spark.sql.streaming.StreamingQueryProgress;
 
 @Slf4j
@@ -43,131 +61,444 @@ public class SparkStreamingEventToDatahub {
       Map<String, MetadataChangeProposalWrapper> schemaMap) {
     List<MetadataChangeProposalWrapper> mcps = new ArrayList<>();
 
-    DataFlowInfo dataFlowInfo = new DataFlowInfo();
-    dataFlowInfo.setName(conf.getOpenLineageConf().getPipelineName());
-    StringMap flowCustomProperties = new StringMap();
+    try {
+      // Validate and log configuration status
+      if (conf == null) {
+        log.error("SparkLineageConf is null, cannot generate MCPs for streaming event");
+        return mcps;
+      }
 
-    Long appStartTime;
-    if (conf.getSparkAppContext() != null) {
-      appStartTime = conf.getSparkAppContext().getStartTime();
-      if (appStartTime != null) {
-        flowCustomProperties.put("createdAt", appStartTime.toString());
-        flowCustomProperties.put("id", event.id().toString());
-        dataFlowInfo.setCreated(new TimeStamp().setTime(appStartTime));
+      if (conf.getSparkAppContext() == null) {
+        log.warn(
+            "SparkAppContext is null in SparkLineageConf - some features may not work properly");
+      } else {
+        // Log SparkConf status to help with debugging
+        if (conf.getSparkAppContext().getConf() == null) {
+          log.warn("SparkConf is null in SparkAppContext - Databricks detection will be disabled");
+        } else {
+          log.debug(
+              "SparkConf is available with {} settings",
+              conf.getSparkAppContext().getConf().getAll().length);
+        }
+      }
+
+      // Get application/flow name - this should be consistent with batch mode
+      // Check if there's a configured pipeline name first (just like in batch mode)
+      String flowName = conf.getOpenLineageConf().getPipelineName();
+      if (flowName == null || flowName.trim().isEmpty()) {
+        // If no explicit pipeline name, use application name or cluster ID
+        // This ensures the flow is consistent across streaming and batch
+        flowName = determineFlowName(conf);
+      }
+
+      // Log the flow name for debugging
+      log.info("Using flow name '{}' for streaming query {}", flowName, event.id());
+
+      // Now determine a job name that will be consistent across runs
+      String jobName = determineStreamingJobName(event, conf);
+
+      // The pipeline name should combine flow and job in a way consistent with batch mode
+      String pipelineName;
+      if (flowName != null && !flowName.isEmpty() && !flowName.equals("default")) {
+        pipelineName = String.format("%s.%s", flowName, jobName);
+      } else {
+        // If flowName is "default" or empty, just use jobName to keep URNs simpler
+        pipelineName = jobName;
+      }
+
+      log.info(
+          "Using flowName: {}, jobName: {}, pipelineName: {}", flowName, jobName, pipelineName);
+
+      DataFlowInfo dataFlowInfo = new DataFlowInfo();
+      dataFlowInfo.setName(flowName);
+      dataFlowInfo.setDescription("Spark Streaming Flow: " + flowName);
+
+      StringMap flowCustomProperties = new StringMap();
+
+      Long appStartTime;
+      if (conf.getSparkAppContext() != null) {
+        appStartTime = conf.getSparkAppContext().getStartTime();
+        if (appStartTime != null) {
+          flowCustomProperties.put("createdAt", appStartTime.toString());
+          flowCustomProperties.put("id", event.id().toString());
+          dataFlowInfo.setCreated(new TimeStamp().setTime(appStartTime));
+        }
+      }
+
+      flowCustomProperties.put("plan", event.json());
+      dataFlowInfo.setCustomProperties(flowCustomProperties);
+
+      // Use the same flow creation logic as batch mode
+      DataFlowUrn flowUrn;
+      if (conf.getSparkAppContext() != null && conf.getSparkAppContext().getAppId() != null) {
+        // Extract cluster/namespace from the conf
+        String namespace = conf.getSparkAppContext().getAppId();
+
+        // For Databricks, try to get a stable namespace
+        String platformInstance = "default";
+        if (isDatabricksEnvironment(conf)) {
+          String dbPlatformInstance = extractDatabricksPlatformInstance(conf);
+          if (dbPlatformInstance != null && !dbPlatformInstance.isEmpty()) {
+            platformInstance = dbPlatformInstance;
+          }
+        }
+
+        // Create the flow URN using the same pattern as batch mode (platform, flowName,
+        // platformInstance)
+        flowUrn = new DataFlowUrn("spark", flowName, platformInstance);
+      } else {
+        // Fallback to simpler URN creation if app context isn't available
+        flowUrn = createValidFlowUrn(conf, event, flowName);
+      }
+
+      log.debug(
+          "Creating streaming flow URN with namespace: {}, name: {}",
+          flowUrn.getOrchestratorEntity(),
+          flowUrn.getFlowIdEntity());
+
+      MetadataChangeProposalWrapper dataflowMcp =
+          MetadataChangeProposalWrapper.create(
+              b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(dataFlowInfo));
+      mcps.add(dataflowMcp);
+
+      // Create the job URN using the same flow URN as above
+      DataJobUrn jobUrn = jobUrn(flowUrn, jobName);
+
+      DataJobInfo dataJobInfo = new DataJobInfo();
+      dataJobInfo.setName(jobName);
+      dataJobInfo.setType(DataJobInfo.Type.create("SPARK"));
+      dataJobInfo.setDescription("Spark Streaming Job: " + jobName);
+
+      StringMap jobCustomProperties = new StringMap();
+      jobCustomProperties.put("batchId", Long.toString(event.batchId()));
+      jobCustomProperties.put("inputRowsPerSecond", Double.toString(event.inputRowsPerSecond()));
+      jobCustomProperties.put(
+          "processedRowsPerSecond", Double.toString(event.processedRowsPerSecond()));
+      jobCustomProperties.put("numInputRows", Long.toString(event.numInputRows()));
+      dataJobInfo.setCustomProperties(jobCustomProperties);
+
+      MetadataChangeProposalWrapper dataJobMcp =
+          MetadataChangeProposalWrapper.create(
+              b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(dataJobInfo));
+      mcps.add(dataJobMcp);
+
+      DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+
+      JsonElement root = new JsonParser().parse(event.json());
+      DatasetUrnArray inputDatasetUrnArray = new DatasetUrnArray();
+
+      try {
+        if (root.getAsJsonObject().has("sources")
+            && root.getAsJsonObject().get("sources").isJsonArray()) {
+          for (JsonElement source : root.getAsJsonObject().get("sources").getAsJsonArray()) {
+            try {
+              if (source.isJsonObject() && source.getAsJsonObject().has("description")) {
+                String description = source.getAsJsonObject().get("description").getAsString();
+                Optional<DatasetUrn> urn =
+                    SparkStreamingEventToDatahub.generateUrnFromStreamingDescription(
+                        description, conf);
+                if (urn.isPresent()) {
+                  if (inputDatasetUrnArray.contains(urn.get())) {
+                    log.debug("We already have dataset {} in the list, skipping it.", urn.get());
+                    continue;
+                  }
+
+                  inputDatasetUrnArray.add(urn.get());
+                  if (conf.getOpenLineageConf().isMaterializeDataset()) {
+                    MetadataChangeProposalWrapper datasetMcp = generateDatasetMcp(urn.get());
+                    mcps.add(datasetMcp);
+                    if (conf.getOpenLineageConf().isIncludeSchemaMetadata()
+                        && schemaMap.containsKey(urn.get().toString())) {
+                      mcps.add(schemaMap.get(urn.get().toString()));
+                    }
+                  }
+                }
+              }
+            } catch (Exception e) {
+              log.warn("Error processing source element: {}", e.getMessage());
+              // Continue with next source
+            }
+          }
+        }
+      } catch (Exception e) {
+        log.warn("Error processing sources array: {}", e.getMessage());
+      }
+
+      DatasetUrnArray outputDatasetUrnArray = new DatasetUrnArray();
+      try {
+        if (root.getAsJsonObject().has("sink")) {
+          JsonObject sink = root.getAsJsonObject().get("sink").getAsJsonObject();
+
+          // Add detailed logging about the sink structure
+          log.info("Processing streaming sink: {}", sink);
+
+          if (sink.has("description")) {
+            String sinkDescription = sink.get("description").getAsString();
+            log.info("Found sink description: '{}'", sinkDescription);
+
+            // Check if this might be a merge operation by examining the query JSON
+            String operation = detectOperationType(root);
+            log.info("Detected operation type: {}", operation);
+
+            if (operation.contains("merge")) {
+              log.info("This appears to be a merge operation - special handling may be needed");
+              // For debugging, log the entire query plan
+              log.info("Full query plan JSON for merge operation: {}", event.json());
+            }
+
+            Optional<DatasetUrn> urn =
+                SparkStreamingEventToDatahub.generateUrnFromStreamingDescription(
+                    sinkDescription, conf);
+
+            if (urn.isPresent()) {
+              log.info("Successfully generated sink URN: {}", urn.get());
+              MetadataChangeProposalWrapper datasetMcp = generateDatasetMcp(urn.get());
+              outputDatasetUrnArray.add(urn.get());
+              mcps.add(datasetMcp);
+              if (conf.getOpenLineageConf().isIncludeSchemaMetadata()
+                  && schemaMap.containsKey(urn.get().toString())) {
+                mcps.add(schemaMap.get(urn.get().toString()));
+              }
+            } else {
+              log.warn("Failed to generate URN from sink description: '{}'", sinkDescription);
+            }
+          } else {
+            log.warn("Sink object does not contain a 'description' field: {}", sink);
+          }
+        } else {
+          log.warn("No 'sink' object found in streaming query JSON");
+        }
+      } catch (Exception e) {
+        log.warn("Error processing sink element: {}", e.getMessage(), e);
+      }
+
+      dataJobInputOutput.setInputDatasets(inputDatasetUrnArray);
+      dataJobInputOutput.setOutputDatasets(outputDatasetUrnArray);
+
+      MetadataChangeProposalWrapper inputOutputMcp =
+          MetadataChangeProposalWrapper.create(
+              b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(dataJobInputOutput));
+
+      mcps.add(inputOutputMcp);
+    } catch (Exception e) {
+      log.error("Unexpected error processing streaming event: {}", e.getMessage(), e);
+      // Return any MCPs we managed to create before the error
+      if (mcps.isEmpty()) {
+        log.warn("No metadata could be extracted from streaming event due to errors");
+      } else {
+        log.info("Returning {} MCPs that were successfully created before error", mcps.size());
       }
     }
 
-    flowCustomProperties.put("plan", event.json());
-    dataFlowInfo.setCustomProperties(flowCustomProperties);
+    return mcps;
+  }
 
-    DataFlowUrn flowUrn =
-        flowUrn(
-            conf.getOpenLineageConf().getPlatformInstance(),
-            conf.getOpenLineageConf().getPipelineName());
-    MetadataChangeProposalWrapper dataflowMcp =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(dataFlowInfo));
-    mcps.add(dataflowMcp);
-
-    DataJobInfo dataJobInfo = new DataJobInfo();
-    dataJobInfo.setName(conf.getOpenLineageConf().getPipelineName());
-    dataJobInfo.setType(DataJobInfo.Type.create("SPARK"));
-
-    StringMap jobCustomProperties = new StringMap();
-    jobCustomProperties.put("batchId", Long.toString(event.batchId()));
-    jobCustomProperties.put("inputRowsPerSecond", Double.toString(event.inputRowsPerSecond()));
-    jobCustomProperties.put(
-        "processedRowsPerSecond", Double.toString(event.processedRowsPerSecond()));
-    jobCustomProperties.put("numInputRows", Long.toString(event.numInputRows()));
-    dataJobInfo.setCustomProperties(jobCustomProperties);
-
-    DataJobUrn jobUrn = jobUrn(flowUrn, conf.getOpenLineageConf().getPipelineName());
-    MetadataChangeProposalWrapper dataJobMcp =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(dataJobInfo));
-    mcps.add(dataJobMcp);
-
-    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
-
-    JsonElement root = new JsonParser().parse(event.json());
-    DatasetUrnArray inputDatasetUrnArray = new DatasetUrnArray();
-    for (JsonElement source : root.getAsJsonObject().get("sources").getAsJsonArray()) {
-      String description = source.getAsJsonObject().get("description").getAsString();
-      Optional<DatasetUrn> urn =
-          SparkStreamingEventToDatahub.generateUrnFromStreamingDescription(description, conf);
-      if (urn.isPresent()) {
-        if (inputDatasetUrnArray.contains(urn.get())) {
-          log.debug("We already have dataset {} in the list, skipping it.", urn.get());
-          continue;
+  /**
+   * Determines a flow name that will be consistent with batch mode. This ensures the flow URN is
+   * the same whether in streaming or batch mode.
+   */
+  private static String determineFlowName(SparkLineageConf conf) {
+    try {
+      // Try to get app name or app ID first
+      if (conf.getSparkAppContext() != null) {
+        if (conf.getSparkAppContext().getAppName() != null
+            && !conf.getSparkAppContext().getAppName().isEmpty()) {
+          return conf.getSparkAppContext().getAppName();
+        } else if (conf.getSparkAppContext().getAppId() != null) {
+          // Extract app name part from app ID
+          String appId = conf.getSparkAppContext().getAppId();
+          if (appId.contains(".")) {
+            return appId.substring(0, appId.indexOf('.'));
+          }
+          return appId;
         }
-        inputDatasetUrnArray.add(urn.get());
-        if (conf.getOpenLineageConf().isMaterializeDataset()) {
-          MetadataChangeProposalWrapper datasetMcp = generateDatasetMcp(urn.get());
-          mcps.add(datasetMcp);
-          if (conf.getOpenLineageConf().isIncludeSchemaMetadata()
-              && schemaMap.containsKey(urn.get().toString())) {
-            mcps.add(schemaMap.get(urn.get().toString()));
+      }
+
+      // If in Databricks, try to get a stable identifier
+      if (isDatabricksEnvironment(conf)) {
+        if (conf.getSparkAppContext() != null && conf.getSparkAppContext().getConf() != null) {
+          SparkConf sparkConf = conf.getSparkAppContext().getConf();
+
+          // Try notebook path - often a good identifier in Databricks
+          if (sparkConf.contains("spark.databricks.notebook.path")) {
+            String notebookPath = sparkConf.get("spark.databricks.notebook.path");
+            // Extract notebook name without path
+            if (notebookPath.contains("/")) {
+              return notebookPath.substring(notebookPath.lastIndexOf('/') + 1);
+            }
+            return notebookPath;
+          }
+
+          // Try to get cluster or job info
+          if (sparkConf.contains("spark.databricks.clusterUsageTags.clusterId")) {
+            return sparkConf.get("spark.databricks.clusterUsageTags.clusterId");
           }
         }
       }
-    }
 
-    DatasetUrnArray outputDatasetUrnArray = new DatasetUrnArray();
-    String sinkDescription =
-        root.getAsJsonObject().get("sink").getAsJsonObject().get("description").getAsString();
-    Optional<DatasetUrn> urn =
-        SparkStreamingEventToDatahub.generateUrnFromStreamingDescription(sinkDescription, conf);
-    if (urn.isPresent()) {
-      MetadataChangeProposalWrapper datasetMcp = generateDatasetMcp(urn.get());
-      outputDatasetUrnArray.add(urn.get());
-      mcps.add(datasetMcp);
-      if (conf.getOpenLineageConf().isIncludeSchemaMetadata()
-          && schemaMap.containsKey(urn.get().toString())) {
-        mcps.add(schemaMap.get(urn.get().toString()));
+      // Default fallback - use "default" to match SparkConfigParser.getSparkAppName behavior
+      log.info("No app name found, using 'default' (matching SparkConfigParser behavior)");
+      return "default";
+    } catch (Exception e) {
+      log.warn("Error determining flow name: {}", e.getMessage());
+      // Default to "default" to match SparkConfigParser
+      return "default";
+    }
+  }
+
+  /**
+   * Determines a job name that will be consistent across runs. This focuses on the specific
+   * streaming operation rather than the application.
+   */
+  private static String determineStreamingJobName(
+      StreamingQueryProgress event, SparkLineageConf conf) {
+    try {
+      // First check if the query has a name - this is the most stable identifier
+      if (event.name() != null && !event.name().isEmpty()) {
+        return event.name();
       }
+
+      // Parse the streaming query JSON to extract more details
+      JsonElement root = new JsonParser().parse(event.json());
+
+      // Get sink information to identify the target
+      String sinkType = null;
+      String sinkPath = null;
+      if (root.getAsJsonObject().has("sink")) {
+        JsonObject sink = root.getAsJsonObject().get("sink").getAsJsonObject();
+        if (sink.has("description")) {
+          String sinkDescription = sink.get("description").getAsString();
+          sinkType = sinkDescription.split("\\[")[0];
+          sinkPath = StringUtils.substringBetween(sinkDescription, "[", "]");
+        }
+      }
+
+      // Extract table name for better identification
+      String tableName = extractTableNameFromPath(sinkPath);
+
+      // Get operation type (e.g., "write", "merge")
+      String operation = detectOperationType(root);
+
+      // Build a consistent job name
+      if (tableName != null) {
+        return String.format("%s_%s_%s", operation, sinkType, tableName.replace(".", "_"));
+      } else if (sinkType != null && sinkPath != null) {
+        // Create a hash of the path for stability across runs
+        String pathHash = String.valueOf(Math.abs(sinkPath.hashCode() % 10000));
+        return String.format("%s_%s_%s", operation, sinkType, pathHash);
+      }
+
+      // Fallback to query ID - less ideal but still consistent for a given query
+      return "streaming_query_" + event.id();
+
+    } catch (Exception e) {
+      log.warn("Error determining job name: {}", e.getMessage());
+      // Use query ID as fallback
+      return "streaming_query_" + event.id();
+    }
+  }
+
+  /** Extracts a table name from a path if possible. */
+  private static String extractTableNameFromPath(String path) {
+    if (path == null) {
+      return null;
     }
 
-    dataJobInputOutput.setInputDatasets(inputDatasetUrnArray);
-    dataJobInputOutput.setOutputDatasets(outputDatasetUrnArray);
-
-    MetadataChangeProposalWrapper inputOutputMcp =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType("dataJob").entityUrn(jobUrn).upsert().aspect(dataJobInputOutput));
-
-    mcps.add(inputOutputMcp);
-    return (mcps);
+    try {
+      // For Delta tables, the path often contains the table name
+      if (path.contains("/tables/")) {
+        String[] parts = path.split("/tables/");
+        if (parts.length > 1) {
+          return parts[1].replace("/", ".");
+        }
+      }
+      // For warehouse paths - extract DB and table name
+      else if (path.contains("/warehouse/")) {
+        // Look for the pattern /warehouse/db.db/table/
+        if (path.contains(".db/")) {
+          int dbIndex = path.lastIndexOf(".db/");
+          if (dbIndex > 0) {
+            String dbName = path.substring(path.lastIndexOf("/warehouse/") + 11, dbIndex);
+            String tableNamePart = path.substring(dbIndex + 4).replaceAll("/+$", "");
+            return dbName + "." + tableNamePart;
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error extracting table name from path: {}", e.getMessage());
+    }
+    return null;
   }
 
   public static Optional<DatasetUrn> generateUrnFromStreamingDescription(
       String description, SparkLineageConf sparkLineageConf) {
-    String pattern = "(.*?)\\[(.*)]";
-    Pattern r = Pattern.compile(pattern);
-    Matcher m = r.matcher(description);
-    if (m.find()) {
-      String namespace = m.group(1);
-      String platform = getDatahubPlatform(namespace);
-      String path = m.group(2);
-      log.debug("Streaming description Platform: {}, Path: {}", platform, path);
-      if (platform.equals(KAFKA_PLATFORM)) {
-        path = getKafkaTopicFromPath(m.group(2));
-      } else if (platform.equals(FILE_PLATFORM) || platform.equals(DELTA_LAKE_PLATFORM)) {
-        try {
-          DatasetUrn urn =
-              HdfsPathDataset.create(new URI(path), sparkLineageConf.getOpenLineageConf()).urn();
-          return Optional.of(urn);
-        } catch (InstantiationException e) {
-          return Optional.empty();
-        } catch (URISyntaxException e) {
-          log.error("Failed to parse path {}", path, e);
-          return Optional.empty();
-        }
+    try {
+      // Special handling for ForeachBatchSink
+      if ("ForeachBatchSink".equals(description)) {
+        log.info(
+            "Found ForeachBatchSink - this represents custom processing logic, not a real dataset");
+        // For ForeachBatchSink, we don't create a dataset URN as it's not a real dataset
+        // Instead, we return empty to indicate no dataset should be created
+        return Optional.empty();
       }
-      return Optional.of(
-          new DatasetUrn(
-              new DataPlatformUrn(platform),
-              path,
-              sparkLineageConf.getOpenLineageConf().getFabricType()));
-    } else {
+
+      String pattern = "(.*?)\\[(.*)]";
+      Pattern r = Pattern.compile(pattern);
+      Matcher m = r.matcher(description);
+      if (m.find()) {
+        String namespace = m.group(1);
+        String path = m.group(2);
+        log.debug("Extracted namespace: {}, path: {} from streaming description", namespace, path);
+
+        // Check if the path looks like an S3 path regardless of namespace
+        if (path.startsWith("s3://") || path.startsWith("s3a://") || path.startsWith("s3n://")) {
+          log.info("Detected S3 path: {} in namespace: {}, using HdfsPathDataset", path, namespace);
+          try {
+            // Use HdfsPathDataset to correctly detect S3 platform
+            DatasetUrn urn =
+                HdfsPathDataset.create(new URI(path), sparkLineageConf.getOpenLineageConf()).urn();
+            log.info("Generated S3 URN: {}", urn);
+            return Optional.of(urn);
+          } catch (InstantiationException e) {
+            log.warn(
+                "InstantiationException when creating HdfsPathDataset for S3: {}", e.getMessage());
+          } catch (URISyntaxException e) {
+            log.warn("Failed to parse S3 path {}: {}", path, e.getMessage());
+          }
+        }
+
+        // Standard platform determination
+        String platform = getDatahubPlatform(namespace);
+        log.debug("Streaming description Platform: {}, Path: {}", platform, path);
+
+        if (platform.equals(KAFKA_PLATFORM)) {
+          path = getKafkaTopicFromPath(m.group(2));
+        } else if (platform.equals(FILE_PLATFORM) || platform.equals(DELTA_LAKE_PLATFORM)) {
+          try {
+            DatasetUrn urn =
+                HdfsPathDataset.create(new URI(path), sparkLineageConf.getOpenLineageConf()).urn();
+            return Optional.of(urn);
+          } catch (InstantiationException e) {
+            log.warn("InstantiationException when creating HdfsPathDataset: {}", e.getMessage());
+            return Optional.empty();
+          } catch (URISyntaxException e) {
+            log.warn("Failed to parse path {}: {}", path, e.getMessage());
+            return Optional.empty();
+          }
+        }
+
+        return Optional.of(
+            new DatasetUrn(
+                new DataPlatformUrn(platform),
+                path,
+                sparkLineageConf.getOpenLineageConf().getFabricType()));
+      } else {
+        log.debug("No match found in description: {}", description);
+        return Optional.empty();
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Error generating URN from streaming description '{}': {}", description, e.getMessage());
       return Optional.empty();
     }
   }
@@ -177,6 +508,7 @@ public class SparkStreamingEventToDatahub {
       case "KafkaV2":
         return "kafka";
       case "DeltaSink":
+      case "DeltaSource": // Add DeltaSource to the delta-lake mapping
         return "delta-lake";
       case "CloudFilesSource":
         return "dbfs";
@@ -184,11 +516,523 @@ public class SparkStreamingEventToDatahub {
       case "FileStreamSource":
         return "file";
       default:
+        log.debug("Unrecognized namespace '{}', using as platform", namespace);
         return namespace;
     }
   }
 
   public static String getKafkaTopicFromPath(String path) {
     return StringUtils.substringBetween(path, "[", "]");
+  }
+
+  /**
+   * Creates a valid DataFlowUrn with fallbacks to prevent null parameters. Uses information from
+   * OpenLineage and Spark where available, ensuring consistency with batch mode.
+   */
+  private static DataFlowUrn createValidFlowUrn(
+      SparkLineageConf conf, StreamingQueryProgress event, String pipelineName) {
+
+    // Validate platform instance - this is critical for consistent URNs between batch and streaming
+    String platformInstance = "default";
+
+    // First try to get platformInstance from the config context
+    if (conf.getSparkAppContext() != null && conf.getSparkAppContext().getAppId() != null) {
+      platformInstance = conf.getSparkAppContext().getAppId();
+      log.info("Using appId as platformInstance: {}", platformInstance);
+    } else if (conf.getSparkAppContext() != null && conf.getSparkAppContext().getConf() != null) {
+      // Fall back to spark.master if appId isn't available
+      platformInstance = conf.getSparkAppContext().getConf().get("spark.master", "default");
+      log.info("Using spark.master as platformInstance: {}", platformInstance);
+    } else {
+      // Try OpenLineageConf platformInstance as the last fallback
+      String olPlatformInstance = getOpenLineagePlatformInstance(conf);
+      if (!StringUtils.isBlank(olPlatformInstance)) {
+        platformInstance = olPlatformInstance;
+        log.info("Using platformInstance from OpenLineageConf: {}", platformInstance);
+      } else {
+        log.info("Using default platformInstance: {}", platformInstance);
+      }
+    }
+
+    // Process platformInstance string the same way as LineageUtils.flowUrn
+    platformInstance =
+        platformInstance.replaceAll(":", "_").replaceAll("/", "_").replaceAll("[_]+", "_");
+
+    // Validate pipeline name - ensure we're consistent with SparkConfigParser behavior
+    if (StringUtils.isBlank(pipelineName)) {
+      log.warn(
+          "Pipeline name is null or empty, using 'default' as fallback (matching SparkConfigParser)");
+      pipelineName = "default";
+    }
+
+    return new DataFlowUrn("spark", pipelineName, platformInstance);
+  }
+
+  /**
+   * Safely extracts the platform instance from OpenLineage configuration. Uses direct access and
+   * avoids reflection when possible.
+   */
+  private static String getOpenLineagePlatformInstance(SparkLineageConf conf) {
+    if (conf == null || conf.getOpenLineageConf() == null) {
+      return null;
+    }
+
+    try {
+      // Direct method call without reflection
+      return conf.getOpenLineageConf().getPlatformInstance();
+    } catch (Exception e) {
+      log.warn("Error accessing platform instance via OpenLineage configuration", e);
+      return null;
+    }
+  }
+
+  /** Checks if the current environment is Databricks. */
+  private static boolean isDatabricksEnvironment(SparkLineageConf conf) {
+    if (conf.getSparkAppContext() == null || conf.getSparkAppContext().getConf() == null) {
+      return false;
+    }
+
+    // Check for Databricks-specific properties
+    boolean hasDbProperty =
+        conf.getSparkAppContext().getConf().contains("spark.databricks.clusterUsageTags.clusterId");
+
+    // Check for DATABRICKS_RUNTIME_VERSION env var
+    String dbRuntime = System.getenv("DATABRICKS_RUNTIME_VERSION");
+    boolean hasDbEnv = dbRuntime != null && !dbRuntime.isEmpty();
+
+    return hasDbProperty || hasDbEnv;
+  }
+
+  /**
+   * Extracts Databricks-specific information to create a detailed platform instance. Focuses on
+   * stable identifiers that remain constant across runs of the same job.
+   */
+  private static String extractDatabricksPlatformInstance(SparkLineageConf conf) {
+    StringBuilder platformBuilder = new StringBuilder("databricks");
+
+    // Check if SparkConf is available
+    if (conf.getSparkAppContext() == null || conf.getSparkAppContext().getConf() == null) {
+      return platformBuilder.toString();
+    }
+
+    // Try to get workspace ID - this is stable across all runs in the same workspace
+    String workspaceId =
+        conf.getSparkAppContext().getConf().get("spark.databricks.workspaceId", "");
+    if (!workspaceId.isEmpty()) {
+      platformBuilder.append("_ws_").append(workspaceId);
+    }
+
+    // Check if it's a job cluster
+    String clusterTags =
+        conf.getSparkAppContext()
+            .getConf()
+            .get("spark.databricks.clusterUsageTags.clusterAllTags", "");
+    if (clusterTags.contains("JobId:")) {
+      // This is a job cluster - try to get the job definition ID (not the run ID)
+      // In Databricks, jobId refers to the job definition, which is stable
+      Pattern jobIdPattern = Pattern.compile("JobId:(\\d+)");
+      Matcher matcher = jobIdPattern.matcher(clusterTags);
+      if (matcher.find()) {
+        String jobId = matcher.group(1);
+        platformBuilder.append("_job_").append(jobId);
+
+        // Try to extract the job name if available, which is more stable than cluster ID
+        // for job clusters (which are ephemeral)
+        String jobName = extractJobNameFromTags(clusterTags);
+        if (jobName != null && !jobName.isEmpty()) {
+          // Sanitize job name to be URN-safe
+          jobName = jobName.replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
+          platformBuilder.append("_").append(jobName);
+        }
+      }
+    } else {
+      // This is a permanent cluster, so the cluster ID is a stable identifier
+      String clusterId =
+          conf.getSparkAppContext()
+              .getConf()
+              .get("spark.databricks.clusterUsageTags.clusterId", "");
+      if (!clusterId.isEmpty()) {
+        // Use just the first part of the cluster ID to keep it shorter
+        if (clusterId.length() > 8) {
+          clusterId = clusterId.substring(0, 8);
+        }
+        platformBuilder.append("_cluster_").append(clusterId);
+      }
+    }
+
+    return platformBuilder.toString();
+  }
+
+  /** Attempts to extract a job name from Databricks cluster tags. */
+  private static String extractJobNameFromTags(String clusterTags) {
+    // Look for JobName tag in cluster tags
+    Pattern jobNamePattern = Pattern.compile("JobName:([^,]+)");
+    Matcher matcher = jobNamePattern.matcher(clusterTags);
+    if (matcher.find()) {
+      return matcher.group(1);
+    }
+
+    // Alternative approach: check for notebook path which is often part of the job
+    Pattern notebookPattern = Pattern.compile("NotebookPath:([^,]+)");
+    matcher = notebookPattern.matcher(clusterTags);
+    if (matcher.find()) {
+      String notebookPath = matcher.group(1);
+      // Extract just the notebook name from the path
+      int lastSlash = notebookPath.lastIndexOf("/");
+      if (lastSlash >= 0 && lastSlash < notebookPath.length() - 1) {
+        return notebookPath.substring(lastSlash + 1);
+      }
+      return notebookPath;
+    }
+
+    return null;
+  }
+
+  /** Attempts to detect the operation type from the query JSON. */
+  private static String detectOperationType(JsonElement root) {
+    try {
+      // Check if query JSON contains hints about the operation
+      if (root.getAsJsonObject().has("sink")) {
+        JsonObject sink = root.getAsJsonObject().get("sink").getAsJsonObject();
+
+        // Check sink description for operation hints
+        if (sink.has("description")) {
+          String desc = sink.get("description").getAsString().toLowerCase();
+
+          // Special handling for ForeachBatchSink
+          if (desc.equals("foreachbatchsink")) {
+            log.info("Detected ForeachBatchSink operation");
+            return "foreachBatch";
+          }
+
+          if (desc.contains("merge") || desc.contains("delta")) {
+            // Look for specific MERGE operation in JSON
+            String json = root.toString().toLowerCase();
+            if (json.contains("mergeinto") || json.contains("merge into")) {
+              log.info("Detected MERGE operation from JSON content");
+              return "merge_into";
+            } else if (json.contains("delta")) {
+              log.info("Delta operation detected, checking for specific operation type");
+              // Delta operations might not explicitly say "merge" but could be doing merges
+              if (desc.contains("delta") && desc.contains("sink")) {
+                return "delta_write";
+              }
+            }
+          }
+          if (desc.contains("append")) return "append";
+          if (desc.contains("overwrite")) return "overwrite";
+          if (desc.contains("update")) return "update";
+          if (desc.contains("delete")) return "delete";
+        }
+      }
+
+      // Default to "write" if we can't detect a specific operation
+      return "write";
+    } catch (Exception e) {
+      log.warn("Error detecting operation type: {}", e.getMessage());
+      return "stream";
+    }
+  }
+
+  /** Generate MCPs for a streaming query with explicitly provided input and output datasets. */
+  public static List<MetadataChangeProposalWrapper> generateMcpFromStreamingProgressEvent(
+      StreamingQueryProgress event,
+      SparkLineageConf conf,
+      Map<String, MetadataChangeProposalWrapper> schemaMap,
+      Set<DatasetUrn> inputDatasets,
+      Set<DatasetUrn> outputDatasets,
+      String operation) {
+
+    List<MetadataChangeProposalWrapper> mcps = new ArrayList<>();
+
+    try {
+      // First generate the standard data job MCPs
+      mcps.addAll(generateMcpFromStreamingProgressEvent(event, conf, schemaMap));
+
+      // Skip DataProcessInstance generation if the feature is disabled
+      if (conf.getOpenLineageConf() != null
+          && !conf.getOpenLineageConf().isEmitDataProcessInstance()) {
+        log.info("DataProcessInstance emission is disabled in config, skipping...");
+        return mcps;
+      }
+
+      // We need to find the DataJobUrn that was created
+      String flowName = conf.getOpenLineageConf().getPipelineName();
+      if (flowName == null || flowName.trim().isEmpty()) {
+        flowName = determineFlowName(conf);
+      }
+
+      // Log the flow name for debugging
+      log.info("Using flow name '{}' for DataProcessInstance generation", flowName);
+
+      String jobName = determineStreamingJobName(event, conf);
+
+      // Create flow URN
+      DataFlowUrn flowUrn;
+      if (conf.getSparkAppContext() != null && conf.getSparkAppContext().getAppId() != null) {
+        String platformInstance = "default";
+        if (isDatabricksEnvironment(conf)) {
+          String dbPlatformInstance = extractDatabricksPlatformInstance(conf);
+          if (dbPlatformInstance != null && !dbPlatformInstance.isEmpty()) {
+            platformInstance = dbPlatformInstance;
+          }
+        }
+        flowUrn = new DataFlowUrn("spark", flowName, platformInstance);
+      } else {
+        flowUrn = createValidFlowUrn(conf, event, flowName);
+      }
+
+      // If we have outputs, create two separate jobs: one for query and one for sink
+      if (!outputDatasets.isEmpty()) {
+        // Create a job URN for the streaming query
+        DataJobUrn queryJobUrn = jobUrn(flowUrn, jobName);
+
+        // Create a descriptive sink job name based on operation and target
+        String sinkJobName = operation + "_sink";
+        // Try to get a more specific name from the output dataset
+        for (DatasetUrn outputUrn : outputDatasets) {
+          String datasetName = extractDatasetName(outputUrn);
+          if (datasetName != null && !datasetName.isEmpty()) {
+            sinkJobName = operation + "_" + datasetName;
+            break;
+          }
+        }
+
+        // Create the delta sink job URN
+        DataJobUrn sinkJobUrn = jobUrn(flowUrn, sinkJobName);
+
+        // Create DataJobInfo for the sink job
+        DataJobInfo sinkJobInfo = new DataJobInfo();
+        sinkJobInfo.setName(sinkJobName);
+        sinkJobInfo.setType(DataJobInfo.Type.create("DELTA_SINK"));
+        sinkJobInfo.setDescription("Delta Sink Job: " + sinkJobName);
+
+        StringMap sinkCustomProps = new StringMap();
+        sinkCustomProps.put("batchId", Long.toString(event.batchId()));
+        sinkCustomProps.put("operation", operation);
+        sinkJobInfo.setCustomProperties(sinkCustomProps);
+
+        // Add sink job MCP
+        mcps.add(
+            MetadataChangeProposalWrapper.create(
+                b -> b.entityType("dataJob").entityUrn(sinkJobUrn).upsert().aspect(sinkJobInfo)));
+
+        // Create job input/output aspect for streaming query job with relationship to sink job
+        DataJobInputOutput queryJobIO = new DataJobInputOutput();
+        queryJobIO.setInputDatasets(new DatasetUrnArray(inputDatasets));
+        queryJobIO.setOutputDatasets(
+            new DatasetUrnArray()); // Query job doesn't directly output to datasets
+
+        // Add job-to-job lineage using inputDatajobs and outputDatajobs fields
+        DataJobUrnArray outputJobUrns = new DataJobUrnArray();
+        outputJobUrns.add(sinkJobUrn);
+        // There is no outputDatajobs field in DataJobInputOutput
+        // queryJobIO.setOutputDatajobs(outputJobUrns);
+
+        mcps.add(
+            MetadataChangeProposalWrapper.create(
+                b -> b.entityType("dataJob").entityUrn(queryJobUrn).upsert().aspect(queryJobIO)));
+
+        // Create job input/output aspect for sink job with relationship to query job
+        DataJobInputOutput sinkJobIO = new DataJobInputOutput();
+        sinkJobIO.setInputDatasets(
+            new DatasetUrnArray()); // Sink job doesn't directly input from datasets
+        sinkJobIO.setOutputDatasets(new DatasetUrnArray(outputDatasets));
+
+        // Add job-to-job lineage using inputDatajobs and outputDatajobs fields
+        DataJobUrnArray inputJobUrns = new DataJobUrnArray();
+        inputJobUrns.add(queryJobUrn);
+        sinkJobIO.setInputDatajobs(inputJobUrns);
+
+        mcps.add(
+            MetadataChangeProposalWrapper.create(
+                b -> b.entityType("dataJob").entityUrn(sinkJobUrn).upsert().aspect(sinkJobIO)));
+
+        // Generate DataProcessInstance for both jobs
+        mcps.addAll(
+            generateDataProcessInstanceMcps(
+                event, queryJobUrn, inputDatasets, Collections.emptySet(), operation));
+        mcps.addAll(
+            generateDataProcessInstanceMcps(
+                event, sinkJobUrn, Collections.emptySet(), outputDatasets, operation));
+      } else {
+        // If no outputs, just generate one job with the DataProcessInstance
+        DataJobUrn jobUrn = jobUrn(flowUrn, jobName);
+        mcps.addAll(
+            generateDataProcessInstanceMcps(
+                event, jobUrn, inputDatasets, outputDatasets, operation));
+      }
+
+      log.info(
+          "Successfully generated DataProcessInstance and job lineage for Spark streaming microbatch {}",
+          event.batchId());
+
+      return mcps;
+    } catch (Exception e) {
+      log.error("Error generating MCPs with DataProcessInstance: {}", e.getMessage(), e);
+      // Fall back to standard MCPs if there's an error
+      return generateMcpFromStreamingProgressEvent(event, conf, schemaMap);
+    }
+  }
+
+  /** Extracts a human-readable name from a dataset URN. */
+  private static String extractDatasetName(DatasetUrn urn) {
+    String[] parts = urn.getDatasetNameEntity().split("/");
+    return parts[parts.length - 1];
+  }
+
+  /** Generate a MCP for a dataset entity */
+  public static MetadataChangeProposalWrapper generateDatasetMcp(DatasetUrn urn) {
+    try {
+      // Create a minimal dataset aspect
+      com.linkedin.dataset.DatasetProperties datasetProperties =
+          new com.linkedin.dataset.DatasetProperties();
+      datasetProperties.setName(extractDatasetName(urn));
+      datasetProperties.setDescription("Dataset referenced in Spark Structured Streaming");
+
+      // Create the MCP
+      return MetadataChangeProposalWrapper.create(
+          b -> b.entityType("dataset").entityUrn(urn).upsert().aspect(datasetProperties));
+    } catch (Exception e) {
+      log.error("Error generating dataset MCP for URN {}: {}", urn, e.getMessage(), e);
+      throw new RuntimeException("Failed to generate dataset MCP", e);
+    }
+  }
+
+  /**
+   * Create a DataProcessInstance URN from a streaming query and batch ID.
+   *
+   * @param event The streaming query progress event
+   * @param batchId The batch ID to use for the instance
+   * @return A unique URN for the DataProcessInstance
+   */
+  public static Urn createDataProcessInstanceUrn(StreamingQueryProgress event, long batchId) {
+    try {
+      // Create a unique identifier using query ID and batch ID
+      String id =
+          UUID.randomUUID()
+              .toString()
+              .replace("-", ""); // Use a UUID that doesn't change across reruns
+
+      // Create and return the URN
+      return Urn.createFromString("urn:li:dataProcessInstance:" + id);
+    } catch (Exception e) {
+      log.error("Error creating DataProcessInstance URN", e);
+      // Fallback to using UUID if there's an issue
+      return Urn.createFromTuple("dataProcessInstance", UUID.randomUUID().toString());
+    }
+  }
+
+  /**
+   * Generate MCPs for a DataProcessInstance entity that represents a microbatch execution.
+   *
+   * @param event Streaming query progress event
+   * @param jobUrn The DataJob URN associated with this process
+   * @param inputDatasets Input datasets for the microbatch
+   * @param outputDatasets Output datasets for the microbatch
+   * @param operation The operation type (e.g., write, merge)
+   * @return List of MCPs for the DataProcessInstance
+   */
+  public static List<MetadataChangeProposalWrapper> generateDataProcessInstanceMcps(
+      StreamingQueryProgress event,
+      DataJobUrn jobUrn,
+      Set<DatasetUrn> inputDatasets,
+      Set<DatasetUrn> outputDatasets,
+      String operation) {
+
+    List<MetadataChangeProposalWrapper> mcps = new ArrayList<>();
+
+    try {
+      // Create a unique URN for this microbatch execution
+      Urn dpiUrn = createDataProcessInstanceUrn(event, event.batchId());
+
+      // Create an audit stamp for the current time
+      AuditStamp auditStamp =
+          new AuditStamp()
+              .setTime(System.currentTimeMillis())
+              .setActor(Urn.createFromString("urn:li:corpuser:sparkStreaming"));
+
+      // Create properties for the instance
+      DataProcessInstanceProperties properties = new DataProcessInstanceProperties();
+      properties.setName(String.format("Spark Streaming Microbatch %d", event.batchId()));
+      properties.setType(DataProcessType.STREAMING);
+      properties.setCreated(auditStamp);
+
+      StringMap customProperties = new StringMap();
+      customProperties.put("batchId", Long.toString(event.batchId()));
+      customProperties.put("inputRowsPerSecond", Double.toString(event.inputRowsPerSecond()));
+      customProperties.put(
+          "processedRowsPerSecond", Double.toString(event.processedRowsPerSecond()));
+      customProperties.put("numInputRows", Long.toString(event.numInputRows()));
+      customProperties.put("operation", operation);
+      properties.setCustomProperties(customProperties);
+
+      // Create the relationship to parent job with required upstreamInstances
+      DataProcessInstanceRelationships relationships = new DataProcessInstanceRelationships();
+      relationships.setParentTemplate(jobUrn);
+
+      // Initialize the upstreamInstances field with an empty array since it's required
+      UrnArray upstreamInstances = new UrnArray();
+      relationships.setUpstreamInstances(upstreamInstances);
+
+      // Create input aspect with dataset URNs
+      DataProcessInstanceInput input = new DataProcessInstanceInput();
+      UrnArray inputUrns = new UrnArray();
+      inputDatasets.forEach(urn -> inputUrns.add(urn));
+      input.setInputs(inputUrns);
+
+      // Create output aspect with dataset URNs
+      DataProcessInstanceOutput output = new DataProcessInstanceOutput();
+      UrnArray outputUrns = new UrnArray();
+      outputDatasets.forEach(urn -> outputUrns.add(urn));
+      output.setOutputs(outputUrns);
+
+      // Create the run event aspect with timestamp and status
+      DataProcessInstanceRunEvent runEvent = new DataProcessInstanceRunEvent();
+      runEvent.setTimestampMillis(System.currentTimeMillis());
+      runEvent.setStatus(DataProcessRunStatus.COMPLETE);
+
+      // Add proper result information
+      DataProcessInstanceRunResult result = new DataProcessInstanceRunResult();
+      result.setType(RunResultType.SUCCESS);
+      result.setNativeResultType("COMPLETE");
+      runEvent.setResult(result);
+
+      // Add MCPs for all aspects
+      mcps.add(
+          MetadataChangeProposalWrapper.create(
+              b ->
+                  b.entityType("dataProcessInstance")
+                      .entityUrn(dpiUrn)
+                      .upsert()
+                      .aspect(properties)));
+
+      mcps.add(
+          MetadataChangeProposalWrapper.create(
+              b ->
+                  b.entityType("dataProcessInstance")
+                      .entityUrn(dpiUrn)
+                      .upsert()
+                      .aspect(relationships)));
+
+      mcps.add(
+          MetadataChangeProposalWrapper.create(
+              b -> b.entityType("dataProcessInstance").entityUrn(dpiUrn).upsert().aspect(input)));
+
+      mcps.add(
+          MetadataChangeProposalWrapper.create(
+              b -> b.entityType("dataProcessInstance").entityUrn(dpiUrn).upsert().aspect(output)));
+
+      // Add the RunEvent MCP
+      mcps.add(
+          MetadataChangeProposalWrapper.create(
+              b ->
+                  b.entityType("dataProcessInstance").entityUrn(dpiUrn).upsert().aspect(runEvent)));
+
+      return mcps;
+    } catch (Exception e) {
+      log.error("Error generating DataProcessInstance MCPs", e);
+      return Collections.emptyList();
+    }
   }
 }
