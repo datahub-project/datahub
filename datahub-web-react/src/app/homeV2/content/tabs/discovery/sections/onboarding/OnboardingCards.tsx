@@ -32,26 +32,26 @@ export const OnboardingCards = () => {
         <div style={{ display: 'flex', gap: '16px' }} id={HOME_PAGE_ONBOARDING_CARDS_ID}>
             <Link to={`${PageRoutes.INGESTION}`}>
                 <Card
-                    icon={<Plugs color={colors.gray[1800]} size={32} />}
+                    icon={<Plugs color={colors.gray[1800]} size={24} />}
                     title="Add Data Sources"
-                    subTitle="Connect your data platforms"
+                    subTitle="Connect your data"
                     button={<Button variant="text">Add</Button>}
                 />
             </Link>
             {canManageUsers ? (
                 <Card
-                    icon={<UserPlus color={colors.gray[1800]} size={32} />}
+                    icon={<UserPlus color={colors.gray[1800]} size={24} />}
                     title="Invite Users"
-                    subTitle="Invite users to DataHub"
+                    subTitle="Send a link, or setup SSO"
                     onClick={openInviteUsers}
                     button={<Button variant="text">Invite</Button>}
                 />
             ) : null}
-            <Link to={`${PageRoutes.DOMAINS}?create=true`}>
+            <Link to={`${PageRoutes.DOMAINS}`}>
                 <Card
-                    icon={<Globe color={colors.gray[1800]} size={32} />}
+                    icon={<Globe color={colors.gray[1800]} size={24} />}
                     title="Add Domains"
-                    subTitle="Configure your data domains"
+                    subTitle="Organize, Create data products, more..."
                     button={<Button variant="text">Add</Button>}
                 />
             </Link>

@@ -1,17 +1,20 @@
 import { UserOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
-import { Modal, Select, Typography, message } from 'antd';
+import { Button, Text, Tooltip } from '@components';
+import { Divider, Modal, Select, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { checkIsSsoConfigured } from '@app/settingsV2/platform/sso/utils';
 import { PageRoutes } from '@conf/Global';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
+import { useGetSsoSettingsQuery } from '@graphql/settings.generated';
 import { DataHubRole } from '@types';
 
 const ModalSection = styled.div`
@@ -146,6 +149,9 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
 
     const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
 
+    const { data: ssoSettings } = useGetSsoSettingsQuery();
+    const isSsoConfigured = checkIsSsoConfigured(ssoSettings?.globalSettings?.ssoSettings);
+
     return (
         <Modal
             width={950}
@@ -204,6 +210,22 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                     Copy an invite link to send to your users. When they join, users will be automatically assigned to
                     the selected role.
                 </ModalSectionFooter>
+
+                {isSsoConfigured ? (
+                    <>
+                        <Divider />
+                        <Text size="lg" weight="semiBold">
+                            Or, set up Single Sign-On
+                        </Text>
+                        <Text color="gray" size="md" style={{ marginBottom: 12 }}>
+                            Setting up SSO allows teammates within your organization to sign up with their existing
+                            accounts.
+                        </Text>
+                        <Link to="/settings/sso">
+                            <Button variant="secondary">Configure SSO</Button>
+                        </Link>
+                    </>
+                ) : null}
             </ModalSection>
         </Modal>
     );

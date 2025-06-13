@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { PlatformSsoIntegrationBreadcrumb } from '@app/settingsV2/platform/PlatformSsoIntegrationBreadcrumb';
 import { OidcIntegrationHint } from '@app/settingsV2/platform/sso/OidcIntegrationHint';
+import { checkIsOidcConfigured, checkIsOidcEnabled } from '@app/settingsV2/platform/sso/utils';
 import { Message } from '@app/shared/Message';
 import { Button } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -124,10 +125,9 @@ export const OidcIntegration = () => {
     const [oidcSettings, setOidcSettings] = useState<OidcSettings>(DEFAULT_SETTINGS);
 
     // We will customize on save behavior and tips rendering depending on if SSO is currently enabled
-    const isIntegrationEnabled = oidcSettings.enabled;
+    const isIntegrationEnabled = checkIsOidcEnabled(oidcSettings);
     // This will determine what tips we show in the banner, and whether we should automatically enable on update
-    const isIntegrationConfigured =
-        persistedOidcSettings?.clientId && persistedOidcSettings?.clientSecret && persistedOidcSettings?.discoveryUri;
+    const isIntegrationConfigured = checkIsOidcConfigured(persistedOidcSettings);
     // for analytics
     const isAdvancedSectionExpandedRef = useRef(false);
 
