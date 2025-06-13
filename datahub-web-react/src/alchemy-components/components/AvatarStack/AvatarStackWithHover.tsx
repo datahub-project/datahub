@@ -4,12 +4,10 @@ import styled from 'styled-components';
 
 import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
 import HoverSectionContent from '@components/components/AvatarStack/HoverSectionContent';
-import { AvatarStackProps } from '@components/components/AvatarStack/types';
+import { AvatarStackProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
-
-import { EntityType } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -27,8 +25,8 @@ const AvatarStackWithHover = ({
     maxToShow = 4,
     entityRegistry,
 }: Props) => {
-    const users = avatars.filter((avatar) => avatar.type === EntityType.CorpUser);
-    const groups = avatars.filter((avatar) => avatar.type === EntityType.CorpGroup);
+    const users = avatars.filter((avatar) => avatar.type === AvatarType.user);
+    const groups = avatars.filter((avatar) => avatar.type === AvatarType.group);
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
@@ -68,7 +66,7 @@ const AvatarStackWithHover = ({
                                           avatars={groups}
                                           entityRegistry={entityRegistry}
                                           size={size}
-                                          isGroup
+                                          type={AvatarType.group}
                                       />
                                   ),
                               },
