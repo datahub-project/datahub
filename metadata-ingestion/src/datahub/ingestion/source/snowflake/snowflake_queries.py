@@ -6,9 +6,10 @@ import logging
 import pathlib
 import re
 import tempfile
+from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import pydantic
 from typing_extensions import Self
@@ -28,6 +29,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+    QueryDedupStrategyType,
     SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
 )
@@ -113,6 +115,8 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_query_usage_statistics: bool = True
     include_operations: bool = True
 
+    query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -160,6 +164,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self.filters = filters
         self.identifiers = identifiers
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
+
+        self.queries_extractor_strategy = QUERY_LOG_EXTRACTOR_STRATEGY_TYPE_MAP[
+            self.config.query_dedup_strategy
+        ]
 
         self._structured_report = structured_report
 
@@ -340,12 +348,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def fetch_query_log(
         self, users: UsersMapping
     ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
-        query_log_query = _build_enriched_query_log_query(
+        query_log_query = self.queries_extractor_strategy(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
-        )
+        ).build_enriched_query_log_query()
 
         with self.structured_reporter.report_exc(
             "Error fetching query log from Snowflake"
@@ -662,63 +670,45 @@ class SnowflakeQueriesSource(Source):
         self.queries_extractor.close()
 
 
-# Make sure we don't try to generate too much info for a single query.
-_MAX_TABLES_PER_QUERY = 20
+class QueryLogExtractionDedupStrategy:
+    def __init__(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        bucket_duration: BucketDuration,
+        deny_usernames: Optional[List[str]],
+        max_tables_per_query: int = 20,
+    ):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.start_time_millis = int(start_time.timestamp() * 1000)
+        self.end_time_millis = int(end_time.timestamp() * 1000)
+        self.max_tables_per_query = max_tables_per_query
 
+        self.users_filter = "TRUE"
+        if deny_usernames:
+            user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
+            self.users_filter = f"user_name NOT IN ({user_not_in})"
 
-def _build_enriched_query_log_query(
-    start_time: datetime,
-    end_time: datetime,
-    bucket_duration: BucketDuration,
-    deny_usernames: Optional[List[str]],
-) -> str:
-    start_time_millis = int(start_time.timestamp() * 1000)
-    end_time_millis = int(end_time.timestamp() * 1000)
+        self.time_bucket_size = bucket_duration.value
+        assert self.time_bucket_size in ("HOUR", "DAY", "MONTH")
 
-    users_filter = "TRUE"
-    if deny_usernames:
-        user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
-        users_filter = f"user_name NOT IN ({user_not_in})"
+    @abstractmethod
+    def _query_fingerprinted_queries(self):
+        pass
 
-    time_bucket_size = bucket_duration.value
-    assert time_bucket_size in ("HOUR", "DAY", "MONTH")
+    @abstractmethod
+    def _query_deduplicated_queries(self):
+        pass
 
-    return f"""\
+    def build_enriched_query_log_query(self) -> str:
+        return f"""\
 WITH
 fingerprinted_queries as (
-    SELECT *,
-        -- TODO: Generate better fingerprints for each query by pushing down regex logic.
-        query_history.query_parameterized_hash as query_fingerprint,
-        -- Optional and additional hash to be used for query deduplication and final query identity
-        CASE 
-            WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
-            -- Extract project id and hash it
-            THEN CAST(HASH(
-                REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
-                REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
-            ) AS VARCHAR)
-            ELSE NULL 
-        END as query_secondary_fingerprint
-    FROM
-        snowflake.account_usage.query_history
-    WHERE
-        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
-        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
-        AND execution_status = 'SUCCESS'
-        AND {users_filter}
+{self._query_fingerprinted_queries()}
 )
 , deduplicated_queries as (
-    SELECT
-        *,
-        DATE_TRUNC(
-            {time_bucket_size},
-            CONVERT_TIMEZONE('UTC', start_time)
-        ) AS bucket_start_time,
-        COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint) AS query_count,
-    FROM
-        fingerprinted_queries
-    QUALIFY
-        ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint ORDER BY start_time DESC) = 1
+{self._query_deduplicated_queries()}
 )
 , raw_access_history AS (
     SELECT
@@ -732,9 +722,9 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.access_history
     WHERE
-        query_start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
-        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
-        AND {users_filter}
+        query_start_time >= to_timestamp_ltz({self.start_time_millis}, 3) -- {self.start_time.isoformat()}
+        AND query_start_time < to_timestamp_ltz({self.end_time_millis}, 3) -- {self.end_time.isoformat()}
+        AND {self.users_filter}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
@@ -747,7 +737,7 @@ fingerprinted_queries as (
         query_start_time,
         ARRAY_SLICE(
             FILTER(direct_objects_accessed, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}),
-            0, {_MAX_TABLES_PER_QUERY}
+            0, {self.max_tables_per_query}
         ) as direct_objects_accessed,
         -- TODO: Drop the columns.baseSources subfield.
         FILTER(objects_modified, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}) as objects_modified,
@@ -786,6 +776,84 @@ SELECT * FROM query_access_history
 -- It's easier for us to push down the sorting to Snowflake/SQL instead of doing it in Python.
 ORDER BY QUERY_START_TIME ASC
 """
+
+
+class QueryLogExtractorStrategyNoDedup(QueryLogExtractionDedupStrategy):
+    def _query_fingerprinted_queries(self):
+        return f"""
+    SELECT *,
+        query_history.query_parameterized_hash as query_fingerprint,
+        NULL as query_secondary_fingerprint
+    FROM
+        snowflake.account_usage.query_history
+    WHERE
+        query_history.start_time >= to_timestamp_ltz({self.start_time_millis}, 3) -- {self.start_time.isoformat()}
+        AND query_history.start_time < to_timestamp_ltz({self.end_time_millis}, 3) -- {self.end_time.isoformat()}
+        AND execution_status = 'SUCCESS'
+        AND {self.users_filter}
+"""
+
+    def _query_deduplicated_queries(self):
+        return f"""
+    SELECT
+        *,
+        DATE_TRUNC(
+            {self.time_bucket_size},
+            CONVERT_TIMEZONE('UTC', start_time)
+        ) AS bucket_start_time,
+        1 AS query_count,
+    FROM
+        fingerprinted_queries        
+"""
+
+
+class QueryLogExtractionTimeBucketDedupStrategy(QueryLogExtractionDedupStrategy):
+    def _query_fingerprinted_queries(self):
+        return f"""
+    SELECT *,
+        -- TODO: Generate better fingerprints for each query by pushing down regex logic.
+        query_history.query_parameterized_hash as query_fingerprint,
+        -- Optional and additional hash to be used for query deduplication and final query identity
+        CASE 
+            WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
+            -- Extract project id and hash it
+            THEN CAST(HASH(
+                REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
+                REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
+            ) AS VARCHAR)
+            ELSE NULL 
+        END as query_secondary_fingerprint
+    FROM
+        snowflake.account_usage.query_history
+    WHERE
+        query_history.start_time >= to_timestamp_ltz({self.start_time_millis}, 3) -- {self.start_time.isoformat()}
+        AND query_history.start_time < to_timestamp_ltz({self.end_time_millis}, 3) -- {self.end_time.isoformat()}
+        AND execution_status = 'SUCCESS'
+        AND {self.users_filter}
+"""
+
+    def _query_deduplicated_queries(self):
+        return f"""
+    SELECT
+        *,
+        DATE_TRUNC(
+            {self.time_bucket_size},
+            CONVERT_TIMEZONE('UTC', start_time)
+        ) AS bucket_start_time,
+        COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint) AS query_count,
+    FROM
+        fingerprinted_queries
+    QUALIFY
+        ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint ORDER BY start_time DESC) = 1        
+"""
+
+
+QUERY_LOG_EXTRACTOR_STRATEGY_TYPE_MAP: Dict[
+    QueryDedupStrategyType, Type[QueryLogExtractionDedupStrategy]
+] = {
+    QueryDedupStrategyType.NONE: QueryLogExtractorStrategyNoDedup,
+    QueryDedupStrategyType.STANDARD: QueryLogExtractionTimeBucketDedupStrategy,
+}
 
 
 SNOWFLAKE_QUERY_TYPE_MAPPING = {
