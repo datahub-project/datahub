@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
 import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
+import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
 
 export const avatarDefaults: AvatarProps = {
@@ -10,7 +11,7 @@ export const avatarDefaults: AvatarProps = {
     size: 'default',
     showInPill: false,
     isOutlined: false,
-    isGroup: false,
+    type: AvatarType.user,
 };
 
 export const Avatar = ({
@@ -18,15 +19,15 @@ export const Avatar = ({
     imageUrl,
     size = avatarDefaults.size,
     onClick,
+    type = avatarDefaults.type,
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
-    isGroup = avatarDefaults.isGroup,
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
-            {(!isGroup || imageUrl) && (
+            {(type === AvatarType.user || imageUrl) && (
                 <AvatarImageWrapper
                     $color={getAvatarColor(name)}
                     $size={size}
@@ -36,12 +37,14 @@ export const Avatar = ({
                     {!hasError && imageUrl ? (
                         <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
                     ) : (
-                        !isGroup && getNameInitials(name)
+                        type === AvatarType.user && getNameInitials(name)
                     )}
                 </AvatarImageWrapper>
             )}
-            {isGroup && !imageUrl && (
-                <Icon icon="UsersThree" source="phosphor" variant="filled" color="gray" size="lg" />
+            {type === AvatarType.group && !imageUrl && (
+                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                    <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                </AvatarImageWrapper>
             )}
             {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
         </Container>
