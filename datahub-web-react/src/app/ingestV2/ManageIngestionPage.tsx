@@ -77,6 +77,7 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const canViewIngestionPage =
         platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
+
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;

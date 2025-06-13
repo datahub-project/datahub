@@ -15,13 +15,24 @@ import {
     StructuredReportLogEntry,
 } from '@app/ingestV2/executions/components/reporting/types';
 import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
-import { EntityType, ExecutionRequestResult, FacetFilterInput, FacetMetadata, SortCriterion, SortOrder } from '@types';
+import {
+    EntityType,
+    ExecutionRequestResult,
+    FacetFilterInput,
+    FacetMetadata,
+    IngestionSource,
+    SortCriterion,
+    SortOrder,
+} from '@types';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -397,3 +408,21 @@ export function capitalizeMonthsAndDays(scheduleText: string): string {
         capitalizableWords.has(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
     );
 }
+
+export const getSourceStatus = (
+    source: IngestionSource,
+    sourcesToRefetch: Set<string>,
+    executedUrns: Set<string>,
+): string => {
+    const isPolling = sourcesToRefetch.has(source.urn);
+    const hasRequests = !!source.executions?.executionRequests?.length;
+    const hasActiveRequest = source.executions?.executionRequests?.some(isExecutionRequestActive);
+    const executedNow = executedUrns.has(source.urn);
+
+    if ((isPolling || executedNow) && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
+    if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
+
+    return (
+        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
+    );
+};
