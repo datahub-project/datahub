@@ -1218,7 +1218,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # falling back to get tables for schema
         if tables is None:
             self.report.num_get_tables_for_schema_queries += 1
-            return self.data_dictionary.get_tables_for_schema(schema_name, db_name)
+            return self.data_dictionary.get_tables_for_schema(
+                db_name=db_name,
+                schema_name=schema_name,
+            )
 
         # Some schema may not have any table
         return tables.get(schema_name, [])
@@ -1228,8 +1231,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
-        # Some schema may not have any table
-        return views.get(schema_name, [])
+        if views is not None:
+            # Some schemas may not have any views
+            return views.get(schema_name, [])
+
+        # Usually this fails when there are too many views in the schema.
+        # Fall back to per-schema queries.
+        self.report.num_get_views_for_schema_queries += 1
+        return self.data_dictionary.get_views_for_schema_using_information_schema(
+            db_name=db_name,
+            schema_name=schema_name,
+        )
 
     def get_columns_for_table(
         self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str
