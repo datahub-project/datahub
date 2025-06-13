@@ -103,7 +103,7 @@ export default function SourceFilter({ defaultValues, onUpdate, hideSystemSource
             onUpdate={onUpdateHandler}
             options={options}
             isMultiSelect
-            selectLabelProps={{ variant: 'labeled', label: 'Name' }}
+            selectLabelProps={{ variant: 'labeled', label: 'Source' }}
             renderCustomOptionText={(option) => (
                 <NameColumn
                     type={option.item.type}

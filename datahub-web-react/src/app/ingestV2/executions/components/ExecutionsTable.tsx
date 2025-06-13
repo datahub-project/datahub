@@ -9,6 +9,7 @@ import { ActionsColumn } from '@app/ingestV2/executions/components/columns/Actio
 import { ExecutedByColumn } from '@app/ingestV2/executions/components/columns/ExecutedByColumn';
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
 import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
@@ -27,9 +28,16 @@ interface Props {
     setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
     handleRollback: (executionUrn: string) => void;
+    isLastPage?: boolean;
 }
 
-export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading, handleRollback }: Props) {
+export default function ExecutionsTable({
+    executionRequests,
+    setFocusExecutionUrn,
+    loading,
+    handleRollback,
+    isLastPage,
+}: Props) {
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
     const history = useHistory();
 
@@ -54,8 +62,8 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
-            title: 'Name',
-            key: 'name',
+            title: 'Source',
+            key: 'source',
             render: (record) => <SourceColumn record={record} />,
             width: '30%',
         },
@@ -114,6 +122,11 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
                 isScrollable
                 isLoading={loading}
                 onRowClick={onRowClick}
+                footer={
+                    isLastPage ? (
+                        <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
+                    ) : null
+                }
             />
             <ConfirmationModal
                 isOpen={!!runIdOfRollbackConfirmation}

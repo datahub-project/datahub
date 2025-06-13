@@ -357,6 +357,21 @@ type VisualConfig {
   Configuration for custom theme-ing
   """
   theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
 }
 
 """

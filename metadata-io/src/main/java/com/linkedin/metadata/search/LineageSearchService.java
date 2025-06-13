@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
@@ -135,7 +136,7 @@ public class LineageSearchService {
       @Nullable Filter inputFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
 
     long startTime = System.nanoTime();
     final String finalInput = input == null || input.isEmpty() ? "*" : input;
@@ -315,8 +316,9 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       Filter inputFilters,
       int from,
-      int size,
+      @Nullable Integer size,
       Set<String> entityNames) {
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
     // Construct result objects
     LineageSearchResult finalResult =
@@ -524,8 +526,8 @@ public class LineageSearchService {
       @Nullable Filter inputFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
-
+      @Nullable Integer size) {
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
     LineageSearchResult finalResult =
         new LineageSearchResult()
             .setEntities(new LineageSearchEntityArray(Collections.emptyList()))
@@ -745,7 +747,7 @@ public class LineageSearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
@@ -793,7 +795,7 @@ public class LineageSearchService {
         sortCriteria,
         scrollId,
         keepAlive,
-        size);
+        ConfigUtils.applyLimit(appConfig.getGraphService(), size));
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -805,11 +807,12 @@ public class LineageSearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
 
     OperationContext finalOpContext =
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS));
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
     LineageScrollResult finalResult =
         new LineageScrollResult()
