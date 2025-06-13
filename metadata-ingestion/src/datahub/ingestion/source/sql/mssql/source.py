@@ -323,9 +323,11 @@ class SQLServerSource(SQLAlchemySource):
             try:
                 yield from self.loop_jobs(inspector, self.config)
             except Exception as e:
-                self.report.report_failure(
-                    "jobs",
-                    f"Failed to list jobs due to error {e}",
+                self.report.failure(
+                    message="Failed to list jobs",
+                    title="SQL Server Jobs Extraction",
+                    context="Error occurred during database-level job extraction",
+                    exc=e,
                 )
 
     def get_schema_level_workunits(
@@ -343,12 +345,158 @@ class SQLServerSource(SQLAlchemySource):
             try:
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except Exception as e:
-                self.report.report_failure(
-                    "jobs",
-                    f"Failed to list jobs due to error {e}",
+                self.report.failure(
+                    message="Failed to list stored procedures",
+                    title="SQL Server Stored Procedures Extraction",
+                    context="Error occurred during schema-level stored procedure extraction",
+                    exc=e,
                 )
 
+    def _detect_rds_environment(self, conn: Connection) -> bool:
+        """
+        Detect if we're running in an RDS/managed environment vs on-premises.
+        Returns True if RDS/managed, False if on-premises.
+        """
+        try:
+            # Try to access system tables directly - this typically fails in RDS
+            conn.execute("SELECT TOP 1 * FROM msdb.dbo.sysjobs")
+            logger.debug(
+                "Direct table access successful - likely on-premises environment"
+            )
+            return False
+        except Exception:
+            logger.debug("Direct table access failed - likely RDS/managed environment")
+            return True
+
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Get job information with environment detection to choose optimal method first.
+        """
+        jobs: Dict[str, Dict[str, Any]] = {}
+
+        # Detect environment to choose optimal method first
+        is_rds = self._detect_rds_environment(conn)
+
+        if is_rds:
+            # Managed environment - try stored procedures first
+            try:
+                jobs = self._get_jobs_via_stored_procedures(conn, db_name)
+                logger.info(
+                    "Successfully retrieved jobs using stored procedures (managed environment)"
+                )
+                return jobs
+            except Exception as sp_error:
+                logger.warning(
+                    f"Failed to retrieve jobs via stored procedures in managed environment: {sp_error}"
+                )
+                # Try direct query as fallback (might work in some managed environments)
+                try:
+                    jobs = self._get_jobs_via_direct_query(conn, db_name)
+                    logger.info(
+                        "Successfully retrieved jobs using direct query fallback in managed environment"
+                    )
+                    return jobs
+                except Exception as direct_error:
+                    self.report.failure(
+                        message="Failed to retrieve jobs in managed environment",
+                        title="SQL Server Jobs Extraction",
+                        context="Both stored procedures and direct query methods failed",
+                        exc=direct_error,
+                    )
+        else:
+            # On-premises environment - try direct query first (usually faster)
+            try:
+                jobs = self._get_jobs_via_direct_query(conn, db_name)
+                logger.info(
+                    "Successfully retrieved jobs using direct query (on-premises environment)"
+                )
+                return jobs
+            except Exception as direct_error:
+                logger.warning(
+                    f"Failed to retrieve jobs via direct query in on-premises environment: {direct_error}"
+                )
+                # Try stored procedures as fallback
+                try:
+                    jobs = self._get_jobs_via_stored_procedures(conn, db_name)
+                    logger.info(
+                        "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
+                    )
+                    return jobs
+                except Exception as sp_error:
+                    self.report.failure(
+                        message="Failed to retrieve jobs in on-premises environment",
+                        title="SQL Server Jobs Extraction",
+                        context="Both direct query and stored procedures methods failed",
+                        exc=sp_error,
+                    )
+
+        return jobs
+
+    def _get_jobs_via_stored_procedures(
+        self, conn: Connection, db_name: str
+    ) -> Dict[str, Dict[str, Any]]:
+        jobs: Dict[str, Dict[str, Any]] = {}
+
+        # First, get all jobs
+        jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
+        jobs_data = {}
+
+        for row in jobs_result:
+            job_id = str(row["job_id"])
+            jobs_data[job_id] = {
+                "job_id": job_id,
+                "name": row["name"],
+                "description": row.get("description", ""),
+                "date_created": row.get("date_created"),
+                "date_modified": row.get("date_modified"),
+                "enabled": row.get("enabled", 1),
+            }
+
+        # Now get job steps for each job, filtering by database
+        for job_id, job_info in jobs_data.items():
+            try:
+                # Get steps for this specific job
+                steps_result = conn.execute(
+                    f"EXEC msdb.dbo.sp_help_jobstep @job_id = '{job_id}'"
+                )
+
+                job_steps = {}
+                for step_row in steps_result:
+                    # Only include steps that run against our target database
+                    step_database = step_row.get("database_name", "")
+                    if step_database.lower() == db_name.lower() or not step_database:
+                        step_data = {
+                            "job_id": job_id,
+                            "job_name": job_info["name"],
+                            "description": job_info["description"],
+                            "date_created": job_info["date_created"],
+                            "date_modified": job_info["date_modified"],
+                            "step_id": step_row["step_id"],
+                            "step_name": step_row["step_name"],
+                            "subsystem": step_row.get("subsystem", ""),
+                            "command": step_row.get("command", ""),
+                            "database_name": step_database,
+                        }
+                        job_steps[step_row["step_id"]] = step_data
+
+                # Only add job if it has relevant steps
+                if job_steps:
+                    jobs[job_info["name"]] = job_steps
+
+            except Exception as step_error:
+                logger.warning(
+                    f"Failed to get steps for job {job_info['name']}: {step_error}"
+                )
+                continue
+
+        return jobs
+
+    def _get_jobs_via_direct_query(
+        self, conn: Connection, db_name: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Original method using direct table access for on-premises SQL Server.
+        """
         jobs_data = conn.execute(
             f"""
             SELECT
@@ -371,6 +519,7 @@ class SQLServerSource(SQLAlchemySource):
             where database_name = '{db_name}'
             """
         )
+
         jobs: Dict[str, Dict[str, Any]] = {}
         for row in jobs_data:
             step_data = dict(
@@ -383,11 +532,13 @@ class SQLServerSource(SQLAlchemySource):
                 step_name=row["step_name"],
                 subsystem=row["subsystem"],
                 command=row["command"],
+                database_name=row["database_name"],
             )
             if row["name"] in jobs:
                 jobs[row["name"]][row["step_id"]] = step_data
             else:
                 jobs[row["name"]] = {row["step_id"]: step_data}
+
         return jobs
 
     def loop_jobs(
@@ -397,21 +548,59 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop MS SQL jobs as dataFlow-s.
-        :return:
+        Now supports both managed and on-premises SQL Server.
         """
         db_name = self.get_db_name(inspector)
-        with inspector.engine.connect() as conn:
-            jobs = self._get_jobs(conn, db_name)
-            for job_name, job_steps in jobs.items():
-                job = MSSQLJob(
-                    name=job_name,
-                    env=sql_config.env,
-                    db=db_name,
-                    platform_instance=sql_config.platform_instance,
+
+        try:
+            with inspector.engine.connect() as conn:
+                jobs = self._get_jobs(conn, db_name)
+
+                if not jobs:
+                    logger.info(f"No jobs found for database: {db_name}")
+                    return
+
+                logger.info(f"Found {len(jobs)} jobs for database: {db_name}")
+
+                for job_name, job_steps in jobs.items():
+                    try:
+                        job = MSSQLJob(
+                            name=job_name,
+                            env=sql_config.env,
+                            db=db_name,
+                            platform_instance=sql_config.platform_instance,
+                        )
+                        data_flow = MSSQLDataFlow(entity=job)
+                        yield from self.construct_flow_workunits(data_flow=data_flow)
+                        yield from self.loop_job_steps(job, job_steps)
+
+                    except Exception as job_error:
+                        logger.warning(f"Failed to process job {job_name}: {job_error}")
+                        self.report.warning(
+                            message=f"Failed to process job {job_name}",
+                            title="SQL Server Jobs Extraction",
+                            context="Error occurred while processing individual job",
+                            exc=job_error,
+                        )
+                        continue
+
+        except Exception as e:
+            error_message = f"Failed to retrieve jobs for database {db_name}: {e}"
+            logger.error(error_message)
+
+            # Provide specific guidance for permission issues
+            if "permission" in str(e).lower() or "denied" in str(e).lower():
+                permission_guidance = (
+                    "For managed SQL Server services, ensure the following permissions are granted:\n"
+                    "GRANT EXECUTE ON msdb.dbo.sp_help_job TO datahub_read;\n"
+                    "GRANT EXECUTE ON msdb.dbo.sp_help_jobstep TO datahub_read;\n"
+                    "For on-premises SQL Server, you may also need:\n"
+                    "GRANT SELECT ON msdb.dbo.sysjobs TO datahub_read;\n"
+                    "GRANT SELECT ON msdb.dbo.sysjobsteps TO datahub_read;"
                 )
-                data_flow = MSSQLDataFlow(entity=job)
-                yield from self.construct_flow_workunits(data_flow=data_flow)
-                yield from self.loop_job_steps(job, job_steps)
+                logger.info(permission_guidance)
+
+            raise e
 
     def loop_job_steps(
         self, job: MSSQLJob, job_steps: Dict[str, Any]

@@ -6,6 +6,9 @@
 
 ### Breaking Changes
 
+- #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
+- #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
+
 ### Known Issues
 
 ### Potential Downtime
@@ -13,6 +16,8 @@
 ### Deprecations
 
 ### Other Notable Changes
+
+- #13726: Removed dgraph from tests
 
 -->
 

@@ -1,7 +1,9 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
@@ -13,9 +15,7 @@ import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
@@ -66,8 +66,6 @@ public class SearchLineageFixtureConfiguration {
 
   @Autowired private RestHighLevelClient searchClient;
 
-  @Autowired private SearchConfiguration searchConfiguration;
-
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
   private CustomSearchConfiguration customSearchConfiguration;
@@ -106,6 +104,7 @@ public class SearchLineageFixtureConfiguration {
         .getSideEffects()
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
+    conf.setElasticSearch(TEST_ES_SEARCH_CONFIG);
     return conf;
   }
 
@@ -125,7 +124,7 @@ public class SearchLineageFixtureConfiguration {
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
@@ -135,12 +134,17 @@ public class SearchLineageFixtureConfiguration {
             searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            searchConfiguration,
+            TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClient, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain);
+            searchClient,
+            TEST_ES_SEARCH_CONFIG,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
 
     return new ElasticSearchService(
@@ -148,6 +152,7 @@ public class SearchLineageFixtureConfiguration {
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
         settingsBuilder,
+        TEST_SEARCH_SERVICE_CONFIG,
         searchDAO,
         browseDAO,
         writeDAO);
@@ -169,17 +174,7 @@ public class SearchLineageFixtureConfiguration {
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        searchClient,
-        1,
-        1,
-        1,
-        1,
-        Map.of(),
-        true,
-        true,
-        false,
-        new ElasticSearchConfiguration(),
-        gitVersion);
+        searchClient, 1, 1, 1, 1, Map.of(), true, true, false, TEST_ES_SEARCH_CONFIG, gitVersion);
   }
 
   @Bean(name = "searchLineageGraphService")
@@ -194,9 +189,14 @@ public class SearchLineageFixtureConfiguration {
             lineageRegistry,
             bulkProcessor,
             indexConvention,
-            new ESGraphWriteDAO(indexConvention, bulkProcessor, 1, getGraphQueryConfiguration()),
+            new ESGraphWriteDAO(
+                indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
-                searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
+                searchClient,
+                lineageRegistry,
+                indexConvention,
+                TEST_GRAPH_SERVICE_CONFIG,
+                TEST_ES_SEARCH_CONFIG),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());
@@ -246,7 +246,8 @@ public class SearchLineageFixtureConfiguration {
                 entitySearchService,
                 entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
-            ranker);
+            ranker,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices
     entitySearchService.reindexAll(Collections.emptySet());

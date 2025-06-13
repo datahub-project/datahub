@@ -1,17 +1,20 @@
-import { Icon, Pill, Text, Tooltip, colors, typography } from '@components';
-import { Button, Dropdown, Image, Typography } from 'antd';
+import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import {
-    RUNNING,
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-    getExecutionRequestStatusIcon,
-} from '@app/ingestV2/source/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+
+import { EntityType, Owner } from '@types';
 
 const PreviewImage = styled(Image)`
     max-height: 20px;
@@ -21,51 +24,8 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-const StatusContainer = styled.div`
-    display: flex;
-    justify-content: left;
-    align-items: center;
-`;
-
-const AllStatusWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
-
-const StatusButton = styled(Button)`
-    padding: 0px;
-    margin: 0px;
-`;
-
 const TextContainer = styled(Typography.Text)`
     color: ${colors.gray[1700]};
-`;
-
-export const MenuItem = styled.div`
-    display: flex;
-    padding: 5px 50px 5px 5px;
-    font-size: 14px;
-    font-weight: 500;
-    color: ${colors.gray[600]};
-    font-family: ${typography.fonts.body};
-`;
-
-export const ActionIcons = styled.div`
-    display: flex;
-    justify-content: end;
-    gap: 8px;
-
-    div {
-        border: 1px solid ${colors.gray[100]};
-        border-radius: 200px;
-        width: 24px;
-        height: 24px;
-        padding: 2px;
-        color: ${colors.gray[1800]};
-        :hover {
-            cursor: pointer;
-        }
-    }
 `;
 
 const NameContainer = styled.div`
@@ -149,61 +109,49 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                 },
             }}
         >
-            {scheduleText || 'Not scheduled'}
+            {scheduleText || '-'}
         </TextContainer>
     );
 }
 
-export function LastExecutionColumn({ time }: { time: number }) {
-    const executionDate = new Date(time);
-    const timeString = executionDate?.toLocaleTimeString();
-    const [mainTime, timePeriod] = (timeString ?? '').split(' ');
+export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
+    const ownerAvatars = owners.map((owner) => {
+        return {
+            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
+            imageUrl: owner.owner.editableProperties?.pictureLink,
+            type: owner.owner.type,
+            urn: owner.owner.urn,
+        };
+    });
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+
+    if (owners.length === 0) return <>-</>;
 
     return (
         <>
-            {time ? (
-                <>
-                    <Text>{`${executionDate.toLocaleDateString()}@ ${mainTime}`}</Text>
-                    <Text>{timePeriod}</Text>
-                </>
-            ) : (
-                'Never run'
+            {singleOwner && (
+                <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        <Avatar
+                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                            imageUrl={singleOwner.editableProperties?.pictureLink}
+                            showInPill
+                            isGroup={singleOwner.type === EntityType.CorpGroup}
+                        />
+                    </Link>
+                </HoverEntityTooltip>
+            )}
+            {owners.length > 1 && (
+                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
             )}
         </>
     );
 }
-
-interface StatusProps {
-    status: any;
-    record: any;
-    setFocusExecutionUrn: (urn: string) => void;
-}
-
-export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusProps) {
-    const icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status) || 'Pending...';
-    const color = getExecutionRequestStatusDisplayColor(status);
-    const { lastExecUrn } = record;
-    return (
-        <AllStatusWrapper>
-            <StatusContainer>
-                <StatusButton
-                    data-testid="ingestion-source-table-status"
-                    type="link"
-                    onClick={() => setFocusExecutionUrn(lastExecUrn)}
-                >
-                    <Pill
-                        customIconRenderer={() => <Icon icon={icon} source="phosphor" size="md" />}
-                        label={text}
-                        color={color}
-                        size="md"
-                    />
-                </StatusButton>
-            </StatusContainer>
-        </AllStatusWrapper>
-    );
-}
-
 interface ActionsColumnProps {
     record: any;
     setFocusExecutionUrn: (urn: string) => void;
@@ -267,7 +215,7 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    if (record.lastExecStatus === RUNNING)
+    if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
             key: '3',
             label: (
@@ -294,15 +242,20 @@ export function ActionsColumn({
     });
 
     return (
-        <>
-            <ActionIcons>
-                {!record.cliIngestion && record.lastExecStatus !== RUNNING && (
-                    <Icon icon="Play" source="phosphor" onClick={() => onExecute(record.urn)} />
-                )}
-                <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="DotsThreeVertical" source="phosphor" />
-                </Dropdown>
-            </ActionIcons>
-        </>
+        <BaseActionsColumn
+            dropdownItems={items}
+            extraActions={
+                !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
+                    <Icon
+                        icon="Play"
+                        source="phosphor"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onExecute(record.urn);
+                        }}
+                    />
+                ) : null
+            }
+        />
     );
 }

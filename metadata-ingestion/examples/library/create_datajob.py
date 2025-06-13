@@ -1,4 +1,4 @@
-from datahub.metadata.urns import TagUrn
+from datahub.metadata.urns import DatasetUrn, TagUrn
 from datahub.sdk import DataFlow, DataHubClient, DataJob
 
 client = DataHubClient.from_env()
@@ -16,6 +16,12 @@ dataflow = DataFlow(
 datajob = DataJob(
     name="example_datajob",
     flow=dataflow,
+    inlets=[
+        DatasetUrn(platform="hdfs", name="dataset1", env="PROD"),
+    ],
+    outlets=[
+        DatasetUrn(platform="hdfs", name="dataset2", env="PROD"),
+    ],
 )
 
 client.entities.upsert(dataflow)
