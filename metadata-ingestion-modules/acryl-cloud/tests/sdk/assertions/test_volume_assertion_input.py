@@ -8,11 +8,14 @@ from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     RowCountChange,
     RowCountTotal,
     VolumeAssertionDefinition,
+    VolumeAssertionDefinitionInputTypes,
     VolumeAssertionOperator,
     _VolumeAssertionDefinitionTypes,
 )
-from acryl_datahub_cloud.sdk.errors import SDKUsageError
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
 from datahub.metadata import schema_classes as models
+from datahub.metadata.urns import AssertionUrn
 
 # Create a mock filter to use in tests
 _TEST_FILTER = Mock(spec=models.DatasetFilterClass)
@@ -22,7 +25,7 @@ _TEST_FILTER = Mock(spec=models.DatasetFilterClass)
 class VolumeAssertionDefinitionTestParams:
     """Test parameters for VolumeAssertionDefinition.parse method."""
 
-    input_definition: Union[dict[str, Any], RowCountTotal, RowCountChange]
+    input_definition: VolumeAssertionDefinitionInputTypes
     expected_type: Optional[Type] = None
     expected_value: Optional[_VolumeAssertionDefinitionTypes] = None
     expected_error: Optional[str] = None
@@ -337,7 +340,7 @@ class TestVolumeAssertionDefinitionParse:
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                         "parameters": (100, 200),  # Should be single int, not tuple
                     },
-                    expected_error="For GREATER_THAN_OR_EQUAL_TO operator in row_count_total, parameters must be a single integer, not a tuple",
+                    expected_error="For GREATER_THAN_OR_EQUAL_TO operator in row_count_total, parameters must be a single number, not a tuple",
                     should_succeed=False,
                 ),
                 id="single_value_operator_rejects_tuple_parameters",
@@ -350,7 +353,7 @@ class TestVolumeAssertionDefinitionParse:
                         "operator": "LESS_THAN_OR_EQUAL_TO",
                         "parameters": "100",  # Should be int, not string
                     },
-                    expected_error="For row_count_change, parameters must be an integer or a tuple of two integers, got: <class 'str'>",
+                    expected_error="For row_count_change, parameters must be a number or a tuple of two numbers, got: <class 'str'>",
                     should_succeed=False,
                 ),
                 id="single_value_operator_rejects_string_parameters",
@@ -363,7 +366,7 @@ class TestVolumeAssertionDefinitionParse:
                         "operator": "BETWEEN",
                         "parameters": 100,  # Should be tuple, not int
                     },
-                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two integers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_int_parameters",
@@ -376,7 +379,7 @@ class TestVolumeAssertionDefinitionParse:
                         "operator": "BETWEEN",
                         "parameters": (100,),  # Should be tuple of 2, not 1
                     },
-                    expected_error="For BETWEEN operator in row_count_change, parameters must be a tuple of two integers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in row_count_change, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_single_element_tuple",
@@ -388,7 +391,7 @@ class TestVolumeAssertionDefinitionParse:
                         "operator": "BETWEEN",
                         "parameters": (100, 200, 300),  # Should be tuple of 2, not 3
                     },
-                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two integers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_three_element_tuple",
@@ -898,6 +901,559 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                     test_params.input_dataset_urn,
                     test_params.input_filter,
                 )
+
+            if test_params.expected_error:
+                assert test_params.expected_error in str(exc_info.value)
+
+
+@dataclass
+class VolumeAssertionDefinitionFromAssertionTestParams:
+    """Test parameters for VolumeAssertionDefinition.from_assertion method."""
+
+    input_assertion: Assertion
+    expected_value: Optional[_VolumeAssertionDefinitionTypes] = None
+    expected_error: Optional[str] = None
+    should_succeed: bool = True
+
+
+class TestVolumeAssertionDefinitionFromAssertion:
+    """Test suite for VolumeAssertionDefinition.from_assertion method."""
+
+    @pytest.mark.parametrize(
+        "test_params",
+        [
+            # ============ SUCCESSFUL CASES ============
+            # RowCountTotal with GREATER_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="100",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountTotal(
+                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                        parameters=100,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_total_greater_than_or_equal_to_single_value",
+            ),
+            # RowCountTotal with LESS_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="500",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountTotal(
+                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                        parameters=500,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_total_less_than_or_equal_to_single_value",
+            ),
+            # RowCountTotal with BETWEEN operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=models.AssertionStdParameterClass(
+                                        value="100",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                    maxValue=models.AssertionStdParameterClass(
+                                        value="200",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountTotal(
+                        operator=VolumeAssertionOperator.BETWEEN,
+                        parameters=(100, 200),
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_total_between_range_values",
+            ),
+            # RowCountChange with absolute kind and GREATER_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.ABSOLUTE,
+                                operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="25",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="absolute",
+                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                        parameters=25,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_absolute_greater_than_or_equal_to_single_value",
+            ),
+            # RowCountChange with absolute kind and LESS_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.ABSOLUTE,
+                                operator=models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="50",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="absolute",
+                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                        parameters=50,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_absolute_less_than_or_equal_to_single_value",
+            ),
+            # RowCountChange with absolute kind and BETWEEN operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.ABSOLUTE,
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=models.AssertionStdParameterClass(
+                                        value="5",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                    maxValue=models.AssertionStdParameterClass(
+                                        value="25",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="absolute",
+                        operator=VolumeAssertionOperator.BETWEEN,
+                        parameters=(5, 25),
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_absolute_between_range_values",
+            ),
+            # RowCountChange with percentage kind and GREATER_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.PERCENTAGE,
+                                operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="15",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="percent",
+                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                        parameters=15,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_percentage_greater_than_or_equal_to_single_value",
+            ),
+            # RowCountChange with percentage kind and LESS_THAN_OR_EQUAL_TO operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.PERCENTAGE,
+                                operator=models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=models.AssertionStdParameterClass(
+                                        value="75",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="percent",
+                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                        parameters=75,
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_percentage_less_than_or_equal_to_single_value",
+            ),
+            # RowCountChange with percentage kind and BETWEEN operator
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.PERCENTAGE,
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=models.AssertionStdParameterClass(
+                                        value="10",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                    maxValue=models.AssertionStdParameterClass(
+                                        value="30",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_value=RowCountChange(
+                        kind="percent",
+                        operator=VolumeAssertionOperator.BETWEEN,
+                        parameters=(10, 30),
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_change_percentage_between_range_values",
+            ),
+            # ============ ERROR CASES ============
+            # Assertion with no info - create mock with info set to None
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Mock(
+                        spec=Assertion,
+                        urn=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=None,
+                    ),
+                    expected_error="Assertion urn:li:assertion:test does not have a volume assertion info, which is not supported",
+                    should_succeed=False,
+                ),
+                id="assertion_with_no_info",
+            ),
+            # Assertion with wrong assertion info type (not VolumeAssertionInfoClass)
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.FreshnessAssertionInfoClass(
+                            type=models.FreshnessAssertionTypeClass.DATASET_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        ),
+                    ),
+                    expected_error="Assertion urn:li:assertion:test is not a volume assertion",
+                    should_succeed=False,
+                ),
+                id="assertion_with_wrong_info_type_freshness",
+            ),
+            # Assertion with wrong assertion info type (DatasetAssertionInfo instead of VolumeAssertionInfo)
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.DatasetAssertionInfoClass(
+                            dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            scope=models.DatasetAssertionScopeClass.DATASET_ROWS,
+                            operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                            parameters=models.AssertionStdParametersClass(
+                                value=models.AssertionStdParameterClass(
+                                    value="100",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Assertion urn:li:assertion:test is not a volume assertion",
+                    should_succeed=False,
+                ),
+                id="assertion_with_wrong_info_type_dataset",
+            ),
+            # Unsupported volume assertion type (hypothetical future type)
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type="UNSUPPORTED_TYPE",  # type: ignore[arg-type]
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has unsupported type UNSUPPORTED_TYPE",
+                    should_succeed=False,
+                ),
+                id="unsupported_volume_assertion_type",
+            ),
+            # RowCountTotal with missing rowCountTotal field
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=None,  # Missing required field
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_TOTAL type but no rowCountTotal, which is not supported",
+                    should_succeed=False,
+                ),
+                id="row_count_total_missing_row_count_total_field",
+            ),
+            # RowCountChange with missing rowCountChange field
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=None,  # Missing required field
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_CHANGE type but no rowCountChange, which is not supported",
+                    should_succeed=False,
+                ),
+                id="row_count_change_missing_row_count_change_field",
+            ),
+            # RowCountTotal with BETWEEN operator but missing minValue
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=None,  # Missing for BETWEEN operator
+                                    maxValue=models.AssertionStdParameterClass(
+                                        value="200",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has BETWEEN operator but missing min/max values",
+                    should_succeed=False,
+                ),
+                id="row_count_total_between_missing_min_value",
+            ),
+            # RowCountTotal with BETWEEN operator but missing maxValue
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=models.AssertionStdParameterClass(
+                                        value="100",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                    maxValue=None,  # Missing for BETWEEN operator
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has BETWEEN operator but missing min/max values",
+                    should_succeed=False,
+                ),
+                id="row_count_total_between_missing_max_value",
+            ),
+            # RowCountTotal with single-value operator but missing value
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountTotal=models.RowCountTotalClass(
+                                operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=None,  # Missing for single-value operator
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has GREATER_THAN_OR_EQUAL_TO operator but missing value",
+                    should_succeed=False,
+                ),
+                id="row_count_total_single_value_missing_value",
+            ),
+            # RowCountChange with BETWEEN operator but missing minValue
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.ABSOLUTE,
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=None,  # Missing for BETWEEN operator
+                                    maxValue=models.AssertionStdParameterClass(
+                                        value="25",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has BETWEEN operator but missing min/max values",
+                    should_succeed=False,
+                ),
+                id="row_count_change_between_missing_min_value",
+            ),
+            # RowCountChange with BETWEEN operator but missing maxValue
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.PERCENTAGE,
+                                operator=models.AssertionStdOperatorClass.BETWEEN,
+                                parameters=models.AssertionStdParametersClass(
+                                    minValue=models.AssertionStdParameterClass(
+                                        value="10",
+                                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                                    ),
+                                    maxValue=None,  # Missing for BETWEEN operator
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has BETWEEN operator but missing min/max values",
+                    should_succeed=False,
+                ),
+                id="row_count_change_between_missing_max_value",
+            ),
+            # RowCountChange with single-value operator but missing value
+            pytest.param(
+                VolumeAssertionDefinitionFromAssertionTestParams(
+                    input_assertion=Assertion(
+                        id=AssertionUrn.from_string("urn:li:assertion:test"),
+                        info=models.VolumeAssertionInfoClass(
+                            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                            rowCountChange=models.RowCountChangeClass(
+                                type=models.AssertionValueChangeTypeClass.ABSOLUTE,
+                                operator=models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+                                parameters=models.AssertionStdParametersClass(
+                                    value=None,  # Missing for single-value operator
+                                ),
+                            ),
+                        ),
+                    ),
+                    expected_error="Volume assertion urn:li:assertion:test has LESS_THAN_OR_EQUAL_TO operator but missing value",
+                    should_succeed=False,
+                ),
+                id="row_count_change_single_value_missing_value",
+            ),
+        ],
+    )
+    def test_from_assertion_comprehensive(
+        self, test_params: VolumeAssertionDefinitionFromAssertionTestParams
+    ) -> None:
+        """Comprehensive test for VolumeAssertionDefinition.from_assertion method."""
+        if test_params.should_succeed:
+            # Test successful cases
+            result = VolumeAssertionDefinition.from_assertion(
+                test_params.input_assertion
+            )
+
+            # For successful cases, expected_value must be provided
+            assert test_params.expected_value is not None, (
+                "expected_value must be provided for successful test cases"
+            )
+            assert result == test_params.expected_value
+        else:
+            # Test failure cases
+            with pytest.raises(SDKNotYetSupportedError) as exc_info:
+                VolumeAssertionDefinition.from_assertion(test_params.input_assertion)
 
             if test_params.expected_error:
                 assert test_params.expected_error in str(exc_info.value)
