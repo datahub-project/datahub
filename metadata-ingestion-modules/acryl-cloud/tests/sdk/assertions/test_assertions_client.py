@@ -12,6 +12,7 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     FreshnessAssertion,
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
+    SqlAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
@@ -41,6 +42,12 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     RangeTypeInputType,
     ValueInputType,
     ValueTypeInputType,
+)
+from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionChangeType,
+    SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -1828,6 +1835,372 @@ def _validate_freshness_assertion_vs_input(
         assert assertion.lookback_window is None
 
 
+# SQL Assertion tests
+
+
+@dataclass
+class SqlAssertionInputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    statement: str
+    criteria: SqlAssertionCriteria
+    display_name: Optional[str] = None
+    enabled: Optional[bool] = None
+    incident_behavior: Optional[
+        Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
+    ] = None
+    tags: Optional[TagsInputType] = None
+    created_by: Optional[CorpUserUrn] = None
+    schedule: Optional[Union[str, models.CronScheduleClass]] = None
+
+
+@dataclass
+class SqlAssertionUpsertInputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    statement: str
+    criteria: SqlAssertionCriteria
+    urn: Optional[Union[str, AssertionUrn]] = None
+    display_name: Optional[str] = None
+    enabled: Optional[bool] = None
+    incident_behavior: Optional[
+        Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
+    ] = None
+    tags: Optional[TagsInputType] = None
+    updated_by: Optional[CorpUserUrn] = None
+    schedule: Optional[Union[str, models.CronScheduleClass]] = None
+
+
+@dataclass
+class SqlAssertionOutputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    statement: str
+    criteria: SqlAssertionCriteria
+    display_name: str
+    incident_behavior: list[AssertionIncidentBehavior]
+    tags: TagsInputType
+    created_by: CorpUserUrn
+    created_at: datetime
+    updated_by: CorpUserUrn
+    updated_at: datetime
+    schedule: models.CronScheduleClass
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "input_params, expected_output_params",
+    [
+        pytest.param(
+            SqlAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC,
+                    change_type=None,
+                    operator=SqlAssertionOperator.GREATER_THAN,
+                    parameters=100,
+                ),
+            ),
+            SqlAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC,
+                    change_type=None,
+                    operator=SqlAssertionOperator.GREATER_THAN,
+                    parameters=100,
+                ),
+                display_name="New Assertion",
+                incident_behavior=[],
+                tags=[],
+                created_by=DEFAULT_CREATED_BY,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=DEFAULT_CREATED_BY,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+            ),
+            id="minimal_valid_input_metric",
+        ),
+        pytest.param(
+            SqlAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC_CHANGE,
+                    change_type=SqlAssertionChangeType.PERCENTAGE,
+                    operator=SqlAssertionOperator.BETWEEN,
+                    parameters=(-10.0, 10.0),
+                ),
+                display_name="Test SQL Assertion",
+                enabled=True,
+                incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+                tags=["urn:li:tag:my_tag_1"],
+                created_by=_any_user,
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            SqlAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC_CHANGE,
+                    change_type=SqlAssertionChangeType.PERCENTAGE,
+                    operator=SqlAssertionOperator.BETWEEN,
+                    parameters=(-10.0, 10.0),
+                ),
+                display_name="Test SQL Assertion",
+                incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+                tags=[TagUrn.from_string("urn:li:tag:my_tag_1")],
+                created_by=_any_user,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=_any_user,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            id="full_input_metric_change",
+        ),
+    ],
+)
+def test_create_sql_assertion_valid_input(
+    freshness_stub_datahub_client: StubDataHubClient,
+    input_params: SqlAssertionInputParams,
+    expected_output_params: SqlAssertionOutputParams,
+) -> None:
+    # Arrange
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # Act
+    assertion = client._create_sql_assertion(**asdict(input_params))
+
+    # Assert
+    _validate_sql_assertion_vs_input(assertion, input_params, expected_output_params)
+
+
+def test_create_sql_assertion_entities_client_called(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    assertion = client._create_sql_assertion(
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        statement="SELECT COUNT(*) FROM table",
+        criteria=criteria,
+        incident_behavior=None,
+        tags=None,
+    )
+    assert mock_create.call_count == 2
+    assert assertion
+
+
+@pytest.mark.parametrize(
+    "input_params, error_type, expected_error_message",
+    [
+        pytest.param(
+            SqlAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC_CHANGE,
+                    change_type=None,  # Missing change_type for METRIC_CHANGE
+                    operator=SqlAssertionOperator.GREATER_THAN,
+                    parameters=100,
+                ),
+            ),
+            SDKUsageError,
+            "Change type is required for metric change assertions",
+            id="metric_change_missing_change_type",
+        ),
+        pytest.param(
+            SqlAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC,
+                    change_type=SqlAssertionChangeType.PERCENTAGE,  # change_type not allowed for METRIC
+                    operator=SqlAssertionOperator.GREATER_THAN,
+                    parameters=100,
+                ),
+            ),
+            SDKUsageError,
+            "Change type is not allowed for metric assertions",
+            id="metric_with_change_type",
+        ),
+        pytest.param(
+            SqlAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                statement="SELECT COUNT(*) FROM table",
+                criteria=SqlAssertionCriteria(
+                    type=SqlAssertionType.METRIC,
+                    change_type=None,
+                    operator=SqlAssertionOperator.BETWEEN,
+                    parameters=100,  # Single value for BETWEEN operator
+                ),
+            ),
+            SDKUsageError,
+            "The parameter value of SqlAssertionCriteria must be a tuple range for operator",
+            id="between_operator_single_value",
+        ),
+    ],
+)
+def test_create_sql_assertion_invalid_input(
+    freshness_stub_datahub_client: StubDataHubClient,
+    input_params: SqlAssertionInputParams,
+    error_type: Type[Exception],
+    expected_error_message: str,
+) -> None:
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    with pytest.raises(error_type, match=expected_error_message):
+        client._create_sql_assertion(**asdict(input_params))
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_creates_new_when_urn_not_provided(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test sync_sql_assertion creates new assertion when no URN is provided."""
+    # Arrange
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    # Mock the _create_sql_assertion method to return a dummy SqlAssertion
+    mock_sql_assertion = MagicMock()
+    mock_sql_assertion.urn = "urn:li:assertion:new_sql_assertion"
+    mock_sql_assertion.statement = "SELECT COUNT(*) FROM table"
+    mock_sql_assertion.criteria = criteria
+
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Mock the _create_sql_assertion method to return our mock
+    mock_create_sql_assertion = MagicMock(return_value=mock_sql_assertion)
+    client._create_sql_assertion = mock_create_sql_assertion  # type: ignore[method-assign]
+
+    # Act - Call without URN, which should trigger creation path
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        statement="SELECT COUNT(*) FROM table",
+        criteria=criteria,
+    )
+
+    # Assert - should call _create_sql_assertion
+    mock_create_sql_assertion.assert_called_once()
+    call_args = mock_create_sql_assertion.call_args[1]
+    assert call_args["dataset_urn"] == any_dataset_urn
+    assert call_args["statement"] == "SELECT COUNT(*) FROM table"
+    assert call_args["criteria"] == criteria
+
+    # Should return the mocked assertion
+    assert assertion == mock_sql_assertion
+
+
+def test_sync_sql_assertion_calls_create_assertion_when_urn_is_none(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion calls _create_sql_assertion when urn is None."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert_entity = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
+    mock_create_assertion = MagicMock()
+    client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+
+    client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,  # This should trigger creation path
+        statement="SELECT COUNT(*) FROM table",
+        criteria=criteria,
+    )
+    assert mock_create_assertion.call_count == 1
+    assert mock_upsert_entity.call_count == 0  # Should not call upsert when creating
+    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+
+
+def test_sync_sql_assertion_uses_default_updated_by_when_none_provided(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion uses default updated_by when none is provided."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Mock the _create_sql_assertion method to capture the call
+    mock_sql_assertion = MagicMock()
+    mock_create_assertion = MagicMock(return_value=mock_sql_assertion)
+    client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+
+    client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,  # Use None to trigger creation path
+        statement="SELECT COUNT(*) FROM table",
+        criteria=criteria,
+        updated_by=None,  # This should default to DEFAULT_CREATED_BY
+    )
+
+    # Check that the created_by parameter was set to the default
+    call_args = mock_create_assertion.call_args[1]
+    assert call_args["created_by"] == DEFAULT_CREATED_BY
+
+
+def _validate_sql_assertion_vs_input(
+    assertion: SqlAssertion,
+    input_params: Union[SqlAssertionInputParams, SqlAssertionUpsertInputParams],
+    expected_output_params: SqlAssertionOutputParams,
+) -> None:
+    if input_params.display_name is not None:
+        assert assertion.display_name == expected_output_params.display_name
+    else:
+        # For sync/upsert operations, we might preserve existing display name
+        if hasattr(input_params, "urn") and input_params.urn is not None:
+            # Sync/merge case - check against expected (might be preserved from existing)
+            assert assertion.display_name == expected_output_params.display_name
+        else:
+            # Create case - check for generated display name
+            assert assertion.display_name.startswith(
+                "New Assertion"
+            )  # Generated display name
+            assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
+
+    assert assertion.statement == expected_output_params.statement
+    assert assertion.criteria.type == expected_output_params.criteria.type
+    assert assertion.criteria.change_type == expected_output_params.criteria.change_type
+    assert assertion.criteria.operator == expected_output_params.criteria.operator
+    assert assertion.criteria.parameters == expected_output_params.criteria.parameters
+    assert assertion.incident_behavior == expected_output_params.incident_behavior
+    assert assertion.tags == expected_output_params.tags
+    assert assertion.created_by == expected_output_params.created_by
+    assert assertion.created_at == expected_output_params.created_at
+    assert assertion.updated_by == expected_output_params.updated_by
+    assert assertion.updated_at == expected_output_params.updated_at
+    assert assertion.schedule.cron == expected_output_params.schedule.cron
+    assert assertion.schedule.timezone == expected_output_params.schedule.timezone
+
+
+# Smart column metric tests
 @dataclass
 class SmartColumnMetricAssertionInputParams:
     dataset_urn: Union[str, DatasetUrn]

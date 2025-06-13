@@ -112,12 +112,11 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
         assertion_urn: AssertionUrn,
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[FieldSpecType],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
         """
+        source_type, field = self._convert_assertion_source_type_and_field()
         return models.MonitorInfoClass(
             type=models.MonitorTypeClass.ASSERTION,
             status=status,

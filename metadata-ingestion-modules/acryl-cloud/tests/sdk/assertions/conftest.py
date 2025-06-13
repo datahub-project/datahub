@@ -446,6 +446,102 @@ def volume_stub_datahub_client(
 
 
 @pytest.fixture
+def sql_assertion_entity_with_all_fields(
+    any_assertion_urn: AssertionUrn,
+) -> Assertion:
+    return Assertion(
+        id=any_assertion_urn,
+        info=models.SqlAssertionInfoClass(
+            type=models.SqlAssertionTypeClass.METRIC,
+            entity=_any_dataset_urn,
+            statement="SELECT COUNT(*) FROM test_table",
+            operator=models.AssertionStdOperatorClass.GREATER_THAN,
+            parameters=models.AssertionStdParametersClass(
+                value=models.AssertionStdParameterClass(
+                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                    value="100.0",
+                ),
+            ),
+        ),
+        description="SQL Assertion",
+        source=models.AssertionSourceClass(
+            type=models.AssertionSourceTypeClass.NATIVE,
+            created=models.AuditStampClass(
+                actor="urn:li:corpuser:acryl-cloud-user-created",
+                time=1609459200000,  # 2021-01-01 00:00:00 UTC
+            ),
+        ),
+        last_updated=models.AuditStampClass(
+            actor="urn:li:corpuser:acryl-cloud-user-updated",
+            time=1609545600000,  # 2021-01-02 00:00:00 UTC
+        ),
+        tags=[
+            models.TagAssociationClass(
+                tag="urn:li:tag:sql_assertion_tag",
+            )
+        ],
+        on_failure=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RAISE_INCIDENT,
+            )
+        ],
+        on_success=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RESOLVE_INCIDENT,
+            )
+        ],
+    )
+
+
+@pytest.fixture
+def sql_monitor_with_all_fields(
+    any_monitor_urn: MonitorUrn, any_assertion_urn: AssertionUrn
+) -> Monitor:
+    """A monitor with all fields set for SQL assertions."""
+    return Monitor(
+        id=any_monitor_urn,
+        info=models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=models.MonitorStatusClass(
+                mode=models.MonitorModeClass.ACTIVE,
+            ),
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(any_assertion_urn),
+                        schedule=models.CronScheduleClass(
+                            cron="0 0 * * *",  # Daily for SQL assertions
+                            timezone="UTC",
+                        ),
+                        parameters=models.AssertionEvaluationParametersClass(
+                            type=models.AssertionEvaluationParametersTypeClass.DATASET_SQL,
+                        ),
+                    )
+                ],
+            ),
+        ),
+    )
+
+
+@pytest.fixture
+def sql_stub_entity_client(
+    sql_monitor_with_all_fields: Monitor,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> StubEntityClient:
+    return StubEntityClient(
+        monitor_entity=sql_monitor_with_all_fields,
+        assertion_entity=sql_assertion_entity_with_all_fields,
+    )
+
+
+@pytest.fixture
+def sql_stub_datahub_client(
+    sql_stub_entity_client: StubEntityClient,
+) -> StubDataHubClient:
+    return StubDataHubClient(entity_client=sql_stub_entity_client)
+
+
+@pytest.fixture
 def stub_entity_client() -> StubEntityClient:
     """A generic stub entity client that can be used for all types of assertions."""
     return StubEntityClient()

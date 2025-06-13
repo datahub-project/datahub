@@ -142,6 +142,40 @@ class _DatasetProfile(AbstractDetectionMechanism):
     type: Literal["dataset_profile"] = "dataset_profile"
 
 
+# Operators that require a single value numeric parameter
+SINGLE_VALUE_NUMERIC_OPERATORS = [
+    models.AssertionStdOperatorClass.EQUAL_TO,
+    models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+    models.AssertionStdOperatorClass.GREATER_THAN,
+    models.AssertionStdOperatorClass.LESS_THAN,
+    models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+    models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+]
+
+# Operators that require a single value parameter
+SINGLE_VALUE_OPERATORS = [
+    models.AssertionStdOperatorClass.CONTAIN,
+    models.AssertionStdOperatorClass.END_WITH,
+    models.AssertionStdOperatorClass.START_WITH,
+    models.AssertionStdOperatorClass.REGEX_MATCH,
+    models.AssertionStdOperatorClass.IN,
+    models.AssertionStdOperatorClass.NOT_IN,
+] + SINGLE_VALUE_NUMERIC_OPERATORS
+
+# Operators that require a numeric range parameter
+RANGE_OPERATORS = [
+    models.AssertionStdOperatorClass.BETWEEN,
+]
+
+# Operators that require no parameters
+NO_PARAMETER_OPERATORS = [
+    models.AssertionStdOperatorClass.NULL,
+    models.AssertionStdOperatorClass.NOT_NULL,
+    models.AssertionStdOperatorClass.IS_TRUE,
+    models.AssertionStdOperatorClass.IS_FALSE,
+]
+
+
 # Keep these two lists in sync:
 _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _InformationSchema,
@@ -1096,15 +1130,12 @@ class _AssertionInput(ABC):
         Returns:
             A Monitor entity configured with the assertion input parameters.
         """
-        source_type, field = self._convert_assertion_source_type_and_field()
         return Monitor(
             id=(self.dataset_urn, assertion_urn),
             info=self._create_monitor_info(
                 assertion_urn=assertion_urn,
                 status=self._convert_monitor_status(),
                 schedule=self._convert_schedule(),
-                source_type=source_type,
-                field=field,
             ),
         )
 
@@ -1182,8 +1213,6 @@ class _AssertionInput(ABC):
         assertion_urn: AssertionUrn,
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[FieldSpecType],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
@@ -1191,8 +1220,6 @@ class _AssertionInput(ABC):
         Args:
             status: The monitor status.
             schedule: The monitor schedule.
-            source_type: The source type.
-            field: Optional field specification.
         Returns:
             A MonitorInfoClass configured with all the provided components.
         """
@@ -1432,12 +1459,11 @@ class _SmartFreshnessAssertionInput(
         assertion_urn: AssertionUrn,
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[FieldSpecType],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
         """
+        source_type, field = self._convert_assertion_source_type_and_field()
         return models.MonitorInfoClass(
             type=models.MonitorTypeClass.ASSERTION,
             status=status,
@@ -1591,12 +1617,11 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
         assertion_urn: AssertionUrn,
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[FieldSpecType],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
         """
+        source_type, field = self._convert_assertion_source_type_and_field()
         return models.MonitorInfoClass(
             type=models.MonitorTypeClass.ASSERTION,
             status=status,

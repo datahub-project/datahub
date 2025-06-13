@@ -10,10 +10,12 @@ import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     AssertionMode,
     SmartFreshnessAssertion,
+    SqlAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DETECTION_MECHANISM_CONCRETE_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
@@ -23,6 +25,12 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     InferenceSensitivity,
     _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
+)
+from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionChangeType,
+    SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -1283,3 +1291,777 @@ def test_assertion_entity_schedule_left_empty_for_ai_inference_engine(
         not hasattr(assertion_entity.info, "schedule")
         or assertion_entity.info.schedule is None
     )
+
+
+# Tests for SQL Assertions
+
+
+@dataclass
+class SqlAssertionInputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    criteria: SqlAssertionCriteria
+    statement: str
+    display_name: Optional[str] = None
+    enabled: Optional[bool] = None
+    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    tags: Optional[TagsInputType] = None
+    schedule: Optional[models.CronScheduleClass] = None
+
+
+@dataclass
+class SqlAssertionOutputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    criteria: SqlAssertionCriteria
+    statement: str
+    display_name: str
+    mode: AssertionMode
+    incident_behavior: list[AssertionIncidentBehavior]
+    tags: TagsInputType
+    schedule: models.CronScheduleClass
+    created_by: CorpUserUrn
+    created_at: datetime
+    updated_by: CorpUserUrn
+    updated_at: datetime
+
+
+@dataclass
+class SqlAssertionUpsertInputParams:
+    dataset_urn: Union[str, DatasetUrn]
+    criteria: SqlAssertionCriteria
+    statement: str
+    urn: Optional[Union[str, AssertionUrn]] = None
+    display_name: Optional[str] = None
+    enabled: Optional[bool] = None
+    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    tags: Optional[TagsInputType] = None
+    schedule: Optional[models.CronScheduleClass] = None
+    updated_by: Optional[CorpUserUrn] = None
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_valid_simple_input(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_monitor_urn: MonitorUrn,
+    any_assertion_urn: AssertionUrn,
+    sql_monitor_with_all_fields: Monitor,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test sync_sql_assertion with valid simple input merges correctly."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    input_params = SqlAssertionUpsertInputParams(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM test_table",
+        display_name="Test SQL Assertion",
+    )
+
+    # Arrange
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+
+    # Act
+    assertion = client.sync_sql_assertion(**asdict(input_params))
+
+    # Assert
+    _validate_sql_assertion_vs_input(
+        assertion,
+        input_params,
+        SqlAssertionOutputParams(
+            dataset_urn=input_params.dataset_urn,
+            criteria=criteria,
+            statement=input_params.statement,
+            display_name=input_params.display_name or "",
+            mode=AssertionMode.ACTIVE,
+            incident_behavior=[
+                AssertionIncidentBehavior.RAISE_ON_FAIL,
+                AssertionIncidentBehavior.RESOLVE_ON_PASS,
+            ],
+            tags=[TagUrn.from_string("urn:li:tag:sql_assertion_tag")],
+            schedule=models.CronScheduleClass(
+                cron="0 0 * * *", timezone="UTC"
+            ),  # Daily default
+            created_by=CorpUserUrn.from_string(
+                "urn:li:corpuser:acryl-cloud-user-created"
+            ),
+            created_at=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            updated_by=CorpUserUrn.from_string("urn:li:corpuser:__datahub_system"),
+            updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+        ),
+    )
+
+    assert mock_upsert.call_count == 2
+
+    # Verify assertion entity
+    called_with_assertion = mock_upsert.call_args_list[0][0][0]
+    assert called_with_assertion.urn == any_assertion_urn
+    assert isinstance(called_with_assertion.info, models.SqlAssertionInfoClass)
+    assert called_with_assertion.info.type == models.SqlAssertionTypeClass.METRIC
+    assert called_with_assertion.info.entity == str(any_dataset_urn)
+    assert called_with_assertion.info.statement == "SELECT COUNT(*) FROM test_table"
+
+    # Verify monitor entity
+    called_with_monitor = mock_upsert.call_args_list[1][0][0]
+    assert called_with_monitor.urn == any_monitor_urn
+    assert called_with_monitor.info.type == models.MonitorTypeClass.ASSERTION
+    assert called_with_monitor.info.assertionMonitor.assertions[0].assertion == str(
+        any_assertion_urn
+    )
+    assert (
+        called_with_monitor.info.assertionMonitor.assertions[0].parameters.type
+        == models.AssertionEvaluationParametersTypeClass.DATASET_SQL
+    )
+
+
+def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion calls create when urn is None."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+    mock_create_assertion = MagicMock()
+    client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.EQUAL_TO,
+        parameters=42,
+    )
+
+    client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM users",
+    )
+
+    assert mock_create_assertion.call_count == 1
+    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    assert mock_create_assertion.call_args[1]["criteria"] == criteria
+    assert (
+        mock_create_assertion.call_args[1]["statement"] == "SELECT COUNT(*) FROM users"
+    )
+    assert mock_upsert.call_count == 0
+
+
+@pytest.mark.parametrize(
+    "updated_by, expected_updated_by",
+    [
+        pytest.param(None, DEFAULT_CREATED_BY, id="no_updated_by_set"),
+        pytest.param(
+            CorpUserUrn.from_string("urn:li:corpuser:test_user"),
+            CorpUserUrn.from_string("urn:li:corpuser:test_user"),
+            id="updated_by_set",
+        ),
+    ],
+)
+def test_sync_sql_assertion_uses_default_if_updated_by_is_not_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    updated_by: Optional[CorpUserUrn],
+    expected_updated_by: CorpUserUrn,
+) -> None:
+    """Test that sync_sql_assertion uses default updated_by when not provided."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.PERCENTAGE,
+        operator=SqlAssertionOperator.LESS_THAN,
+        parameters=10,
+    )
+
+    client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT AVG(price) FROM products",
+        updated_by=updated_by,
+    )
+
+    assertion_entity_upserted = mock_upsert.call_args_list[0][0][0]
+    assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
+
+
+def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    any_monitor_urn: MonitorUrn,
+) -> None:
+    """Test that sync_sql_assertion calls create when entities don't exist."""
+    sql_stub_datahub_client = StubDataHubClient()  # Empty client
+    assert sql_stub_datahub_client.entities.get(any_assertion_urn) is None
+    assert sql_stub_datahub_client.entities.get(any_monitor_urn) is None
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+    mock_create_assertion = MagicMock(
+        return_value=SqlAssertion(
+            dataset_urn=any_dataset_urn,
+            urn=any_assertion_urn,
+            display_name="Mock SQL assertion",
+            mode=AssertionMode.ACTIVE,
+            criteria=SqlAssertionCriteria(
+                type=SqlAssertionType.METRIC,
+                change_type=None,
+                operator=SqlAssertionOperator.GREATER_THAN,
+                parameters=50,
+            ),
+            statement="SELECT COUNT(*) FROM table",
+            schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
+            incident_behavior=[],
+            tags=[],
+        )
+    )
+    client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=50,
+    )
+
+    client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM table",
+    )
+
+    assert mock_upsert.call_count == 0
+    assert mock_create_assertion.call_count == 1
+    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_calls_upsert_if_assertion_exists_but_monitor_does_not(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    any_monitor_urn: MonitorUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test that sync_sql_assertion handles case where assertion exists but monitor doesn't."""
+    # Create client with assertion but no monitor
+    sql_stub_datahub_client = StubDataHubClient(
+        entity_client=StubEntityClient(
+            assertion_entity=sql_assertion_entity_with_all_fields,
+            monitor_entity=None,
+        )
+    )
+    assert sql_stub_datahub_client.entities.get(any_assertion_urn) is not None
+    assert sql_stub_datahub_client.entities.get(any_monitor_urn) is None
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(10, 100),
+    )
+
+    input_params = SqlAssertionUpsertInputParams(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM orders",
+        display_name="Updated SQL Assertion",
+    )
+
+    assertion = client.sync_sql_assertion(**asdict(input_params))
+
+    assert mock_upsert.call_count == 2
+    _validate_sql_assertion_vs_input(
+        assertion,
+        input_params,
+        SqlAssertionOutputParams(
+            dataset_urn=any_dataset_urn,
+            criteria=criteria,
+            statement="SELECT COUNT(*) FROM orders",
+            display_name="Updated SQL Assertion",
+            mode=AssertionMode.ACTIVE,  # Default when no monitor exists
+            incident_behavior=[
+                AssertionIncidentBehavior.RAISE_ON_FAIL,
+                AssertionIncidentBehavior.RESOLVE_ON_PASS,
+            ],
+            tags=[TagUrn.from_string("urn:li:tag:sql_assertion_tag")],
+            schedule=models.CronScheduleClass(
+                cron=DEFAULT_EVERY_SIX_HOURS_SCHEDULE.cron,
+                timezone=DEFAULT_EVERY_SIX_HOURS_SCHEDULE.timezone,
+            ),
+            created_by=CorpUserUrn.from_string(
+                "urn:li:corpuser:acryl-cloud-user-created"
+            ),
+            created_at=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            updated_by=CorpUserUrn.from_string("urn:li:corpuser:__datahub_system"),
+            updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+        ),
+    )
+
+
+def test_sync_sql_assertion_raises_error_if_assertion_and_input_have_different_dataset_urns(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+) -> None:
+    """Test that sync_sql_assertion raises error for dataset URN mismatch."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.EQUAL_TO,
+        parameters=0,
+    )
+
+    with pytest.raises(SDKUsageError, match="Dataset URN mismatch"):
+        client.sync_sql_assertion(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,different_dataset,PROD)",
+            urn=any_assertion_urn,
+            criteria=criteria,
+            statement="SELECT 1",
+        )
+
+
+def test_sync_sql_assertion_uses_existing_assertion_display_name_if_input_display_name_is_not_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test that sync_sql_assertion preserves existing display name when input is None."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.NOT_EQUAL_TO,
+        parameters=999,
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM events",
+        display_name=None,
+    )
+
+    assert assertion.display_name == sql_assertion_entity_with_all_fields.description
+
+
+def test_sync_sql_assertion_uses_empty_display_name_if_existing_assertion_has_no_display_name(
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion uses empty string when existing assertion has no display name."""
+    client = AssertionsClient(
+        StubDataHubClient(  # type: ignore[arg-type]
+            StubEntityClient(
+                assertion_entity=Assertion(
+                    description=None,
+                    info=models.SqlAssertionInfoClass(
+                        type=models.SqlAssertionTypeClass.METRIC,
+                        entity=str(any_dataset_urn),
+                        statement="SELECT 1",
+                        operator=models.AssertionStdOperatorClass.EQUAL_TO,
+                        parameters=models.AssertionStdParametersClass(
+                            value=models.AssertionStdParameterClass(
+                                type=models.AssertionStdParameterTypeClass.NUMBER,
+                                value="1",
+                            )
+                        ),
+                    ),
+                )
+            )
+        )
+    )
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.EQUAL_TO,
+        parameters=1,
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT 1",
+        display_name=None,
+    )
+
+    assert assertion.display_name == ""
+
+
+def test_sync_sql_assertion_uses_existing_assertion_incident_behavior_if_input_incident_behavior_is_not_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test that sync_sql_assertion preserves existing incident behavior when input is None."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.ABSOLUTE,
+        operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        parameters=5,
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT SUM(revenue) FROM sales",
+        incident_behavior=None,
+    )
+
+    assert len(assertion.incident_behavior) == len(
+        sql_assertion_entity_with_all_fields.on_failure
+    ) + len(sql_assertion_entity_with_all_fields.on_success)
+
+
+def test_sync_sql_assertion_uses_existing_assertion_tags_if_input_tags_is_not_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test that sync_sql_assertion preserves existing tags when input is None."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+        parameters=1000,
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT MAX(id) FROM users",
+        tags=None,
+    )
+
+    assert assertion.tags
+    assert sql_assertion_entity_with_all_fields.tags
+    assert len(assertion.tags) == len(sql_assertion_entity_with_all_fields.tags)
+    for i in range(len(assertion.tags)):
+        assert str(assertion.tags[i]) == str(
+            sql_assertion_entity_with_all_fields.tags[i].tag
+        )
+
+
+def test_sync_sql_assertion_uses_input_display_name_if_input_display_name_is_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion uses input display name when provided."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(0, 10),
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM failed_jobs",
+        display_name="Custom SQL Assertion Name",
+    )
+
+    assert assertion.display_name == "Custom SQL Assertion Name"
+
+
+def test_sync_sql_assertion_uses_input_incident_behavior_if_input_incident_behavior_is_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion uses input incident behavior when provided."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.EQUAL_TO,
+        parameters=0,
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM errors WHERE severity = 'critical'",
+        incident_behavior=[],  # Empty list means set to no incident behavior
+    )
+
+    assert assertion.incident_behavior == []
+
+
+def test_sync_sql_assertion_uses_input_tags_if_input_tags_is_set(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion uses input tags when provided."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.PERCENTAGE,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(-5, 5),
+    )
+
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM daily_active_users WHERE date = CURRENT_DATE",
+        tags=["urn:li:tag:critical", "urn:li:tag:automated"],
+    )
+
+    assert len(assertion.tags) == 2
+    assert TagUrn.from_string("urn:li:tag:critical") in assertion.tags
+    assert TagUrn.from_string("urn:li:tag:automated") in assertion.tags
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "enabled, expected_mode",
+    [
+        pytest.param(True, AssertionMode.ACTIVE, id="enabled_true"),
+        pytest.param(False, AssertionMode.INACTIVE, id="enabled_false"),
+        pytest.param(None, AssertionMode.ACTIVE, id="enabled_none_preserves_existing"),
+    ],
+)
+def test_sync_sql_assertion_enabled_parameter_merging(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+    sql_monitor_with_all_fields: Monitor,
+    enabled: Optional[bool],
+    expected_mode: AssertionMode,
+) -> None:
+    """Test that the enabled parameter merges correctly with existing values."""
+    # Set existing monitor to ACTIVE state
+    sql_monitor_with_all_fields.info.status.mode = models.MonitorModeClass.ACTIVE
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    result = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM active_users",
+        enabled=enabled,
+    )
+
+    # Verify the returned assertion has the expected mode
+    assert result.mode == expected_mode
+
+    # Verify the monitor entity was upserted with correct mode
+    assert mock_upsert.call_count == 2  # assertion + monitor
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    expected_monitor_mode = (
+        models.MonitorModeClass.ACTIVE
+        if expected_mode == AssertionMode.ACTIVE
+        else models.MonitorModeClass.INACTIVE
+    )
+    assert monitor_entity.info.status.mode == expected_monitor_mode
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_enabled_none_preserves_inactive(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+    sql_monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that enabled=None preserves existing INACTIVE state."""
+    # Set existing monitor to INACTIVE state
+    sql_monitor_with_all_fields.info.status.mode = models.MonitorModeClass.INACTIVE
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.LESS_THAN,
+        parameters=10,
+    )
+
+    result = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM errors",
+        enabled=None,  # Should preserve existing state
+    )
+
+    # Verify the returned assertion preserves INACTIVE mode
+    assert result.mode == AssertionMode.INACTIVE
+
+    # Verify the monitor entity was upserted with INACTIVE mode preserved
+    assert mock_upsert.call_count == 2  # assertion + monitor
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.INACTIVE
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync passes enabled parameter to create when urn is None."""
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+
+    # Mock the create method to verify it's called with enabled parameter
+    with patch.object(client, "_create_sql_assertion") as mock_create:
+        mock_create.return_value = MagicMock()  # Return a mock assertion
+
+        criteria = SqlAssertionCriteria(
+            type=SqlAssertionType.METRIC,
+            change_type=None,
+            operator=SqlAssertionOperator.EQUAL_TO,
+            parameters=1,
+        )
+
+        client.sync_sql_assertion(
+            dataset_urn=any_dataset_urn,
+            urn=None,  # This should trigger create
+            criteria=criteria,
+            statement="SELECT 1",
+            enabled=False,
+        )
+
+        # Verify create was called with enabled=False
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["enabled"] is False
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_sql_assertion_schedule_parameter_merging(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    sql_assertion_entity_with_all_fields: Assertion,
+    sql_monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that custom schedule parameter is preserved when provided."""
+    custom_schedule = models.CronScheduleClass(
+        cron="0 */6 * * *", timezone="America/New_York"
+    )
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.ABSOLUTE,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(0, 100),
+    )
+
+    result = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM transactions WHERE amount > 1000",
+        schedule=custom_schedule,
+    )
+
+    # Verify the returned assertion has the custom schedule
+    assert result.schedule.cron == custom_schedule.cron
+    assert result.schedule.timezone == custom_schedule.timezone
+
+    # Verify the monitor entity was upserted with custom schedule
+    assert mock_upsert.call_count == 2  # assertion + monitor
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert (
+        monitor_entity.info.assertionMonitor.assertions[0].schedule.cron
+        == custom_schedule.cron
+    )
+    assert (
+        monitor_entity.info.assertionMonitor.assertions[0].schedule.timezone
+        == custom_schedule.timezone
+    )
+
+
+def _validate_sql_assertion_vs_input(
+    assertion: SqlAssertion,
+    input_params: SqlAssertionUpsertInputParams,
+    expected_output_params: SqlAssertionOutputParams,
+) -> None:
+    """Validate that SQL assertion matches expected parameters."""
+    if input_params.display_name is not None:
+        assert assertion.display_name == expected_output_params.display_name
+    else:
+        # Should use existing or generate one
+        assert assertion.display_name is not None
+
+    assert assertion.criteria.type == expected_output_params.criteria.type
+    assert assertion.criteria.change_type == expected_output_params.criteria.change_type
+    assert assertion.criteria.operator == expected_output_params.criteria.operator
+    assert assertion.criteria.parameters == expected_output_params.criteria.parameters
+    assert assertion.statement == expected_output_params.statement
+    assert assertion.mode == expected_output_params.mode
+    assert assertion.incident_behavior == expected_output_params.incident_behavior
+    assert assertion.tags == expected_output_params.tags
+    assert assertion.schedule.cron == expected_output_params.schedule.cron
+    assert assertion.schedule.timezone == expected_output_params.schedule.timezone
+    assert assertion.created_by == expected_output_params.created_by
+    assert assertion.created_at == expected_output_params.created_at
+    assert assertion.updated_by == expected_output_params.updated_by
+    assert assertion.updated_at == expected_output_params.updated_at

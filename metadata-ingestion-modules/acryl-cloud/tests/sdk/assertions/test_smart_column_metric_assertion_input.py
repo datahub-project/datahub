@@ -866,15 +866,12 @@ def test_smart_column_metric_assertion_input_conversion(
     )
 
     # Test monitor info conversion
-    source_type, field = assertion_input._convert_assertion_source_type_and_field()
     from datahub.metadata.urns import AssertionUrn
 
     monitor_info = assertion_input._create_monitor_info(
         assertion_urn=AssertionUrn("urn:li:assertion:123"),
         status=models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE),
         schedule=assertion_input._convert_schedule(),
-        source_type=source_type,
-        field=field,
     )
     assert monitor_info.type == example_monitor_info.type
     assert monitor_info.status.mode == example_monitor_info.status.mode

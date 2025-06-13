@@ -5,6 +5,9 @@ from typing import Optional, Union
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
+    NO_PARAMETER_OPERATORS,
+    RANGE_OPERATORS,
+    SINGLE_VALUE_OPERATORS,
     AssertionIncidentBehavior,
     AssertionInfoInputType,
     DetectionMechanismInputTypes,
@@ -84,35 +87,6 @@ FIELD_VALUES_OPERATOR_CONFIG = {
         models.AssertionStdOperatorClass.NOT_NULL,
     ],
 }
-
-# Operators that require a single value parameter
-SINGLE_VALUE_OPERATORS = [
-    models.AssertionStdOperatorClass.EQUAL_TO,
-    models.AssertionStdOperatorClass.NOT_EQUAL_TO,
-    models.AssertionStdOperatorClass.GREATER_THAN,
-    models.AssertionStdOperatorClass.LESS_THAN,
-    models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
-    models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
-    models.AssertionStdOperatorClass.CONTAIN,
-    models.AssertionStdOperatorClass.END_WITH,
-    models.AssertionStdOperatorClass.START_WITH,
-    models.AssertionStdOperatorClass.REGEX_MATCH,
-    models.AssertionStdOperatorClass.IN,
-    models.AssertionStdOperatorClass.NOT_IN,
-]
-
-# Operators that require a range parameter
-RANGE_OPERATORS = [
-    models.AssertionStdOperatorClass.BETWEEN,
-]
-
-# Operators that require no parameters
-NO_PARAMETER_OPERATORS = [
-    models.AssertionStdOperatorClass.NULL,
-    models.AssertionStdOperatorClass.NOT_NULL,
-    models.AssertionStdOperatorClass.IS_TRUE,
-    models.AssertionStdOperatorClass.IS_FALSE,
-]
 
 # Keep this in sync with FIELD_METRIC_TYPE_CONFIG in the frontend
 # datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
@@ -442,12 +416,11 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         assertion_urn: AssertionUrn,
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[FieldSpecType],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
         """
+        source_type, field = self._convert_assertion_source_type_and_field()
         return models.MonitorInfoClass(
             type=models.MonitorTypeClass.ASSERTION,
             status=status,

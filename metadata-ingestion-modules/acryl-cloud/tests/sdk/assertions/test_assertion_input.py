@@ -12,8 +12,11 @@ from pydantic import ValidationError
 import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
+    RANGE_OPERATORS,
+    SINGLE_VALUE_NUMERIC_OPERATORS,
     AssertionIncidentBehavior,
     CalendarInterval,
     DatasetSourceType,
@@ -35,6 +38,13 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
     _FreshnessAssertionInput,
+)
+from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionChangeType,
+    SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
+    _SqlAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
     TagsInputType,
@@ -1878,3 +1888,677 @@ def test_is_source_type_valid(params: SourceTypeValidityTestParams) -> None:
         )
         == params.expected_result
     ), params.description
+
+
+# Tests for SQL Assertions
+
+
+@pytest.mark.parametrize(
+    "assertion_type, change_type, operator, parameters, expected_raises",
+    [
+        # Valid METRIC assertions
+        pytest.param(
+            SqlAssertionType.METRIC,
+            None,
+            SqlAssertionOperator.GREATER_THAN,
+            100,
+            nullcontext(),
+            id="metric_greater_than_single_value",
+        ),
+        pytest.param(
+            "METRIC",
+            None,
+            "GREATER_THAN",
+            100.5,
+            nullcontext(),
+            id="metric_greater_than_float_string_params",
+        ),
+        pytest.param(
+            SqlAssertionType.METRIC,
+            None,
+            SqlAssertionOperator.BETWEEN,
+            (10, 100),
+            nullcontext(),
+            id="metric_between_range",
+        ),
+        pytest.param(
+            SqlAssertionType.METRIC,
+            None,
+            SqlAssertionOperator.EQUAL_TO,
+            42,
+            nullcontext(),
+            id="metric_equal_to",
+        ),
+        # Valid METRIC_CHANGE assertions
+        pytest.param(
+            SqlAssertionType.METRIC_CHANGE,
+            SqlAssertionChangeType.ABSOLUTE,
+            SqlAssertionOperator.LESS_THAN,
+            10,
+            nullcontext(),
+            id="metric_change_absolute_less_than",
+        ),
+        pytest.param(
+            "METRIC_CHANGE",
+            "PERCENTAGE",
+            "GREATER_THAN_OR_EQUAL_TO",
+            5.0,
+            nullcontext(),
+            id="metric_change_percentage_gte_string_params",
+        ),
+        pytest.param(
+            SqlAssertionType.METRIC_CHANGE,
+            SqlAssertionChangeType.ABSOLUTE,
+            SqlAssertionOperator.BETWEEN,
+            (-10, 10),
+            nullcontext(),
+            id="metric_change_absolute_between",
+        ),
+        # Error cases - missing change_type for METRIC_CHANGE
+        pytest.param(
+            SqlAssertionType.METRIC_CHANGE,
+            None,
+            SqlAssertionOperator.GREATER_THAN,
+            100,
+            pytest.raises(
+                SDKUsageError,
+                match="Change type is required for metric change assertions",
+            ),
+            id="metric_change_missing_change_type",
+        ),
+        # Error cases - change_type provided for METRIC
+        pytest.param(
+            SqlAssertionType.METRIC,
+            SqlAssertionChangeType.ABSOLUTE,
+            SqlAssertionOperator.GREATER_THAN,
+            100,
+            pytest.raises(
+                SDKUsageError, match="Change type is not allowed for metric assertions"
+            ),
+            id="metric_with_change_type_error",
+        ),
+        # Error cases - wrong parameters for operator
+        pytest.param(
+            SqlAssertionType.METRIC,
+            None,
+            SqlAssertionOperator.BETWEEN,
+            100,  # Should be tuple for BETWEEN
+            pytest.raises(SDKUsageError, match="must be a tuple range for operator"),
+            id="between_operator_single_value_error",
+        ),
+        pytest.param(
+            SqlAssertionType.METRIC,
+            None,
+            SqlAssertionOperator.GREATER_THAN,
+            (10, 100),  # Should be single value for GREATER_THAN
+            pytest.raises(
+                SDKUsageError, match="must be a single value numeric for operator"
+            ),
+            id="single_value_operator_tuple_error",
+        ),
+    ],
+)
+def test_sql_assertion_criteria_validation(
+    assertion_type: Union[SqlAssertionType, str],
+    change_type: Optional[Union[SqlAssertionChangeType, str]],
+    operator: Union[SqlAssertionOperator, str],
+    parameters: Union[Union[float, int], tuple[Union[float, int], Union[float, int]]],
+    expected_raises: ContextManager[Any],
+) -> None:
+    """Test SqlAssertionCriteria validation with various inputs."""
+    criteria = SqlAssertionCriteria(
+        type=assertion_type,
+        change_type=change_type,
+        operator=operator,
+        parameters=parameters,
+    )
+
+    with expected_raises:
+        SqlAssertionCriteria.validate(criteria)
+        # The validation doesn't modify the original criteria, it just validates it
+        # Note: criteria might have been converted by Pydantic if string inputs were used
+        assert (
+            criteria.type == assertion_type
+            or str(criteria.type.value) == assertion_type  # type: ignore
+        )
+        if change_type is not None:
+            assert (
+                criteria.change_type == change_type
+                or str(criteria.change_type.value) == change_type  # type: ignore
+            )
+        else:
+            assert criteria.change_type is None
+        assert (
+            criteria.operator == operator or str(criteria.operator.value) == operator  # type: ignore
+        )
+        assert criteria.parameters == parameters
+
+
+@pytest.mark.parametrize(
+    "assertion_type, expected_model_type",
+    [
+        pytest.param(
+            SqlAssertionType.METRIC,
+            models.SqlAssertionTypeClass.METRIC,
+            id="enum_metric",
+        ),
+        pytest.param(
+            "METRIC",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_metric",
+        ),
+        pytest.param(
+            SqlAssertionType.METRIC_CHANGE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="enum_metric_change",
+        ),
+        pytest.param(
+            "METRIC_CHANGE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_metric_change",
+        ),
+    ],
+)
+def test_sql_assertion_criteria_get_type(
+    assertion_type: Union[SqlAssertionType, str],
+    expected_model_type: models.SqlAssertionTypeClass,
+) -> None:
+    """Test SqlAssertionCriteria.get_type() conversion."""
+    result = SqlAssertionCriteria.get_type(assertion_type)
+    assert result == expected_model_type
+
+
+@pytest.mark.parametrize(
+    "change_type, expected_model_type",
+    [
+        pytest.param(
+            SqlAssertionChangeType.ABSOLUTE,
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="enum_absolute",
+        ),
+        pytest.param(
+            "ABSOLUTE",
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="string_absolute",
+        ),
+        pytest.param(
+            SqlAssertionChangeType.PERCENTAGE,
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="enum_percentage",
+        ),
+        pytest.param(
+            "PERCENTAGE",
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="string_percentage",
+        ),
+        pytest.param(
+            None,
+            None,
+            id="none_change_type",
+        ),
+    ],
+)
+def test_sql_assertion_criteria_get_change_type(
+    change_type: Optional[Union[SqlAssertionChangeType, str]],
+    expected_model_type: Optional[models.AssertionValueChangeTypeClass],
+) -> None:
+    """Test SqlAssertionCriteria.get_change_type() conversion."""
+    result = SqlAssertionCriteria.get_change_type(change_type)
+    assert result == expected_model_type
+
+
+@pytest.mark.parametrize(
+    "operator, expected_model_operator",
+    [
+        pytest.param(
+            SqlAssertionOperator.GREATER_THAN,
+            models.AssertionStdOperatorClass.GREATER_THAN,
+            id="enum_greater_than",
+        ),
+        pytest.param(
+            "GREATER_THAN",
+            models.AssertionStdOperatorClass.GREATER_THAN,
+            id="string_greater_than",
+        ),
+        pytest.param(
+            SqlAssertionOperator.BETWEEN,
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="enum_between",
+        ),
+        pytest.param(
+            "EQUAL_TO",
+            models.AssertionStdOperatorClass.EQUAL_TO,
+            id="string_equal_to",
+        ),
+    ],
+)
+def test_sql_assertion_criteria_get_operator(
+    operator: Union[SqlAssertionOperator, str],
+    expected_model_operator: models.AssertionStdOperatorClass,
+) -> None:
+    """Test SqlAssertionCriteria.get_operator() conversion."""
+    result = SqlAssertionCriteria.get_operator(operator)
+    assert result == expected_model_operator
+
+
+@pytest.mark.parametrize(
+    "parameters, expected_params_type",
+    [
+        pytest.param(
+            100,
+            "single_value",
+            id="single_int_value",
+        ),
+        pytest.param(
+            100.5,
+            "single_value",
+            id="single_float_value",
+        ),
+        pytest.param(
+            (10, 100),
+            "range",
+            id="tuple_range",
+        ),
+        pytest.param(
+            (10.5, 100.5),
+            "range",
+            id="tuple_float_range",
+        ),
+    ],
+)
+def test_sql_assertion_criteria_get_parameters(
+    parameters: Union[Union[float, int], tuple[Union[float, int], Union[float, int]]],
+    expected_params_type: str,
+) -> None:
+    """Test SqlAssertionCriteria.get_parameters() conversion."""
+    result = SqlAssertionCriteria.get_parameters(parameters)
+    assert isinstance(result, models.AssertionStdParametersClass)
+
+    if expected_params_type == "single_value":
+        assert result.value is not None
+        assert result.value.type == models.AssertionStdParameterTypeClass.NUMBER
+        assert result.value.value == str(parameters)
+        assert result.minValue is None
+        assert result.maxValue is None
+    elif expected_params_type == "range":
+        assert result.value is None
+        assert result.minValue is not None
+        assert result.maxValue is not None
+        assert result.minValue.type == models.AssertionStdParameterTypeClass.NUMBER
+        assert result.maxValue.type == models.AssertionStdParameterTypeClass.NUMBER
+        # min is first element, max is second element
+        assert result.minValue.value == str(parameters[0])  # type: ignore
+        assert result.maxValue.value == str(parameters[1])  # type: ignore
+
+
+def test_sql_assertion_input_creation_basic(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test basic _SqlAssertionInput creation."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=100,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_table,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM test_table",
+        **default_created_updated_params,
+    )
+
+    assert assertion_input.urn == AssertionUrn("urn:li:assertion:sql_test")
+    assert (
+        str(assertion_input.dataset_urn)
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_table,PROD)"
+    )
+    assert assertion_input.criteria == criteria
+    assert assertion_input.statement == "SELECT COUNT(*) FROM test_table"
+    assert assertion_input.source_type == models.AssertionSourceTypeClass.NATIVE
+
+
+def test_sql_assertion_input_creation_with_all_parameters(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput creation with all parameters."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.PERCENTAGE,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(-10.0, 10.0),
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_test_full"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset.test_table,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT AVG(value) FROM test_dataset.test_table WHERE created_date >= CURRENT_DATE()",
+        display_name="Test SQL Assertion",
+        enabled=True,
+        schedule=models.CronScheduleClass(cron="0 */6 * * *", timezone="UTC"),
+        incident_behavior=[
+            AssertionIncidentBehavior.RAISE_ON_FAIL,
+            AssertionIncidentBehavior.RESOLVE_ON_PASS,
+        ],
+        tags=["urn:li:tag:sql_assertion", "urn:li:tag:automated"],
+        **default_created_updated_params,
+    )
+
+    assert assertion_input.display_name == "Test SQL Assertion"
+    assert assertion_input.enabled is True
+    assert assertion_input.schedule is not None
+    assert assertion_input.schedule.cron == "0 */6 * * *"
+    assert assertion_input.schedule.timezone == "UTC"
+    assert len(assertion_input.incident_behavior) == 2  # type: ignore
+    assert AssertionIncidentBehavior.RAISE_ON_FAIL in assertion_input.incident_behavior  # type: ignore
+    assert (
+        AssertionIncidentBehavior.RESOLVE_ON_PASS in assertion_input.incident_behavior  # type: ignore
+    )
+    assert assertion_input.tags == ["urn:li:tag:sql_assertion", "urn:li:tag:automated"]
+
+
+def test_sql_assertion_input_create_assertion_info(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._create_assertion_info() method."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+        parameters=500,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_info_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:postgres,public.users,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM public.users WHERE active = true",
+        **default_created_updated_params,
+    )
+
+    assertion_info = assertion_input._create_assertion_info(filter=None)
+
+    assert isinstance(assertion_info, models.SqlAssertionInfoClass)
+    assert assertion_info.type == models.SqlAssertionTypeClass.METRIC
+    assert (
+        assertion_info.entity
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,public.users,PROD)"
+    )
+    assert (
+        assertion_info.statement
+        == "SELECT COUNT(*) FROM public.users WHERE active = true"
+    )
+    assert assertion_info.changeType is None
+    assert (
+        assertion_info.operator
+        == models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+    )
+    assert assertion_info.parameters.value is not None
+    assert assertion_info.parameters.value.value == "500.0"
+
+
+def test_sql_assertion_input_create_assertion_info_with_change_type(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._create_assertion_info() with change type."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC_CHANGE,
+        change_type=SqlAssertionChangeType.ABSOLUTE,
+        operator=SqlAssertionOperator.BETWEEN,
+        parameters=(5, 50),
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_change_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:mysql,analytics.events,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM analytics.events WHERE event_date = CURDATE()",
+        **default_created_updated_params,
+    )
+
+    assertion_info = assertion_input._create_assertion_info(filter=None)
+
+    assert isinstance(assertion_info, models.SqlAssertionInfoClass)
+    assert assertion_info.type == models.SqlAssertionTypeClass.METRIC_CHANGE
+    assert assertion_info.changeType == models.AssertionValueChangeTypeClass.ABSOLUTE
+    assert assertion_info.operator == models.AssertionStdOperatorClass.BETWEEN
+    assert assertion_info.parameters.minValue is not None
+    assert assertion_info.parameters.maxValue is not None
+    assert assertion_info.parameters.minValue.value == "5.0"  # min is first element
+    assert assertion_info.parameters.maxValue.value == "50.0"  # max is second element
+
+
+def test_sql_assertion_input_create_monitor_info(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._create_monitor_info() method."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN,
+        parameters=1000,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_monitor_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,public.orders,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT SUM(amount) FROM public.orders WHERE order_date >= CURRENT_DATE",
+        **default_created_updated_params,
+    )
+
+    assertion_urn = AssertionUrn("urn:li:assertion:sql_monitor_test")
+    status = models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE)
+    schedule = models.CronScheduleClass(cron="0 12 * * *", timezone="UTC")
+
+    monitor_info = assertion_input._create_monitor_info(assertion_urn, status, schedule)
+
+    assert isinstance(monitor_info, models.MonitorInfoClass)
+    assert monitor_info.type == models.MonitorTypeClass.ASSERTION
+    assert monitor_info.status == status
+    assert monitor_info.assertionMonitor is not None
+    assert len(monitor_info.assertionMonitor.assertions) == 1
+
+    assertion_spec = monitor_info.assertionMonitor.assertions[0]
+    assert assertion_spec.assertion == str(assertion_urn)
+    assert assertion_spec.schedule == schedule
+    assert assertion_spec.parameters is not None
+    assert (
+        assertion_spec.parameters.type
+        == models.AssertionEvaluationParametersTypeClass.DATASET_SQL
+    )
+
+
+def test_sql_assertion_input_get_assertion_evaluation_parameters(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._get_assertion_evaluation_parameters() method."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.EQUAL_TO,
+        parameters=42,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_params_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,default.test_table,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT 42",
+        **default_created_updated_params,
+    )
+
+    params = assertion_input._get_assertion_evaluation_parameters("unused", None)
+
+    assert isinstance(params, models.AssertionEvaluationParametersClass)
+    assert params.type == models.AssertionEvaluationParametersTypeClass.DATASET_SQL
+
+
+def test_sql_assertion_input_convert_schedule_default(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._convert_schedule() with default schedule."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.NOT_EQUAL_TO,
+        parameters=0,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_schedule_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM test_topic",
+        **default_created_updated_params,
+    )
+
+    schedule = assertion_input._convert_schedule()
+
+    assert isinstance(schedule, models.CronScheduleClass)
+    assert schedule.cron == DEFAULT_EVERY_SIX_HOURS_SCHEDULE.cron
+    assert schedule.timezone == DEFAULT_EVERY_SIX_HOURS_SCHEDULE.timezone
+
+
+def test_sql_assertion_input_convert_schedule_custom(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput._convert_schedule() with custom schedule."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        parameters=100,
+    )
+
+    custom_schedule = models.CronScheduleClass(
+        cron="0 */4 * * *", timezone="America/New_York"
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_custom_schedule_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket.dataset,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM s3_table",
+        schedule=custom_schedule,
+        **default_created_updated_params,
+    )
+
+    schedule = assertion_input._convert_schedule()
+
+    assert isinstance(schedule, models.CronScheduleClass)
+    assert schedule.cron == "0 */4 * * *"
+    assert schedule.timezone == "America/New_York"
+
+
+def test_sql_assertion_input_unused_methods(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test _SqlAssertionInput methods that are not used for SQL assertions."""
+    criteria = SqlAssertionCriteria(
+        type=SqlAssertionType.METRIC,
+        change_type=None,
+        operator=SqlAssertionOperator.LESS_THAN,
+        parameters=999,
+    )
+
+    assertion_input = _SqlAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:sql_unused_test"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)",
+        entity_client=freshness_stub_entity_client,
+        criteria=criteria,
+        statement="SELECT COUNT(*) FROM hr.employees",
+        **default_created_updated_params,
+    )
+
+    # Test methods that return placeholders for SQL assertions
+    source_type, field = assertion_input._convert_assertion_source_type_and_field()
+    assert source_type == "None"
+    assert field is None
+
+    filter_result = assertion_input._create_filter_from_detection_mechanism()
+    assert filter_result is None
+
+    assertion_type = assertion_input._assertion_type()
+    assert assertion_type == models.AssertionTypeClass.SQL
+
+
+def test_sql_assertion_type_enum_sync() -> None:
+    """Test that SqlAssertionType enum values match their corresponding model class values."""
+    # Test METRIC
+    assert SqlAssertionType.METRIC.value == models.SqlAssertionTypeClass.METRIC
+    # Test METRIC_CHANGE
+    assert (
+        SqlAssertionType.METRIC_CHANGE.value
+        == models.SqlAssertionTypeClass.METRIC_CHANGE
+    )
+
+    # Verify all enum values are covered
+    sdk_values = {member.value for member in SqlAssertionType}
+    model_values = {
+        getattr(models.SqlAssertionTypeClass, attr)
+        for attr in dir(models.SqlAssertionTypeClass)
+        if not attr.startswith("_")
+        and isinstance(getattr(models.SqlAssertionTypeClass, attr), str)
+    }
+    assert sdk_values == model_values
+
+
+def test_sql_assertion_change_type_enum_sync() -> None:
+    """Test that SqlAssertionChangeType enum values match their corresponding model class values."""
+    # Test ABSOLUTE
+    assert (
+        SqlAssertionChangeType.ABSOLUTE.value
+        == models.AssertionValueChangeTypeClass.ABSOLUTE
+    )
+    # Test PERCENTAGE
+    assert (
+        SqlAssertionChangeType.PERCENTAGE.value
+        == models.AssertionValueChangeTypeClass.PERCENTAGE
+    )
+
+    # Verify all enum values are covered
+    sdk_values = {member.value for member in SqlAssertionChangeType}
+    model_values = {
+        getattr(models.AssertionValueChangeTypeClass, attr)
+        for attr in dir(models.AssertionValueChangeTypeClass)
+        if not attr.startswith("_")
+        and isinstance(getattr(models.AssertionValueChangeTypeClass, attr), str)
+    }
+    assert sdk_values == model_values
+
+
+def test_sql_assertion_operator_coverage() -> None:
+    """Test that SqlAssertionOperator covers all operators from RANGE_OPERATORS and SINGLE_VALUE_NUMERIC_OPERATORS."""
+    # Get all operators from SqlAssertionOperator enum
+    sdk_operators = {member.value for member in SqlAssertionOperator}
+
+    # Get all operators from RANGE_OPERATORS and SINGLE_VALUE_NUMERIC_OPERATORS
+    expected_operators = set(RANGE_OPERATORS + SINGLE_VALUE_NUMERIC_OPERATORS)
+
+    # Verify that all expected operators are covered by SqlAssertionOperator
+    assert sdk_operators == expected_operators, (
+        f"SqlAssertionOperator does not cover all expected operators.\n"
+        f"Missing operators: {expected_operators - sdk_operators}\n"
+        f"Extra operators: {sdk_operators - expected_operators}"
+    )

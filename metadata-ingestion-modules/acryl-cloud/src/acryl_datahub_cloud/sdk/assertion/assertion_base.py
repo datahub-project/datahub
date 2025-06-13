@@ -17,6 +17,7 @@ from typing_extensions import Self
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
@@ -34,6 +35,9 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     RangeTypeInputType,
     ValueInputType,
     ValueTypeInputType,
+)
+from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionCriteria,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import (
@@ -73,7 +77,9 @@ class _HasSchedule:
         return self._schedule
 
     @staticmethod
-    def _get_schedule(monitor: Monitor) -> models.CronScheduleClass:
+    def _get_schedule(
+        monitor: Monitor, default: models.CronScheduleClass = DEFAULT_SCHEDULE
+    ) -> models.CronScheduleClass:
         """Get the schedule from the monitor."""
         assertion_evaluation_specs = _get_nested_field_for_entity_with_default(
             monitor,
@@ -81,11 +87,11 @@ class _HasSchedule:
             [],
         )
         if len(assertion_evaluation_specs) == 0:
-            return DEFAULT_SCHEDULE
+            return default
         assertion_evaluation_spec = assertion_evaluation_specs[0]
         schedule = assertion_evaluation_spec.schedule
         if schedule is None:
-            return DEFAULT_SCHEDULE
+            return default
         return schedule
 
 
@@ -335,6 +341,7 @@ class _AssertionPublic(ABC):
     Abstract base class that represents a public facing assertion and contains the common properties of all assertions.
     """
 
+    # TODO: have the individual classes self-declare this
     _SUPPORTED_WITH_FILTER_ASSERTION_TYPES = (
         models.FreshnessAssertionInfoClass,
         models.VolumeAssertionInfoClass,
@@ -1148,3 +1155,163 @@ class FreshnessAssertion(_HasSchedule, _AssertionPublic):
             raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
         else:
             raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
+
+
+class SqlAssertion(_AssertionPublic, _HasSchedule):
+    """
+    A class that represents a SQL assertion.
+    """
+
+    def __init__(
+        self,
+        *,
+        urn: AssertionUrn,
+        dataset_urn: DatasetUrn,
+        display_name: str,
+        mode: AssertionMode,
+        statement: str,
+        criteria: SqlAssertionCriteria,
+        schedule: models.CronScheduleClass,
+        tags: list[TagUrn],
+        incident_behavior: list[AssertionIncidentBehavior],
+        created_by: Optional[CorpUserUrn] = None,
+        created_at: Union[datetime, None] = None,
+        updated_by: Optional[CorpUserUrn] = None,
+        updated_at: Optional[datetime] = None,
+    ):
+        """
+        Initialize a SQL assertion.
+
+        Note: Values can be accessed, but not set on the assertion object.
+        To update an assertion, use the `upsert_*` method.
+        Args:
+            urn: The urn of the assertion.
+            dataset_urn: The urn of the dataset that the assertion is for.
+            display_name: The display name of the assertion.
+            mode: The mode of the assertion (active, inactive).
+            statement: The SQL statement to be used for the assertion.
+            criteria: The criteria to be used for the assertion.
+            schedule: The schedule of the assertion.
+            tags: The tags applied to the assertion.
+            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
+            created_by: The urn of the user that created the assertion.
+            created_at: The timestamp of when the assertion was created.
+            updated_by: The urn of the user that updated the assertion.
+            updated_at: The timestamp of when the assertion was updated.
+        """
+        # Initialize the mixins first
+        _AssertionPublic.__init__(
+            self,
+            urn=urn,
+            dataset_urn=dataset_urn,
+            display_name=display_name,
+            mode=mode,
+            tags=tags,
+            incident_behavior=incident_behavior,
+            created_by=created_by,
+            created_at=created_at,
+            updated_by=updated_by,
+            updated_at=updated_at,
+        )
+        _HasSchedule.__init__(self, schedule=schedule)
+        # Then initialize the parent class
+        self._statement = statement
+        self._criteria = criteria
+
+    @property
+    def statement(self) -> str:
+        return self._statement
+
+    @property
+    def criteria(self) -> SqlAssertionCriteria:
+        return self._criteria
+
+    @staticmethod
+    def _get_detection_mechanism(
+        assertion: Assertion,
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
+        """Sql assertions do not have a detection mechanism."""
+        return None
+
+    @staticmethod
+    def _get_statement(assertion: Assertion) -> str:
+        if assertion.info is None:
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} does not have a SQL assertion info, which is not supported"
+            )
+        if isinstance(assertion.info, models.SqlAssertionInfoClass):
+            return assertion.info.statement
+        else:
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} is not a SQL assertion"
+            )
+
+    @staticmethod
+    def _get_criteria(assertion: Assertion) -> SqlAssertionCriteria:
+        if assertion.info is None:
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} does not have a SQL assertion info, which is not supported"
+            )
+        if isinstance(assertion.info, models.SqlAssertionInfoClass):
+            parameters: Union[float, tuple[float, float]]
+            if assertion.info.parameters.value is not None:
+                parameters = float(assertion.info.parameters.value.value)
+            elif (
+                assertion.info.parameters.maxValue is not None
+                and assertion.info.parameters.minValue is not None
+            ):
+                # min and max values are in the order of min, max
+                parameters = (
+                    float(assertion.info.parameters.minValue.value),
+                    float(assertion.info.parameters.maxValue.value),
+                )
+            else:
+                raise SDKNotYetSupportedError(
+                    f"Assertion {assertion.urn} does not have a valid parameters for the SQL assertion"
+                )
+
+            return SqlAssertionCriteria(
+                type=assertion.info.type
+                if isinstance(assertion.info.type, str)
+                else str(assertion.info.type),
+                change_type=assertion.info.changeType
+                if assertion.info.changeType is None
+                else (
+                    assertion.info.changeType
+                    if isinstance(assertion.info.changeType, str)
+                    else str(assertion.info.changeType)
+                ),
+                operator=assertion.info.operator
+                if isinstance(assertion.info.operator, str)
+                else str(assertion.info.operator),
+                parameters=parameters,
+            )
+        else:
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} is not a SQL assertion"
+            )
+
+    @classmethod
+    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
+        """
+        Create a SQL assertion from the assertion and monitor entities.
+        """
+        return cls(
+            urn=assertion.urn,
+            dataset_urn=assertion.dataset,
+            display_name=assertion.description or "",
+            mode=cls._get_mode(monitor),
+            statement=cls._get_statement(assertion),
+            criteria=cls._get_criteria(assertion),
+            schedule=cls._get_schedule(
+                monitor, default=DEFAULT_EVERY_SIX_HOURS_SCHEDULE
+            ),
+            tags=cls._get_tags(assertion),
+            incident_behavior=cls._get_incident_behavior(assertion),
+            created_by=cls._get_created_by(assertion),
+            created_at=cls._get_created_at(assertion),
+            updated_by=cls._get_updated_by(assertion),
+            updated_at=cls._get_updated_at(assertion),
+        )

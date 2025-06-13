@@ -9,13 +9,20 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     AssertionMode,
     FreshnessAssertion,
     SmartFreshnessAssertion,
+    SqlAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+    DEFAULT_DAILY_SCHEDULE,
     DEFAULT_SCHEDULE,
     AssertionIncidentBehavior,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
+)
+from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -465,6 +472,82 @@ def test_freshness_assertion_from_entities_minimal(
     assert freshness_assertion.updated_at is None
 
     assert freshness_assertion.detection_mechanism == DEFAULT_DETECTION_MECHANISM
+
+
+# SQL assertion tests
+
+
+def test_sql_assertion_creation_min_fields(
+    any_assertion_urn: AssertionUrn,
+) -> None:
+    """Make sure the SqlAssertion can be created with the minimum required fields."""
+    SqlAssertion(
+        urn=any_assertion_urn,
+        dataset_urn=DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+        ),
+        display_name="SQL Assertion",
+        mode=AssertionMode.ACTIVE,
+        statement="SELECT COUNT(*) FROM table",
+        criteria=SqlAssertionCriteria(
+            type=SqlAssertionType.METRIC,
+            change_type=None,
+            operator=SqlAssertionOperator.GREATER_THAN,
+            parameters=100,
+        ),
+        schedule=DEFAULT_DAILY_SCHEDULE,
+        tags=[],
+        incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+    )
+
+
+def test_sql_assertion_all_attributes_are_readonly(
+    any_assertion_urn: AssertionUrn,
+) -> None:
+    """Test that all attributes of SqlAssertion are read-only."""
+    assertion = SqlAssertion(
+        urn=any_assertion_urn,
+        dataset_urn=DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+        ),
+        display_name="SQL Assertion",
+        mode=AssertionMode.ACTIVE,
+        statement="SELECT COUNT(*) FROM table",
+        criteria=SqlAssertionCriteria(
+            type=SqlAssertionType.METRIC,
+            change_type=None,
+            operator=SqlAssertionOperator.GREATER_THAN,
+            parameters=100,
+        ),
+        schedule=DEFAULT_DAILY_SCHEDULE,
+        tags=[],
+        incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+        created_by=CorpUserUrn.from_string("urn:li:corpuser:acryl-cloud-user"),
+        created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        updated_by=CorpUserUrn.from_string("urn:li:corpuser:acryl-cloud-user"),
+        updated_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+    )
+
+    public_attributes_and_methods = [
+        attr
+        for attr in dir(assertion)
+        if not attr.startswith("_") and not attr.startswith("__")
+    ]
+
+    settable_attributes = [
+        attr
+        for attr in public_attributes_and_methods
+        if not callable(getattr(assertion, attr))
+    ]
+
+    # Test that each attribute cannot be set
+    for attr in settable_attributes:
+        with pytest.raises(
+            AttributeError,
+            # Different error message on Python 3.10+
+            match=f"(can't set attribute '{attr}'|property '{attr}' of '{assertion.__class__.__name__}' object has no setter)",
+        ):
+            setattr(assertion, attr, getattr(assertion, attr))
 
 
 # TODO: Add non happy path tests
