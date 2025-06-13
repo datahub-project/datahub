@@ -50,16 +50,11 @@ public class ExecuteIngestionAuthValidator extends AspectPayloadValidator {
               ? executionRequestInput.getSource().getIngestionSource()
               : null;
 
-      if (ingestionSourceUrn == null
-          || !AuthUtil.isAuthorizedEntityUrns(
+      // validate explicitly only for ingestion sources - if you have permission to execute it
+      if (ingestionSourceUrn != null
+          && !AuthUtil.isAuthorizedEntityUrns(
               session, ApiOperation.EXECUTE, List.of(ingestionSourceUrn))) {
-        if (ingestionSourceUrn == null) {
-          exceptions.addAuthException(
-              item,
-              String.format("Couldn't find the ingestion source details for %s", item.getUrn()));
-        } else {
-          exceptions.addAuthException(item, "Doesn't have permissions to execute this Ingestion");
-        }
+        exceptions.addAuthException(item, "Doesn't have permissions to execute this Ingestion");
       }
     }
 
