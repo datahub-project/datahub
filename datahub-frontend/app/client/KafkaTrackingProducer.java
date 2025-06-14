@@ -151,6 +151,11 @@ public class KafkaTrackingProducer {
             props,
             SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS,
             "analytics.kafka.sasl.client.callback.handler.class");
+        setConfig(
+            config,
+            props,
+            "sasl.oauthbearer.token.endpoint.url",
+            "analytics.kafka.sasl.oauthbearer.token.endpoint.url");
       }
     }
 
