@@ -1,4 +1,4 @@
-import { Select, SimpleSelect, Text, colors } from '@components';
+import { SimpleSelect, colors } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -16,6 +16,7 @@ import {
 } from '@app/observe/dataset/assertion/constants';
 import { compareListItems } from '@app/observe/dataset/assertion/util';
 import { Header } from '@app/observe/dataset/shared/shared';
+import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
     ASSERTEE_DOMAINS_FILTER_NAME,
     ASSERTEE_GLOSSARY_TERMS_FILTER_NAME,
@@ -379,37 +380,32 @@ export const AssertionsByAssertionSummary = () => {
                     />
 
                     {/* ************************* Assertion Tags ************************* */}
-                    <Select
-                        width="fit-content"
-                        options={
-                            facets
-                                ?.find((facet) => facet.field === TAGS_FILTER_NAME)
-                                ?.aggregations.map((aggregation) => ({
-                                    value: aggregation.value,
-                                    label: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                })) || []
-                        }
-                        values={assertionTags}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.Tag]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Assertion Tag"
+                        fieldName={TAGS_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === TAGS_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: TAGS_FILTER_NAME,
+                                    values: assertionTags,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setAssertionTags(values);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setAssertionTags(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAssertion',
                                 filterType: 'filter',
                                 filterSubType: 'assertionTags',
-                                content: {
-                                    filterValues: values,
-                                },
+                                content: { filterValues: selectedValues },
                             });
                         }}
-                        placeholder="Assertion Tag"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Assertion Tag',
-                        }}
-                        showClear={false}
-                        emptyState={<Text color="gray">No assertion tags found.</Text>}
                     />
 
                     {/* ************************* Asset filters divider ************************* */}
@@ -475,7 +471,10 @@ export const AssertionsByAssertionSummary = () => {
                                         name: aggregation.value,
                                     })) || [],
                         }}
-                        onFilterChange={(values) => {
+                        onFilterChange={(rawValues) => {
+                            // This is a bug in the alchemy-components library, where sometimes it returns a list of undefined values
+                            const values = rawValues.filter((value) => typeof value !== 'undefined');
+
                             const domainValues = values
                                 .filter((value) => value.category === 'domain')
                                 .map((value) => value.name);

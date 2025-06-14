@@ -1,4 +1,4 @@
-import { Select, SimpleSelect, Text, Tooltip } from '@components';
+import { SimpleSelect, Text, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -13,6 +13,7 @@ import {
     LAST_ASSERTION_RESULT_AT_SORT_FIELD,
 } from '@app/observe/dataset/assertion/constants';
 import { Header } from '@app/observe/dataset/shared/shared';
+import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
     DOMAINS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
@@ -20,23 +21,18 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { FacetFieldsFragment, useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import {
     AndFilterInput,
-    DataPlatform,
     Dataset,
-    Domain,
     Entity,
     EntityType,
     FacetFilterInput,
-    GlossaryTerm,
+    FilterOperator,
     Maybe,
-    OwnerType,
     SortOrder,
-    Tag,
 } from '@types';
 
 const Container = styled.div`
@@ -61,27 +57,6 @@ const EmptyStateContainer = styled.div`
 `;
 
 const DEFAULT_PAGE_SIZE = 15;
-
-const getSelectOptionsForField = (
-    field: string,
-    facets: FacetFieldsFragment[],
-    nameExtractor: (entity) => string | undefined,
-    getIcon?: (entity) => React.ReactNode,
-) => {
-    return (
-        facets
-            ?.find((facet) => facet.field === field)
-            ?.aggregations.map((agg) => {
-                const name = nameExtractor(agg.entity) || agg.value;
-                const icon = getIcon?.(agg.entity);
-                return {
-                    value: agg.value,
-                    label: name,
-                    icon,
-                };
-            }) || []
-    );
-};
 
 const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passing', 'Error'];
 
@@ -191,6 +166,7 @@ export const AssertionsByTableSummary = () => {
 
     const total = searchResults?.searchAcrossEntities?.total ?? 0;
     const facets = searchResults?.searchAcrossEntities?.facets;
+
     const datasets: Dataset[] =
         searchResults?.searchAcrossEntities?.searchResults?.map((result) => result.entity as Dataset) || [];
 
@@ -288,164 +264,156 @@ export const AssertionsByTableSummary = () => {
                         showClear={false}
                     />
                     {/* ----------- Domains ----------- */}
-                    <Select
-                        width="fit-content"
-                        options={getSelectOptionsForField(
-                            DOMAINS_FILTER_NAME,
-                            facets || [],
-                            (entity) => (entity as Domain).properties?.name,
-                        )}
-                        values={selectedDomains}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.Domain]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Domain"
+                        fieldName={DOMAINS_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === DOMAINS_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: DOMAINS_FILTER_NAME,
+                                    values: selectedDomains,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setSelectedDomains(values as string[]);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedDomains(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetDomains',
                                 content: {
-                                    filterValues: values,
+                                    filterValues: selectedValues,
                                 },
                             });
                         }}
-                        placeholder="Domain"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Domain',
-                        }}
-                        showClear
-                        emptyState={<Text color="gray">No tables have Domains.</Text>}
                     />
                     {/* ----------- Owners ----------- */}
-                    <Select
-                        width="fit-content"
-                        options={getSelectOptionsForField(OWNERS_FILTER_NAME, facets || [], (entity: OwnerType) => {
-                            try {
-                                if (entity.type === EntityType.CorpUser) {
-                                    return entityRegistry.getDisplayName(EntityType.CorpUser, entity);
-                                }
-                                return entityRegistry.getDisplayName(EntityType.CorpGroup, entity);
-                            } catch (error) {
-                                return entity.urn;
-                            }
-                        })}
-                        values={selectedOwnership}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Owner"
+                        fieldName={OWNERS_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === OWNERS_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: OWNERS_FILTER_NAME,
+                                    values: selectedOwnership,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setSelectedOwnership(values as string[]);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedOwnership(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetOwners',
                                 content: {
-                                    filterValues: values,
+                                    filterValues: selectedValues,
                                 },
                             });
                         }}
-                        placeholder="Owner"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Owner',
-                        }}
-                        showClear
-                        emptyState={<Text color="gray">No tables have Owners.</Text>}
                     />
                     {/* ----------- Platforms ----------- */}
-                    <Select
-                        width="fit-content"
-                        options={getSelectOptionsForField(
-                            PLATFORM_FILTER_NAME,
-                            facets || [],
-                            (entity: DataPlatform) => tryGetDisplayName(entity) || entity.urn,
-                            (entity: DataPlatform) => (
-                                <PlatformIcon platform={entity} />
-                            ),
-                        )}
-                        values={selectedPlatforms}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.DataPlatform]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Platform"
+                        fieldName={PLATFORM_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === PLATFORM_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: PLATFORM_FILTER_NAME,
+                                    values: selectedPlatforms,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setSelectedPlatforms(values as string[]);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedPlatforms(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetPlatforms',
                                 content: {
-                                    filterValues: values,
+                                    filterValues: selectedValues,
                                 },
                             });
                         }}
-                        placeholder="Platform"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Platform',
-                        }}
-                        showClear
-                        emptyState={<Text color="gray">No tables have Platforms.</Text>}
                     />
 
                     {/* ----------- Terms ----------- */}
-                    <Select
-                        width="fit-content"
-                        options={getSelectOptionsForField(
-                            GLOSSARY_TERMS_FILTER_NAME,
-                            facets || [],
-                            (entity: GlossaryTerm) => tryGetDisplayName(entity) || entity.urn,
-                        )}
-                        values={selectedTerms}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.GlossaryTerm]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Term"
+                        fieldName={GLOSSARY_TERMS_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === GLOSSARY_TERMS_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: GLOSSARY_TERMS_FILTER_NAME,
+                                    values: selectedTerms,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setSelectedTerms(values as string[]);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedTerms(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetTerms',
                                 content: {
-                                    filterValues: values,
+                                    filterValues: selectedValues,
                                 },
                             });
                         }}
-                        placeholder="Term"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Term',
-                        }}
-                        showClear
-                        emptyState={<Text color="gray">No tables have Terms.</Text>}
                     />
 
                     {/* ----------- Tags ----------- */}
-                    <Select
-                        width="fit-content"
-                        options={getSelectOptionsForField(
-                            TAGS_FILTER_NAME,
-                            facets || [],
-                            (entity: Tag) => tryGetDisplayName(entity) || entity.urn,
-                        )}
-                        values={selectedTags}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.Tag]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Tag"
+                        fieldName={TAGS_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === TAGS_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: TAGS_FILTER_NAME,
+                                    values: selectedTags,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
                         onUpdate={(values) => {
-                            setSelectedTags(values as string[]);
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedTags(selectedValues);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetTags',
                                 content: {
-                                    filterValues: values,
+                                    filterValues: selectedValues,
                                 },
                             });
                         }}
-                        placeholder="Tag"
-                        isMultiSelect
-                        selectLabelProps={{
-                            variant: 'labeled',
-                            label: 'Tag',
-                        }}
-                        showClear
-                        emptyState={<Text color="gray">No tables have Tags.</Text>}
                     />
                 </FilterOptionsWrapper>
             </Header>

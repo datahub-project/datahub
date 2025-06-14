@@ -71,8 +71,8 @@ export const List = styled.div`
 const MAX_OWNERS_TO_SHOW = 3;
 
 export const renderOwners = (owners: Owner[], entityRegistry: EntityRegistry) => {
-    if (!owners) {
-        return <div>No owners</div>;
+    if (!owners.length) {
+        return null;
     }
     return (
         <div>
