@@ -40,7 +40,7 @@ const StyledTag = styled.div<{ fontSize?: number }>`
     display: flex;
     align-items: center;
     justify-content: start;
-    gap: 5px;
+    gap: 6px;
 `;
 
 interface DomainContentProps {
@@ -59,7 +59,7 @@ export function DomainContent({ domain, name, closable, onClose, tagStyle, fontS
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
-            <DomainColoredIcon domain={domain} size={iconSize || 28} fontSize={16} />
+            <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={16} />
             {displayName}
             {closable && (
                 <CloseButton onClick={onClose}>

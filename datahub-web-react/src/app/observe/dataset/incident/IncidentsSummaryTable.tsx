@@ -1,4 +1,4 @@
-import { Column, Pagination, Table, Text } from '@components';
+import { Column, Icon, Pagination, Table, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -6,7 +6,9 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { buildIncidentUrlSearch } from '@app/entityV2/shared/tabs/Incident/utils';
 import { renderOwners } from '@app/observe/dataset/shared/shared';
+import ContextPath from '@app/previewV2/ContextPath';
 import { healthUrlSuffix } from '@app/previewV2/HealthPopover';
+import { getParentEntities } from '@app/searchV2/filters/utils';
 import { getTimeFromNow } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
@@ -18,6 +20,10 @@ export const DatasetNameColumn = styled(Link)`
     display: flex;
     align-items: center;
     gap: 8px;
+    &:hover {
+        text-decoration: underline;
+    }
+    margin-left: 8px;
 `;
 
 const Container = styled.div`
@@ -26,6 +32,12 @@ const Container = styled.div`
     flex: 1;
     overflow: hidden;
     height: 100%;
+`;
+
+const DatasetNameColumnWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const getIncidentHealth = (entityHealth?: Maybe<Health[]>): ActiveIncidentHealthDetails | undefined => {
@@ -53,22 +65,37 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
             key: 'name',
             title: 'Name',
             render: (record) => {
+                const contextPath = getParentEntities(record);
                 return (
-                    <DatasetNameColumn
-                        to={getIncidentsLink(record)}
-                        data-testid={`preview-${record.urn}`}
-                        onClick={() => {
-                            analytics.event({
-                                type: EventType.DatasetHealthClickEvent,
-                                tabType: 'IncidentsByAsset',
-                                target: 'asset_incidents',
-                                targetUrn: record.urn,
-                            });
-                        }}
-                    >
+                    <DatasetNameColumnWrapper>
                         <PlatformIcon platform={record.platform} />
-                        <Text weight="semiBold">{record.name}</Text>
-                    </DatasetNameColumn>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            <DatasetNameColumn
+                                to={getIncidentsLink(record)}
+                                data-testid={`preview-${record.urn}`}
+                                onClick={() => {
+                                    analytics.event({
+                                        type: EventType.DatasetHealthClickEvent,
+                                        tabType: 'IncidentsByAsset',
+                                        target: 'asset_incidents',
+                                        targetUrn: record.urn,
+                                    });
+                                }}
+                            >
+                                <Text color="black" weight="normal">
+                                    {record.name}
+                                </Text>
+                            </DatasetNameColumn>
+                            <ContextPath
+                                entityType={EntityType.Dataset}
+                                parentEntities={contextPath}
+                                browsePaths={record.browsePathV2}
+                                entityTitleWidth={150}
+                                isCompactView
+                                hideTypeIcons
+                            />
+                        </div>
+                    </DatasetNameColumnWrapper>
                 );
             },
         },
@@ -97,6 +124,7 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
                 const count = incidentHealth?.count ?? 0;
                 return (
                     <Link
+                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                         to={getIncidentsLink(record)}
                         onClick={() => {
                             analytics.event({
@@ -107,7 +135,10 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
                             });
                         }}
                     >
-                        <Text>{count} active</Text>
+                        {count ? <Icon source="phosphor" icon="Warning" color="primary" size="sm" /> : null}
+                        <Text color={count ? 'primary' : 'gray'}>
+                            {count ? `${count} active` : 'No active incidents'}
+                        </Text>
                     </Link>
                 );
             },

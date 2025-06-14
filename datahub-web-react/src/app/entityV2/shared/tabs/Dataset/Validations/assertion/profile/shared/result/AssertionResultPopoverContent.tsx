@@ -395,6 +395,9 @@ export const AssertionResultPopoverContent = ({
                         </ContextRow>
                     )}
                     <ContextRow style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <Button variant="secondary" color="primary" onClick={onRetrainAsNewNormal}>
+                            Train as New Normal
+                        </Button>
                         {!anomalyFeedbackCta.isInfo ? (
                             <Button
                                 isLoading={isActionProcessing}
@@ -411,9 +414,6 @@ export const AssertionResultPopoverContent = ({
                                 </Typography.Text>
                             </Tooltip>
                         )}
-                        <Button variant="secondary" color="primary" onClick={onRetrainAsNewNormal}>
-                            Train as New Normal
-                        </Button>
                     </ContextRow>
                 </>
             )}

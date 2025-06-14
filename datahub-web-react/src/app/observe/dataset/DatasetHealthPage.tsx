@@ -117,7 +117,7 @@ export const DatasetHealthPage = () => {
                         </Content>
                     ),
                     key: BY_ASSERTIONS_TAB_ID,
-                    name: 'By Assertions',
+                    name: 'By Assertion',
                 },
                 {
                     component: (

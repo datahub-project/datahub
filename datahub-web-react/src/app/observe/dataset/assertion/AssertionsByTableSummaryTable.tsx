@@ -7,7 +7,9 @@ import analytics, { EventType } from '@app/analytics';
 import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/utils';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { renderOwners } from '@app/observe/dataset/shared/shared';
+import ContextPath from '@app/previewV2/ContextPath';
 import { healthUrlSuffix } from '@app/previewV2/HealthPopover';
+import { getParentEntities } from '@app/searchV2/filters/utils';
 import { getTimeFromNow } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
@@ -28,6 +30,17 @@ const DatasetNameColumn = styled(Link)`
     display: flex;
     align-items: center;
     gap: 8px;
+    &:hover {
+        text-decoration: underline;
+    }
+    margin-left: 8px;
+`;
+
+const DatasetNameColumnWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-direction: row;
 `;
 
 const Container = styled.div`
@@ -56,11 +69,19 @@ const HealthStatusToText = {
 };
 
 const HealthStatusIndicator = styled.div<{ status?: HealthStatus }>`
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 100%;
-    border: 2px solid ${(props) => (props.status ? HealthStatusToBackgroundColor[props.status] : colors.gray[100])};
+    align-self: center;
+    border: 4px solid ${(props) => (props.status ? HealthStatusToBackgroundColor[props.status] : colors.gray[100])};
     background-color: ${(props) => (props.status ? HealthStatusToColor[props.status] : colors.gray[200])};
+`;
+
+const HealthStatusIndicatorLink = styled(Link)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: 8px;
 `;
 
 const getAssertionHealth = (entityHealth?: Maybe<Health[]>): Health | undefined => {
@@ -107,22 +128,37 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
             key: 'name',
             title: 'Name',
             render: (record) => {
+                const contextPath = getParentEntities(record);
                 return (
-                    <DatasetNameColumn
-                        to={getAssertionsLink(record)}
-                        data-testid={`preview-${record.urn}`}
-                        onClick={() => {
-                            analytics.event({
-                                type: EventType.DatasetHealthClickEvent,
-                                tabType: 'AssertionsByAsset',
-                                target: 'asset_assertions',
-                                targetUrn: record.urn,
-                            });
-                        }}
-                    >
+                    <DatasetNameColumnWrapper>
                         <PlatformIcon platform={record.platform} />
-                        <Text weight="semiBold">{record.name}</Text>
-                    </DatasetNameColumn>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            <DatasetNameColumn
+                                to={getAssertionsLink(record)}
+                                data-testid={`preview-${record.urn}`}
+                                onClick={() => {
+                                    analytics.event({
+                                        type: EventType.DatasetHealthClickEvent,
+                                        tabType: 'AssertionsByAsset',
+                                        target: 'asset_assertions',
+                                        targetUrn: record.urn,
+                                    });
+                                }}
+                            >
+                                <Text color="black" weight="normal">
+                                    {record.name}
+                                </Text>
+                            </DatasetNameColumn>
+                            <ContextPath
+                                entityType={EntityType.Dataset}
+                                parentEntities={contextPath}
+                                browsePaths={record.browsePathV2}
+                                entityTitleWidth={150}
+                                isCompactView
+                                hideTypeIcons
+                            />
+                        </div>
+                    </DatasetNameColumnWrapper>
                 );
             },
         },
@@ -145,16 +181,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         {
             key: 'freshness',
             title: 'Freshness',
+            width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);
                 const freshnessHealth = getHealthForAssertionType(AssertionType.Freshness, assertionHealth);
                 const message = freshnessHealth
-                    ? `${freshnessHealth.statusCount} ${freshnessHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[freshnessHealth.status]} (${freshnessHealth.total} total)`
+                    ? `${freshnessHealth.statusCount} ${freshnessHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[freshnessHealth.status]} (${freshnessHealth.total} total assertions)`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No freshness assertions have run yet. Create one to see results here.';
                 return (
                     <Tooltip title={message}>
-                        <Link
+                        <HealthStatusIndicatorLink
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Freshness })}`}
                             onClick={() => {
                                 analytics.event({
@@ -167,7 +204,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                             }}
                         >
                             <HealthStatusIndicator status={freshnessHealth?.status} />
-                        </Link>
+                        </HealthStatusIndicatorLink>
                     </Tooltip>
                 );
             },
@@ -175,16 +212,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         {
             key: 'volume',
             title: 'Volume',
+            width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);
                 const volumeHealth = getHealthForAssertionType(AssertionType.Volume, assertionHealth);
                 const message = volumeHealth
-                    ? `${volumeHealth.statusCount} ${volumeHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[volumeHealth.status]} (${volumeHealth.total} total)`
+                    ? `${volumeHealth.statusCount} ${volumeHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[volumeHealth.status]} (${volumeHealth.total} total assertions)`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No volume assertions have run yet. Create one to see results here.';
                 return (
                     <Tooltip title={message}>
-                        <Link
+                        <HealthStatusIndicatorLink
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Volume })}`}
                             onClick={() => {
                                 analytics.event({
@@ -197,7 +235,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                             }}
                         >
                             <HealthStatusIndicator status={volumeHealth?.status} />
-                        </Link>
+                        </HealthStatusIndicatorLink>
                     </Tooltip>
                 );
             },
@@ -206,16 +244,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         {
             key: 'field',
             title: 'Field',
+            width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);
                 const fieldHealth = getHealthForAssertionType(AssertionType.Field, assertionHealth);
                 const message = fieldHealth
-                    ? `${fieldHealth.statusCount} ${fieldHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[fieldHealth.status]} (${fieldHealth.total} total)`
+                    ? `${fieldHealth.statusCount} ${fieldHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[fieldHealth.status]} (${fieldHealth.total} total assertions)`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No field assertions have run yet. Create one to see results here.';
                 return (
                     <Tooltip title={message}>
-                        <Link
+                        <HealthStatusIndicatorLink
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Field })}`}
                             onClick={() => {
                                 analytics.event({
@@ -228,7 +267,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                             }}
                         >
                             <HealthStatusIndicator status={fieldHealth?.status} />
-                        </Link>
+                        </HealthStatusIndicatorLink>
                     </Tooltip>
                 );
             },
@@ -236,16 +275,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         {
             key: 'schema',
             title: 'Schema',
+            width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);
                 const schemaHealth = getHealthForAssertionType(AssertionType.DataSchema, assertionHealth);
                 const message = schemaHealth
-                    ? `${schemaHealth.statusCount} ${schemaHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[schemaHealth.status]} (${schemaHealth.total} total)`
+                    ? `${schemaHealth.statusCount} ${schemaHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[schemaHealth.status]} (${schemaHealth.total} total assertions)`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No schema assertions have run yet. Create one to see results here.';
                 return (
                     <Tooltip title={message}>
-                        <Link
+                        <HealthStatusIndicatorLink
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.DataSchema })}`}
                             onClick={() => {
                                 analytics.event({
@@ -258,7 +298,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                             }}
                         >
                             <HealthStatusIndicator status={schemaHealth?.status} />
-                        </Link>
+                        </HealthStatusIndicatorLink>
                     </Tooltip>
                 );
             },
@@ -266,16 +306,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         {
             key: 'sql',
             title: 'SQL',
+            width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);
                 const sqlHealth = getHealthForAssertionType(AssertionType.Sql, assertionHealth);
                 const message = sqlHealth
-                    ? `${sqlHealth.statusCount} ${sqlHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[sqlHealth.status]} (${sqlHealth.total} total)`
+                    ? `${sqlHealth.statusCount} ${sqlHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[sqlHealth.status]} (${sqlHealth.total} total assertions)`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No SQL assertions have run yet. Create one to see results here.';
                 return (
                     <Tooltip title={message}>
-                        <Link
+                        <HealthStatusIndicatorLink
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Sql })}`}
                             onClick={() => {
                                 analytics.event({
@@ -288,7 +329,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                             }}
                         >
                             <HealthStatusIndicator status={sqlHealth?.status} />
-                        </Link>
+                        </HealthStatusIndicatorLink>
                     </Tooltip>
                 );
             },
@@ -299,16 +340,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                   {
                       key: 'custom',
                       title: 'Custom',
+                      width: '80px',
                       render: (record) => {
                           const assertionHealth = getAssertionHealth(record.health);
                           const customHealth = getHealthForAssertionType(AssertionType.Custom, assertionHealth);
                           const message = customHealth
-                              ? `${customHealth.statusCount} ${customHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[customHealth.status]} (${customHealth.total} total)`
+                              ? `${customHealth.statusCount} ${customHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[customHealth.status]} (${customHealth.total} total assertions)`
                               : // TODO: link to custom assertions reporting documentation
                                 'No custom assertions have run yet. Create some with the SDK to see results here.';
                           return (
                               <Tooltip title={message}>
-                                  <Link
+                                  <HealthStatusIndicatorLink
                                       to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Custom })}`}
                                       onClick={() => {
                                           analytics.event({
@@ -321,7 +363,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                                       }}
                                   >
                                       <HealthStatusIndicator status={customHealth?.status} />
-                                  </Link>
+                                  </HealthStatusIndicatorLink>
                               </Tooltip>
                           );
                       },
@@ -334,16 +376,17 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                   {
                       key: 'dataset',
                       title: 'External',
+                      width: '80px',
                       render: (record) => {
                           const assertionHealth = getAssertionHealth(record.health);
                           const datasetHealth = getHealthForAssertionType(AssertionType.Dataset, assertionHealth);
                           const message = datasetHealth
-                              ? `${datasetHealth.statusCount} ${datasetHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[datasetHealth.status]} (${datasetHealth.total} total)`
+                              ? `${datasetHealth.statusCount} ${datasetHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[datasetHealth.status]} (${datasetHealth.total} total assertions)`
                               : // TODO: Add a link to the external data quality tool documentation
                                 'No external assertions have been reported yet. Integrate an external data quality tool to see results here.';
                           return (
                               <Tooltip title={message}>
-                                  <Link
+                                  <HealthStatusIndicatorLink
                                       to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Dataset })}`}
                                       onClick={() => {
                                           analytics.event({
@@ -356,7 +399,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                                       }}
                                   >
                                       <HealthStatusIndicator status={datasetHealth?.status} />
-                                  </Link>
+                                  </HealthStatusIndicatorLink>
                               </Tooltip>
                           );
                       },
@@ -367,7 +410,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
         /* ************************* Last Run Column ************************* */
         {
             key: 'lastAssertionResultAt',
-            title: 'Last Run',
+            title: 'Last Activity',
             render: (record) => {
                 const lastAssertionResultAt = getAssertionHealth(record.health)?.reportedAt;
                 const formattedLabel = lastAssertionResultAt ? getTimeFromNow(lastAssertionResultAt) : 'Unknown';
@@ -375,9 +418,10 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip
                         title={
                             lastAssertionResultAt
-                                ? formatTimestamp(lastAssertionResultAt, 'MMM d, YYYY h:mm a')
-                                : 'Unknown'
+                                ? `The last assertion run was on ${formatTimestamp(lastAssertionResultAt, 'MMM d, YYYY h:mm a')}. Open to see more.`
+                                : 'Unable to determine when an assertion was last run on this asset.'
                         }
+                        placement="topLeft"
                     >
                         <Text style={{ display: 'inline' }}>{formattedLabel}</Text>
                     </Tooltip>

@@ -235,6 +235,7 @@ export const AssertionsByTableSummary = () => {
                     numRows={0}
                     options={{
                         hideMatchCountText: true,
+                        allowClear: true,
                     }}
                     entityTypeName="dataset"
                 />
@@ -307,11 +308,11 @@ export const AssertionsByTableSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Domains"
+                        placeholder="Domain"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Domains',
+                            label: 'Domain',
                         }}
                         showClear
                         emptyState={<Text color="gray">No tables have Domains.</Text>}
@@ -342,11 +343,11 @@ export const AssertionsByTableSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Owners"
+                        placeholder="Owner"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Owners',
+                            label: 'Owner',
                         }}
                         showClear
                         emptyState={<Text color="gray">No tables have Owners.</Text>}
@@ -375,11 +376,11 @@ export const AssertionsByTableSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Platforms"
+                        placeholder="Platform"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Platforms',
+                            label: 'Platform',
                         }}
                         showClear
                         emptyState={<Text color="gray">No tables have Platforms.</Text>}
@@ -406,11 +407,11 @@ export const AssertionsByTableSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Terms"
+                        placeholder="Term"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Terms',
+                            label: 'Term',
                         }}
                         showClear
                         emptyState={<Text color="gray">No tables have Terms.</Text>}
@@ -437,11 +438,11 @@ export const AssertionsByTableSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Tags"
+                        placeholder="Tag"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Tags',
+                            label: 'Tag',
                         }}
                         showClear
                         emptyState={<Text color="gray">No tables have Tags.</Text>}

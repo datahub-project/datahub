@@ -3,7 +3,9 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { colors } from '@src/alchemy-components';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -66,37 +68,38 @@ export const List = styled.div`
     border-width: 1px;
 `;
 
-const MAX_OWNERS_TO_SHOW = 2;
+const MAX_OWNERS_TO_SHOW = 3;
 
 export const renderOwners = (owners: Owner[], entityRegistry: EntityRegistry) => {
     if (!owners) {
         return <div>No owners</div>;
     }
-    const truncatedOwners = owners.slice(0, MAX_OWNERS_TO_SHOW);
     return (
         <div>
-            {truncatedOwners.map((owner) => {
-                const ownerEntity = owner.owner;
-                const name = entityRegistry.getDisplayName(ownerEntity.type, ownerEntity);
-                const avatarUrl =
-                    ownerEntity.type === EntityType.CorpUser
-                        ? ownerEntity.editableProperties?.pictureLink || undefined
-                        : undefined;
-                return <OwnerLabel name={name} avatarUrl={avatarUrl} type={ownerEntity.type} />;
-            })}
-            {owners.length > MAX_OWNERS_TO_SHOW && (
-                <Tooltip
-                    title={
-                        <div>
-                            {owners.slice(MAX_OWNERS_TO_SHOW).map((owner) => (
-                                <Text>{entityRegistry.getDisplayName(owner.owner.type, owner.owner)}</Text>
-                            ))}
-                        </div>
-                    }
-                >
-                    <Text style={{ display: 'inline-block' }}>+{owners.length - MAX_OWNERS_TO_SHOW} more</Text>
-                </Tooltip>
-            )}
+            <Tooltip
+                title={
+                    <div>
+                        {owners.map((owner) => (
+                            <Text>{entityRegistry.getDisplayName(owner.owner.type, owner.owner)}</Text>
+                        ))}
+                    </div>
+                }
+            >
+                <div>
+                    <AvatarStack
+                        avatars={owners.map((owner) => ({
+                            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
+                            avatarUrl:
+                                owner.owner.type === EntityType.CorpUser
+                                    ? owner.owner.editableProperties?.pictureLink || undefined
+                                    : undefined,
+                            type: owner.owner.type === EntityType.CorpUser ? AvatarType.user : AvatarType.group,
+                        }))}
+                        size="md"
+                        maxToShow={MAX_OWNERS_TO_SHOW}
+                    />
+                </div>
+            </Tooltip>
         </div>
     );
 };

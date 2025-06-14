@@ -9,6 +9,9 @@ import { Assertion, CronSchedule } from '@types';
 const StyledText = styled(Text)`
     .ant-typography {
         color: inherit;
+        &:hover {
+            text-decoration: underline;
+        }
     }
 `;
 
@@ -18,7 +21,7 @@ export const AssertionName = ({ record, monitorSchedule }: { record: Assertion; 
         ellipsis: true,
     });
     return (
-        <StyledText weight="semiBold" style={{ maxWidth: 300, overflow: 'hidden' }}>
+        <StyledText color="black" weight="normal" style={{ maxWidth: 300, overflow: 'hidden' }}>
             {primaryLabel}
         </StyledText>
     );

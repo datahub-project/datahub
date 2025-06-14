@@ -1,4 +1,5 @@
-import { Column, Pagination, Pill, Table, Text, Tooltip } from '@components';
+import { Column, Pagination, Pill, Table, Text, Tooltip, colors } from '@components';
+import { Sparkle } from 'phosphor-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -15,7 +16,7 @@ import { getTimeFromNow } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Assertion, EntityType, HealthStatusType } from '@types';
+import { Assertion, AssertionSourceType, EntityType, HealthStatusType } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -29,6 +30,9 @@ const DatasetWrapper = styled(Link)`
     flex-direction: row;
     gap: 8px;
     align-items: center;
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 const EmptyState = styled.div`
@@ -41,21 +45,44 @@ const EmptyState = styled.div`
 
 const ResultsWrapper = styled(Link)`
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    gap: 4px;
     align-items: flex-start;
 `;
 
 const RunDetailsWrapper = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
     align-items: flex-start;
+    max-width: 300px;
+`;
+
+const TypeWrapper = styled.div`
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+`;
+
+const LastRunText = styled(Text)`
+    color: ${colors.gray[400]};
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 const getMonitorSchedule = (assertion: Assertion) => {
     return assertion.monitor?.info?.assertionMonitor?.assertions?.find((assrn) => assrn.assertion.urn === assertion.urn)
         ?.schedule;
+};
+
+const roundToNearest = (num: number) => {
+    if (num < 100) {
+        return Math.round(num / 10) * 10;
+    }
+    return Math.round(num / 100) * 100;
 };
 
 type Props = {
@@ -109,8 +136,25 @@ export const AssertionsByAssertionSummaryTable = ({
             },
         },
         {
+            key: 'type',
+            title: 'Type',
+            render: (record) => {
+                return (
+                    <TypeWrapper>
+                        <Text>{titleCase(record.info?.type || 'Unknown')}</Text>
+                        {record.info?.source?.type === AssertionSourceType.Inferred ? (
+                            <Tooltip title="Smart assertion (AI anomaly detection)">
+                                <Sparkle size={16} color={colors.blue[500]} />
+                            </Tooltip>
+                        ) : null}
+                    </TypeWrapper>
+                );
+            },
+        },
+        {
             key: 'dataset',
             title: 'Dataset',
+            maxWidth: '200px',
             render: (record) => {
                 return (
                     <DatasetWrapper
@@ -123,9 +167,20 @@ export const AssertionsByAssertionSummaryTable = ({
                                 targetUrn: record.dataset?.urn || record.monitor?.entity?.urn || '',
                             });
                         }}
+                        color="gray"
                     >
                         <PlatformIcon platform={record.dataset?.platform || record.platform} />
-                        <Text>
+                        <Text
+                            color="gray"
+                            size="md"
+                            weight="medium"
+                            style={{
+                                maxWidth: '150px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
                             {record.dataset
                                 ? entityRegistry.getDisplayName(EntityType.Dataset, record.dataset)
                                 : 'Unknown'}
@@ -135,82 +190,114 @@ export const AssertionsByAssertionSummaryTable = ({
             },
         },
         {
-            key: 'type',
-            title: 'Type',
-            render: (record) => {
-                return <Text>{titleCase(record.info?.type || 'Unknown')}</Text>;
-            },
-        },
-        {
             key: 'results',
-            title: 'Results Summary',
+            title: 'Results',
             render: (record) => {
                 const failures = record.runEvents?.failed || 0;
                 const errors = record.runEvents?.errored || 0;
                 const passes = record.runEvents?.succeeded || 0;
                 const totalResults = record.runEvents?.total || 0;
                 const hasMore = totalResults >= RUN_EVENTS_PREVIEW_LIMIT;
+
+                const failuresToDisplay = hasMore ? `${roundToNearest(failures)}+` : failures.toString();
+                const errorsToDisplay = hasMore ? `${roundToNearest(errors)}+` : errors.toString();
+                const passesToDisplay = hasMore ? `${roundToNearest(passes)}+` : passes.toString();
                 return (
-                    <Tooltip
-                        title={`This assertion has ${hasMore ? 'more than ' : ''}${totalResults.toLocaleString()} results in the selected time range.`}
-                        placement="top"
+                    <ResultsWrapper
+                        to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'AssertionsByAssertion',
+                                target: 'assertion',
+                                subTarget: 'results',
+                                targetUrn: record.urn,
+                            });
+                        }}
                     >
-                        <ResultsWrapper
-                            to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
-                            onClick={() => {
-                                analytics.event({
-                                    type: EventType.DatasetHealthClickEvent,
-                                    tabType: 'AssertionsByAssertion',
-                                    target: 'assertion',
-                                    subTarget: 'results',
-                                    targetUrn: record.urn,
-                                });
-                            }}
-                        >
-                            {/* ---- Failures ---- */}
-                            {failures > 0 ? (
-                                <Pill
-                                    label={`${failures} failure${failures > 1 ? 's' : ''} ${hasMore ? `+` : ''}`}
-                                    color="red"
-                                />
-                            ) : null}
-                            {/* ---- Errors ---- */}
-                            {errors > 0 ? (
-                                <Pill
-                                    label={`${errors} error${errors > 1 ? 's' : ''} ${hasMore ? `+` : ''}`}
-                                    color="yellow"
-                                />
-                            ) : null}
-                            {/* ---- Passes ---- */}
-                            {passes > 0 ? (
-                                <Pill
-                                    label={`${passes} pass${passes > 1 ? 'es' : ''} ${hasMore ? `+` : ''}`}
-                                    color="green"
-                                />
-                            ) : null}
-                        </ResultsWrapper>
-                    </Tooltip>
+                        {/* ---- Failures ---- */}
+                        {failures > 0 ? (
+                            <Tooltip
+                                title={
+                                    hasMore
+                                        ? `Cannot fetch all failures in this time period. Click to see all results.`
+                                        : `${failuresToDisplay} failure${failures > 1 ? 's' : ''} in this time period`
+                                }
+                                placement="top"
+                            >
+                                {/* NOTE: we have to wrap the pill in a div to avoid the tooltip from being cut off */}
+                                <div>
+                                    <Pill label={failuresToDisplay} color="red" leftIcon="X" iconSource="phosphor" />
+                                </div>
+                            </Tooltip>
+                        ) : null}
+                        {/* ---- Errors ---- */}
+                        {errors > 0 ? (
+                            <Tooltip
+                                title={
+                                    hasMore
+                                        ? `Cannot fetch all errors in this time period. Click to see all results.`
+                                        : `${errorsToDisplay} error${errors > 1 ? 's' : ''} in this time period`
+                                }
+                                placement="top"
+                            >
+                                {/* NOTE: we have to wrap the pill in a div to avoid the tooltip from being cut off */}
+                                <div>
+                                    <Pill
+                                        label={errorsToDisplay}
+                                        color="yellow"
+                                        leftIcon="Warning"
+                                        iconSource="phosphor"
+                                    />
+                                </div>
+                            </Tooltip>
+                        ) : null}
+                        {/* ---- Passes ---- */}
+                        {passes > 0 ? (
+                            <Tooltip
+                                title={
+                                    hasMore
+                                        ? `Cannot fetch all passes in this time period. Click to see all results.`
+                                        : `${passesToDisplay} pass${passes > 1 ? 'es' : ''} in this time period`
+                                }
+                                placement="top"
+                            >
+                                {/* NOTE: we have to wrap the pill in a div to avoid the tooltip from being cut off */}
+                                <div>
+                                    <Pill
+                                        label={passesToDisplay}
+                                        color="green"
+                                        leftIcon="Check"
+                                        iconSource="phosphor"
+                                    />
+                                </div>
+                            </Tooltip>
+                        ) : null}
+                    </ResultsWrapper>
                 );
             },
         },
         {
-            key: 'run',
-            title: 'Run',
+            key: 'lastrun',
+            title: 'Last Run',
+            sorter: true,
             render: (record) => {
                 const lastRun = record.runEvents?.runEvents?.[0]?.timestampMillis;
                 const monitorSchedule = getMonitorSchedule(record);
                 return (
                     <RunDetailsWrapper>
                         <Tooltip
-                            title={lastRun ? getFormattedTimeString(lastRun) : 'This assertion has never been run.'}
+                            title={
+                                lastRun
+                                    ? `Last run at ${getFormattedTimeString(lastRun)}`
+                                    : 'This assertion has never been run.'
+                            }
                         >
-                            <Text weight="semiBold">
-                                {lastRun ? `Last run ${getTimeFromNow(lastRun)}` : 'Never run'}
-                            </Text>
+                            <Text weight="semiBold">{lastRun ? getTimeFromNow(lastRun) : 'Never run'}</Text>
                         </Tooltip>
                         {monitorSchedule?.cron ? (
                             <Tooltip title={monitorSchedule.cron}>
-                                <Text color="gray">Runs {getCronAsText(monitorSchedule.cron).text}</Text>
+                                <LastRunText>Runs {getCronAsText(monitorSchedule.cron).text}</LastRunText>
                             </Tooltip>
                         ) : null}
                     </RunDetailsWrapper>

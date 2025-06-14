@@ -24,3 +24,10 @@ export const buildAssertionTypeFilters = (selectedAssertionTypes) => {
         ],
     };
 };
+
+export const compareListItems = (list1: string[], list2: string[]): boolean => {
+    if (list1.length !== list2.length) {
+        return false;
+    }
+    return list1.every((item) => list2.includes(item));
+};

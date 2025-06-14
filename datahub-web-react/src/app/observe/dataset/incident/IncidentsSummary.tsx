@@ -213,6 +213,7 @@ export const IncidentsSummary = () => {
                     numRows={0}
                     options={{
                         hideMatchCountText: true,
+                        allowClear: true,
                     }}
                     entityTypeName="dataset"
                 />
@@ -247,11 +248,11 @@ export const IncidentsSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Domains"
+                        placeholder="Domain"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Domains',
+                            label: 'Domain',
                         }}
                         showClear
                         emptyState={<Text color="gray">No results have Domains.</Text>}
@@ -282,11 +283,11 @@ export const IncidentsSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Owners"
+                        placeholder="Owner"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Owners',
+                            label: 'Owner',
                         }}
                         showClear
                         emptyState={<Text color="gray">No results have Owners.</Text>}
@@ -315,11 +316,11 @@ export const IncidentsSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Platforms"
+                        placeholder="Platform"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Platforms',
+                            label: 'Platform',
                         }}
                         showClear
                         emptyState={<Text color="gray">No results have Platforms.</Text>}
@@ -346,11 +347,11 @@ export const IncidentsSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Terms"
+                        placeholder="Term"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Terms',
+                            label: 'Term',
                         }}
                         showClear
                         emptyState={<Text color="gray">No results have Terms.</Text>}
@@ -377,11 +378,11 @@ export const IncidentsSummary = () => {
                                 },
                             });
                         }}
-                        placeholder="Tags"
+                        placeholder="Tag"
                         isMultiSelect
                         selectLabelProps={{
                             variant: 'labeled',
-                            label: 'Tags',
+                            label: 'Tag',
                         }}
                         showClear
                         emptyState={<Text color="gray">No results have Tags.</Text>}
