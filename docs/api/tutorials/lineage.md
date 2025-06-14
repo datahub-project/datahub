@@ -218,7 +218,7 @@ You can check more details about the available filters in the [Search SDK docume
 
 ## Lineage SDK Reference
 
-For a full reference, see the [lineage SDK reference](../../python-sdk/sdk-v2/lineage-client.mdx).
+For a full reference, see the [lineage SDK reference](../../../python-sdk/sdk-v2/lineage-client.mdx).
 
 ### Supported Lineage Combinations
 

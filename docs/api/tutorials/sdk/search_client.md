@@ -151,7 +151,7 @@ With `F.custom_filter()`, the fields annotated with `@Searchable` in the PDL fil
 
 ## Search SDK Reference
 
-For a full reference, see the [search SDK reference](../../../python-sdk/sdk-v2/search-client.mdx).
+For a full reference, see the [search SDK reference](../../../../python-sdk/sdk-v2/search-client.mdx).
 
 ### Filter Options
 
