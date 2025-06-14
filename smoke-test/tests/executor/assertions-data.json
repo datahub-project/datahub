@@ -1,0 +1,89 @@
+[
+  {
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD),0bd7215b-d7d7-4408-9f72-88d62f53b630)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+      "json": {
+        "type": "ASSERTION",
+        "status": {
+          "mode": "ACTIVE",
+          "state": "EVALUATION"
+        },
+        "assertionMonitor": {
+          "assertions": [
+            {
+              "parameters": {
+                "type": "DATASET_FRESHNESS",
+                "datasetFreshnessParameters": {
+                  "sourceType": "DATAHUB_OPERATION"
+                }
+              },
+              "schedule": {
+                "cron": "0 */6 * * *",
+                "timezone": "America/New_York"
+              },
+              "assertion": "urn:li:assertion:d7a1f48e-c17d-4ca8-b525-14d071d7f59a"
+            }
+          ]
+        }
+      }
+    },
+    "systemMetadata": {
+      "version": "1"
+    }
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d7a1f48e-c17d-4ca8-b525-14d071d7f59a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "json": {
+        "lastUpdated": {
+          "actor": "urn:li:corpuser:admin",
+          "time": 1752273074492
+        },
+        "source": {
+          "type": "NATIVE",
+          "created": {
+            "actor": "urn:li:corpuser:admin",
+            "time": 1752273074488
+          }
+        },
+        "type": "FRESHNESS",
+        "freshnessAssertion": {
+          "type": "DATASET_CHANGE",
+          "schedule": {
+            "type": "FIXED_INTERVAL",
+            "fixedInterval": {
+              "multiple": 1,
+              "unit": "HOUR"
+            }
+          },
+          "entity": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+        }
+      }
+    },
+    "systemMetadata": {
+      "version": "1"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hdfs",
+        "name": "SampleHdfsDataset",
+        "origin": "PROD"
+      }
+    },
+    "systemMetadata": {
+      "version": "1"
+    }
+  }
+]

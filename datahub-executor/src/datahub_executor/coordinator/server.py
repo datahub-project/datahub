@@ -21,6 +21,7 @@ from datahub_executor.coordinator.helpers import (
     start_scheduler,
 )
 from datahub_executor.coordinator.logging import configure_logging
+from datahub_executor.coordinator.scheduler_endpoints import scheduler_router
 
 # Configure global logging.
 configure_logging()
@@ -30,6 +31,7 @@ app = FastAPI()
 
 app.include_router(health_router)
 app.include_router(assertions_router, prefix="/assertions")
+app.include_router(scheduler_router, prefix="/scheduler")
 
 logger = logging.getLogger(__name__)
 sighandler = []  # type: ignore

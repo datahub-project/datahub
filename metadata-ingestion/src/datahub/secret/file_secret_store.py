@@ -53,6 +53,9 @@ class FileSecretStore(SecretStore):
     def get_id(self) -> str:
         return "file"
 
+    def close(self) -> None:
+        return
+
     @classmethod
     def create(cls, config: Any) -> "FileSecretStore":
         config = FileSecretStoreConfig.parse_obj(config)
