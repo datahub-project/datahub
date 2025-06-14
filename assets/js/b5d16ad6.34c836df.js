@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[8080],{55614:(e,t,s)=>{s.r(t),s.d(t,{default:()=>c});var u=s(96540);function c(){return(0,u.useEffect)((()=>{window.location.href="https://www.datahub.com/guild"}),[]),null}}}]);
