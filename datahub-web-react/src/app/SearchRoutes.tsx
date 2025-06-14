@@ -1,3 +1,5 @@
+import { LoadingOutlined } from '@ant-design/icons';
+import { Spin } from 'antd';
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
@@ -10,6 +12,7 @@ import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
 import DomainRoutesV2 from '@app/domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from '@app/domainV2/ManageDomainsPage';
 import { EntityPage } from '@app/entity/EntityPage';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
@@ -58,8 +61,16 @@ export const SearchRoutes = (): JSX.Element => {
     const showTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
-
+    
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+  
+    if (me.platformPrivileges === undefined) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin indicator={<LoadingOutlined style={{ color: ANTD_GRAY[7] }} />} />
+            </div>
+        );
+    }
 
     return (
         <FinalSearchablePage>
