@@ -7,9 +7,11 @@ import pydantic
 import sqlalchemy.dialects.mssql
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import URL
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
@@ -130,6 +132,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         "match the entire table name in database.schema.table format. Defaults are to set in such a way "
         "to ignore the temporary staging tables created by known ETL tools.",
     )
+    quote_schemas: bool = Field(
+        default=False,
+        description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
+    )
+    odbc_connect: Optional[str] = Field(
+        default=None,
+        description="PyODBC connection string in pyodbc format https://docs.sqlalchemy.org/en/20/dialects/mssql.html#pass-through-exact-pyodbc-string"
+        " Requires `use_odbc` to be enabled.",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -149,6 +160,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
+
+            if self.odbc_connect:
+                connection_url = URL.create(
+                    self.scheme,
+                    query={"odbc_connect": urllib.parse.quote_plus(self.odbc_connect)},
+                )
+
+                logger.debug(
+                    msg=f"odbc_connect is used for connection: {connection_url}"
+                )
+                return str(connection_url)
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
@@ -1027,3 +1049,10 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else table_ref_str
         )
+
+    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+        for schema in super().get_allowed_schemas(inspector, db_name):
+            if self.config.quote_schemas:
+                yield quoted_name(schema, True)
+            else:
+                yield schema
