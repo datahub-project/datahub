@@ -88,6 +88,8 @@ public class ExecutionRequestMapper implements ModelMapper<EntityResponse, Execu
       inputResult.setRequestedAt(executionRequestInput.getRequestedAt());
       if (executionRequestInput.getActorUrn() != null) {
         inputResult.setActorUrn(executionRequestInput.getActorUrn().toString());
+      } else if (envelopedInput.hasCreated()) {
+        inputResult.setActorUrn(envelopedInput.getCreated().getActor().toString());
       }
       if (executionRequestInput.hasExecutorId()) {
         inputResult.setExecutorId(executionRequestInput.getExecutorId());

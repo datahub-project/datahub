@@ -1690,6 +1690,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the dataset
+  """
+  application: ApplicationAssociation
+
+  """
   The forms associated with the Dataset
   """
   forms: Forms
@@ -2137,6 +2142,11 @@ type VersionedDataset implements Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   Experimental! The resolved health status of the asset
   """
   health: [Health!]
@@ -2352,6 +2362,11 @@ type GlossaryTerm implements Entity {
   The Domain associated with the glossary term
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the glossary term
+  """
+  application: ApplicationAssociation
 
   """
   References to internal resources related to the Glossary Term
@@ -2996,6 +3011,11 @@ type Container implements Entity {
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The deprecation status of the container
@@ -5464,6 +5484,11 @@ type Notebook implements Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
@@ -5749,6 +5774,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Dashboard
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6087,6 +6117,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Chart
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6488,6 +6523,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
@@ -6738,6 +6778,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Data Job
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   Granular API for querying edges extending from this entity
@@ -10029,6 +10074,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   An additional set of of read write properties
   """
   editableProperties: MLModelEditableProperties
@@ -10159,6 +10209,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -10341,6 +10396,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -10597,6 +10657,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   An additional set of of read write properties
   """
   editableProperties: MLPrimaryKeyEditableProperties
@@ -10744,6 +10809,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -11102,6 +11172,18 @@ type SubTypes {
   The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
   """
   typeNames: [String!]
+}
+
+type ApplicationAssociation {
+  """
+  The application related to the assocaited urn
+  """
+  application: Application!
+
+  """
+  Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+  """
+  associatedUrn: String!
 }
 
 type DomainAssociation {
@@ -12704,6 +12786,11 @@ type DataProduct implements Entity {
   The Domain associated with the Data Product
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the data product
+  """
+  application: ApplicationAssociation
 
   """
   Tags used for searching Data Product
