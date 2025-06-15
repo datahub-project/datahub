@@ -18,6 +18,7 @@ export const ERModelRelationshipPreviewCard = ({
     description,
     globalTags,
     glossaryTerms,
+    cardinality,
 }: {
     urn: string;
     name: string | any;
@@ -25,6 +26,7 @@ export const ERModelRelationshipPreviewCard = ({
     globalTags?: GlobalTags | null;
     glossaryTerms?: GlossaryTerms | null;
     owners?: Array<Owner> | null;
+    cardinality?: string | any;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const getERModelRelationHeader = (): JSX.Element => {
@@ -36,14 +38,19 @@ export const ERModelRelationshipPreviewCard = ({
                     urn={urn}
                     description={description || ''}
                     logoComponent={
-                        <img src={ermodelrelationshipIcon} alt="ERModelRelationship" style={{ fontSize: '20px' }} />
+                        <img
+                            src={ermodelrelationshipIcon}
+                            alt={entityRegistry.getEntityName(EntityType.ErModelRelationship)}
+                            style={{ fontSize: '20px' }}
+                        />
                     }
                     tags={globalTags || undefined}
                     glossaryTerms={glossaryTerms || undefined}
                     owners={owners}
-                    type="ERModelRelationship"
+                    type={entityRegistry.getEntityName(EntityType.ErModelRelationship)}
                     typeIcon={entityRegistry.getIcon(EntityType.ErModelRelationship, 14, IconStyleType.ACCENT)}
                     titleSizePx={18}
+                    cardinality={cardinality}
                 />
             </div>
         );

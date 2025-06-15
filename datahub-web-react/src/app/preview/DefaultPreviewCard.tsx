@@ -204,6 +204,7 @@ interface Props {
     health?: Health[];
     parentDataset?: Dataset;
     lastRunEvent?: DataProcessRunEvent | null;
+    cardinality?: string | null;
 }
 
 export default function DefaultPreviewCard({
@@ -248,6 +249,7 @@ export default function DefaultPreviewCard({
     health,
     parentDataset,
     lastRunEvent,
+    cardinality,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -363,6 +365,14 @@ export default function DefaultPreviewCard({
                         >
                             {description}
                         </NoMarkdownViewer>
+                    </DescriptionContainer>
+                )}
+                {cardinality && (
+                    <DescriptionContainer>
+                        <span>
+                            <b>Cardinality: </b>
+                            {cardinality}
+                        </span>
                     </DescriptionContainer>
                 )}
                 {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
