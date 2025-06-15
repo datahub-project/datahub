@@ -145,28 +145,8 @@ export type FilterMode = (typeof FilterModes)[keyof typeof FilterModes];
 
 export const MAX_COUNT_VAL = 10000;
 
-export const EMBEDDED_LIST_SEARCH_ENTITY_TYPES = [
-    EntityType.Dataset,
-    EntityType.Dashboard,
-    EntityType.Chart,
-    EntityType.Mlmodel,
-    EntityType.MlmodelGroup,
-    EntityType.MlfeatureTable,
-    EntityType.Mlfeature,
-    EntityType.MlprimaryKey,
-    EntityType.DataFlow,
-    EntityType.DataJob,
-    EntityType.GlossaryTerm,
-    EntityType.GlossaryNode,
-    EntityType.Tag,
-    EntityType.Role,
-    EntityType.CorpUser,
-    EntityType.CorpGroup,
-    EntityType.Container,
-    EntityType.Domain,
-    EntityType.DataProduct,
-    EntityType.Notebook,
-    EntityType.BusinessAttribute,
+// We don't want to show Data Process Instance in standard search since they would crowd the results
+// however, for embedded searches such as the DPIs for a given entity, it makes sense to show them
+export const EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES = [
     EntityType.DataProcessInstance,
-    EntityType.SchemaField,
 ];
