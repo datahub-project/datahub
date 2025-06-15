@@ -108,19 +108,11 @@ public class ListIngestionSourcesResolver
   List<SortCriterion> buildSortCriteria(
       com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
     if (sortCriterionInput == null) {
-      // TODO: default to last executed
-      return null;
+      // Sort by platform type by default
+      return List.of(new SortCriterion().setField("type").setOrder(SortOrder.ASCENDING));
     }
 
     SortOrder order = SortOrder.valueOf(sortCriterionInput.getSortOrder().name());
-
-    // For name field, sort by type first and then by name
-    if ("name".equals(sortCriterionInput.getField())) {
-      return List.of(
-          new SortCriterion().setField("type").setOrder(order),
-          new SortCriterion().setField("name").setOrder(order));
-    } else {
-      return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
-    }
+    return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
   }
 }
