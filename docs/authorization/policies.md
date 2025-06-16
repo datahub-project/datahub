@@ -325,10 +325,10 @@ These privileges are not generalizable.
 Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
 Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
-option is `policyConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
+option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
 it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
 a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
-to API operations as well through the `MCP_VALIDATION_POLICY_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically).
+to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
 Example JSON of a policy with constraints:
 
@@ -348,7 +348,7 @@ Example JSON of a policy with constraints:
   "resources": {
     "filter": { "criteria": [] },
     "allResources": false,
-    "policyConstraints": {
+    "privilegeConstraints": {
       "criteria": [
         {
           "field": "URN",

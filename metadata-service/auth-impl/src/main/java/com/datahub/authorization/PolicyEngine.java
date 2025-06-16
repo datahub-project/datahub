@@ -235,8 +235,8 @@ public class PolicyEngine {
       log.debug("No subresources to evaluate.");
       return true;
     }
-    if (policyResourceFilter.getPolicyConstraints() != null) {
-      PolicyMatchFilter filter = policyResourceFilter.getPolicyConstraints();
+    if (policyResourceFilter.getPrivilegeConstraints() != null) {
+      PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
       return subResources.stream()
           .allMatch(
               subResource ->

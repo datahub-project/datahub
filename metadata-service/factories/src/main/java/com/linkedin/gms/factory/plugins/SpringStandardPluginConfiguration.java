@@ -10,7 +10,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
-import com.linkedin.metadata.aspect.validation.PolicyConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
@@ -318,14 +318,14 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
-      name = "metadataChangeProposal.validation.policyConstraints.enabled",
+      name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
-  public AspectPayloadValidator policyConstraintsValidator() {
+  public AspectPayloadValidator privilegeConstraintsValidator() {
     // Supports tag constraints only for now
-    return new PolicyConstraintsValidator()
+    return new PrivilegeConstraintsValidator()
         .setConfig(
             AspectPluginConfig.builder()
-                .className(PolicyConstraintsValidator.class.getName())
+                .className(PrivilegeConstraintsValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
                     List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))

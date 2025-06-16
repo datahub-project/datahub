@@ -2072,7 +2072,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -2123,7 +2123,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -2175,7 +2175,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -2195,7 +2195,7 @@ public class PolicyEngineTest {
   }
 
   @Test
-  public void testEvaluatePolicyWithNoPolicyConstraints() throws Exception {
+  public void testEvaluatePolicyWithNoPrivilegeConstraints() throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
     dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
@@ -2262,7 +2262,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -2332,7 +2332,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(urnCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -2402,7 +2402,7 @@ public class PolicyEngineTest {
     PolicyMatchFilter constraintFilter =
         new PolicyMatchFilter()
             .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(ownershipCriterion)));
-    resourceFilter.setPolicyConstraints(constraintFilter);
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
 
     dataHubPolicyInfo.setResources(resourceFilter);
 

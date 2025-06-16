@@ -9461,9 +9461,9 @@ type ResourceFilter {
   filter: PolicyMatchFilter
 
   """
-  Constraints on the policy, what subresources can be acted upon
+  Constraints on what subresources can be acted upon
   """
-  policyConstraints: PolicyMatchFilter
+  privilegeConstraints: PolicyMatchFilter
 }
 
 """
@@ -9620,9 +9620,9 @@ input ResourceFilterInput {
   filter: PolicyMatchFilterInput
 
   """
-  Constraints on the policy, what subresources can be acted upon
+  Constraints on what subresources can be acted upon
   """
-  policyConstraints: PolicyMatchFilterInput
+  privilegeConstraints: PolicyMatchFilterInput
 }
 
 """
