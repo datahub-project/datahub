@@ -56,7 +56,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class PolicyConstraintsValidatorTest {
+public class PrivilegeConstraintsValidatorTest {
 
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final Urn TEST_DATASET_URN =
@@ -64,7 +64,7 @@ public class PolicyConstraintsValidatorTest {
   private static final TagUrn TEST_TAG_URN = new TagUrn("TestTag");
   private static final TagUrn TEST_TAG_URN_2 = new TagUrn("TestTag2");
 
-  private PolicyConstraintsValidator validator;
+  private PrivilegeConstraintsValidator validator;
   private SearchRetriever mockSearchRetriever;
   private CachingAspectRetriever mockAspectRetriever;
   private GraphRetriever mockGraphRetriever;
@@ -82,10 +82,10 @@ public class PolicyConstraintsValidatorTest {
   @BeforeMethod
   public void setup() {
     authUtilMockedStatic = Mockito.mockStatic(AuthUtil.class);
-    validator = new PolicyConstraintsValidator();
+    validator = new PrivilegeConstraintsValidator();
     validator.setConfig(
         AspectPluginConfig.builder()
-            .className(PolicyConstraintsValidator.class.getName())
+            .className(PrivilegeConstraintsValidator.class.getName())
             .enabled(true)
             .supportedOperations(
                 List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))

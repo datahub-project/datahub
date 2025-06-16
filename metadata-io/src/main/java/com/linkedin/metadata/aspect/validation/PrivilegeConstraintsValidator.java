@@ -52,7 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Slf4j
 @Accessors(chain = true)
-public class PolicyConstraintsValidator extends AspectPayloadValidator {
+public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
   @Override
@@ -104,7 +104,7 @@ public class PolicyConstraintsValidator extends AspectPayloadValidator {
               .forEach(exceptions::addException);
           break;
         default:
-          log.warn("Triggered PolicyConstraints Validator for unsupported aspect, ignoring.");
+          log.warn("Triggered PrivilegeConstraints Validator for unsupported aspect, ignoring.");
       }
     }
 

@@ -35,5 +35,5 @@ record DataHubResourceFilter {
   /**
    * Constraints around what sub-resources operations are allowed to modify, i.e. NOT_EQUALS - cannot modify a particular defined tag, EQUALS - can only modify a particular defined tag, STARTS_WITH - can only modify a tag starting with xyz
    */
-  policyConstraints: optional PolicyMatchFilter
+  privilegeConstraints: optional PolicyMatchFilter
 }

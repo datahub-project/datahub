@@ -6,7 +6,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:ryan@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Ryan Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:ryan@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Ryan Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -18,7 +18,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:john@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"John Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"NOT_EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:john@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"John Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"NOT_EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -30,7 +30,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:maggie@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Maggie Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:dataset:(urn:li:dataPlatform:oracle,prod12.asset_4967,PROD)\"]}]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:maggie@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Maggie Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:dataset:(urn:li:dataPlatform:oracle,prod12.asset_4967,PROD)\"]}]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -42,7 +42,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[\"urn:li:corpGroup:dc197a41-83a1-4689-b72e-abd852d6d3d9\"],\"allGroups\":false,\"allUsers\":false,\"users\":[]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Engineering Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[\"urn:li:corpGroup:dc197a41-83a1-4689-b72e-abd852d6d3d9\"],\"allGroups\":false,\"allUsers\":false,\"users\":[]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Engineering Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -54,7 +54,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:harshal@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Harshal Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"DOMAIN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:domain:822addbf-0189-440d-a60a-0a229ed94169\"]}]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:harshal@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Harshal Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"DOMAIN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:domain:822addbf-0189-440d-a60a-0a229ed94169\"]}]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -66,7 +66,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:chris@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Chris Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"TAG\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:Legacy\"]}]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:chris@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Chris Policy\",\"resources\":{\"filter\":{\"criteria\":[{\"field\":\"TAG\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:Legacy\"]}]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -78,7 +78,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:david@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"David Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:david@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"David Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -90,7 +90,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:esteban@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Esteban Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:esteban@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Esteban Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -102,7 +102,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:andrew@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Andrew Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:andrew@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Andrew Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -114,7 +114,7 @@
     "changeType":"UPSERT",
     "aspectName":"dataHubPolicyInfo",
     "aspect":{
-      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:anton@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Anton Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"policyConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"NOT_EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
+      "value": "{\"actors\":{\"resourceOwners\":false,\"groups\":[],\"allGroups\":false,\"allUsers\":false,\"users\":[\"urn:li:corpuser:anton@email.com\"]},\"lastUpdatedTimestamp\":0,\"privileges\":[\"EDIT_ENTITY_TAGS\",\"EDIT_DATASET_COL_TAGS\"],\"editable\":true,\"displayName\":\"Anton Policy\",\"resources\":{\"filter\":{\"criteria\":[]},\"allResources\":false,\"privilegeConstraints\":{\"criteria\":[{\"field\":\"URN\",\"condition\":\"NOT_EQUALS\",\"values\":[\"urn:li:tag:PII\",\"urn:li:tag:Business Critical\"]}]}},\"description\":\"\",\"state\":\"ACTIVE\",\"type\":\"METADATA\"}",
       "contentType":"application/json"
     },
     "systemMetadata":null
