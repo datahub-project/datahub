@@ -11,6 +11,9 @@ import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
+import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
+import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
+import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
@@ -185,6 +188,7 @@ export const IngestionSourceList = ({
     const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
     const [totalSources, setTotalSources] = useState<number>(0);
+    const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -564,6 +568,25 @@ export const IngestionSourceList = ({
         [executeIngestionSource],
     );
 
+    const onCancelExecution = useCallback((executionUrn: string | undefined, sourceUrn: string) => {
+        if (!executionUrn) {
+            console.error(`Can't cancel execution as it's urn is undefined. Source: ${sourceUrn}`);
+            return;
+        }
+
+        setExecutionInfoToCancel({ executionUrn, sourceUrn });
+    }, []);
+
+    const cancelExecution = useCancelExecution();
+
+    const onConfirmCancelExecution = useCallback(() => {
+        if (executionInfoToCancel && executionInfoToCancel.executionUrn) {
+            cancelExecution(executionInfoToCancel.executionUrn, executionInfoToCancel.sourceUrn);
+            setSourcesToRefetch((prev) => new Set(prev).add(executionInfoToCancel.sourceUrn));
+        }
+        setExecutionInfoToCancel(undefined);
+    }, [executionInfoToCancel, cancelExecution]);
+
     const onDelete = useCallback(
         (urn: string) => {
             Modal.confirm({
@@ -636,6 +659,7 @@ export const IngestionSourceList = ({
                                 sources={finalSources}
                                 setFocusExecutionUrn={handleSetFocusExecutionUrn}
                                 onExecute={onExecute}
+                                onCancelExecution={onCancelExecution}
                                 onEdit={onEdit}
                                 onView={onView}
                                 onDelete={onDelete}
@@ -680,6 +704,11 @@ export const IngestionSourceList = ({
             {focusExecutionUrn && (
                 <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
+            <CancelExecutionConfirmation
+                isOpen={!!executionInfoToCancel}
+                onCancel={() => setExecutionInfoToCancel(undefined)}
+                onConfirm={onConfirmCancelExecution}
+            />
             {/* For refetching and polling */}
             {selectedTab === TabType.Sources &&
                 Array.from(sourcesToRefetch).map((urn) => (

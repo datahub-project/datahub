@@ -31,6 +31,7 @@ interface Props {
     sources: IngestionSource[];
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
+    onCancelExecution: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
@@ -46,6 +47,7 @@ function IngestionSourceTable({
     sources,
     setFocusExecutionUrn,
     onExecute,
+    onCancelExecution,
     onEdit,
     onView,
     onDelete,
@@ -143,6 +145,7 @@ function IngestionSourceTable({
                     record={record}
                     setFocusExecutionUrn={setFocusExecutionUrn}
                     onExecute={onExecute}
+                    onCancel={onCancelExecution}
                     onDelete={onDelete}
                     onView={onView}
                     onEdit={onEdit}

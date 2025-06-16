@@ -39,6 +39,27 @@ const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
         `}
 `;
 
+const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
+    font-size: 14px;
+    font-weight: 600;
+    color: ${colors.gray[600]};
+    line-height: normal;
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
+`;
+
+const SourceTypeText = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 400;
+    color: ${colors.gray[1700]};
+    line-height: normal;
+`;
+
 const NameContainer = styled.div`
     display: flex;
     align-items: center;
@@ -50,13 +71,6 @@ const DisplayNameContainer = styled.div`
     display: flex;
     flex-direction: column;
     max-width: calc(100% - 50px);
-`;
-
-const TruncatedText = styled(Text)`
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 interface NameColumnProps {
@@ -79,7 +93,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
             )}
             <DisplayNameContainer>
-                <TextContainer
+                <SourceNameText
                     ellipsis={{
                         tooltip: {
                             title: record.name,
@@ -97,8 +111,8 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                     $shouldUnderline={!!onNameClick}
                 >
                     {record.name || ''}
-                </TextContainer>
-                {!iconUrl && typeDisplayName && <TruncatedText color="gray">{typeDisplayName}</TruncatedText>}
+                </SourceNameText>
+                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
@@ -181,6 +195,7 @@ interface ActionsColumnProps {
     record: any;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
+    onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
@@ -198,6 +213,7 @@ export function ActionsColumn({
     setFocusExecutionUrn,
     onView,
     onExecute,
+    onCancel,
     onDelete,
     navigateToRunHistory,
 }: ActionsColumnProps) {
@@ -280,22 +296,36 @@ export function ActionsColumn({
         ),
     });
 
-    return (
-        <BaseActionsColumn
-            dropdownItems={items}
-            extraActions={
-                !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <Icon
-                        icon="Play"
-                        source="phosphor"
-                        color="violet"
-                        onClick={(e) => {
+    const renderRunStopButton = () => {
+        if (record.cliIngestion) return null;
+
+        if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
+            return (
+                <Icon
+                    icon="Stop"
+                    source="phosphor"
+                    // weight="fill"
+                    color="primary"
+                    onClick={(e) => {
                             e.stopPropagation();
-                            onExecute(record.urn);
-                        }}
-                    />
-                ) : null
-            }
-        />
-    );
+                            onCancel(record.lastExecUrn, record.urn);
+                    }}
+                />
+            );
+        }
+        return (
+            <Icon
+                icon="Play"
+                source="phosphor"
+                // weight="fill"
+                color='violet'
+                onClick={(e) => {
+                        e.stopPropagation();
+                        onExecute(record.urn);
+                }}
+            />
+        );
+    };
+
+    return <BaseActionsColumn dropdownItems={items} extraActions={renderRunStopButton()} />;
 }

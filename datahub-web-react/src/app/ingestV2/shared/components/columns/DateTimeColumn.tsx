@@ -51,7 +51,7 @@ export default function DateTimeColumn({
     onClick,
 }: Props) {
     const formattedDateTime = useMemo(() => {
-        if (!isPresent(time)) return undefined;
+        if (!isPresent(time) || time === 0) return undefined;
         return dayjs(time).format(format);
     }, [time, format]);
 

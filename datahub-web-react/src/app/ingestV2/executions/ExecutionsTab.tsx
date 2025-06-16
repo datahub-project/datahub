@@ -1,5 +1,4 @@
 import { Pagination } from '@components';
-import { message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -7,15 +6,17 @@ import EmptyState, { EmptyReasons } from '@app/ingestV2/executions/components/Em
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import ExecutionsTable from '@app/ingestV2/executions/components/ExecutionsTable';
 import Filters from '@app/ingestV2/executions/components/Filters';
+import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import useFilters from '@app/ingestV2/executions/hooks/useFilters';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
+import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
-import { useListIngestionExecutionRequestsQuery, useRollbackIngestionMutation } from '@graphql/ingestion.generated';
+import { useListIngestionExecutionRequestsQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequest } from '@types';
 
 const SourceContainer = styled.div`
@@ -84,26 +85,8 @@ export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHide
         },
     });
 
-    const [rollbackIngestion] = useRollbackIngestionMutation();
-
-    const handleRollbackExecution = useCallback(
-        (runId: string) => {
-            message.loading('Requesting rollback...');
-
-            rollbackIngestion({ variables: { input: { runId } } })
-                .then(() => {
-                    setTimeout(() => {
-                        message.destroy();
-                        refetch();
-                        message.success('Successfully requested ingestion rollback');
-                    }, 2000);
-                })
-                .catch(() => {
-                    message.error('Error requesting ingestion rollback');
-                });
-        },
-        [refetch, rollbackIngestion],
-    );
+    const handleRollbackExecution = useRollbackExecution(refetch);
+    const handleCancelExecution = useCancelExecution(refetch);
 
     const totalExecutionRequests = data?.listExecutionRequests?.total || 0;
     const executionRequests: ExecutionRequest[] = data?.listExecutionRequests?.executionRequests || [];
@@ -147,6 +130,7 @@ export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHide
                                     executionRequests={executionRequests || []}
                                     setFocusExecutionUrn={setExecutionRequestUrnToView}
                                     handleRollback={handleRollbackExecution}
+                                    handleCancelExecution={handleCancelExecution}
                                     loading={loading}
                                     isLastPage={isLastPage}
                                 />
