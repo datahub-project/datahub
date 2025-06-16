@@ -1161,6 +1161,13 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               EXECUTE_ENTITY_PRIVILEGE));
 
+  public static final ResourcePrivileges EXECUTION_REQUEST_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.EXECUTION_REQUEST_ENTITY_NAME,
+          "Execution Request",
+          "Privileges for Ingestion Execution Requests",
+          ImmutableList.of(VIEW_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE));
+
   // Version Set privileges
   public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
       ResourcePrivileges.of(
@@ -1202,6 +1209,7 @@ public class PoliciesConfig {
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
           INGESTION_SOURCE_PRIVILEGES,
+          EXECUTION_REQUEST_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES,

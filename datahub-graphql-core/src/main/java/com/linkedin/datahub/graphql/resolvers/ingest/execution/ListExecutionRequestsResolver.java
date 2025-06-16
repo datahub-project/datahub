@@ -6,7 +6,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilter;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
@@ -60,7 +59,7 @@ public class ListExecutionRequestsResolver
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
     List<FacetFilterInput> filters =
-        input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+        input.getFilters() == null ? new ArrayList<>() : input.getFilters();
 
     // construct sort criteria, defaulting to systemCreated
     final SortCriterion sortCriterion;
@@ -130,47 +129,22 @@ public class ListExecutionRequestsResolver
       @Nullable final Boolean systemSources)
       throws Exception {
     addAccessibleIngestionSourceFilter(context, filters, systemSources); // Saas only
-    // Saas only: when user can't manage ingestion, filter by system/nonsystem ingestion sources
-    // should be applied by addAccessibleIngestionSourceFilter
-    if (AuthorizationUtils.canManageIngestion(context)) {
-      addSystemIngestionSourceFilter(context, filters, systemSources);
-    }
   }
 
   private void addAccessibleIngestionSourceFilter(
       QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
       throws Exception {
     // Saas only
-    // When user can't manage ingestion, they can see only executions of system/nonsystem ingestion
-    // sources accessible by policy rules
-    if (!AuthorizationUtils.canManageIngestion(context)) {
-      List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
-      filters.add(
-          new FacetFilterInput(
-              EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
-              null,
-              sourceUrns.stream().map(Urn::toString).toList(),
-              false,
-              FilterOperator.EQUAL));
-    }
-  }
-
-  private void addSystemIngestionSourceFilter(
-      final QueryContext context,
-      List<FacetFilterInput> filters,
-      @Nullable final Boolean systemSources)
-      throws Exception {
-    if (systemSources != null) {
-      List<Urn> urns = getUrnsOfIngestionSources(context, true);
-
-      filters.add(
-          new FacetFilterInput(
-              EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
-              null,
-              urns.stream().map(Urn::toString).toList(),
-              !systemSources,
-              FilterOperator.EQUAL));
-    }
+    // Users can see only executions of system/nonsystem ingestion sources accessible by policy
+    // rules
+    List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
+    filters.add(
+        new FacetFilterInput(
+            EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
+            null,
+            sourceUrns.stream().map(Urn::toString).toList(),
+            false,
+            FilterOperator.EQUAL));
   }
 
   private List<Urn> getUrnsOfIngestionSources(
