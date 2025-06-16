@@ -16,7 +16,9 @@ import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generat
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
-const TagName = styled.div`
+import { useGetApplicationQuery } from '@graphql/application.generated';
+
+const ApplicationName = styled.div`
     font-size: 14px;
     font-weight: 600;
     color: ${colors.gray[600]};
@@ -25,7 +27,7 @@ const TagName = styled.div`
     white-space: nowrap;
 `;
 
-const TagDescription = styled.div`
+const ApplicationDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
     color: ${colors.gray[1700]};
@@ -67,37 +69,37 @@ const ColorDot = styled.div`
     margin-right: 8px;
 `;
 
-export const TagNameColumn = React.memo(
-    ({ tagUrn, displayName, searchQuery }: { tagUrn: string; displayName: string; searchQuery?: string }) => {
+export const ApplicationNameColumn = React.memo(
+    ({
+        applicationUrn,
+        displayName,
+        searchQuery,
+    }: {
+        applicationUrn: string;
+        displayName: string;
+        searchQuery?: string;
+    }) => {
         return (
             <ColumnContainer>
-                <TagName data-testid={`${tagUrn}-name`}>
+                <ApplicationName data-testid={`${applicationUrn}-name`}>
                     <Highlight search={searchQuery}>{displayName}</Highlight>
-                </TagName>
+                </ApplicationName>
             </ColumnContainer>
         );
     },
 );
 
-export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const { data, loading } = useGetTagQuery({
-        variables: { urn: tagUrn },
-        fetchPolicy: 'cache-first',
-    });
-
-    // Empty placeholder instead of "Loading..." text
-    if (loading) {
-        return <ColumnContainer aria-busy="true" />;
-    }
-
-    const description = data?.tag?.properties?.description || '';
-
-    return (
-        <ColumnContainer>
-            <TagDescription data-testid={`${tagUrn}-description`}>{description}</TagDescription>
-        </ColumnContainer>
-    );
-});
+export const ApplicationDescriptionColumn = React.memo(
+    ({ applicationUrn, description }: { applicationUrn: string; description: string }) => {
+        return (
+            <ColumnContainer>
+                <ApplicationDescription data-testid={`${applicationUrn}-description`}>
+                    {description}
+                </ApplicationDescription>
+            </ColumnContainer>
+        );
+    },
+);
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
     const {

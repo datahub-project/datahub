@@ -3,22 +3,20 @@ import { Modal, Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { useUserContext } from '@app/context/useUserContext';
-import { ManageTag } from '@app/tags/ManageTag';
 import {
-    TagActionsColumn,
-    TagAppliedToColumn,
-    TagColorColumn,
-    TagDescriptionColumn,
-    TagNameColumn,
-    TagOwnersColumn,
-} from '@app/tags/TagsTableColumns';
+    ApplicationActionsColumn,
+    ApplicationAppliedToColumn,
+    ApplicationDescriptionColumn,
+    ApplicationNameColumn,
+    ApplicationOwnersColumn,
+} from '@app/applications/ApplicationsTableColumns';
+import { useUserContext } from '@app/context/useUserContext';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
 
-import { useDeleteTagMutation } from '@graphql/tag.generated';
+import { useDeleteApplicationMutation } from '@graphql/application.generated';
 
 interface Props {
     searchQuery: string;
@@ -31,23 +29,17 @@ interface Props {
 const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, networkStatus, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
-    const [deleteTagMutation] = useDeleteTagMutation();
+    const [deleteApplicationMutation] = useDeleteApplicationMutation();
 
-    // Check if user has permission to manage or delete tags
-    const canManageApplications = Boolean(userContext?.platformPrivileges?.manageApplications);
-
-    // Optimize the tagsData with useMemo to prevent unnecessary filtering on re-renders
-    const tagsData = useMemo(() => {
+    // Optimize the applicationsData with useMemo to prevent unnecessary filtering on re-renders
+    const applicationsData = useMemo(() => {
         return searchData?.searchAcrossEntities?.searchResults || [];
     }, [searchData]);
 
-    const [showEdit, setShowEdit] = useState(false);
-    const [editingTag, setEditingTag] = useState('');
-
     // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [tagUrnToDelete, setTagUrnToDelete] = useState('');
-    const [tagDisplayName, setTagDisplayName] = useState('');
+    const [applicationUrnToDelete, setApplicationUrnToDelete] = useState('');
+    const [applicationDisplayName, setApplicationDisplayName] = useState('');
 
     const [sortedInfo, setSortedInfo] = useState<{
         columnKey?: string;
@@ -59,104 +51,119 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
         setSortedInfo(sorter);
     };
 
-    // Filter tags based on search query and sort by name - optimized with useMemo
-    const filteredTags = useMemo(() => {
-        return tagsData
+    // Filter applications based on search query and sort by name - optimized with useMemo
+    const filteredApplications = useMemo(() => {
+        return applicationsData
             .filter((result) => {
-                const tag = result.entity;
-                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
+                const application = result.entity;
+                const displayName = entityRegistry.getDisplayName(EntityType.Application, application);
                 if (!searchQuery) return true;
                 return displayName.toLowerCase().includes(searchQuery.toLowerCase());
             })
             .sort((a, b) => {
-                const nameA = entityRegistry.getDisplayName(EntityType.Tag, a.entity);
-                const nameB = entityRegistry.getDisplayName(EntityType.Tag, b.entity);
+                const nameA = entityRegistry.getDisplayName(EntityType.Application, a.entity);
+                const nameB = entityRegistry.getDisplayName(EntityType.Application, b.entity);
                 return nameA.localeCompare(nameB);
             });
-    }, [tagsData, searchQuery, entityRegistry]);
+    }, [applicationsData, searchQuery, entityRegistry]);
 
     const isLoading = propLoading || networkStatus === NetworkStatus.refetch;
 
     // Simplified function to initiate tag deletion
     const showDeleteConfirmation = useCallback(
-        (tagUrn: string) => {
-            // Find the tag entity from tagsData
-            const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
-            if (!tagData) {
-                message.error('Failed to find tag information');
+        (applicationUrn: string) => {
+            // Find the application entity from applicationsData
+            const applicationData = applicationsData.find((result) => result.entity.urn === applicationUrn);
+            if (!applicationData) {
+                message.error('Failed to find application information');
                 return;
             }
 
-            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, tagData.entity);
+            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Application, applicationData.entity);
 
-            setTagUrnToDelete(tagUrn);
-            setTagDisplayName(fullDisplayName);
+            setApplicationUrnToDelete(applicationUrn);
+            setApplicationDisplayName(fullDisplayName);
             setShowDeleteModal(true);
         },
-        [entityRegistry, tagsData],
+        [entityRegistry, applicationsData],
     );
 
-    // Function to handle the actual tag deletion
-    const handleDeleteTag = useCallback(() => {
-        deleteTagMutation({
+    // Function to handle the actual application deletion
+    const handleDeleteApplication = useCallback(() => {
+        deleteApplicationMutation({
             variables: {
-                urn: tagUrnToDelete,
+                urn: applicationUrnToDelete,
             },
         })
             .then(() => {
-                message.success(`Tag "${tagDisplayName}" has been deleted`);
-                refetch(); // Refresh the tag list
+                message.success(`Application "${applicationDisplayName}" has been deleted`);
+                refetch(); // Refresh the application list
             })
             .catch((e: any) => {
                 message.error(`Failed to delete tag: ${e.message}`);
             });
 
         setShowDeleteModal(false);
-    }, [deleteTagMutation, refetch, tagUrnToDelete, tagDisplayName]);
+    }, [deleteApplicationMutation, refetch, applicationUrnToDelete, applicationDisplayName]);
 
     const columns = useMemo(
         () => [
             {
-                title: 'Tag',
-                key: 'tag',
+                title: 'Application',
+                key: 'application',
                 render: (record) => {
-                    const tag = record.entity;
-                    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
-                    return <TagNameColumn tagUrn={tag.urn} displayName={displayName} searchQuery={searchQuery} />;
+                    const application = record.entity;
+                    const displayName = entityRegistry.getDisplayName(EntityType.Application, application);
+                    return (
+                        <ApplicationNameColumn
+                            applicationUrn={application.urn}
+                            displayName={displayName}
+                            searchQuery={searchQuery}
+                        />
+                    );
                 },
                 sorter: (sourceA, sourceB) => {
-                    const nameA = entityRegistry.getDisplayName(EntityType.Tag, sourceA.entity);
-                    const nameB = entityRegistry.getDisplayName(EntityType.Tag, sourceB.entity);
+                    const nameA = entityRegistry.getDisplayName(EntityType.Application, sourceA.entity);
+                    const nameB = entityRegistry.getDisplayName(EntityType.Application, sourceB.entity);
                     return nameA.localeCompare(nameB);
                 },
                 sortOrder: sortedInfo.columnKey === 'tag' ? sortedInfo.order : null,
             },
             {
-                title: 'Color',
-                key: 'color',
-                render: (record) => {
-                    return <TagColorColumn tag={record.entity} />;
-                },
-            },
-            {
                 title: 'Description',
                 key: 'description',
                 render: (record) => {
-                    return <TagDescriptionColumn key={`description-${record.entity.urn}`} tagUrn={record.entity.urn} />;
+                    return (
+                        <ApplicationDescriptionColumn
+                            key={`description-${record.entity.urn}`}
+                            applicationUrn={record.entity.urn}
+                            description={record.entity.properties?.description}
+                        />
+                    );
                 },
             },
             {
                 title: 'Owners',
                 key: 'owners',
                 render: (record) => {
-                    return <TagOwnersColumn key={`owners-${record.entity.urn}`} tagUrn={record.entity.urn} />;
+                    return (
+                        <ApplicationOwnersColumn
+                            key={`owners-${record.entity.urn}`}
+                            applicationUrn={record.entity.urn}
+                        />
+                    );
                 },
             },
             {
                 title: 'Applied to',
                 key: 'appliedTo',
                 render: (record) => {
-                    return <TagAppliedToColumn key={`applied-${record.entity.urn}`} tagUrn={record.entity.urn} />;
+                    return (
+                        <ApplicationAppliedToColumn
+                            key={`applied-${record.entity.urn}`}
+                            applicationUrn={record.entity.urn}
+                        />
+                    );
                 },
             },
             {
@@ -165,35 +172,31 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 alignment: 'right' as AlignmentOptions,
                 render: (record) => {
                     return (
-                        <TagActionsColumn
-                            tagUrn={record.entity.urn}
+                        <ApplicationActionsColumn
+                            applicationUrn={record.entity.urn}
                             onEdit={() => {
-                                setEditingTag(record.entity.urn);
-                                setShowEdit(true);
+                                // link to the application page
+                                const url = entityRegistry.getEntityUrl(EntityType.Application, record.entity.urn);
+                                window.open(url, '_blank');
                             }}
                             onDelete={() => {
-                                if (canManageTags) {
-                                    showDeleteConfirmation(record.entity.urn);
-                                } else {
-                                    message.error('You do not have permission to delete tags');
-                                }
+                                showDeleteConfirmation(record.entity.urn);
                             }}
-                            canManageTags={canManageTags}
                         />
                     );
                 },
             },
         ],
-        [entityRegistry, searchQuery, sortedInfo, canManageTags, showDeleteConfirmation],
+        [entityRegistry, searchQuery, sortedInfo, showDeleteConfirmation],
     );
 
     // Generate table data once with memoization
     const tableData = useMemo(() => {
-        return filteredTags.map((tag) => ({
-            ...tag,
-            key: tag.entity.urn,
+        return filteredApplications.map((application) => ({
+            ...application,
+            key: application.entity.urn,
         }));
-    }, [filteredTags]);
+    }, [filteredApplications]);
 
     return (
         <>
@@ -206,18 +209,9 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 onChange={handleTableChange as any}
             />
 
-            {showEdit && (
-                <ManageTag
-                    tagUrn={editingTag}
-                    onClose={() => setShowEdit(false)}
-                    onSave={refetch}
-                    isModalOpen={showEdit}
-                />
-            )}
-
             {/* Delete confirmation modal - simplified */}
             <Modal
-                title={`Delete tag ${tagDisplayName}`}
+                title={`Delete application ${applicationDisplayName}`}
                 onCancel={() => setShowDeleteModal(false)}
                 open={showDeleteModal}
                 centered
@@ -232,14 +226,14 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                         text: 'Delete',
                         color: 'red',
                         variant: 'filled',
-                        onClick: handleDeleteTag,
+                        onClick: handleDeleteApplication,
                     },
                 ]}
             >
-                <p>Are you sure you want to delete this tag? This action cannot be undone.</p>
+                <p>Are you sure you want to delete this application? This action cannot be undone.</p>
             </Modal>
         </>
     );
 };
 
-export default TagsTable;
+export default ApplicationsTable;
