@@ -127,7 +127,6 @@ def test_create_volume_assertion_minimal_input(
     )
 
     # Assert - Update expected assertion with the actual URN from the created assertion
-    print(f"WEGOTassertion.urn: {assertion.urn}")
     expected_assertion._urn = assertion.urn  # Update with actual URN
     _validate_volume_assertion_created_vs_expected(
         assertion, input_params, expected_assertion

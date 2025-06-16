@@ -37,7 +37,10 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionChangeType,
     SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     VolumeAssertionDefinition,
@@ -1356,8 +1359,22 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
         return self._statement
 
     @property
-    def criteria(self) -> SqlAssertionCriteria:
-        return self._criteria
+    def criteria_type(self) -> Union[SqlAssertionType, str]:
+        return self._criteria.type
+
+    @property
+    def criteria_change_type(self) -> Optional[Union[SqlAssertionChangeType, str]]:
+        return self._criteria.change_type
+
+    @property
+    def criteria_operator(self) -> Union[SqlAssertionOperator, str]:
+        return self._criteria.operator
+
+    @property
+    def criteria_parameters(
+        self,
+    ) -> Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]:
+        return self._criteria.parameters
 
     @staticmethod
     def _get_detection_mechanism(

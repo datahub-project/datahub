@@ -39,7 +39,10 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     _SmartColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionChangeType,
     SqlAssertionCriteria,
+    SqlAssertionOperator,
+    SqlAssertionType,
     _SqlAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
@@ -654,7 +657,10 @@ class AssertionsClient:
             return self._create_sql_assertion(
                 dataset_urn=dataset_urn,
                 display_name=display_name,
-                criteria=criteria,
+                criteria_type=criteria.type,
+                criteria_change_type=criteria.change_type,
+                criteria_operator=criteria.operator,
+                criteria_parameters=criteria.parameters,
                 statement=statement,
                 incident_behavior=incident_behavior,
                 tags=tags,
@@ -1165,7 +1171,7 @@ class AssertionsClient:
                 "criteria",
                 assertion_input,
                 existing_assertion,
-                existing_assertion.criteria if existing_assertion else None,
+                existing_assertion._criteria if existing_assertion else None,
             ),
             statement=_merge_field(
                 statement,
@@ -1789,7 +1795,12 @@ class AssertionsClient:
         dataset_urn: Union[str, DatasetUrn],
         display_name: Optional[str] = None,
         enabled: bool = True,
-        criteria: SqlAssertionCriteria,
+        criteria_type: Union[SqlAssertionType, str],
+        criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None,
+        criteria_operator: Union[SqlAssertionOperator, str],
+        criteria_parameters: Union[
+            Union[float, int], tuple[Union[float, int], Union[float, int]]
+        ],
         statement: str,
         incident_behavior: Optional[
             Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
@@ -1805,25 +1816,23 @@ class AssertionsClient:
             display_name: The display name of the assertion. If not provided, a random display
                 name will be generated.
             enabled: Whether the assertion is enabled. Defaults to True.
-            criteria: The criteria to be used for the assertion. This is of type SqlAssertionCriteria. It has the following fields:
-                - type: The type of sql assertion. Valid values are:
-                    - "METRIC" -> Looks at the current value of the metric.
-                    - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
-                - change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
-                    - "ABSOLUTE" -> Looks at the absolute change in the metric.
-                    - "PERCENTAGE" -> Looks at the percentage change in the metric.
-                - operator: The operator to be used for the assertion. Valid values are:
-                    - "GREATER_THAN" -> The metric value is greater than the threshold.
-                    - "LESS_THAN" -> The metric value is less than the threshold.
-                    - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
-                    - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
-                    - "EQUAL_TO" -> The metric value is equal to the threshold.
-                    - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
-                    - "BETWEEN" -> The metric value is between the two thresholds.
-                - parameters: The parameters to be used for the assertion. This is of type SqlAssertionParameters. It has the following fields:
-                    - value: The value of the metric. This can be a single value or a tuple range.
-                        - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
-                        - If the operator is not "BETWEEN", the value is a single value.
+            criteria_type: The type of sql assertion. Valid values are:
+                - "METRIC" -> Looks at the current value of the metric.
+                - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
+            criteria_change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
+                - "ABSOLUTE" -> Looks at the absolute change in the metric.
+                - "PERCENTAGE" -> Looks at the percentage change in the metric.
+            criteria_operator: The operator to be used for the assertion. Valid values are:
+                - "GREATER_THAN" -> The metric value is greater than the threshold.
+                - "LESS_THAN" -> The metric value is less than the threshold.
+                - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
+                - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
+                - "EQUAL_TO" -> The metric value is equal to the threshold.
+                - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
+                - "BETWEEN" -> The metric value is between the two thresholds.
+            criteria_parameters: The parameters to be used for the assertion. This can be a single value or a tuple range.
+                - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
+                - If the operator is not "BETWEEN", the value is a single value.
             statement: The statement to be used for the assertion.
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
@@ -1850,6 +1859,12 @@ class AssertionsClient:
                 f"Created by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
             )
             created_by = DEFAULT_CREATED_BY
+        criteria = SqlAssertionCriteria(
+            type=criteria_type,
+            change_type=criteria_change_type,
+            operator=criteria_operator,
+            parameters=criteria_parameters,
+        )
         assertion_input = _SqlAssertionInput(
             urn=None,
             entity_client=self.client.entities,
@@ -3141,7 +3156,12 @@ class AssertionsClient:
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
         statement: str,
-        criteria: SqlAssertionCriteria,
+        criteria_type: Union[SqlAssertionType, str],
+        criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None,
+        criteria_operator: Union[SqlAssertionOperator, str],
+        criteria_parameters: Union[
+            Union[float, int], tuple[Union[float, int], Union[float, int]]
+        ],
         incident_behavior: Optional[
             Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
         ] = None,
@@ -3171,25 +3191,23 @@ class AssertionsClient:
                 will be generated.
             enabled: Whether the assertion is enabled. If not provided, the existing value
                 will be preserved.
-            criteria: The criteria to be used for the assertion. This is of type SqlAssertionCriteria. It has the following fields:
-                - type: The type of sql assertion. Valid values are:
-                    - "METRIC" -> Looks at the current value of the metric.
-                    - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
-                - change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
-                    - "ABSOLUTE" -> Looks at the absolute change in the metric.
-                    - "PERCENTAGE" -> Looks at the percentage change in the metric.
-                - operator: The operator to be used for the assertion. Valid values are:
-                    - "GREATER_THAN" -> The metric value is greater than the threshold.
-                    - "LESS_THAN" -> The metric value is less than the threshold.
-                    - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
-                    - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
-                    - "EQUAL_TO" -> The metric value is equal to the threshold.
-                    - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
-                    - "BETWEEN" -> The metric value is between the two thresholds.
-                - parameters: The parameters to be used for the assertion. This is of type SqlAssertionParameters. It has the following fields:
-                    - value: The value of the metric. This can be a single value or a tuple range.
-                        - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
-                        - If the operator is not "BETWEEN", the value is a single value.
+            criteria_type: The type of sql assertion. Valid values are:
+                - "METRIC" -> Looks at the current value of the metric.
+                - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
+            criteria_change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
+                - "ABSOLUTE" -> Looks at the absolute change in the metric.
+                - "PERCENTAGE" -> Looks at the percentage change in the metric.
+            criteria_operator: The operator to be used for the assertion. Valid values are:
+                - "GREATER_THAN" -> The metric value is greater than the threshold.
+                - "LESS_THAN" -> The metric value is less than the threshold.
+                - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
+                - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
+                - "EQUAL_TO" -> The metric value is equal to the threshold.
+                - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
+                - "BETWEEN" -> The metric value is between the two thresholds.
+            criteria_parameters: The parameters to be used for the assertion. This can be a single value or a tuple range.
+                - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
+                - If the operator is not "BETWEEN", the value is a single value.
             statement: The SQL statement to be used for the assertion.
                 - "SELECT COUNT(*) FROM table WHERE column > 100"
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
@@ -3228,7 +3246,10 @@ class AssertionsClient:
                 dataset_urn=dataset_urn,
                 display_name=display_name,
                 enabled=enabled if enabled is not None else True,
-                criteria=criteria,
+                criteria_type=criteria_type,
+                criteria_change_type=criteria_change_type,
+                criteria_operator=criteria_operator,
+                criteria_parameters=criteria_parameters,
                 statement=statement,
                 incident_behavior=incident_behavior,
                 tags=tags,
@@ -3237,6 +3258,12 @@ class AssertionsClient:
             )
 
         # 2. If urn is set, first validate the input:
+        criteria = SqlAssertionCriteria(
+            type=criteria_type,
+            change_type=criteria_change_type,
+            operator=criteria_operator,
+            parameters=criteria_parameters,
+        )
         assertion_input = _SqlAssertionInput(
             urn=urn,
             entity_client=self.client.entities,

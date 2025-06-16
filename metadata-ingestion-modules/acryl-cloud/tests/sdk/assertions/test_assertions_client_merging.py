@@ -1311,7 +1311,11 @@ class SqlAssertionInputParams:
 @dataclass
 class SqlAssertionOutputParams:
     dataset_urn: Union[str, DatasetUrn]
-    criteria: SqlAssertionCriteria
+    criteria_type: Union[SqlAssertionType, str]
+    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_parameters: Union[
+        Union[float, int], tuple[Union[float, int], Union[float, int]]
+    ]
     statement: str
     display_name: str
     mode: AssertionMode
@@ -1322,13 +1326,19 @@ class SqlAssertionOutputParams:
     created_at: datetime
     updated_by: CorpUserUrn
     updated_at: datetime
+    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
 
 
 @dataclass
 class SqlAssertionUpsertInputParams:
     dataset_urn: Union[str, DatasetUrn]
-    criteria: SqlAssertionCriteria
+    criteria_type: Union[SqlAssertionType, str]
+    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_parameters: Union[
+        Union[float, int], tuple[Union[float, int], Union[float, int]]
+    ]
     statement: str
+    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
     urn: Optional[Union[str, AssertionUrn]] = None
     display_name: Optional[str] = None
     enabled: Optional[bool] = None
@@ -1348,17 +1358,13 @@ def test_sync_sql_assertion_valid_simple_input(
     sql_assertion_entity_with_all_fields: Assertion,
 ) -> None:
     """Test sync_sql_assertion with valid simple input merges correctly."""
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
-        parameters=100,
-    )
-
     input_params = SqlAssertionUpsertInputParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_parameters=100,
         statement="SELECT COUNT(*) FROM test_table",
         display_name="Test SQL Assertion",
     )
@@ -1377,7 +1383,10 @@ def test_sync_sql_assertion_valid_simple_input(
         input_params,
         SqlAssertionOutputParams(
             dataset_urn=input_params.dataset_urn,
-            criteria=criteria,
+            criteria_type=input_params.criteria_type,
+            criteria_change_type=input_params.criteria_change_type,
+            criteria_operator=input_params.criteria_operator,
+            criteria_parameters=input_params.criteria_parameters,
             statement=input_params.statement,
             display_name=input_params.display_name or "",
             mode=AssertionMode.ACTIVE,
@@ -1432,23 +1441,27 @@ def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
     mock_create_assertion = MagicMock()
     client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.EQUAL_TO,
-        parameters=42,
-    )
-
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_parameters=42,
         statement="SELECT COUNT(*) FROM users",
     )
 
     assert mock_create_assertion.call_count == 1
     assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
-    assert mock_create_assertion.call_args[1]["criteria"] == criteria
+    assert (
+        mock_create_assertion.call_args[1]["criteria_type"] == SqlAssertionType.METRIC
+    )
+    assert mock_create_assertion.call_args[1]["criteria_change_type"] is None
+    assert (
+        mock_create_assertion.call_args[1]["criteria_operator"]
+        == SqlAssertionOperator.EQUAL_TO
+    )
+    assert mock_create_assertion.call_args[1]["criteria_parameters"] == 42
     assert (
         mock_create_assertion.call_args[1]["statement"] == "SELECT COUNT(*) FROM users"
     )
@@ -1478,17 +1491,13 @@ def test_sync_sql_assertion_uses_default_if_updated_by_is_not_set(
     mock_upsert = MagicMock()
     sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.PERCENTAGE,
-        operator=SqlAssertionOperator.LESS_THAN,
-        parameters=10,
-    )
-
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC_CHANGE,
+        criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
+        criteria_operator=SqlAssertionOperator.LESS_THAN,
+        criteria_parameters=10,
         statement="SELECT AVG(price) FROM products",
         updated_by=updated_by,
     )
@@ -1530,17 +1539,13 @@ def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_no
     )
     client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
-        parameters=50,
-    )
-
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_parameters=50,
         statement="SELECT COUNT(*) FROM table",
     )
 
@@ -1572,17 +1577,13 @@ def test_sync_sql_assertion_calls_upsert_if_assertion_exists_but_monitor_does_no
     mock_upsert = MagicMock()
     sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.BETWEEN,
-        parameters=(10, 100),
-    )
-
     input_params = SqlAssertionUpsertInputParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_parameters=(10, 100),
         statement="SELECT COUNT(*) FROM orders",
         display_name="Updated SQL Assertion",
     )
@@ -1595,7 +1596,10 @@ def test_sync_sql_assertion_calls_upsert_if_assertion_exists_but_monitor_does_no
         input_params,
         SqlAssertionOutputParams(
             dataset_urn=any_dataset_urn,
-            criteria=criteria,
+            criteria_type=input_params.criteria_type,
+            criteria_change_type=input_params.criteria_change_type,
+            criteria_operator=input_params.criteria_operator,
+            criteria_parameters=input_params.criteria_parameters,
             statement="SELECT COUNT(*) FROM orders",
             display_name="Updated SQL Assertion",
             mode=AssertionMode.ACTIVE,  # Default when no monitor exists
@@ -1625,18 +1629,14 @@ def test_sync_sql_assertion_raises_error_if_assertion_and_input_have_different_d
     """Test that sync_sql_assertion raises error for dataset URN mismatch."""
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.EQUAL_TO,
-        parameters=0,
-    )
-
     with pytest.raises(SDKUsageError, match="Dataset URN mismatch"):
         client.sync_sql_assertion(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,different_dataset,PROD)",
             urn=any_assertion_urn,
-            criteria=criteria,
+            criteria_type=SqlAssertionType.METRIC,
+            criteria_change_type=None,
+            criteria_operator=SqlAssertionOperator.EQUAL_TO,
+            criteria_parameters=0,
             statement="SELECT 1",
         )
 
@@ -1651,17 +1651,13 @@ def test_sync_sql_assertion_uses_existing_assertion_display_name_if_input_displa
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.NOT_EQUAL_TO,
-        parameters=999,
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.NOT_EQUAL_TO,
+        criteria_parameters=999,
         statement="SELECT COUNT(*) FROM events",
         display_name=None,
     )
@@ -1697,17 +1693,13 @@ def test_sync_sql_assertion_uses_empty_display_name_if_existing_assertion_has_no
     )
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.EQUAL_TO,
-        parameters=1,
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_parameters=1,
         statement="SELECT 1",
         display_name=None,
     )
@@ -1725,17 +1717,13 @@ def test_sync_sql_assertion_uses_existing_assertion_incident_behavior_if_input_i
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.ABSOLUTE,
-        operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
-        parameters=5,
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC_CHANGE,
+        criteria_change_type=SqlAssertionChangeType.ABSOLUTE,
+        criteria_operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_parameters=5,
         statement="SELECT SUM(revenue) FROM sales",
         incident_behavior=None,
     )
@@ -1755,17 +1743,13 @@ def test_sync_sql_assertion_uses_existing_assertion_tags_if_input_tags_is_not_se
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
-        parameters=1000,
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+        criteria_parameters=1000,
         statement="SELECT MAX(id) FROM users",
         tags=None,
     )
@@ -1788,17 +1772,13 @@ def test_sync_sql_assertion_uses_input_display_name_if_input_display_name_is_set
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.BETWEEN,
-        parameters=(0, 10),
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_parameters=(0, 10),
         statement="SELECT COUNT(*) FROM failed_jobs",
         display_name="Custom SQL Assertion Name",
     )
@@ -1815,17 +1795,13 @@ def test_sync_sql_assertion_uses_input_incident_behavior_if_input_incident_behav
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.EQUAL_TO,
-        parameters=0,
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_parameters=0,
         statement="SELECT COUNT(*) FROM errors WHERE severity = 'critical'",
         incident_behavior=[],  # Empty list means set to no incident behavior
     )
@@ -1842,17 +1818,13 @@ def test_sync_sql_assertion_uses_input_tags_if_input_tags_is_set(
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.PERCENTAGE,
-        operator=SqlAssertionOperator.BETWEEN,
-        parameters=(-5, 5),
-    )
-
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC_CHANGE,
+        criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
+        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_parameters=(-5, 5),
         statement="SELECT COUNT(*) FROM daily_active_users WHERE date = CURRENT_DATE",
         tags=["urn:li:tag:critical", "urn:li:tag:automated"],
     )
@@ -1888,17 +1860,13 @@ def test_sync_sql_assertion_enabled_parameter_merging(
     mock_upsert = MagicMock()
     client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
-        parameters=100,
-    )
-
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_parameters=100,
         statement="SELECT COUNT(*) FROM active_users",
         enabled=enabled,
     )
@@ -1933,17 +1901,13 @@ def test_sync_sql_assertion_enabled_none_preserves_inactive(
     mock_upsert = MagicMock()
     client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.LESS_THAN,
-        parameters=10,
-    )
-
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC,
+        criteria_change_type=None,
+        criteria_operator=SqlAssertionOperator.LESS_THAN,
+        criteria_parameters=10,
         statement="SELECT COUNT(*) FROM errors",
         enabled=None,  # Should preserve existing state
     )
@@ -1969,17 +1933,13 @@ def test_sync_sql_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
     with patch.object(client, "_create_sql_assertion") as mock_create:
         mock_create.return_value = MagicMock()  # Return a mock assertion
 
-        criteria = SqlAssertionCriteria(
-            type=SqlAssertionType.METRIC,
-            change_type=None,
-            operator=SqlAssertionOperator.EQUAL_TO,
-            parameters=1,
-        )
-
         client.sync_sql_assertion(
             dataset_urn=any_dataset_urn,
             urn=None,  # This should trigger create
-            criteria=criteria,
+            criteria_type=SqlAssertionType.METRIC,
+            criteria_change_type=None,
+            criteria_operator=SqlAssertionOperator.EQUAL_TO,
+            criteria_parameters=1,
             statement="SELECT 1",
             enabled=False,
         )
@@ -2007,17 +1967,13 @@ def test_sync_sql_assertion_schedule_parameter_merging(
     mock_upsert = MagicMock()
     client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.ABSOLUTE,
-        operator=SqlAssertionOperator.BETWEEN,
-        parameters=(0, 100),
-    )
-
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria=criteria,
+        criteria_type=SqlAssertionType.METRIC_CHANGE,
+        criteria_change_type=SqlAssertionChangeType.ABSOLUTE,
+        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_parameters=(0, 100),
         statement="SELECT COUNT(*) FROM transactions WHERE amount > 1000",
         schedule=custom_schedule,
     )
@@ -2051,10 +2007,10 @@ def _validate_sql_assertion_vs_input(
         # Should use existing or generate one
         assert assertion.display_name is not None
 
-    assert assertion.criteria.type == expected_output_params.criteria.type
-    assert assertion.criteria.change_type == expected_output_params.criteria.change_type
-    assert assertion.criteria.operator == expected_output_params.criteria.operator
-    assert assertion.criteria.parameters == expected_output_params.criteria.parameters
+    assert assertion.criteria_type == expected_output_params.criteria_type
+    assert assertion.criteria_change_type == expected_output_params.criteria_change_type
+    assert assertion.criteria_operator == expected_output_params.criteria_operator
+    assert assertion.criteria_parameters == expected_output_params.criteria_parameters
     assert assertion.statement == expected_output_params.statement
     assert assertion.mode == expected_output_params.mode
     assert assertion.incident_behavior == expected_output_params.incident_behavior
