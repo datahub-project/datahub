@@ -468,40 +468,54 @@ class TeradataSource(TwoTierSQLAlchemySource):
     """.strip()
 
     QUERY_TEXT_QUERY: str = """
-    SELECT
-        s.QueryID as "query_id",
-        UserName as "user",
-        StartTime AT TIME ZONE 'GMT' as "timestamp",
-        DefaultDatabase as default_database,
-        s.SqlTextInfo as "query_text",
-        s.SqlRowNo as "row_no"
-    FROM "DBC".QryLogV as l
-    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
-    WHERE
-        l.ErrorCode = 0
-        AND l.statementtype not in (
-        'Unrecognized type',
-        'Create Database/User',
-        'Help',
-        'Modify Database',
-        'Drop Table',
-        'Show',
-        'Not Applicable',
-        'Grant',
-        'Abort',
-        'Database',
-        'Flush Query Logging',
-        'Null',
-        'Begin/End DBQL',
-        'Revoke'
-    )
-        and "timestamp" >= TIMESTAMP '{start_time}'
-        and "timestamp" < TIMESTAMP '{end_time}'
-        and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
-        and default_database not in ('DEMONOW_MONITOR')
-        {databases_filter}
-    ORDER BY "query_id", "row_no"
-    """.strip()
+      WITH unified_data AS (
+          SELECT
+              s.QueryID as "query_id",
+              UserName as "user",
+              StartTime AT TIME ZONE 'GMT' as "timestamp",
+              DefaultDatabase as default_database,
+              s.SqlTextInfo as "query_text",
+              s.SqlRowNo as "row_no"
+          FROM "DBC".QryLogV as l
+          JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
+          UNION
+          SELECT
+              s.QueryID as "query_id",
+              UserName as "user",
+              StartTime AT TIME ZONE 'GMT' as "timestamp",
+              DefaultDatabase as default_database,
+              s.SqlTextInfo as "query_text",
+              s.SqlRowNo as "row_no"
+          FROM "PDCR".DBQLogTbl_Hst as l
+          JOIN "PDCR".DBQLSqlTbl_Hst as s on s.QueryID = l.QueryID          
+      )
+      SELECT * 
+      FROM unified_data
+      WHERE
+          ErrorCode = 0
+          AND statementtype not in (
+          'Unrecognized type',
+          'Create Database/User',
+          'Help',
+          'Modify Database',
+          'Drop Table',
+          'Show',
+          'Not Applicable',
+          'Grant',
+          'Abort',
+          'Database',
+          'Flush Query Logging',
+          'Null',
+          'Begin/End DBQL',
+          'Revoke'
+      )
+          and "timestamp" >= TIMESTAMP '{start_time}'
+          and "timestamp" < TIMESTAMP '{end_time}'
+          and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
+          and default_database not in ('DEMONOW_MONITOR')
+          {databases_filter}
+      ORDER BY "query_id", "row_no"
+      """.strip()
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
