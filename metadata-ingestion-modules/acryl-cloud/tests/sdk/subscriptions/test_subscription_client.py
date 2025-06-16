@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Type, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,7 +16,13 @@ from acryl_datahub_cloud.sdk.subscription_client import (
 )
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, SubscriptionUrn
+from datahub.metadata.urns import (
+    AssertionUrn,
+    CorpGroupUrn,
+    CorpUserUrn,
+    DatasetUrn,
+    SubscriptionUrn,
+)
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.main_client import DataHubClient
 
@@ -698,6 +704,37 @@ def test_subscribe_with_assertion_updates_existing_subscription(
     assertion_passed = change_types_map[models.EntityChangeTypeClass.ASSERTION_PASSED]
     assert assertion_passed.filter is not None
     assert set(assertion_passed.filter.includeAssertions) == {any_assertion_urn.urn()}
+
+
+@freeze_time(FROZEN_TIME)
+@patch.object(SubscriptionClient, "_fetch_dataset_from_assertion")
+def test_subscribe_with_string_subscriber_urn(
+    mock_fetch_dataset: MagicMock,
+    subscription_client: SubscriptionClient,
+) -> None:
+    """Test subscribe method with string subscriber URN."""
+    test_dataset_urn = DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+    user_urn_str = "urn:li:corpuser:test_user"
+
+    # Mock: No existing subscriptions
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute: Subscribe with string subscriber URN
+    subscription_client.subscribe(
+        urn=test_dataset_urn,
+        subscriber_urn=user_urn_str,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+    )
+
+    # Verify: entities.upsert was called once
+    subscription_client.client.entities.upsert.assert_called_once()  # type: ignore[attr-defined]
+
+    # Verify: The subscription was created with the correct actor details
+    upserted_subscription = subscription_client.client.entities.upsert.call_args[0][0]  # type: ignore[attr-defined]
+    assert upserted_subscription.info.actorUrn == user_urn_str
+    assert upserted_subscription.info.actorType == CorpUserUrn.ENTITY_TYPE
 
 
 @pytest.mark.parametrize(
@@ -1687,6 +1724,33 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
     ]
 
 
+@freeze_time(FROZEN_TIME)
+def test_unsubscribe_with_string_subscriber_urn(
+    subscription_client: SubscriptionClient,
+) -> None:
+    """Test unsubscribe method with string subscriber URN."""
+    test_dataset_urn = DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+    user_urn_str = "urn:li:corpuser:test_user"
+
+    # Mock: No existing subscriptions
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute: Unsubscribe with string subscriber URN (should not raise error)
+    subscription_client.unsubscribe(
+        urn=test_dataset_urn,
+        subscriber_urn=user_urn_str,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+    )
+
+    # Verify: resolve.subscription was called with the correct actor URN
+    subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
+        entity_urn=test_dataset_urn.urn(),
+        actor_urn=user_urn_str,
+    )
+
+
 @pytest.mark.parametrize(
     "params",
     [
@@ -2413,3 +2477,63 @@ def test_remove_change_types_filter(
             record for record in caplog.records if record.levelname == "WARNING"
         ]
         assert len(warning_records) == 0
+
+
+# Tests for string format support
+@pytest.mark.parametrize(
+    "input_urn,expected_type,expected_urn,should_raise,expected_error",
+    [
+        # Valid corpuser string
+        (
+            "urn:li:corpuser:test_user",
+            CorpUserUrn,
+            "urn:li:corpuser:test_user",
+            False,
+            None,
+        ),
+        # Valid corpGroup string
+        (
+            "urn:li:corpGroup:test_group",
+            CorpGroupUrn,
+            "urn:li:corpGroup:test_group",
+            False,
+            None,
+        ),
+        # CorpUserUrn object (passthrough)
+        (
+            CorpUserUrn.from_string("urn:li:corpuser:test_user"),
+            CorpUserUrn,
+            "urn:li:corpuser:test_user",
+            False,
+            None,
+        ),
+        # CorpGroupUrn object (passthrough)
+        (
+            CorpGroupUrn.from_string("urn:li:corpGroup:test_group"),
+            CorpGroupUrn,
+            "urn:li:corpGroup:test_group",
+            False,
+            None,
+        ),
+        # Invalid format
+        ("urn:li:dataset:invalid", None, None, True, "Unsupported subscriber URN type"),
+    ],
+)
+def test_maybe_parse_subscriber_urn(
+    subscription_client: SubscriptionClient,
+    input_urn: Union[str, CorpUserUrn, CorpGroupUrn],
+    expected_type: Optional[Type[Union[CorpUserUrn, CorpGroupUrn]]],
+    expected_urn: Optional[str],
+    should_raise: bool,
+    expected_error: Optional[str],
+) -> None:
+    """Test _maybe_parse_subscriber_urn with various input formats."""
+    if should_raise:
+        with pytest.raises(SdkUsageError) as exc_info:
+            subscription_client._maybe_parse_subscriber_urn(input_urn)
+        assert expected_error is not None and expected_error in str(exc_info.value)
+    else:
+        result = subscription_client._maybe_parse_subscriber_urn(input_urn)
+        assert expected_type is not None
+        assert isinstance(result, expected_type)
+        assert result.urn() == expected_urn

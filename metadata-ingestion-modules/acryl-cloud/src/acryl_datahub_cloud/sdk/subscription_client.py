@@ -16,7 +16,7 @@ from datahub.sdk.main_client import DataHubClient
 
 logger = logging.getLogger(__name__)
 
-SubscriberInputType: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+SubscriberInputType: TypeAlias = Union[CorpUserUrn, CorpGroupUrn, str]
 
 
 ASSERTION_RELATED_ENTITY_CHANGE_TYPES = {
@@ -73,6 +73,7 @@ class SubscriptionClient:
                  For datasets: subscription applies to all assertions on the dataset.
                  For assertions: subscription applies only to that specific assertion.
             subscriber_urn: The URN of the user or group that will receive notifications.
+                           Can be a string (valid corpuser or corpGroup URN) or URN object.
             entity_change_types: Specific change types to subscribe to. If None, defaults are:
                                 - Dataset: all existing change types
                                 - Assertion: assertion-related types (ASSERTION_PASSED,
@@ -91,6 +92,9 @@ class SubscriptionClient:
         # Parse URN string if needed
         parsed_urn = self._maybe_parse_urn(urn)
 
+        # Parse subscriber URN string if needed
+        parsed_subscriber_urn = self._maybe_parse_subscriber_urn(subscriber_urn)
+
         dataset_urn: DatasetUrn
         assertion_urn: Optional[AssertionUrn]
         dataset_urn, assertion_urn = (
@@ -100,7 +104,7 @@ class SubscriptionClient:
         )
 
         logger.info(
-            f"Subscribing to dataset={dataset_urn} assertion={assertion_urn} for subscriber={subscriber_urn} with change types: {entity_change_types}"
+            f"Subscribing to dataset={dataset_urn} assertion={assertion_urn} for subscriber={parsed_subscriber_urn} with change types: {entity_change_types}"
         )
 
         # Get entity change types (use all if none provided)
@@ -111,16 +115,16 @@ class SubscriptionClient:
 
         existing_subscriptions = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
-            actor_urn=subscriber_urn.urn(),
+            actor_urn=parsed_subscriber_urn.urn(),
         )
         if not existing_subscriptions:
             # new subscription
             subscription = Subscription(
                 info=models.SubscriptionInfoClass(
                     entityUrn=dataset_urn.urn(),
-                    actorUrn=subscriber_urn.urn(),
+                    actorUrn=parsed_subscriber_urn.urn(),
                     actorType=CorpUserUrn.ENTITY_TYPE
-                    if isinstance(subscriber_urn, CorpUserUrn)
+                    if isinstance(parsed_subscriber_urn, CorpUserUrn)
                     else CorpGroupUrn.ENTITY_TYPE,
                     types=[
                         models.SubscriptionTypeClass.ENTITY_CHANGE,
@@ -158,7 +162,7 @@ class SubscriptionClient:
             return
         else:
             raise SdkUsageError(
-                f"We have a mesh here - {len(existing_subscriptions)} subscriptions found for dataset={dataset_urn} assertion={assertion_urn} and subscriber={subscriber_urn}!"
+                f"We have a mesh here - {len(existing_subscriptions)} subscriptions found for dataset={dataset_urn} assertion={assertion_urn} and subscriber={parsed_subscriber_urn}!"
             )
 
     def list_subscriptions(
@@ -178,7 +182,8 @@ class SubscriptionClient:
             entity_change_types: Optional filter to return only subscriptions for specific
                                 change types. If None, returns subscriptions for all change types.
             subscriber_urn: Optional filter to return only subscriptions for a specific user
-                           or group. If None, returns subscriptions for all subscribers.
+                           or group. Can be a string (valid corpuser or corpGroup URN) or URN object.
+                           If None, returns subscriptions for all subscribers.
 
         Returns:
             List[Subscription]: List of matching subscription objects.
@@ -227,6 +232,7 @@ class SubscriptionClient:
         Args:
             urn: URN (string or URN object) of the dataset or assertion to unsubscribe from.
             subscriber_urn: User or group URN to unsubscribe.
+                           Can be a string (valid corpuser or corpGroup URN) or URN object.
             entity_change_types: Specific change types to remove. If None, defaults are:
                                 - Dataset: all existing change types in the subscription
                                 - Assertion: assertion-related types (ASSERTION_PASSED,
@@ -248,6 +254,9 @@ class SubscriptionClient:
         # Parse URN string if needed
         parsed_urn = self._maybe_parse_urn(urn)
 
+        # Parse subscriber URN string if needed
+        parsed_subscriber_urn = self._maybe_parse_subscriber_urn(subscriber_urn)
+
         dataset_urn: DatasetUrn
         assertion_urn: Optional[AssertionUrn]
         dataset_urn, assertion_urn = (
@@ -257,23 +266,23 @@ class SubscriptionClient:
         )
 
         logger.info(
-            f"Unsubscribing from dataset={dataset_urn}{f' assertion={assertion_urn}' if assertion_urn else ''} for subscriber={subscriber_urn} with change types: {entity_change_types}"
+            f"Unsubscribing from dataset={dataset_urn}{f' assertion={assertion_urn}' if assertion_urn else ''} for subscriber={parsed_subscriber_urn} with change types: {entity_change_types}"
         )
 
         # Find existing subscription
         existing_subscription_urns = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
-            actor_urn=subscriber_urn.urn(),
+            actor_urn=parsed_subscriber_urn.urn(),
         )
 
         if not existing_subscription_urns:
             logger.info(
-                f"No subscription found for dataset={dataset_urn} and subscriber={subscriber_urn}"
+                f"No subscription found for dataset={dataset_urn} and subscriber={parsed_subscriber_urn}"
             )
             return
         elif len(existing_subscription_urns) > 1:
             raise SdkUsageError(
-                f"Multiple subscriptions found for dataset={dataset_urn} and subscriber={subscriber_urn}. "
+                f"Multiple subscriptions found for dataset={dataset_urn} and subscriber={parsed_subscriber_urn}. "
                 f"Expected at most 1, got {len(existing_subscription_urns)}"
             )
 
@@ -657,6 +666,33 @@ class SubscriptionClient:
         else:
             raise SdkUsageError(
                 f"Unsupported URN type. Only dataset and assertion URNs are supported, got: {urn}"
+            )
+
+    def _maybe_parse_subscriber_urn(
+        self, subscriber_urn: SubscriberInputType
+    ) -> Union[CorpUserUrn, CorpGroupUrn]:
+        """Parse subscriber URN string into appropriate URN object if needed.
+
+        Args:
+            subscriber_urn: String URN or URN object (CorpUserUrn or CorpGroupUrn)
+
+        Returns:
+            Parsed URN object (CorpUserUrn or CorpGroupUrn)
+
+        Raises:
+            SdkUsageError: If the URN string format is invalid or unsupported
+        """
+        if isinstance(subscriber_urn, (CorpUserUrn, CorpGroupUrn)):
+            return subscriber_urn
+
+        # Try to determine URN type from string format
+        if ":corpuser:" in subscriber_urn:
+            return CorpUserUrn.from_string(subscriber_urn)
+        elif ":corpGroup:" in subscriber_urn:
+            return CorpGroupUrn.from_string(subscriber_urn)
+        else:
+            raise SdkUsageError(
+                f"Unsupported subscriber URN type. Only corpuser and corpGroup URNs are supported, got: {subscriber_urn}"
             )
 
     def _fetch_dataset_from_assertion(
