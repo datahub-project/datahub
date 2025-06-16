@@ -2,7 +2,7 @@
 ---
 services:
   kafka-rest-proxy:
-    image: confluentinc/cp-kafka-rest:7.9.1
+    image: confluentinc/cp-kafka-rest:8.0.0
     env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     ports:

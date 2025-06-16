@@ -109,10 +109,14 @@ def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
             "corpGroupKey": {"name": f"group_{i}"},
             "ownership": {
                 "lastModified": {"actor": "urn:li:corpuser:unknown", "time": 0},
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__technical_owner": [
+                        "urn:li:corpuser:user1"
+                    ],
+                },
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
-                "ownerTypes": {},
             },
             "status": {"removed": False},
         }
