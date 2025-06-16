@@ -208,7 +208,7 @@ input DeleteSubscriptionInput {
   subscriptionUrn: String!
 }
 
-type DataHubSubscription {
+type DataHubSubscription implements Entity {
   """
   The urn of the actor that owns the subscription.
   """
@@ -218,6 +218,21 @@ type DataHubSubscription {
   The subscription's Urn.
   """
   subscriptionUrn: String!
+
+  """
+  A primary key of the Metadata Entity (implements Entity interface)
+  """
+  urn: String!
+
+  """
+  A standard Entity Type (implements Entity interface)
+  """
+  type: EntityType!
+
+  """
+  List of relationships between the source Entity and some destination entities with a given types
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
   The entity that the subscription is for.

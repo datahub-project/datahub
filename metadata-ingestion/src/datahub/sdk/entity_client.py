@@ -99,11 +99,14 @@ class EntityClient:
             try:
                 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
                 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
+                from acryl_datahub_cloud.sdk.entities.subscription import Subscription
 
                 if urn.entity_type == "assertion":
                     EntityClass = Assertion
                 elif urn.entity_type == "monitor":
                     EntityClass = Monitor
+                elif urn.entity_type == "subscription":
+                    EntityClass = Subscription
                 else:
                     raise SdkUsageError(
                         f"Entity type {urn.entity_type} is not yet supported"

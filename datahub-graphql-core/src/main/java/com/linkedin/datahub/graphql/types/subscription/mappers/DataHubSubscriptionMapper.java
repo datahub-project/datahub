@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityChangeDetails;
 import com.linkedin.datahub.graphql.generated.EntityChangeDetailsFilter;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
@@ -42,6 +43,9 @@ public class DataHubSubscriptionMapper
     final DataHubSubscription result = new DataHubSubscription();
     result.setActorUrn(subscriptionInfo.getActorUrn().toString());
     result.setSubscriptionUrn(subscriptionUrn.toString());
+    // Set Entity interface fields
+    result.setUrn(subscriptionUrn.toString());
+    result.setType(EntityType.SUBSCRIPTION);
     result.setCreatedOn(AUDIT_STAMP_MAPPER.apply(context, subscriptionInfo.getCreatedOn()));
     result.setUpdatedOn(AUDIT_STAMP_MAPPER.apply(context, subscriptionInfo.getUpdatedOn()));
 

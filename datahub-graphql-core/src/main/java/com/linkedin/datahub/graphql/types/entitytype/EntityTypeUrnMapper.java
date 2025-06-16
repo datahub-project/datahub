@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.entitytype;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -79,6 +80,7 @@ public class EntityTypeUrnMapper {
               Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
               "urn:li:entityType:datahub.businessAttribute")
           .put(Constants.APPLICATION_ENTITY_NAME, "urn:li:entityType:datahub.application")
+          .put(AcrylConstants.SUBSCRIPTION_ENTITY_NAME, "urn:li:entityType:datahub.subscription")
           .build();
 
   private static final Map<String, String> ENTITY_TYPE_URN_TO_NAME =

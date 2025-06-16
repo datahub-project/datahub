@@ -253,6 +253,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((RemoteExecutorPool) partialEntity).setUrn(input.toString());
       ((RemoteExecutorPool) partialEntity).setType(EntityType.REMOTE_EXECUTOR_POOL);
     }
+    if (input.getEntityType().equals(AcrylConstants.SUBSCRIPTION_ENTITY_NAME)) {
+      partialEntity = new DataHubSubscription();
+      ((DataHubSubscription) partialEntity).setUrn(input.toString());
+      ((DataHubSubscription) partialEntity).setType(EntityType.SUBSCRIPTION);
+    }
     return partialEntity;
   }
 }

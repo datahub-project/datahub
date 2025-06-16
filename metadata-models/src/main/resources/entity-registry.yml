@@ -905,6 +905,7 @@ entities:
     keyAspect: subscriptionKey
     aspects:
       - subscriptionInfo
+      - status
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey

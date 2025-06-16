@@ -7,6 +7,7 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
@@ -83,14 +84,20 @@ public class SubscriptionService extends BaseService {
         subscriptionInfo.setNotificationConfig(notificationConfig);
       }
 
-      final MetadataChangeProposal proposal =
+      // Create subscription info proposal
+      final MetadataChangeProposal subscriptionInfoProposal =
           buildMetadataChangeProposal(
               SUBSCRIPTION_ENTITY_NAME,
               subscriptionKey,
               SUBSCRIPTION_INFO_ASPECT_NAME,
               subscriptionInfo);
+
+      // Ingest subscription info proposal
+      this.entityClient.ingestProposal(opContext, subscriptionInfoProposal, false);
+
       final String subscriptionUrnString =
-          this.entityClient.ingestProposal(opContext, proposal, false);
+          EntityKeyUtils.convertEntityKeyToUrn(subscriptionKey, SUBSCRIPTION_ENTITY_NAME)
+              .toString();
       final Urn subscriptionUrn =
           subscriptionUrnString.startsWith("urn:")
               ? Urn.createFromString(subscriptionUrnString)
@@ -662,5 +669,29 @@ public class SubscriptionService extends BaseService {
   @Nonnull
   private Criterion buildActorTypeCriterion(@Nonnull final String actorType) {
     return CriterionUtils.buildCriterion(ACTOR_TYPE_FIELD_NAME, Condition.EQUAL, actorType);
+  }
+
+  /**
+   * Soft delete a subscription by setting its status aspect to removed=true. This is the only time
+   * the status aspect should be set, as per PR feedback.
+   */
+  public void softDeleteSubscription(
+      @Nonnull OperationContext opContext, @Nonnull final Urn subscriptionUrn) {
+    try {
+      if (!this.entityClient.exists(opContext, subscriptionUrn)) {
+        throw new RuntimeException(
+            String.format("Subscription %s does not exist", subscriptionUrn));
+      }
+
+      // Create status proposal with removed=true for soft delete
+      final Status status = new Status().setRemoved(true);
+      final MetadataChangeProposal statusProposal =
+          buildMetadataChangeProposal(subscriptionUrn, STATUS_ASPECT_NAME, status);
+
+      this.entityClient.ingestProposal(opContext, statusProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to soft delete subscription %s", subscriptionUrn), e);
+    }
   }
 }

@@ -21,6 +21,7 @@ public class EntityTypeMapper {
           .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
           .put(EntityType.REMOTE_EXECUTOR, AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)
           .put(EntityType.REMOTE_EXECUTOR_POOL, AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME)
+          .put(EntityType.SUBSCRIPTION, AcrylConstants.SUBSCRIPTION_ENTITY_NAME)
           .build();
 
   static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =

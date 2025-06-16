@@ -1345,6 +1345,11 @@ enum EntityType {
   An application
   """
   APPLICATION
+
+  """
+  A DataHub subscription
+  """
+  SUBSCRIPTION
 }
 
 """
@@ -4238,7 +4243,7 @@ enum OwnershipType {
   DEVELOPER @deprecated
 
   """
-  A person or a group that overseas the operation, eg a DBA or SRE
+  A person or a group that oversees the operation, eg a DBA or SRE
   Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
   """
   DELEGATE @deprecated

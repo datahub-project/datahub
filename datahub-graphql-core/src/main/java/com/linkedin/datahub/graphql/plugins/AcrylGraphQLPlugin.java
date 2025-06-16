@@ -130,6 +130,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorPoolType;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorType;
+import com.linkedin.datahub.graphql.types.subscription.SubscriptionType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -174,6 +175,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private RemoteExecutorType remoteExecutorType;
   private RemoteExecutorPoolType remoteExecutorPoolType;
   private DataContractType dataContractType; // SaaS only, will be moved to OSS
+  private SubscriptionType subscriptionType; // SaaS only
 
   private List<EntityType<?, ?>> entityTypes;
 
@@ -250,6 +252,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.dataContractType = new DataContractType(entityClient); // SaaS only
     this.remoteExecutorType = new RemoteExecutorType(args.getEntityClient()); // SaaS only
     this.remoteExecutorPoolType = new RemoteExecutorPoolType(args.getEntityClient()); // SaaS only
+    this.subscriptionType = new SubscriptionType(args.getEntityClient()); // SaaS only
     this.stsClient = args.getStsClient(); // SaaS only
 
     // New saas types
@@ -259,7 +262,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             this.monitorType,
             this.dataContractType,
             this.remoteExecutorType,
-            this.remoteExecutorPoolType);
+            this.remoteExecutorPoolType,
+            this.subscriptionType);
     this.executorConfiguration = args.getExecutorConfiguration();
     this.actionConfiguration = args.getActionPipelineConfiguration();
     this.actionRequestService = args.getActionRequestService();
@@ -292,7 +296,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         monitorType, // SaaS only
         dataContractType, // SaaS only
         remoteExecutorType, // SaaS only
-        remoteExecutorPoolType // SaaS only
+        remoteExecutorPoolType, // SaaS only
+        subscriptionType // SaaS only
         );
   }
 

@@ -216,9 +216,10 @@ public class SubscriptionServiceTest {
             anyInt(),
             anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+    // Don't mock the return value since createSubscription generates its own URN from UUID
     when(_entityClient.ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
-        .thenReturn(SUBSCRIPTION_URN_1_STRING);
+        .thenReturn("mocked-response");
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
         _subscriptionService.createSubscription(
@@ -228,7 +229,12 @@ public class SubscriptionServiceTest {
             SUBSCRIPTION_TYPES_1,
             ENTITY_CHANGE_TYPES_1,
             NOTIFICATION_CONFIG);
-    assertEquals(subscription.getKey(), SUBSCRIPTION_URN_1);
+
+    // Verify that a subscription URN was created (UUID-based, so we can't predict the exact value)
+    assertNotNull(subscription.getKey());
+    assertTrue(subscription.getKey().toString().startsWith("urn:li:subscription:"));
+
+    // Verify subscription info contents
     assertEquals(subscription.getValue().getActorType(), SUBSCRIPTION_INFO_1.getActorType());
     assertEquals(subscription.getValue().getActorUrn(), SUBSCRIPTION_INFO_1.getActorUrn());
     assertEquals(
@@ -238,6 +244,11 @@ public class SubscriptionServiceTest {
         subscription.getValue().getNotificationConfig(),
         SUBSCRIPTION_INFO_1.getNotificationConfig());
     assertEquals(subscription.getValue().getTypes(), SUBSCRIPTION_INFO_1.getTypes());
+
+    // Verify that ingestProposal was called exactly once (not twice as in previous implementation)
+    verify(_entityClient, times(1))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
   }
 
   @Test
