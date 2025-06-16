@@ -9,9 +9,12 @@ interface ActionsColumnProps {
     record: ExecutionRequestRecord;
     setFocusExecutionUrn: (urn: string) => void;
     handleRollback: (urn: string) => void;
+    handleCancel: (urn: string) => void;
 }
 
-export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback }: ActionsColumnProps) {
+export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, handleCancel }: ActionsColumnProps) {
+    const canCancelExecution = record.privileges?.canExecute;
+
     const items = [
         {
             key: '0',
@@ -38,12 +41,15 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback }: 
                 </MenuItem>
             ),
         },
-        {
-            key: '2',
-            disabled: record.status !== EXECUTION_REQUEST_STATUS_RUNNING,
-            label: <MenuItem onClick={() => {}}>Cancel</MenuItem>,
-        },
     ];
+
+    if (canCancelExecution && record.status === EXECUTION_REQUEST_STATUS_RUNNING) {
+        items.push({
+            key: '2',
+            label: <MenuItem onClick={() => handleCancel(record.urn)}>Cancel</MenuItem>,
+        });
+    }
+
     return (
         <BaseActionsColumn
             dropdownItems={items}
