@@ -44,7 +44,7 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
-          label: "Assertions",
+          label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
@@ -76,6 +76,18 @@ module.exports = {
               label: "Volume Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              type: "doc",
+              id: "docs/managed-datahub/observe/smart-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Data Health Dashboard",
+              type: "doc",
+              id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
             {
@@ -613,6 +625,7 @@ module.exports = {
     {
       type: "doc",
       id: "docs/api/datahub-apis",
+      label: "Overview",
     },
     {
       type: "category",
@@ -830,7 +843,7 @@ module.exports = {
       ],
     },
     {
-      "API & SDK Guides": [
+      Guides: [
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
