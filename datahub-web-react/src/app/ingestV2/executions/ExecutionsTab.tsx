@@ -12,6 +12,7 @@ import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
 import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
+import { TabType } from '@app/ingestV2/types';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
@@ -57,9 +58,15 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
-export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHideSystemSources }: Props) => {
+export const ExecutionsTab = ({
+    shouldPreserveParams,
+    hideSystemSources,
+    setHideSystemSources,
+    setSelectedTab,
+}: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
 
@@ -133,6 +140,7 @@ export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHide
                                     handleCancelExecution={handleCancelExecution}
                                     loading={loading}
                                     isLastPage={isLastPage}
+                                    setSelectedTab={setSelectedTab}
                                 />
                             </TableContainer>
                             <PaginationContainer>

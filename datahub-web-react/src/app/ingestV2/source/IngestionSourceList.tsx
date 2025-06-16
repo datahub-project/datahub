@@ -135,6 +135,7 @@ interface Props {
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
     selectedTab: TabType | undefined | null;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 export const IngestionSourceList = ({
@@ -144,6 +145,7 @@ export const IngestionSourceList = ({
     hideSystemSources,
     setHideSystemSources,
     selectedTab,
+    setSelectedTab,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
@@ -664,6 +666,7 @@ export const IngestionSourceList = ({
                                 isLastPage={isLastPage}
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
+                                setSelectedTab={setSelectedTab}
                             />
                         </TableContainer>
                         <PaginationContainer>

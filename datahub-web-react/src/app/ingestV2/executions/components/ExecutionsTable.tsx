@@ -31,6 +31,7 @@ interface Props {
     handleRollback: (executionUrn: string) => void;
     handleCancelExecution: (executionUrn: string, ingestionSourceUrn: string) => void;
     isLastPage?: boolean;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 export default function ExecutionsTable({
@@ -40,6 +41,7 @@ export default function ExecutionsTable({
     handleRollback,
     handleCancelExecution,
     isLastPage,
+    setSelectedTab,
 }: Props) {
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
@@ -67,6 +69,7 @@ export default function ExecutionsTable({
     }, [handleRollback, runIdOfRollbackConfirmation]);
 
     const navigateToSource = (record) => {
+        setSelectedTab(TabType.Sources);
         history.replace({
             pathname: tabUrlMap[TabType.Sources],
             search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),

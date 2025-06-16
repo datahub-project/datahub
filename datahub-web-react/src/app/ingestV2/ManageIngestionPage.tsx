@@ -16,6 +16,7 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
+import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -73,7 +74,10 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const [selectedTab, setSelectedTab] = useState<TabType>();
+
+    // undefined == not loaded, null == no permissions
+    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
+
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
@@ -122,6 +126,7 @@ export const ManageIngestionPage = () => {
                     hideSystemSources={hideSystemSources}
                     setHideSystemSources={setHideSystemSources}
                     selectedTab={selectedTab}
+                    setSelectedTab={setSelectedTab}
                 />
             ),
             key: TabType.Sources as string,
@@ -133,6 +138,7 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
                     setHideSystemSources={setHideSystemSources}
+                    setSelectedTab={setSelectedTab}
                 />
             ),
             key: TabType.RunHistory as string,
@@ -158,6 +164,13 @@ export const ManageIngestionPage = () => {
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
     };
+
+    if (selectedTab === undefined) {
+        return <></>; // loading
+    }
+    if (selectedTab === null) {
+        return <NoPageFound />;
+    }
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
