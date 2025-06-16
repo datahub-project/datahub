@@ -8,6 +8,7 @@ from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     RowCountChange,
     RowCountTotal,
     VolumeAssertionDefinition,
+    VolumeAssertionDefinitionChangeKind,
     VolumeAssertionDefinitionInputTypes,
     VolumeAssertionOperator,
     _VolumeAssertionDefinitionTypes,
@@ -58,13 +59,13 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=50,
                     ),
                     expected_type=RowCountChange,
                     expected_value=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=50,
                     ),
@@ -91,7 +92,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                         "parameters": 100,
                     },
@@ -107,14 +108,14 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
-                        "kind": "absolute",
+                        "type": "ROW_COUNT_CHANGE",
+                        "kind": "ABSOLUTE",
                         "operator": "LESS_THAN_OR_EQUAL_TO",
                         "parameters": 50,
                     },
                     expected_type=RowCountChange,
                     expected_value=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=50,
                     ),
@@ -125,7 +126,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "BETWEEN",
                         "parameters": (100, 200),
                     },
@@ -141,14 +142,14 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
-                        "kind": "percent",
+                        "type": "ROW_COUNT_CHANGE",
+                        "kind": "PERCENTAGE",
                         "operator": "BETWEEN",
                         "parameters": (10, 50),
                     },
                     expected_type=RowCountChange,
                     expected_value=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(10, 50),
                     ),
@@ -207,7 +208,7 @@ class TestVolumeAssertionDefinitionParse:
                         "type": "unknown_type",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                     },
-                    expected_error="Unknown volume assertion type: unknown_type. Supported types: row_count_total, row_count_change",
+                    expected_error="Unknown volume assertion type: unknown_type. Supported types: ROW_COUNT_TOTAL, ROW_COUNT_CHANGE",
                     should_succeed=False,
                 ),
                 id="unknown_assertion_type",
@@ -218,7 +219,7 @@ class TestVolumeAssertionDefinitionParse:
                         "type": "",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                     },
-                    expected_error="Unknown volume assertion type: . Supported types: row_count_total, row_count_change",
+                    expected_error="Unknown volume assertion type: . Supported types: ROW_COUNT_TOTAL, ROW_COUNT_CHANGE",
                     should_succeed=False,
                 ),
                 id="empty_assertion_type",
@@ -226,11 +227,11 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "ROW_COUNT_TOTAL",  # Wrong case
+                        "type": "row_count_total",  # Wrong case
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                         "parameters": 100,
                     },
-                    expected_error="Unknown volume assertion type: ROW_COUNT_TOTAL",
+                    expected_error="Unknown volume assertion type: row_count_total",
                     should_succeed=False,
                 ),
                 id="case_sensitive_type_validation",
@@ -239,10 +240,10 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "parameters": 100,
                     },
-                    expected_error="Missing required 'operator' field for row_count_total",
+                    expected_error="Missing required 'operator' field for ROW_COUNT_TOTAL",
                     should_succeed=False,
                 ),
                 id="missing_operator_field_row_count_total",
@@ -250,10 +251,10 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
+                        "type": "ROW_COUNT_CHANGE",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                     },
-                    expected_error="Missing required 'parameters' field for row_count_change",
+                    expected_error="Missing required 'parameters' field for ROW_COUNT_CHANGE",
                     should_succeed=False,
                 ),
                 id="missing_parameters_field_row_count_change",
@@ -261,10 +262,10 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         # Missing both operator and parameters
                     },
-                    expected_error="Missing required 'operator' field for row_count_total",
+                    expected_error="Missing required 'operator' field for ROW_COUNT_TOTAL",
                     should_succeed=False,
                 ),
                 id="missing_both_operator_and_parameters",
@@ -273,7 +274,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "GREATER_THAN",
                         "parameters": 100,
                     },
@@ -285,7 +286,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
+                        "type": "ROW_COUNT_CHANGE",
                         "operator": "LESS_THAN",
                         "parameters": 100,
                     },
@@ -297,7 +298,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "EQUAL_TO",
                         "parameters": 100,
                     },
@@ -309,7 +310,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
+                        "type": "ROW_COUNT_CHANGE",
                         "operator": "CONTAIN",
                         "parameters": 100,
                     },
@@ -321,7 +322,7 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "INVALID_OPERATOR",
                         "parameters": 100,
                     },
@@ -336,11 +337,11 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                         "parameters": (100, 200),  # Should be single int, not tuple
                     },
-                    expected_error="For GREATER_THAN_OR_EQUAL_TO operator in row_count_total, parameters must be a single number, not a tuple",
+                    expected_error="For GREATER_THAN_OR_EQUAL_TO operator in ROW_COUNT_TOTAL, parameters must be a single number, not a tuple",
                     should_succeed=False,
                 ),
                 id="single_value_operator_rejects_tuple_parameters",
@@ -348,12 +349,12 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
-                        "kind": "absolute",
+                        "type": "ROW_COUNT_CHANGE",
+                        "kind": "ABSOLUTE",
                         "operator": "LESS_THAN_OR_EQUAL_TO",
                         "parameters": "100",  # Should be int, not string
                     },
-                    expected_error="For row_count_change, parameters must be a number or a tuple of two numbers, got: <class 'str'>",
+                    expected_error="For ROW_COUNT_CHANGE, parameters must be a number or a tuple of two numbers, got: <class 'str'>",
                     should_succeed=False,
                 ),
                 id="single_value_operator_rejects_string_parameters",
@@ -362,11 +363,11 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "BETWEEN",
                         "parameters": 100,  # Should be tuple, not int
                     },
-                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in ROW_COUNT_TOTAL, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_int_parameters",
@@ -374,12 +375,12 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
-                        "kind": "percent",
+                        "type": "ROW_COUNT_CHANGE",
+                        "kind": "PERCENTAGE",
                         "operator": "BETWEEN",
                         "parameters": (100,),  # Should be tuple of 2, not 1
                     },
-                    expected_error="For BETWEEN operator in row_count_change, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in ROW_COUNT_CHANGE, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_single_element_tuple",
@@ -387,11 +388,11 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "BETWEEN",
                         "parameters": (100, 200, 300),  # Should be tuple of 2, not 3
                     },
-                    expected_error="For BETWEEN operator in row_count_total, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="For BETWEEN operator in ROW_COUNT_TOTAL, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
                 id="between_operator_rejects_three_element_tuple",
@@ -400,12 +401,12 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_change",
+                        "type": "ROW_COUNT_CHANGE",
                         "operator": "GREATER_THAN_OR_EQUAL_TO",
                         "parameters": 100,
                         # Missing required 'kind' field for row_count_change
                     },
-                    expected_error="Failed to create row_count_change volume assertion:",
+                    expected_error="Failed to create ROW_COUNT_CHANGE volume assertion:",
                     should_succeed=False,
                 ),
                 id="row_count_change_missing_kind_field",
@@ -413,12 +414,12 @@ class TestVolumeAssertionDefinitionParse:
             pytest.param(
                 VolumeAssertionDefinitionTestParams(
                     input_definition={
-                        "type": "row_count_total",
+                        "type": "ROW_COUNT_TOTAL",
                         "operator": "BETWEEN",
                         "parameters": (100, 200),
                         "extra_invalid_field": "should_cause_failure",  # Extra field should cause Pydantic validation failure
                     },
-                    expected_error="Failed to create row_count_total volume assertion:",
+                    expected_error="Failed to create ROW_COUNT_TOTAL volume assertion:",
                     should_succeed=False,
                 ),
                 id="object_construction_fails_with_extra_fields",
@@ -575,7 +576,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
                         parameters=25,
                     ),
@@ -600,7 +601,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=50,
                     ),
@@ -625,7 +626,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(5, 25),
                     ),
@@ -655,7 +656,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
                         parameters=15,
                     ),
@@ -680,7 +681,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=75,
                     ),
@@ -705,7 +706,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(10, 30),
                     ),
@@ -763,7 +764,7 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             pytest.param(
                 VolumeAssertionDefinitionBuildModelTestParams(
                     input_definition=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(50, 20),  # Provided in reversed order
                     ),
@@ -1029,7 +1030,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
                         parameters=25,
                     ),
@@ -1058,7 +1059,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=50,
                     ),
@@ -1091,7 +1092,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="absolute",
+                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(5, 25),
                     ),
@@ -1120,7 +1121,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
                         parameters=15,
                     ),
@@ -1149,7 +1150,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
                         parameters=75,
                     ),
@@ -1182,7 +1183,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
                         ),
                     ),
                     expected_value=RowCountChange(
-                        kind="percent",
+                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
                         operator=VolumeAssertionOperator.BETWEEN,
                         parameters=(10, 30),
                     ),
