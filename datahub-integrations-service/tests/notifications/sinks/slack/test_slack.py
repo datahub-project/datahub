@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import (
     IncidentNotificationDetailsClass,
     NotificationMessageClass,
     NotificationRecipientClass,
+    NotificationRecipientTypeClass,
     NotificationRequestClass,
     NotificationTemplateTypeClass,
 )
@@ -479,3 +480,98 @@ def test_save_message_details_wrong_template_type(sink: SlackNotificationSink) -
         )
 
         mock_save_new_incident.assert_not_called()
+
+
+def test_get_slack_recipients_filters_non_slack(
+    sink: SlackNotificationSink,
+) -> None:
+    # Create a request with mixed recipient types
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.SLACK_CHANNEL, id="slack-channel"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.EMAIL, id="email@example.com"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.CUSTOM, id="custom-channel"
+            ),
+        ],
+    )
+
+    filtered_recipients = sink._get_slack_recipients(request)
+
+    # Should only contain the Slack channel recipient
+    assert len(filtered_recipients) == 1
+    assert filtered_recipients[0].type == NotificationRecipientTypeClass.SLACK_CHANNEL
+    assert filtered_recipients[0].id == "slack-channel"
+
+
+def test_get_slack_recipients_keeps_all_slack(
+    sink: SlackNotificationSink,
+) -> None:
+    # Create a request with only Slack recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.SLACK_CHANNEL, id="slack-channel"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.SLACK_DM, id="slack-dm"
+            ),
+        ],
+    )
+
+    filtered_recipients = sink._get_slack_recipients(request)
+
+    # Should keep all Slack recipients
+    assert len(filtered_recipients) == 2
+    assert all(
+        r.type
+        in [
+            NotificationRecipientTypeClass.SLACK_CHANNEL,
+            NotificationRecipientTypeClass.SLACK_DM,
+        ]
+        for r in filtered_recipients
+    )
+    assert {r.id for r in filtered_recipients} == {"slack-channel", "slack-dm"}
+
+
+def test_get_slack_recipients_empty_list(
+    sink: SlackNotificationSink,
+) -> None:
+    # Create a request with no recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[],
+    )
+
+    filtered_recipients = sink._get_slack_recipients(request)
+
+    # Should return empty list
+    assert len(filtered_recipients) == 0
+
+
+def test_get_slack_recipients_no_slack_recipients(
+    sink: SlackNotificationSink,
+) -> None:
+    # Create a request with only non-Slack recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.EMAIL, id="email@example.com"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.CUSTOM, id="custom-channel"
+            ),
+        ],
+    )
+
+    filtered_recipients = sink._get_slack_recipients(request)
+
+    # Should return empty list since no Slack recipients
+    assert len(filtered_recipients) == 0

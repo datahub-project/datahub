@@ -3,6 +3,7 @@ from typing import Dict, List
 
 from datahub.metadata.schema_classes import (
     NotificationRecipientClass,
+    NotificationRecipientTypeClass,
     NotificationRequestClass,
     NotificationSinkTypeClass,
     NotificationTemplateTypeClass,
@@ -50,6 +51,9 @@ class EmailNotificationSink(NotificationSink):
     def type(self) -> str:
         return NotificationSinkTypeClass.EMAIL
 
+    def supported_notification_recipient_types(self) -> List[str]:
+        return [NotificationRecipientTypeClass.EMAIL]
+
     def init(self) -> None:
         # Unused for now.
         self.base_url = DATAHUB_BASE_URL
@@ -67,48 +71,50 @@ class EmailNotificationSink(NotificationSink):
             self._send_broadcast_proposal_status_change_notification(request)
             return
 
+        email_recipients = self._get_email_recipients(request)
+
         # Mapping template types to functions
         action_map = {
             NotificationTemplateTypeClass.CUSTOM: lambda: self._send_custom_notification(
                 request
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_new_incident_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_incident_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_new_proposal_parameters(request, self.base_url),
                 RetryMode.DISABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_proposal_status_change_parameters(request, self.base_url),
                 RetryMode.DISABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_ENTITY_CHANGE: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_entity_change_parameters(request, self.base_url),
                 RetryMode.DISABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_INGESTION_RUN_CHANGE: lambda: self._send_ingestion_run_notification(
-                request.recipients,
+                email_recipients,
                 build_ingestion_run_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE: lambda: self._send_change_notification(
-                request.recipients,
+                email_recipients,
                 build_assertion_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_notification(
-                request.recipients,
+                email_recipients,
                 build_compliance_form_publish_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
@@ -255,3 +261,12 @@ class EmailNotificationSink(NotificationSink):
             logger.error(
                 f"Failed to send notification after {max_attempts} attempts. Error: {e}"
             )
+
+    def _get_email_recipients(
+        self, request: NotificationRequestClass
+    ) -> List[NotificationRecipientClass]:
+        return [
+            recipient
+            for recipient in request.recipients
+            if recipient.type in self.supported_notification_recipient_types()
+        ]

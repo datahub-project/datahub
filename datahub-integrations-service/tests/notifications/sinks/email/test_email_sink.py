@@ -327,3 +327,96 @@ def test_send_function_unsupported_template(
     notification_request_custom.message.template = "UNSUPPORTED_TEMPLATE"
     # Just a warning is logged.
     notification_sink.send(notification_request_custom, notification_context)
+
+
+def test_get_email_recipients_filters_non_email(
+    notification_sink: EmailNotificationSink,
+) -> None:
+    # Create a request with mixed recipient types
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.EMAIL, id="email@example.com"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.SLACK_DM, id="slack-channel"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.CUSTOM, id="teams-channel"
+            ),
+        ],
+    )
+
+    filtered_recipients = notification_sink._get_email_recipients(request)
+
+    # Should only contain the email recipient
+    assert len(filtered_recipients) == 1
+    assert filtered_recipients[0].type == NotificationRecipientTypeClass.EMAIL
+    assert filtered_recipients[0].id == "email@example.com"
+
+
+def test_get_email_recipients_keeps_all_email(
+    notification_sink: EmailNotificationSink,
+) -> None:
+    # Create a request with only email recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.EMAIL, id="email1@example.com"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.EMAIL, id="email2@example.com"
+            ),
+        ],
+    )
+
+    filtered_recipients = notification_sink._get_email_recipients(request)
+
+    # Should keep all email recipients
+    assert len(filtered_recipients) == 2
+    assert all(
+        r.type == NotificationRecipientTypeClass.EMAIL for r in filtered_recipients
+    )
+    assert {r.id for r in filtered_recipients} == {
+        "email1@example.com",
+        "email2@example.com",
+    }
+
+
+def test_get_email_recipients_empty_list(
+    notification_sink: EmailNotificationSink,
+) -> None:
+    # Create a request with no recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[],
+    )
+
+    filtered_recipients = notification_sink._get_email_recipients(request)
+
+    # Should return empty list
+    assert len(filtered_recipients) == 0
+
+
+def test_get_email_recipients_no_email_recipients(
+    notification_sink: EmailNotificationSink,
+) -> None:
+    # Create a request with only non-email recipients
+    request = NotificationRequestClass(
+        message=NotificationMessageClass(template="CUSTOM"),
+        recipients=[
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.SLACK_DM, id="slack-channel"
+            ),
+            NotificationRecipientClass(
+                type=NotificationRecipientTypeClass.CUSTOM, id="teams-channel"
+            ),
+        ],
+    )
+
+    filtered_recipients = notification_sink._get_email_recipients(request)
+
+    # Should return empty list since no email recipients
+    assert len(filtered_recipients) == 0

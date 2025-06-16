@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import (
     IncidentNotificationDetailsClass,
     MetadataChangeProposalClass,
     NotificationRecipientClass,
+    NotificationRecipientTypeClass,
     NotificationRequestClass,
     NotificationSinkTypeClass,
     NotificationTemplateTypeClass,
@@ -57,6 +58,12 @@ class SlackNotificationSink(NotificationSink):
 
     def type(self) -> str:
         return NotificationSinkTypeClass.SLACK
+
+    def supported_notification_recipient_types(self) -> List[str]:
+        return [
+            NotificationRecipientTypeClass.SLACK_CHANNEL,
+            NotificationRecipientTypeClass.SLACK_DM,
+        ]
 
     def init(self) -> None:
         # Init Slack client.
@@ -114,9 +121,10 @@ class SlackNotificationSink(NotificationSink):
         text, blocks, attachments = build_incident_message(
             request, self.identity_provider, self.slack_client, self.base_url
         )
+        slack_recipients = self._get_slack_recipients(request)
 
         return self._send_change_notification(
-            request.recipients,
+            slack_recipients,
             text,
             blocks,
             attachments,
@@ -148,9 +156,10 @@ class SlackNotificationSink(NotificationSink):
         text, blocks, attachments = build_incident_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
         )
+        slack_recipients = self._get_slack_recipients(request)
 
         return self._send_change_notification(
-            request.recipients,
+            slack_recipients,
             text,
             blocks,
             attachments,
@@ -163,9 +172,10 @@ class SlackNotificationSink(NotificationSink):
         text, blocks, attachments = build_compliance_form_publish_parameters(
             request, self.base_url
         )
+        slack_recipients = self._get_slack_recipients(request)
 
         return self._send_change_notification(
-            request.recipients,
+            slack_recipients,
             text,
             blocks,
             attachments,
@@ -355,3 +365,12 @@ class SlackNotificationSink(NotificationSink):
                         message_details.append(message_detail)
 
         return message_details
+
+    def _get_slack_recipients(
+        self, request: NotificationRequestClass
+    ) -> List[NotificationRecipientClass]:
+        return [
+            recipient
+            for recipient in request.recipients
+            if recipient.type in self.supported_notification_recipient_types()
+        ]
