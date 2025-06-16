@@ -11,7 +11,7 @@ import { FormState } from '@src/types.generated';
 const CreateFormHeader = () => {
     const { formMode, formValues, data } = useContext(ManageFormContext);
 
-    const assignmentStatus = data?.form?.formAssignmentStatus?.status;
+    const assignmentStatus = data?.form?.formAssignmentStatus;
     const formStatus = formValues.state || FormState.Draft;
     const { label, colorScheme } = getStatusDetails(formStatus, assignmentStatus);
 

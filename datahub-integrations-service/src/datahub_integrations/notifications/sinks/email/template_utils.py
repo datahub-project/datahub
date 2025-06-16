@@ -363,12 +363,14 @@ def build_compliance_form_publish_parameters(
         raise ValueError("Parameters are compliance form publish notifications.")
 
     form_name = request.message.parameters.get("formName", "")
+    form_details = request.message.parameters.get("formDetails", None)
 
     return {
         "subject": "Action Required: You have new data compliance tasks to complete.",
         "formName": form_name,
         "detailsUrl": f"{base_url}/requests/requests",
         "baseUrl": base_url,
+        "formDetails": form_details,
     }
 
 

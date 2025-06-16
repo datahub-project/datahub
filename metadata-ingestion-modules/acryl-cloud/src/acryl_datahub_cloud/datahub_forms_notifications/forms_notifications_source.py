@@ -119,10 +119,16 @@ class DataHubFormsNotificationsSource(Source):
         for urn, form in self.get_forms():
             if not self.is_form_complete(urn, form.type):
                 assignees = self.get_form_assignees(urn, form)
-                self.process_notify_on_publish(assignees, form.name, urn)
+                self.process_notify_on_publish(
+                    assignees, form.name, urn, form.description
+                )
 
     def process_notify_on_publish(
-        self, form_assignees: List[str], form_name: str, form_urn: str
+        self,
+        form_assignees: List[str],
+        form_name: str,
+        form_urn: str,
+        form_details: str | None,
     ) -> None:
         """
         Take in form assignees, find the ones who haven't been notified on publish, and build a notification for them.
@@ -139,12 +145,16 @@ class DataHubFormsNotificationsSource(Source):
             self.report.notifications_sent += recipient_count
             self.report.forms_count += 1
 
+            parameters = [{"key": "formName", "value": form_name}]
+            if form_details is not None:
+                parameters.append({"key": "formDetails", "value": form_details})
+
             response = self.execute_graphql_with_retry(
                 GRAPHQL_SEND_FORM_NOTIFICATION_REQUEST,
                 variables={
                     "input": {
                         "type": "BROADCAST_COMPLIANCE_FORM_PUBLISH",
-                        "parameters": [{"key": "formName", "value": form_name}],
+                        "parameters": parameters,
                         "recipients": self.recipient_builder.convert_recipients_to_json_objects(
                             recipients
                         ),

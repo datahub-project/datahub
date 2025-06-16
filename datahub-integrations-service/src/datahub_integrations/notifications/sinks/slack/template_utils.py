@@ -660,9 +660,12 @@ def build_compliance_form_publish_parameters(
     request: NotificationRequestClass, base_url: str
 ) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
     if request.message.parameters is None:
-        raise ValueError("Parameters are compliance form publish notifications.")
+        raise ValueError(
+            "Parameters are required for compliance form publish notifications."
+        )
 
     form_name = request.message.parameters.get("formName", "")
+    form_details = request.message.parameters.get("formDetails", None)
 
     # Prepare the textual content and structured blocks for the Slack message
     blocks: List[Dict[str, Any]] = [
@@ -670,25 +673,40 @@ def build_compliance_form_publish_parameters(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f":memo: You've been requested to complete tasks for *{form_name}*",
+                "text": f"*Initiative:*\n{form_name}",
             },
         },
+    ]
+
+    if form_details is not None:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Details:*\n{form_details}",
+                },
+            }
+        )
+
+    blocks.append(
         {
             "type": "actions",
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "View Tasks"},
+                    "style": "primary",
+                    "text": {"type": "plain_text", "text": "Complete Tasks"},
                     "url": f"{base_url}/requests/requests",
                     "action_id": "external_redirect",
                 },
             ],
         },
-    ]
+    )
 
-    text = ":memo: *New Task* New compliance form tasks to complete"
+    text = f":memo: Action Required: You have new data compliance tasks to complete for initiative: {form_name}"
 
-    return (text, blocks, [])
+    return (text, [], [{"color": "#533FD1", "blocks": blocks}])
 
 
 def create_actors_tag_string(

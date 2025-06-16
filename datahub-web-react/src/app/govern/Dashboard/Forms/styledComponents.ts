@@ -74,8 +74,6 @@ export const LeftSection = styled.div`
 `;
 
 export const AddRecipientsOptions = styled.div`
-    display: flex;
-    flex-direction: row;
     gap: 10px;
 `;
 

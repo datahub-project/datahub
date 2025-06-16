@@ -10,6 +10,7 @@ import {
     CreatePromptInput,
     DomainParams,
     DomainParamsInput,
+    FormAssignmentStatus,
     FormPrompt,
     FormState,
     FormType,
@@ -166,8 +167,19 @@ export const PUBLISH_MODAL_TEXT = `Are you sure? ${PUBLISH_EXPLANATION}`;
 export const UNPUBLISH_EXPLANATION = 'Unpublishing will hide this form from selected assets and users.';
 export const UNPUBLISH_MODAL_TEXT = `Are you sure? ${UNPUBLISH_EXPLANATION}`;
 
-export function getStatusDetails(formStatus: FormState, assignmentStatus?: AssignmentStatus) {
-    const isInProgress = assignmentStatus === AssignmentStatus.InProgress && formStatus === FormState.Published;
+export function isFormAssignmentInProgress(formStatus: FormState, assignmentStatus?: FormAssignmentStatus | null) {
+    const now = new Date().getTime();
+    const oneDayAgo = new Date(now - 1 * 24 * 60 * 60 * 1000).getTime();
+
+    return (
+        assignmentStatus?.status === AssignmentStatus.InProgress &&
+        formStatus === FormState.Published &&
+        (assignmentStatus.timestamp || 0) > oneDayAgo
+    );
+}
+
+export function getStatusDetails(formStatus: FormState, assignmentStatus?: FormAssignmentStatus | null) {
+    const isInProgress = isFormAssignmentInProgress(formStatus, assignmentStatus);
     let colorScheme: ColorOptions = 'gray';
     if (isInProgress) colorScheme = 'blue';
     else if (formStatus === FormState.Published) colorScheme = 'primary';

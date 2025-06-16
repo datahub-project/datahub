@@ -27,6 +27,7 @@ const addOrUpdateToCache = (existingForms, newForm, formUrn, showPublishing) => 
             formAssignmentStatus: showPublishing
                 ? { status: AssignmentStatus.InProgress, timestamp: new Date().getTime() }
                 : newForm.formAssignmentStatus,
+            formSettings: newForm.formSettings,
             __typename: 'Form',
         },
         matchedFields: [],

@@ -296,7 +296,10 @@ def test_process_notify_on_publish(source: DataHubFormsNotificationsSource) -> N
     mock_graph.execute_graphql.return_value = {"sendFormNotificationRequest": True}
 
     source.process_notify_on_publish(
-        ["urn:li:corpuser:user1"], "Test Form", "urn:li:form:test-form-1"
+        ["urn:li:corpuser:user1"],
+        "Test Form",
+        "urn:li:form:test-form-1",
+        "test description",
     )
 
     # Verify the notification was sent with correct parameters
@@ -307,6 +310,7 @@ def test_process_notify_on_publish(source: DataHubFormsNotificationsSource) -> N
     # Verify notification type and parameters
     assert variables["input"]["type"] == "BROADCAST_COMPLIANCE_FORM_PUBLISH"
     assert variables["input"]["parameters"][0]["value"] == "Test Form"
+    assert variables["input"]["parameters"][1]["value"] == "test description"
 
     # Verify recipients structure
     recipients = variables["input"]["recipients"]

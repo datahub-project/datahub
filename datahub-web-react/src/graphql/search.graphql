@@ -1240,6 +1240,11 @@ fragment searchResultsWithoutSchemaField on Entity {
             status
             timestamp
         }
+        formSettings {
+            notificationSettings {
+                notifyAssigneesOnPublish
+            }
+        }
     }
 }
 

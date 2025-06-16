@@ -233,6 +233,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                         formUrn={record.entity.urn}
                         formInfo={record.entity.formInfo}
                         formAssignmentStatus={record.entity.formAssignmentStatus}
+                        formSettings={record.entity.formSettings}
                     />
                 );
             },

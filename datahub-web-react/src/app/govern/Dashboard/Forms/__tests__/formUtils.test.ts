@@ -5,6 +5,7 @@ import {
     UNPUBLISH_MODAL_TEXT,
     getStatusDetails,
     handleInputChange,
+    isFormAssignmentInProgress,
     mapPromptsToCreatePromptInput,
     questionTypes,
 } from '@app/govern/Dashboard/Forms/formUtils';
@@ -179,7 +180,8 @@ describe('formUtils', () => {
         });
 
         it('should return correct details for in-progress publishing', () => {
-            const result = getStatusDetails(FormState.Published, AssignmentStatus.InProgress);
+            const assignmentStatus = { status: AssignmentStatus.InProgress, timestamp: new Date().getTime() };
+            const result = getStatusDetails(FormState.Published, assignmentStatus);
             expect(result).toEqual({
                 label: 'Publishing',
                 colorScheme: 'blue',
@@ -214,6 +216,91 @@ describe('formUtils', () => {
             expect(UNPUBLISH_MODAL_TEXT).toBe(
                 'Are you sure? Unpublishing will hide this form from selected assets and users.',
             );
+        });
+    });
+
+    describe('isFormAssignmentInProgress', () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('should return true for in-progress assignment within last 24 hours', () => {
+            const now = new Date('2024-03-20T12:00:00Z').getTime();
+            vi.setSystemTime(now);
+
+            const assignmentStatus = {
+                status: AssignmentStatus.InProgress,
+                timestamp: new Date('2024-03-20T11:00:00Z').getTime(), // 1 hour ago
+            };
+
+            const result = isFormAssignmentInProgress(FormState.Published, assignmentStatus);
+            expect(result).toBe(true);
+        });
+
+        it('should return false for in-progress assignment older than 24 hours', () => {
+            const now = new Date('2024-03-20T12:00:00Z').getTime();
+            vi.setSystemTime(now);
+
+            const assignmentStatus = {
+                status: AssignmentStatus.InProgress,
+                timestamp: new Date('2024-03-19T11:00:00Z').getTime(), // 25 hours ago
+            };
+
+            const result = isFormAssignmentInProgress(FormState.Published, assignmentStatus);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when form is not published', () => {
+            const now = new Date('2024-03-20T12:00:00Z').getTime();
+            vi.setSystemTime(now);
+
+            const assignmentStatus = {
+                status: AssignmentStatus.InProgress,
+                timestamp: new Date('2024-03-20T11:00:00Z').getTime(),
+            };
+
+            const result = isFormAssignmentInProgress(FormState.Unpublished, assignmentStatus);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when assignment status is not in progress', () => {
+            const now = new Date('2024-03-20T12:00:00Z').getTime();
+            vi.setSystemTime(now);
+
+            const assignmentStatus = {
+                status: AssignmentStatus.Complete,
+                timestamp: new Date('2024-03-20T11:00:00Z').getTime(),
+            };
+
+            const result = isFormAssignmentInProgress(FormState.Published, assignmentStatus);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when assignment status is null', () => {
+            const result = isFormAssignmentInProgress(FormState.Published, null);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when assignment status is undefined', () => {
+            const result = isFormAssignmentInProgress(FormState.Published, undefined);
+            expect(result).toBe(false);
+        });
+
+        it('should handle missing timestamp by defaulting to 0', () => {
+            const now = new Date('2024-03-20T12:00:00Z').getTime();
+            vi.setSystemTime(now);
+
+            const assignmentStatus = {
+                status: AssignmentStatus.InProgress,
+                // timestamp is missing
+            };
+
+            const result = isFormAssignmentInProgress(FormState.Published, assignmentStatus);
+            expect(result).toBe(false);
         });
     });
 });
