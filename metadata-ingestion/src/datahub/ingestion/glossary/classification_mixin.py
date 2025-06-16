@@ -91,7 +91,7 @@ class ClassificationHandler:
     def get_classifiers(self) -> List[Classifier]:
         classifiers = []
         if (
-            not hasattr(self.config, "classification")
+            not isinstance(self.config, ClassificationSourceConfigMixin)
             or self.config.classification is None
         ):
             return classifiers
