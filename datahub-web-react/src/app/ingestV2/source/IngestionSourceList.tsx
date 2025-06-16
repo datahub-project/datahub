@@ -569,6 +569,7 @@ export const IngestionSourceList = ({
                                 onUpdate={(values) => setSourceFilter(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
+                                size="lg"
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>

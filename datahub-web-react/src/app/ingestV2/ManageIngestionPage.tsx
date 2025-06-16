@@ -1,4 +1,4 @@
-import { Button, PageTitle, Tabs } from '@components';
+import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -152,8 +152,8 @@ export const ManageIngestionPage = () => {
                     setHideSystemSources={setHideSystemSources}
                 />
             ),
-            key: TabType.ExecutionLog as string,
-            name: 'Execution Log',
+            key: TabType.RunHistory as string,
+            name: 'Run History',
         },
         showSecretsTab && {
             component: (
@@ -212,16 +212,25 @@ export const ManageIngestionPage = () => {
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Button
-                            variant="filled"
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            onClick={handleCreateSource}
-                            data-testid="create-ingestion-source-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            disabled={!canManageIngestion}
+                        <Tooltip
+                            title={
+                                !canManageIngestion &&
+                                `You don't have permission to perform this action. Please contact your DataHub admin for more info.`
+                            }
                         >
-                            Create new source
-                        </Button>
+                            <div>
+                                <Button
+                                    variant="filled"
+                                    id={INGESTION_CREATE_SOURCE_ID}
+                                    onClick={handleCreateSource}
+                                    data-testid="create-ingestion-source-button"
+                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    disabled={!canManageIngestion}
+                                >
+                                    Create source
+                                </Button>
+                            </div>
+                        </Tooltip>
                     )}
 
                     {selectedTab === TabType.Secrets && showSecretsTab && (
@@ -231,7 +240,7 @@ export const ManageIngestionPage = () => {
                             data-testid="create-secret-button"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                         >
-                            Create new secret
+                            Create secret
                         </Button>
                     )}
                     {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canViewPools && (
@@ -243,7 +252,7 @@ export const ManageIngestionPage = () => {
                             id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
                             disabled={!canManagePools}
                         >
-                            Create new pool
+                            Create pool
                         </Button>
                     )}
                 </HeaderActionsContainer>

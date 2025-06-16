@@ -22,13 +22,21 @@ import { Owner } from '@types';
 const PreviewImage = styled(Image)`
     max-height: 20px;
     width: auto;
+    max-width: 28px;
     object-fit: contain;
     margin: 0px;
     background-color: transparent;
 `;
 
-const TextContainer = styled(Typography.Text)`
+const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     color: ${colors.gray[1700]};
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
 `;
 
 const NameContainer = styled.div`
@@ -51,21 +59,24 @@ const TruncatedText = styled(Text)`
     white-space: nowrap;
 `;
 
-interface TypeColumnProps {
+interface NameColumnProps {
     type: string;
     record: any;
+    onNameClick?: () => void;
 }
 
-export function NameColumn({ type, record }: TypeColumnProps) {
+export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
     return (
         <NameContainer>
-            {iconUrl && (
+            {iconUrl && !record.cliIngestion ? (
                 <Tooltip overlay={typeDisplayName}>
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
+            ) : (
+                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
             )}
             <DisplayNameContainer>
                 <TextContainer
@@ -77,6 +88,11 @@ export function NameColumn({ type, record }: TypeColumnProps) {
                             showArrow: false,
                         },
                     }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onNameClick?.();
+                    }}
+                    $shouldUnderline={!!onNameClick}
                 >
                     {record.name || ''}
                 </TextContainer>
@@ -166,6 +182,7 @@ interface ActionsColumnProps {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
+    navigateToRunHistory: (record: IngestionSourceTableData) => void;
 }
 
 type MenuOption = {
@@ -180,6 +197,7 @@ export function ActionsColumn({
     onView,
     onExecute,
     onDelete,
+    navigateToRunHistory,
 }: ActionsColumnProps) {
     const items: MenuOption[] = [];
     const canEdit = record.privileges?.canEdit;
@@ -212,9 +230,21 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
+    items.push({
+        key: '2',
+        label: (
+            <MenuItem
+                onClick={() => {
+                    navigateToRunHistory(record);
+                }}
+            >
+                View Run History
+            </MenuItem>
+        ),
+    });
     if (navigator.clipboard)
         items.push({
-            key: '2',
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -227,7 +257,7 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '3',
+            key: '4',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -239,7 +269,7 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '4',
+        key: '5',
         label: (
             <MenuItem
                 onClick={() => {
@@ -262,12 +292,9 @@ export function ActionsColumn({
                     <Icon
                         icon="Play"
                         source="phosphor"
-                        color={canExecute ? 'white' : undefined}
-                        style={
-                            canExecute
-                                ? { backgroundColor: colors.primary[500], border: 'none' }
-                                : { cursor: 'not-allowed' }
-                        }
+                        weight="fill"
+                        color={canExecute ? 'violet' : undefined}
+                        style={canExecute ? {} : { cursor: 'not-allowed' }}
                         onClick={(e) => {
                             if (canExecute) {
                                 e.stopPropagation();
