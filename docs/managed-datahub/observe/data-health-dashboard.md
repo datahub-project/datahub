@@ -18,7 +18,7 @@ The Data Health Dashboard aims to solve two critical use cases:
 You can access it via the Sidebar Nav. It can be found under the _Observe_ section.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/overview.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/overview.png"/>
 </p>
 
 ## How to use it
@@ -59,7 +59,7 @@ For this reason, we have included a broad range of filters to make it easy to dr
 In addition, both the `By Tables` tab and the `Incidents` tab will apply your global `View` (managed via the search bar on the very top of DataHub's navigation). So if you already have a view created for your team, these tabs will automatically filter the reports down to the subset of data only you care about.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/view-applied.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/view-applied.png"/>
 </p>
 
 **Coming soon:** in the upcoming releases we will be including the filters in the url parameters. This will make it incredibly easy for you to bookmark your specifi c
