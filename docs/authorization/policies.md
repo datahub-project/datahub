@@ -239,14 +239,31 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Proposals
 
-| Proposals Privileges               | Description                                                          |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| Propose Tags[^1]                   | Allow actor to propose adding a tag to an asset.                     |
-| Propose Glossary Terms[^1]         | Allow actor to propose adding a glossary term to an asset.           |
-| Propose Documentation[^1]          | Allow actor to propose updates to an asset's documentation.          |
-| Manage Tag Proposals[^1]           | Allow actor to manage a proposal to add a tag to an asset.           |
-| Manage Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to an asset. |
-| Manage Documentation Proposals[^1] | Allow actor to manage a proposal update an asset's documentation     |
+| Proposals Privileges                              | Description                                                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Propose Tags[^1]                                  | Allow actor to propose adding a tag to an asset.                                                |
+| Propose Glossary Terms[^1]                        | Allow actor to propose adding a glossary term to an asset.                                      |
+| Propose Owners[^1]                                | Allow actor to propose adding an owner to an asset.                                             |
+| Propose Domains[^1]                               | Allow actor to propose adding a domain to an asset.                                             |
+| Propose Data Contract[^1]                         | Allow actor to propose adding a data contract to a dataset.                                     |
+| Propose Structured properties[^1]                 | Allow actor to propose adding a structured property to an asset.                                |
+| Propose Documentation[^1]                         | Allow actor to propose updates to an asset's documentation.                                     |
+| Propose Dataset Column Glossary Terms[^1]         | Allow actor to propose a glossary term to a dataset schema column (field).                      |
+| Propose Dataset Column Tags[^1]                   | Allow actor to propose a tag to a dataset schema column (field).                                |
+| Propose Dataset Column Descriptions[^1]           | Allow actor to propose a updates to dataset's schema column (field) description                 |
+| Propose Dataset Column Structured Properties[^1]  | Allow actor to propose a structured property to a dataset schema column (field).                |
+| Propose Create Glossary Term[^1]                  | Allow actor to propose creation of a new glossary term.                                         |
+| Propose Create Glossary Node[^1]                  | Allow actor to propose creation of a new glossary node.                                         |
+| Manage Tag Proposals[^1]                          | Allow actor to manage a proposal to add a tag to an asset.                                      |
+| Manage Glossary Term Proposals[^1]                | Allow actor to manage a proposal to add a glossary term to an asset.                            |
+| Manage Domain Proposals[^1]                       | Allow actor to manage a proposal to add a domain to an asset.                                   |
+| Manage Owner Proposals[^1]                        | Allow actor to manage a proposal to add an owner to an asset.                                   |
+| Manage Property Proposals[^1]                     | Allow actor to manage a proposal to add a structured property to an asset.                      |
+| Manage Data Contract Proposals[^1]                | Allow actor to manage a proposal to add a data contract to a dataset.                           |
+| Manage Documentation Proposals[^1]                | Allow actor to manage updates to asset's documentation.                                         |
+| Manage Dataset Column Tag Proposals[^1]           | Allow actor to manage a proposal to add a tag to dataset schema field (column).                 |
+| Manage Dataset Column Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to dataset schema field (column).       |
+| Manage Dataset Column Property Proposals[^1]      | Allow actor to manage a proposal to add a structured property to dataset schema field (column). |
 
 ### Specific Entity-level Privileges
 

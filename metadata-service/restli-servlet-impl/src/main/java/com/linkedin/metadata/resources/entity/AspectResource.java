@@ -181,7 +181,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
-      @ActionParam(PARAM_LIMIT) @Optional("5000") int limit,
+      @ActionParam(PARAM_LIMIT) @Optional @Nullable Integer limit,
       @ActionParam(PARAM_LATEST_VALUE) @Optional("false")
           boolean latestValue, // This field is deprecated.
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,

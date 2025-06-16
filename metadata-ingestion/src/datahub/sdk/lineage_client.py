@@ -248,7 +248,7 @@ class LineageClient:
         - dashboard to dataset
         - dashboard to chart
         - dashboard to dashboard
-        - chart to dataset
+        - dataset to chart
 
         Args:
             upstream: URN of the upstream entity (dataset or datajob)
