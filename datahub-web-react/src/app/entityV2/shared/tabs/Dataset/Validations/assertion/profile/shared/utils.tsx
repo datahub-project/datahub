@@ -312,14 +312,14 @@ export const useAssertionFeedbackActions = ({
             onCancel={() => setRetrainModalOpen(false)}
             buttons={[
                 {
+                    variant: 'text',
+                    text: 'Cancel',
+                    onClick: () => setRetrainModalOpen(false),
+                },
+                {
                     text: 'Re-Train from this Run',
                     onClick: retrainFromRun,
                     isLoading: isActionProcessing,
-                },
-                {
-                    variant: 'outline',
-                    text: 'Cancel',
-                    onClick: () => setRetrainModalOpen(false),
                 },
             ]}
         >

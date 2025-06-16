@@ -221,7 +221,7 @@ export const AssertionsByTableSummary = () => {
                     {viewUrn && (
                         <Tooltip title="You may change or remove the view via the search bar at the very top of the page.">
                             <Text color="primary" size="md">
-                                *Global view is applied.
+                                *View is applied.
                             </Text>
                         </Tooltip>
                     )}
