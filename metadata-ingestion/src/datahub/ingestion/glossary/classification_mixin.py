@@ -90,6 +90,11 @@ class ClassificationHandler:
 
     def get_classifiers(self) -> List[Classifier]:
         classifiers = []
+        if (
+            not hasattr(self.config, "classification")
+            or self.config.classification is None
+        ):
+            return classifiers
 
         for classifier in self.config.classification.classifiers:
             classifier_class = classifier_registry.get(classifier.type)
