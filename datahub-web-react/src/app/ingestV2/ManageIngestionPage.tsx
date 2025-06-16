@@ -134,8 +134,8 @@ export const ManageIngestionPage = () => {
                     setHideSystemSources={setHideSystemSources}
                 />
             ),
-            key: TabType.ExecutionLog as string,
-            name: 'Execution Log',
+            key: TabType.RunHistory as string,
+            name: 'Run History',
         },
         showSecretsTab && {
             component: (
@@ -170,15 +170,17 @@ export const ManageIngestionPage = () => {
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Button
-                            variant="filled"
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            onClick={handleCreateSource}
-                            data-testid="create-ingestion-source-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                        >
-                            Create new source
-                        </Button>
+                        <div>
+                            <Button
+                                variant="filled"
+                                id={INGESTION_CREATE_SOURCE_ID}
+                                onClick={handleCreateSource}
+                                data-testid="create-ingestion-source-button"
+                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                            >
+                                Create source
+                            </Button>
+                        </div>
                     )}
 
                     {selectedTab === TabType.Secrets && showSecretsTab && (
@@ -188,7 +190,7 @@ export const ManageIngestionPage = () => {
                             data-testid="create-secret-button"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                         >
-                            Create new secret
+                            Create secret
                         </Button>
                     )}
                 </HeaderActionsContainer>

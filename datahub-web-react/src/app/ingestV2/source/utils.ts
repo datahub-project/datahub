@@ -419,7 +419,7 @@ export const getSourceStatus = (
     const hasActiveRequest = source.executions?.executionRequests?.some(isExecutionRequestActive);
     const executedNow = executedUrns.has(source.urn);
 
-    if ((isPolling || executedNow) && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
+    if (executedNow && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
     if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
 
     return (

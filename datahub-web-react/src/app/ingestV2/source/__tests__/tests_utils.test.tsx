@@ -15,8 +15,8 @@ import {
     formatTimezone,
     getEntitiesIngestedByType,
     getSortInput,
-    getTotalEntitiesIngested,
     getSourceStatus,
+    getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
 import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
@@ -255,8 +255,7 @@ describe('getTotalEntitiesIngested', () => {
 
         const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
         expect(result).toBe(156);
-
-    })
+    });
 });
 
 describe('formatTimezone', () => {
@@ -372,17 +371,17 @@ describe('getSourceStatus', () => {
         ...overrides,
     });
 
-    it('returns Loading when polling and no requests', () => {
+    it('returns Pending when polling and no requests but did not execute', () => {
         const source = createSource(urn, []);
         const result = getSourceStatus(source, new Set([urn]), new Set());
-        expect(result).toBe(EXECUTION_REQUEST_STATUS_LOADING);
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
     });
 
-    it('returns Loading when polling with no active request', () => {
+    it('returns previous status when polling with no active request but did not execute', () => {
         const inactiveRequest = createExecutionRequest({ result: { status: EXECUTION_REQUEST_STATUS_SUCCESS } });
         const source = createSource(urn, [inactiveRequest]);
         const result = getSourceStatus(source, new Set([urn]), new Set());
-        expect(result).toBe(EXECUTION_REQUEST_STATUS_LOADING);
+        expect(result).toBe(EXECUTION_REQUEST_STATUS_SUCCESS);
     });
 
     it('returns Loading when recently executed but no active requests', () => {

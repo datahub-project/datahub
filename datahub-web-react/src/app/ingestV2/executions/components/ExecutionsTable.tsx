@@ -60,17 +60,24 @@ export default function ExecutionsTable({
         setRunIdOfRollbackConfirmation(undefined);
     }, [handleRollback, runIdOfRollbackConfirmation]);
 
+    const navigateToSource = (record) => {
+        history.replace({
+            pathname: tabUrlMap[TabType.Sources],
+            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+        });
+    };
+
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
             title: 'Source',
             key: 'source',
-            render: (record) => <SourceColumn record={record} />,
+            render: (record) => <SourceColumn record={record} navigateToSource={() => navigateToSource(record)} />,
             width: '30%',
         },
         {
             title: 'Started At',
             key: 'startedAt',
-            render: (record) => <DateTimeColumn time={record.startedAt} />,
+            render: (record) => <DateTimeColumn time={record.startedAt} showRelative />,
             width: '15%',
         },
         {
@@ -107,13 +114,6 @@ export default function ExecutionsTable({
         },
     ];
 
-    const onRowClick = (record) => {
-        history.replace({
-            pathname: tabUrlMap[TabType.Sources],
-            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
-        });
-    };
-
     return (
         <>
             <StyledTable
@@ -121,7 +121,7 @@ export default function ExecutionsTable({
                 data={tableData}
                 isScrollable
                 isLoading={loading}
-                onRowClick={onRowClick}
+                onRowClick={(record) => setFocusExecutionUrn(record.urn)}
                 footer={
                     isLastPage ? (
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />

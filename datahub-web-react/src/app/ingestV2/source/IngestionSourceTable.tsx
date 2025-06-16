@@ -74,6 +74,24 @@ function IngestionSourceTable({
         owners: source.ownership?.owners,
     }));
 
+    const navigateToRunHistory = (record) => {
+        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+        const preserveParams = shouldPreserveParams;
+        preserveParams.current = true;
+
+        const search = QueryString.stringify(
+            {
+                ...filtersToQueryStringParams(selectedSourceNameFilter),
+            },
+            { arrayFormat: 'comma' },
+        );
+
+        history.replace({
+            pathname: tabUrlMap[TabType.RunHistory],
+            search,
+        });
+    };
+
     const tableColumns: Column<IngestionSourceTableData>[] = [
         {
             title: 'Name',
@@ -91,9 +109,17 @@ function IngestionSourceTable({
             width: '20%',
         },
         {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '20%',
+        },
+        {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <DateTimeColumn time={record.lastExecTime} />,
+            render: (record) => (
+                <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
+            ),
             width: '20%',
         },
         {
@@ -108,12 +134,6 @@ function IngestionSourceTable({
             ),
             width: '15%',
         },
-        {
-            title: 'Owner',
-            key: 'owner',
-            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-            width: '20%',
-        },
 
         {
             title: '',
@@ -126,32 +146,15 @@ function IngestionSourceTable({
                     onDelete={onDelete}
                     onView={onView}
                     onEdit={onEdit}
+                    navigateToRunHistory={navigateToRunHistory}
                 />
             ),
-            width: '100px',
+            width: '10%',
         },
     ];
 
     const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
         onChangeSort(sortColumn, sortOrder);
-    };
-
-    const onRowClick = (record) => {
-        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
-        const preserveParams = shouldPreserveParams;
-        preserveParams.current = true;
-
-        const search = QueryString.stringify(
-            {
-                ...filtersToQueryStringParams(selectedSourceNameFilter),
-            },
-            { arrayFormat: 'comma' },
-        );
-
-        history.replace({
-            pathname: tabUrlMap[TabType.ExecutionLog],
-            search,
-        });
     };
 
     return (
@@ -161,7 +164,7 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
-            onRowClick={onRowClick}
+            onRowClick={(record) => onEdit(record.urn)}
             footer={
                 isLastPage ? (
                     <TableFooter
