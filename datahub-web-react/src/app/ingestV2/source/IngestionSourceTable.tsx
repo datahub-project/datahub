@@ -55,6 +55,7 @@ interface Props {
     saasProps: {
         onViewPool: (poolId: string) => void;
     };
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 function IngestionSourceTable({
@@ -72,6 +73,7 @@ function IngestionSourceTable({
     sourcesToRefetch,
     executedUrns,
     saasProps,
+    setSelectedTab,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -96,6 +98,7 @@ function IngestionSourceTable({
     }));
 
     const navigateToRunHistory = (record) => {
+        setSelectedTab(TabType.RunHistory);
         const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
         const preserveParams = shouldPreserveParams;
         preserveParams.current = true;

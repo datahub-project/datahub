@@ -139,6 +139,7 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
                     setHideSystemSources={setHideSystemSources}
+                    setSelectedTab={setSelectedTab}
                 />
             ),
             key: TabType.Sources as string,
@@ -150,6 +151,7 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
                     setHideSystemSources={setHideSystemSources}
+                    setSelectedTab={setSelectedTab}
                 />
             ),
             key: TabType.RunHistory as string,

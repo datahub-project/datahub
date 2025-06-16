@@ -26,6 +26,7 @@ import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@a
 import { addToListIngestionSourcesCache, removeFromListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { usePoolActionsForIngestionSourceList } from '@app/ingestV2/source/hooks.saas';
 import { getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -140,6 +141,7 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 export const IngestionSourceList = ({
@@ -148,6 +150,7 @@ export const IngestionSourceList = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
+    setSelectedTab,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
@@ -629,6 +632,7 @@ export const IngestionSourceList = ({
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
                                 saasProps={{ onViewPool }}
+                                setSelectedTab={setSelectedTab}
                             />
                         </TableContainer>
                         <PaginationContainer>
