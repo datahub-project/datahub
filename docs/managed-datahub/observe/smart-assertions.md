@@ -33,7 +33,7 @@ You can improve predictions through two key levers:
 
 ### Tuning
 
-To tune smart assertion predictions, you can 3 key knobs available to you. Each of these can be accessed in the **Settings** tab of the Assertion.
+To tune smart assertion predictions, you have 3 key knobs available to you. Each of these can be accessed in the **Settings** tab of the Assertion.
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/smart-assertion-tuning.png"/>
@@ -46,7 +46,7 @@ A higher sensitivity will have a tighter fit on the data. A lower sensitivity wi
 Set time windows to exclude from training data. This can be useful to exclude known maintenance windows or other periods of downtime, seasonal spikes e.g. holidays or any other windows that are not representative of normal data trends.
 
 **Training data lookback window**
-This is the amount of days our ML models will look back to gather training data to generate predictions. If this is too large, we may pick up on old data that is no longer part of the current trend. If it is too short, we may miss key seasonal patterns. You can leverage this alongside exclusion windows to improve qualtiy of predictions.
+This is the number of days our ML models will look back to gather training data to generate predictions. If this is too large, we may pick up on old data that is no longer part of the current trend. If it is too short, we may miss key seasonal patterns. You can leverage this alongside exclusion windows to improve the quality of predictions.
 
 ### Anomaly Feedback
 
