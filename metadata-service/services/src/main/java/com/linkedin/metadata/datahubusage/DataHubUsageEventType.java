@@ -104,7 +104,7 @@ public enum DataHubUsageEventType {
   SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
   LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
-  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
+  HOME_PAGE_CLICK_EVENT("HomePageClick"),
   SEARCH_BAR_FILTER("SearchBarFilterEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
@@ -147,7 +147,7 @@ public enum DataHubUsageEventType {
   CREATE_QUESTION_EVENT("CreateQuestionEvent"),
   EDIT_QUESTION_EVENT("EditQuestionEvent"),
   NAV_BAR_EXPAND_COLLAPSE_EVENT("NavBarExpandCollapseEvent"),
-  NAV_BAR_ITEM_CLICK_EVENT("NavBarItemClickEvent"),
+  NAV_BAR_ITEM_CLICK_EVENT("NavBarItemClick"),
   FORM_BY_ENTITY_NAVIGATE_EVENT("FormByEntityNavigateEvent"),
   FORM_VIEW_TOGGLE_EVENT("FormViewToggleEvent"),
   FORM_ANALYTICS_TAB_SELECT_EVENT("FormAnalyticsTabSelectEvent"),

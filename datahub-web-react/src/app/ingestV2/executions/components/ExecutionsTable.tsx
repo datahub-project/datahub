@@ -142,7 +142,7 @@ export default function ExecutionsTable({
                 columns={tableColumns}
                 data={tableData}
                 isScrollable
-                isLoading={loading}
+                isLoading={loading && !tableData.length}
                 onRowClick={(record) => setFocusExecutionUrn(record.urn)}
                 footer={
                     isLastPage ? (
