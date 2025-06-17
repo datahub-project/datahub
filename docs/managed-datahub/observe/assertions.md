@@ -20,8 +20,23 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 
-**Anomaly detection**
-There are many cases where either you do not have the time to figure out what a good rule for an assertion is, or strict rules do not suffice. For instance, a table whose row count changes exhibit weekly seasonality may need a different set of assertions for each day of the week. Or, figuring out what the expected STD Dev is for each column can be incredibly time consuming and not feasible across hundreds of tables. In these scenarios, you may want to consider creating a [Smart Assertion](./smart-assertions.md) to let ML automatically detect the normal patterns in your data and alert you when anomalies occur.
+### Anomaly detection
+
+There are many cases where either you do not have the time to figure out what a good rule for an assertion is, or strict rules simply do not suffice for your data validation needs. Traditional rule-based assertions can become inadequate when dealing with complex data patterns or large-scale operations.
+
+**Common Scenarios**
+
+Here are some typical situations where manual assertion rules fall short:
+
+• **Seasonal data patterns** - A table whose row count changes exhibit weekly seasonality may need a different set of assertions for each day of the week, making static rules impractical to maintain.
+
+• **Statistical complexity across large datasets** - Figuring out what the expected standard deviation is for each column can be incredibly time consuming and not feasible across hundreds of tables, especially when each table has unique characteristics.
+
+• **Dynamic data environments** - When data patterns evolve over time, manually updating assertion rules becomes a maintenance burden that can lead to false positives or missed anomalies.
+
+## The Smart Assertion Solution
+
+In these scenarios, you may want to consider creating a [Smart Assertion](./smart-assertions.md) to let machine learning automatically detect the normal patterns in your data and alert you when anomalies occur. This approach allows for more flexible and adaptive data quality monitoring without the overhead of manual rule maintenance.
 
 Both traditional and smart assertions can be defined through the DataHub API or the UI.
 
