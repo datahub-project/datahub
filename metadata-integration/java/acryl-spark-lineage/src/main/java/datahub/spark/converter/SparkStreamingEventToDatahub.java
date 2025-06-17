@@ -53,13 +53,14 @@ public class SparkStreamingEventToDatahub {
       } else {
         // If no name is set, try to create a consistent identifier from the query details
         JsonElement root = new JsonParser().parse(event.json());
-        String sinkDescription = root.getAsJsonObject().get("sink").getAsJsonObject().get("description").getAsString();
+        String sinkDescription =
+            root.getAsJsonObject().get("sink").getAsJsonObject().get("description").getAsString();
         String sinkType = sinkDescription.split("\\[")[0];
         String readableSinkType = getDatahubPlatform(sinkType);
         // Extract content between brackets and sanitize the entire identifier
         String sinkPath = StringUtils.substringBetween(sinkDescription, "[", "]");
         if (sinkPath == null) {
-            sinkPath = sinkDescription; // Fallback if no brackets found
+          sinkPath = sinkDescription; // Fallback if no brackets found
         }
         // First replace slashes with dots
         String sanitizedPath = sinkPath.replace('/', '.');
@@ -69,16 +70,21 @@ public class SparkStreamingEventToDatahub {
         sanitizedPath = sanitizedPath.replaceAll("^\\.|\\.$", "");
         // Ensure we have a valid path that won't cause URN creation issues
         if (StringUtils.isBlank(sanitizedPath)) {
-            // Create a meaningful identifier using sink type and batch ID
-            sanitizedPath = String.format("unnamed_%s_batch_%d", readableSinkType, event.batchId());
-            log.warn("Could not extract path from sink description, using generated identifier: {}", sanitizedPath);
+          // Create a meaningful identifier using sink type and batch ID
+          sanitizedPath = String.format("unnamed_%s_batch_%d", readableSinkType, event.batchId());
+          log.warn(
+              "Could not extract path from sink description, using generated identifier: {}",
+              sanitizedPath);
         }
         streamingQueryName = readableSinkType + "_sink_" + sanitizedPath;
-        log.info("No query name set, using sink description to create stable identifier: {}", streamingQueryName);
+        log.info(
+            "No query name set, using sink description to create stable identifier: {}",
+            streamingQueryName);
       }
 
-      String appId = conf.getSparkAppContext() != null ? conf.getSparkAppContext().getAppId() : null;
-      
+      String appId =
+          conf.getSparkAppContext() != null ? conf.getSparkAppContext().getAppId() : null;
+
       // Ensure we have valid values for URN creation
       if (StringUtils.isBlank(appId)) {
         log.warn("No app ID available, using streaming query name as pipeline name");
@@ -112,13 +118,12 @@ public class SparkStreamingEventToDatahub {
     flowCustomProperties.put("plan", event.json());
     dataFlowInfo.setCustomProperties(flowCustomProperties);
 
-    DataFlowUrn flowUrn = flowUrn(
+    DataFlowUrn flowUrn = flowUrn(conf.getOpenLineageConf().getPlatformInstance(), pipelineName);
+
+    log.debug(
+        "Creating streaming flow URN with namespace: {}, name: {}",
         conf.getOpenLineageConf().getPlatformInstance(),
         pipelineName);
-
-    log.debug("Creating streaming flow URN with namespace: {}, name: {}", 
-              conf.getOpenLineageConf().getPlatformInstance(),
-              pipelineName);
 
     MetadataChangeProposalWrapper dataflowMcp =
         MetadataChangeProposalWrapper.create(

@@ -52,7 +52,6 @@ import org.apache.spark.scheduler.SparkListenerEvent;
 import org.apache.spark.scheduler.SparkListenerJobEnd;
 import org.apache.spark.scheduler.SparkListenerJobStart;
 import org.apache.spark.scheduler.SparkListenerTaskEnd;
-import org.apache.spark.sql.streaming.StreamingQueryListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Function0;
@@ -329,53 +328,8 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onOtherEvent(SparkListenerEvent event) {
     long startTime = System.currentTimeMillis();
-
     log.debug("Other event called {}", event.getClass().getName());
-    // Switch to streaming mode if streaming mode is not set, but we get a progress event
-    if ((event instanceof StreamingQueryListener.QueryProgressEvent)
-        || (event instanceof StreamingQueryListener.QueryStartedEvent)) {
-      if (!emitter.isStreaming()) {
-        if (!datahubConf.hasPath(STREAMING_JOB)) {
-          log.info("Streaming mode not set explicitly, switching to streaming mode");
-          emitter.setStreaming(true);
-        } else {
-          emitter.setStreaming(datahubConf.getBoolean(STREAMING_JOB));
-          log.info("Streaming mode set to {}", datahubConf.getBoolean(STREAMING_JOB));
-        }
-      }
-    }
-
-    if (datahubConf.hasPath(STREAMING_JOB) && !datahubConf.getBoolean(STREAMING_JOB)) {
-      log.info("Not in streaming mode");
-      return;
-    }
-
     listener.onOtherEvent(event);
-
-    if (event instanceof StreamingQueryListener.QueryProgressEvent) {
-      int streamingHeartbeatIntervalSec = SparkConfigParser.getStreamingHeartbeatSec(datahubConf);
-      StreamingQueryListener.QueryProgressEvent queryProgressEvent =
-          (StreamingQueryListener.QueryProgressEvent) event;
-      ((StreamingQueryListener.QueryProgressEvent) event).progress().id();
-      if ((batchLastUpdated.containsKey(queryProgressEvent.progress().id().toString()))
-          && (batchLastUpdated
-              .get(queryProgressEvent.progress().id().toString())
-              .isAfter(Instant.now().minusSeconds(streamingHeartbeatIntervalSec)))) {
-        log.debug(
-            "Skipping lineage emit as it was emitted in the last {} seconds",
-            streamingHeartbeatIntervalSec);
-        return;
-      }
-      try {
-        batchLastUpdated.put(queryProgressEvent.progress().id().toString(), Instant.now());
-        emitter.emit(queryProgressEvent.progress());
-      } catch (URISyntaxException e) {
-        throw new RuntimeException(e);
-      }
-      log.debug("Query progress event: {}", queryProgressEvent.progress());
-      long elapsedTime = System.currentTimeMillis() - startTime;
-      log.debug("onOtherEvent completed successfully in {} ms", elapsedTime);
-    }
   }
 
   private static void initializeMetrics(OpenLineageConfig openLineageConfig) {

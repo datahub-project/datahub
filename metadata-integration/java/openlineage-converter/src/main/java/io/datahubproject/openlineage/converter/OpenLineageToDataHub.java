@@ -645,15 +645,16 @@ public class OpenLineageToDataHub {
     DataJobInfo dji = new DataJobInfo();
 
     log.debug("Datahub Config: {}", datahubConf);
-    
+
     // Check if we have a MERGE INTO command
     boolean isMergeIntoCommand = job.getName().contains("execute_merge_into_command_edge");
     String tableName = null;
-    
-    // If this is a MERGE INTO command and enhanced extraction is enabled, try to extract the target table name
+
+    // If this is a MERGE INTO command and enhanced extraction is enabled, try to extract the target
+    // table name
     if (isMergeIntoCommand && datahubConf.isEnhancedMergeIntoExtraction()) {
       log.info("Detected MERGE INTO command in job: {} - using enhanced extraction", job.getName());
-      
+
       // Method 1: Check for table name in the SQL facet (most reliable)
       if (job.getFacets() != null && job.getFacets().getSql() != null) {
         String sqlQuery = job.getFacets().getSql().getQuery();
@@ -679,7 +680,7 @@ public class OpenLineageToDataHub {
           }
         }
       }
-      
+
       // Method 2: Look for direct table names in the outputs
       if (tableName == null && event.getOutputs() != null) {
         for (OpenLineage.OutputDataset output : event.getOutputs()) {
@@ -692,13 +693,13 @@ public class OpenLineageToDataHub {
           }
         }
       }
-      
+
       // Method 3: Check for table identifiers in symlinks
       if (tableName == null && event.getOutputs() != null) {
         for (OpenLineage.OutputDataset output : event.getOutputs()) {
           if (output.getFacets() != null && output.getFacets().getSymlinks() != null) {
-            for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink : 
-                 output.getFacets().getSymlinks().getIdentifiers()) {
+            for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+                output.getFacets().getSymlinks().getIdentifiers()) {
               if ("TABLE".equals(symlink.getType())) {
                 String name = symlink.getName();
                 if (name != null) {
@@ -716,7 +717,7 @@ public class OpenLineageToDataHub {
           }
         }
       }
-      
+
       // Method 4: Extract table name from warehouse paths (as a last resort)
       if (tableName == null && event.getOutputs() != null) {
         for (OpenLineage.OutputDataset output : event.getOutputs()) {
@@ -741,22 +742,22 @@ public class OpenLineageToDataHub {
         }
       }
     }
-    
+
     // Prepare job names - one for display and one for the URN
     String jobNameForDisplay = job.getName();
     String jobNameForUrn = job.getName();
-    
+
     // If this is a merge command with an identified table, include the table name
     if (isMergeIntoCommand && tableName != null && datahubConf.isEnhancedMergeIntoExtraction()) {
       // Create modified job names that include the table name
       String tablePart = tableName.replace(".", "_").replace(" ", "_").toLowerCase();
       String enhancedJobName = job.getName() + "." + tablePart;
-      
+
       log.info("Modified job name for MERGE INTO: {} -> {}", job.getName(), enhancedJobName);
-      
+
       // Use the enhanced name for URN
       jobNameForUrn = enhancedJobName;
-      
+
       // For display name, first add the table part, then remove everything before first dot
       jobNameForDisplay = enhancedJobName;
       if (jobNameForDisplay.contains(".")) {
@@ -766,7 +767,7 @@ public class OpenLineageToDataHub {
       // Normal case - use part after the dot for display only
       jobNameForDisplay = job.getName().substring(job.getName().indexOf(".") + 1);
     }
-    
+
     // Set the display name
     dji.setName(jobNameForDisplay);
 
