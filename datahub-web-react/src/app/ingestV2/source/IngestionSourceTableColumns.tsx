@@ -89,8 +89,10 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                         },
                     }}
                     onClick={(e) => {
-                        e.stopPropagation();
-                        onNameClick?.();
+                        if (onNameClick) {
+                            e.stopPropagation();
+                            onNameClick();
+                        }
                     }}
                     $shouldUnderline={!!onNameClick}
                 >

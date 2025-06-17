@@ -53,7 +53,7 @@ const HeaderContainer = styled.div`
 const StyledTabToolbar = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 0 0 16px 0;
+    padding: 1px 0 16px 0; // 1px at the top to prevent Select's border outline from cutting-off
     height: auto;
     z-index: unset;
     box-shadow: none;
