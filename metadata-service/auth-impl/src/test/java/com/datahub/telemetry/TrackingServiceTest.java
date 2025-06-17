@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
@@ -78,6 +79,9 @@ public class TrackingServiceTest {
     MixpanelConfiguration mixpanelConfiguration = mock(MixpanelConfiguration.class);
     when(mixpanelConfiguration.isDisableObfuscation()).thenReturn(false);
 
+    TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
+    when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
+
     dataHubUsageProducer = mock(Producer.class);
     when(dataHubUsageProducer.send(any(ProducerRecord.class), any())).thenReturn(null);
 
@@ -91,6 +95,7 @@ public class TrackingServiceTest {
     _trackingService =
         new TrackingService(
             mixpanelConfiguration,
+            topicsConfiguration,
             _secretService,
             _mixpanelMessageBuilder,
             _mixpanelAPI,
@@ -103,6 +108,7 @@ public class TrackingServiceTest {
     _noObfuscationTrackingService =
         new TrackingService(
             noObfuscationMixpanelConfiguration,
+            topicsConfiguration,
             _secretService,
             _mixpanelMessageBuilder,
             _mixpanelAPI,
