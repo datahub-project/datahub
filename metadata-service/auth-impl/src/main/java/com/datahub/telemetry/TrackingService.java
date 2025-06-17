@@ -15,10 +15,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.Topics;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -111,6 +111,7 @@ public class TrackingService {
               USER_URNS_FIELD,
               PARENT_NODE_URN_FIELD));
 
+  private final TopicsConfiguration topicsConfiguration;
   private final MixpanelConfiguration mixpanelConfiguration;
   private final SecretService secretService;
   private final MessageBuilder messageBuilder;
@@ -125,6 +126,7 @@ public class TrackingService {
 
   public TrackingService(
       final MixpanelConfiguration mixpanelConfiguration,
+      final TopicsConfiguration topicsConfiguration,
       final SecretService secretService,
       final MessageBuilder messageBuilder,
       final MixpanelAPI mixpanelAPI,
@@ -132,6 +134,7 @@ public class TrackingService {
       @Nonnull GitVersion gitVersion,
       @Nullable Producer<String, String> dataHubUsageProducer) {
     this.mixpanelConfiguration = mixpanelConfiguration;
+    this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;
     this.mixpanelAPI = mixpanelAPI;
@@ -310,14 +313,17 @@ public class TrackingService {
 
     int numDestinationsSent = 0;
 
+    final String actorId =
+        eventData.has("actorUrn")
+            ? eventData.get("actorUrn").asText()
+            : opContext.getActorContext().getActorUrn().toString();
+
     // Send to Mixpanel if requested and available
     if (destinations.contains(TrackingDestination.MIXPANEL)
         && mixpanelAPI != null
         && messageBuilder != null) {
       try {
         log.debug("Mixpanel - Raw event data: {}", eventData.toPrettyString());
-
-        final String actorId = opContext.getActorContext().getActorUrn().toString();
 
         // Create a new properties object
         JSONObject properties = new JSONObject();
@@ -427,7 +433,7 @@ public class TrackingService {
 
         String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
         dataHubUsageProducer.send(
-            new ProducerRecord<>(Topics.DATAHUB_USAGE_EVENT, eventJson),
+            new ProducerRecord<>(topicsConfiguration.getDataHubUsage(), actorId, eventJson),
             (metadata, exception) -> {
               if (exception != null) {
                 log.error(
