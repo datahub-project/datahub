@@ -18,6 +18,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     RANGE_OPERATORS,
     SINGLE_VALUE_NUMERIC_OPERATORS,
     AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     CalendarInterval,
     DatasetSourceType,
     DetectionMechanism,
@@ -34,6 +35,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _InformationSchema,
     _is_source_type_valid,
     _SmartFreshnessAssertionInput,
+    _try_parse_incident_behavior,
     _validate_cron_schedule,
 )
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
@@ -674,6 +676,150 @@ def test_assertion_input_creation_with_incident_behavior(
     with expected_raises:
         assertion = _SmartFreshnessAssertionInput(**params)
         assert assertion.incident_behavior == expected_incident_behavior
+
+
+@dataclass
+class TryParseIncidentBehaviorTestParams:
+    """Test parameters for _try_parse_incident_behavior function."""
+
+    input_config: AssertionIncidentBehaviorInputTypes
+    expected_output: Union[
+        AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
+    ]
+    should_raise: bool = False
+    expected_error_type: Optional[Type[Exception]] = None
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=None,
+                expected_output=[],
+            ),
+            id="none_input_returns_empty_list",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config="raise_on_fail",
+                expected_output=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+            ),
+            id="valid_string_input_single_behavior",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config="resolve_on_pass",
+                expected_output=[AssertionIncidentBehavior.RESOLVE_ON_PASS],
+            ),
+            id="valid_string_input_different_behavior",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config="invalid_string",
+                expected_output=None,
+                should_raise=True,
+                expected_error_type=SDKUsageErrorWithExamples,
+            ),
+            id="invalid_string_input_raises_error",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=AssertionIncidentBehavior.RAISE_ON_FAIL,
+                expected_output=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+            ),
+            id="enum_input_single_behavior",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+                expected_output=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+            ),
+            id="enum_list_input_single_behavior",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL,
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS,
+                ],
+                expected_output=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL,
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS,
+                ],
+            ),
+            id="enum_list_input_multiple_behaviors",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=["raise_on_fail"],
+                expected_output=[AssertionIncidentBehavior.RAISE_ON_FAIL],
+            ),
+            id="string_list_input_single_behavior",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=["raise_on_fail", "resolve_on_pass"],
+                expected_output=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL,
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS,
+                ],
+            ),
+            id="string_list_input_multiple_behaviors",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=[  # type: ignore # Mixed list of string and enum
+                    "raise_on_fail",
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS,
+                ],
+                expected_output=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL,
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS,
+                ],
+            ),
+            id="mixed_list_input_string_and_enum",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=["invalid_string"],
+                expected_output=None,
+                should_raise=True,
+                expected_error_type=SDKUsageErrorWithExamples,
+            ),
+            id="invalid_string_in_list_raises_error",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=[123],  # type: ignore # Invalid type in list
+                expected_output=None,
+                should_raise=True,
+                expected_error_type=SDKUsageErrorWithExamples,
+            ),
+            id="invalid_type_in_list_raises_error",
+        ),
+        pytest.param(
+            TryParseIncidentBehaviorTestParams(
+                input_config=123,  # type: ignore # Invalid type
+                expected_output=None,
+                should_raise=True,
+                expected_error_type=SDKUsageErrorWithExamples,
+            ),
+            id="invalid_type_input_raises_error",
+        ),
+    ],
+)
+def test_try_parse_incident_behavior(
+    params: TryParseIncidentBehaviorTestParams,
+) -> None:
+    """Test _try_parse_incident_behavior function with various input scenarios."""
+    if params.should_raise:
+        assert params.expected_error_type is not None
+        with pytest.raises(params.expected_error_type):
+            _try_parse_incident_behavior(params.input_config)
+    else:
+        result = _try_parse_incident_behavior(params.input_config)
+        assert result == params.expected_output
 
 
 @pytest.mark.parametrize(

@@ -8,7 +8,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     NO_PARAMETER_OPERATORS,
     RANGE_OPERATORS,
     SINGLE_VALUE_OPERATORS,
-    AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     AssertionInfoInputType,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
@@ -282,9 +282,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,
@@ -312,7 +310,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             sensitivity: The sensitivity of the assertion.
             exclusion_windows: The exclusion windows of the assertion.
             training_data_lookback_days: The training data lookback days of the assertion.
-            incident_behavior: The incident behavior of the assertion.
+            incident_behavior: The incident behavior of the assertion. Accepts strings, enum values, lists, or None.
             tags: The tags of the assertion.
             created_by: The creator of the assertion.
             created_at: The creation time of the assertion.

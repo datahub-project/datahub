@@ -911,9 +911,7 @@ class _AssertionInput(ABC):
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         source_type: str = models.AssertionSourceTypeClass.NATIVE,  # Verified on init to be a valid enum value
         created_by: Union[str, CorpUserUrn],
@@ -932,7 +930,11 @@ class _AssertionInput(ABC):
             display_name: The display name of the assertion. If not provided, a random display name will be generated.
             enabled: Whether the assertion is enabled. Defaults to True.
             detection_mechanism: The detection mechanism to be used for the assertion.
-            incident_behavior: The incident behavior to be applied to the assertion.
+            incident_behavior: The incident behavior to be applied to the assertion. Accepts:
+                - String values: "raise_on_fail", "resolve_on_pass"
+                - Enum values: AssertionIncidentBehavior.RAISE_ON_FAIL, AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - Lists of any of the above values
+                - None (default behavior)
             tags: The tags to be applied to the assertion.
             source_type: The source type of the assertion. Defaults to models.AssertionSourceTypeClass.NATIVE.
             created_by: The actor that created the assertion.
@@ -1321,9 +1323,7 @@ class _SmartFreshnessAssertionInput(
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,
@@ -1504,9 +1504,7 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,

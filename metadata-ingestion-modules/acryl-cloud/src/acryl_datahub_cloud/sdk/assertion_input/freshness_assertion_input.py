@@ -5,7 +5,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_DAILY_SCHEDULE,
     HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
     LAST_MODIFIED_ALLOWED_FIELD_TYPES,
-    AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
     FieldSpecType,
     TimeWindowSizeInputTypes,
@@ -49,9 +49,7 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,

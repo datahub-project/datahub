@@ -7,7 +7,7 @@ from pydantic import BaseModel, Extra
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-    AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
     FieldSpecType,
     _AssertionInput,
@@ -530,9 +530,7 @@ class _VolumeAssertionInput(_AssertionInput):
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,

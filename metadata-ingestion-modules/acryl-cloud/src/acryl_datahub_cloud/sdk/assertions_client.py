@@ -17,7 +17,7 @@ from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
@@ -89,9 +89,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
     ) -> SmartFreshnessAssertion:
@@ -123,7 +121,7 @@ class AssertionsClient:
             sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
             exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
             training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass" or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
 
@@ -228,9 +226,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -313,9 +309,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -398,9 +392,7 @@ class AssertionsClient:
         display_name: Optional[str],
         enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -485,9 +477,7 @@ class AssertionsClient:
         display_name: Optional[str],
         enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -601,9 +591,7 @@ class AssertionsClient:
         enabled: Optional[bool],
         criteria: SqlAssertionCriteria,
         statement: str,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -725,9 +713,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         now_utc: datetime,
         assertion_input: _SmartFreshnessAssertionInput,
@@ -853,9 +839,7 @@ class AssertionsClient:
         display_name: Optional[str],
         enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         now_utc: datetime,
         assertion_input: _FreshnessAssertionInput,
@@ -975,9 +959,7 @@ class AssertionsClient:
         display_name: Optional[str],
         enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         now_utc: datetime,
         assertion_input: _VolumeAssertionInput,
@@ -1086,9 +1068,7 @@ class AssertionsClient:
         enabled: Optional[bool],
         criteria: SqlAssertionCriteria,
         statement: str,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         now_utc: datetime,
         assertion_input: _SqlAssertionInput,
@@ -1194,9 +1174,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         schedule: Optional[Union[str, models.CronScheduleClass]],
         now_utc: datetime,
@@ -1326,9 +1304,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
     ) -> SmartFreshnessAssertion:
@@ -1377,6 +1353,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -1437,9 +1415,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -1493,6 +1469,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -1560,9 +1538,7 @@ class AssertionsClient:
         ] = None,
         lookback_window: Optional[TimeWindowSizeInputTypes] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -1600,6 +1576,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -1662,9 +1640,7 @@ class AssertionsClient:
         display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -1700,6 +1676,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -1795,9 +1773,7 @@ class AssertionsClient:
             Union[float, int], tuple[Union[float, int], Union[float, int]]
         ],
         statement: str,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -1830,6 +1806,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -1899,9 +1877,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -1933,7 +1909,7 @@ class AssertionsClient:
             sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
             exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
             training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
@@ -2049,9 +2025,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -2091,7 +2065,7 @@ class AssertionsClient:
             sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
             exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
             training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
@@ -2229,9 +2203,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
         training_data_lookback_days: Optional[int] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -2292,6 +2264,8 @@ class AssertionsClient:
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+                - A list of the above values (strings or enum values)
+                - None (default behavior)
             tags: The tags to be applied to the assertion. Valid values are:
                 - a list of strings (strings will be converted to TagUrn objects)
                 - a list of TagUrn objects
@@ -2375,9 +2349,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
@@ -2483,9 +2455,7 @@ class AssertionsClient:
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
         training_data_lookback_days: Optional[int],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ],
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
         tags: Optional[TagsInputType],
         schedule: Optional[Union[str, models.CronScheduleClass]],
         now_utc: datetime,
@@ -2707,9 +2677,7 @@ class AssertionsClient:
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         freshness_schedule_check_type: Optional[
@@ -2744,7 +2712,7 @@ class AssertionsClient:
                 - {"type": "last_modified_column", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
                 - {"type": "high_watermark_column", "column_name": "id", "additional_filter": "id > 1000"} or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id', additional_filter='id > 1000')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             freshness_schedule_check_type (Optional[Union[str, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "cron".
@@ -2849,9 +2817,7 @@ class AssertionsClient:
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -2886,7 +2852,7 @@ class AssertionsClient:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
                 - {"type": "query", "additional_filter": "value > 1000"} or DetectionMechanism.QUERY(additional_filter='value > 1000')
                 - "dataset_profile" or DetectionMechanism.DATASET_PROFILE
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
@@ -3064,9 +3030,7 @@ class AssertionsClient:
         criteria_parameters: Union[
             Union[float, int], tuple[Union[float, int], Union[float, int]]
         ],
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -3096,7 +3060,7 @@ class AssertionsClient:
             criteria_change_type (Optional[Union[SqlAssertionChangeType, str]]): The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are: "ABSOLUTE", "PERCENTAGE".
             criteria_operator (Union[SqlAssertionOperator, str]): The operator to be used for the assertion. Valid values are: "GREATER_THAN", "LESS_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN_OR_EQUAL_TO", "EQUAL_TO", "NOT_EQUAL_TO", "BETWEEN".
             criteria_parameters (Union[float, int, tuple[float, int]]): The parameters to be used for the assertion. This can be a single value or a tuple range. If the operator is "BETWEEN", the value is a tuple of two values, with format min, max. If the operator is not "BETWEEN", the value is a single value.
-            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.

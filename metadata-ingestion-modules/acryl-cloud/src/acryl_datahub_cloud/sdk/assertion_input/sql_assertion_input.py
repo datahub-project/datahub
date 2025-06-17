@@ -8,7 +8,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     RANGE_OPERATORS,
     SINGLE_VALUE_NUMERIC_OPERATORS,
-    AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     FieldSpecType,
     _AssertionInput,
     _try_parse_and_validate_schema_classes_enum,
@@ -162,9 +162,7 @@ class _SqlAssertionInput(_AssertionInput):
         display_name: Optional[str] = None,
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
-        incident_behavior: Optional[
-            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
-        ] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,

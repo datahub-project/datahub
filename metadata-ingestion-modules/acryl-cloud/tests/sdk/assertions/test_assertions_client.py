@@ -26,6 +26,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
+    AssertionIncidentBehaviorInputTypes,
     DetectionMechanism,
     DetectionMechanismInputTypes,
     FixedRangeExclusionWindow,
@@ -94,7 +95,7 @@ class SmartFreshnessAssertionInputParams:
     sensitivity: Optional[InferenceSensitivity] = None
     exclusion_windows: Optional[list[FixedRangeExclusionWindow]] = None
     training_data_lookback_days: Optional[int] = None
-    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None
     tags: Optional[TagsInputType] = None
     created_by: Optional[CorpUserUrn] = None
 
@@ -232,6 +233,36 @@ class SmartFreshnessAssertionOutputParams:
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
             ),
             id="multiple_incident_behaviors_and_tags_and_exclusion_windows",
+        ),
+        # Test string incident_behavior input
+        pytest.param(
+            SmartFreshnessAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                display_name="Test Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
+                sensitivity=InferenceSensitivity.LOW,
+                training_data_lookback_days=30,
+                incident_behavior="raise_on_fail",  # String input
+                tags=["urn:li:tag:my_tag_1"],
+                created_by=_any_user,
+            ),
+            SmartFreshnessAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                display_name="Test Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
+                sensitivity=InferenceSensitivity.LOW,
+                exclusion_windows=[],
+                training_data_lookback_days=30,
+                incident_behavior=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL
+                ],  # Expected enum output
+                tags=[TagUrn.from_string("urn:li:tag:my_tag_1")],
+                created_by=_any_user,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=_any_user,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+            ),
+            id="string_incident_behavior_input",
         ),
     ],
 )
@@ -590,7 +621,7 @@ class SmartVolumeAssertionInputParams:
     sensitivity: Optional[InferenceSensitivity] = None
     exclusion_windows: Optional[list[FixedRangeExclusionWindow]] = None
     training_data_lookback_days: Optional[int] = None
-    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None
     tags: Optional[TagsInputType] = None
     created_by: Optional[CorpUserUrn] = None
     schedule: Optional[Union[str, models.CronScheduleClass]] = None
@@ -735,6 +766,38 @@ class SmartVolumeAssertionOutputParams:
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             id="multiple_incident_behaviors_and_tags_and_exclusion_windows",
+        ),
+        # Test string incident_behavior input for smart volume assertion
+        pytest.param(
+            SmartVolumeAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                display_name="Test Smart Volume Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
+                sensitivity=InferenceSensitivity.LOW,
+                training_data_lookback_days=30,
+                incident_behavior="resolve_on_pass",  # String input
+                tags=["urn:li:tag:my_tag_1"],
+                created_by=_any_user,
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            SmartVolumeAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                display_name="Test Smart Volume Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
+                sensitivity=InferenceSensitivity.LOW,
+                exclusion_windows=[],
+                training_data_lookback_days=30,
+                incident_behavior=[
+                    AssertionIncidentBehavior.RESOLVE_ON_PASS
+                ],  # Expected enum output
+                tags=[TagUrn.from_string("urn:li:tag:my_tag_1")],
+                created_by=_any_user,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=_any_user,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            id="string_incident_behavior_input_smart_volume",
         ),
     ],
 )
@@ -1281,6 +1344,30 @@ def test_sync_smart_volume_assertion_uses_default_if_updated_by_is_not_set(
     assertion_entity_upserted = mock_upsert.call_args_list[0][0][0]
     assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
     assert mock_create_assertion.call_count == 0
+
+
+def test_sync_smart_volume_assertion_uses_string_incident_behavior(
+    volume_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    volume_assertion_entity_with_all_fields: Assertion,
+    volume_monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that sync_smart_volume_assertion accepts string incident_behavior."""
+    client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior
+    assertion = client.sync_smart_volume_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        incident_behavior="raise_on_fail",  # String input
+        updated_by="urn:li:corpuser:test_user",
+    )
+
+    # Assert - should convert string to enum list
+    assert assertion.incident_behavior == [AssertionIncidentBehavior.RAISE_ON_FAIL]
 
 
 def _validate_volume_assertion_vs_input(
@@ -1835,6 +1922,90 @@ def _validate_freshness_assertion_vs_input(
         assert assertion.lookback_window is None
 
 
+def test_sync_freshness_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that sync_freshness_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior (without URN to trigger create path)
+    assertion = client.sync_freshness_assertion(
+        dataset_urn=_any_dataset_urn,
+        incident_behavior="raise_on_fail",  # String input
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
+def test_create_freshness_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that _create_freshness_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior
+    assertion = client._create_freshness_assertion(
+        dataset_urn=_any_dataset_urn,
+        incident_behavior="resolve_on_pass",  # String input
+        created_by="urn:li:corpuser:test_user",
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
+def test_sync_volume_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that sync_volume_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior (without URN to trigger create path)
+    assertion = client.sync_volume_assertion(
+        dataset_urn=_any_dataset_urn,
+        criteria_type="ROW_COUNT_TOTAL",
+        criteria_operator="BETWEEN",
+        criteria_parameters=(100, 1000),
+        incident_behavior="raise_on_fail",  # String input
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
+def test_create_volume_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that _create_volume_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior
+    assertion = client._create_volume_assertion(
+        dataset_urn=_any_dataset_urn,
+        criteria_type="ROW_COUNT_TOTAL",
+        criteria_operator="BETWEEN",
+        criteria_parameters=(100, 1000),
+        incident_behavior="resolve_on_pass",  # String input
+        created_by="urn:li:corpuser:test_user",
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
 # SQL Assertion tests
 
 
@@ -2187,6 +2358,56 @@ def _validate_sql_assertion_vs_input(
     assert assertion.schedule.timezone == expected_output_params.schedule.timezone
 
 
+def test_sync_sql_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that sync_sql_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior (without URN to trigger create path)
+    assertion = client.sync_sql_assertion(
+        dataset_urn=_any_dataset_urn,
+        statement="SELECT COUNT(*) FROM table",
+        criteria_type="METRIC_CHANGE",
+        criteria_operator="EQUAL_TO",
+        criteria_parameters=0,
+        criteria_change_type="ABSOLUTE",
+        incident_behavior="raise_on_fail",  # String input
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
+def test_create_sql_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that _create_sql_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior
+    assertion = client._create_sql_assertion(
+        dataset_urn=_any_dataset_urn,
+        statement="SELECT COUNT(*) FROM table",
+        criteria_type="METRIC_CHANGE",
+        criteria_operator="EQUAL_TO",
+        criteria_parameters=0,
+        criteria_change_type="ABSOLUTE",
+        incident_behavior="resolve_on_pass",  # String input
+        tags=None,
+        created_by="urn:li:corpuser:test_user",
+    )
+
+    # Assert that the method completed successfully
+    assert assertion is not None
+    assert mock_create.call_count == 2  # Creates both assertion and monitor
+
+
 # Smart column metric tests
 @dataclass
 class SmartColumnMetricAssertionInputParams:
@@ -2203,7 +2424,7 @@ class SmartColumnMetricAssertionInputParams:
     sensitivity: Optional[InferenceSensitivity] = None
     exclusion_windows: Optional[list[FixedRangeExclusionWindow]] = None
     training_data_lookback_days: Optional[int] = None
-    incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
+    incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None
     tags: Optional[TagsInputType] = None
     updated_by: Optional[CorpUserUrn] = None
     schedule: Optional[Union[str, models.CronScheduleClass]] = None
@@ -2354,6 +2575,50 @@ class SmartColumnMetricAssertionOutputParams:
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             id="full_valid_input_single_value",
+        ),
+        # Test string incident_behavior input for smart column metric assertion
+        pytest.param(
+            SmartColumnMetricAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="10",
+                value_type="number",
+                display_name="Test Smart Column Metric Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=InferenceSensitivity.LOW,
+                training_data_lookback_days=30,
+                incident_behavior="raise_on_fail",  # String input
+                tags=["urn:li:tag:my_tag_1"],
+                updated_by=_any_user,
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            SmartColumnMetricAssertionOutputParams(
+                dataset_urn=_any_dataset_urn,
+                column_name="amount",
+                metric_type="null_count",
+                operator="less_than",
+                value="10",
+                value_type="number",
+                range=None,
+                range_type=None,
+                display_name="Test Smart Column Metric Assertion String Incident Behavior",
+                detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
+                sensitivity=InferenceSensitivity.LOW,
+                exclusion_windows=[],
+                training_data_lookback_days=30,
+                incident_behavior=[
+                    AssertionIncidentBehavior.RAISE_ON_FAIL
+                ],  # Expected enum output
+                tags=[TagUrn.from_string("urn:li:tag:my_tag_1")],
+                created_by=_any_user,
+                created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                updated_by=_any_user,
+                updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
+                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            ),
+            id="string_incident_behavior_input_smart_column_metric",
         ),
     ],
 )
@@ -2618,6 +2883,30 @@ def test_sync_smart_column_metric_assertion_invalid_input(
     # Act & Assert
     with pytest.raises(error_type, match=expected_error_message):
         client.sync_smart_column_metric_assertion(**asdict(input_params))
+
+
+def test_create_smart_column_metric_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that _create_smart_column_metric_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Act - call with string incident_behavior
+    assertion = client._create_smart_column_metric_assertion(
+        dataset_urn=_any_dataset_urn,
+        column_name="amount",
+        metric_type="null_count",
+        operator="less_than",
+        value="10",
+        value_type="number",
+        incident_behavior="resolve_on_pass",  # String input
+        created_by="urn:li:corpuser:test_user",
+    )
+
+    # Assert - should convert string to enum list
+    assert assertion.incident_behavior == [AssertionIncidentBehavior.RESOLVE_ON_PASS]
 
 
 def _validate_column_metric_assertion_vs_input(

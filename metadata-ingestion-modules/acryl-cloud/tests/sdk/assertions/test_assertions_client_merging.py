@@ -663,6 +663,43 @@ def test_sync_smart_freshness_assertion_uses_input_incident_behavior_if_input_in
     assert assertion.incident_behavior == []
 
 
+def test_sync_smart_freshness_assertion_uses_string_incident_behavior(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    freshness_assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that sync_smart_freshness_assertion accepts string incident_behavior."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+
+    # Arrange - field_name and field_type setup for the INFORMATION_SCHEMA detection
+    field_name = "field"
+    field_type = "DateTypeClass"
+    with patch.object(
+        _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
+    ) as mock_create_field_spec:
+        mock_create_field_spec.return_value = models.FreshnessFieldSpecClass(
+            path=field_name,
+            type=field_type,
+            nativeType=field_type,
+            kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
+        )
+
+        # Act - call with string incident_behavior
+        assertion = client.sync_smart_freshness_assertion(
+            dataset_urn=any_dataset_urn,
+            urn=any_assertion_urn,
+            incident_behavior="raise_on_fail",  # String input
+            updated_by="urn:li:corpuser:test_user",
+        )
+
+    # Assert - should convert string to enum list
+    assert assertion.incident_behavior == [AssertionIncidentBehavior.RAISE_ON_FAIL]
+
+
 def test_sync_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
     freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
