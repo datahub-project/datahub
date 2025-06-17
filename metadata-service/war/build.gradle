@@ -35,15 +35,9 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation(externalDependency.springBootStarterWeb) {
-    exclude module: "spring-boot-starter-tomcat"
-  }
-  implementation(externalDependency.springBootStarterJetty) {
-    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
-  }
-  implementation(externalDependency.springBootStarterValidation) {
-    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
-  }
+  implementation(externalDependency.springBootStarterWeb)
+  implementation(externalDependency.springBootStarterJetty)
+  implementation(externalDependency.springBootStarterValidation)
 
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC

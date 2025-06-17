@@ -171,17 +171,11 @@ These privileges are for DataHub operators to access & manage the administrative
 | Create Business Attribute       | Allow actor to create new Business Attribute.                                                                      |
 | Manage Structured Properties    | Manage structured properties in your instance.                                                                     |
 | View Tests                      | View Asset Tests.                                                                                                  |
-| Manage Tests[^2]                | Allow actor to create and remove Asset Tests.                                                                      |
-| View Metadata Proposals[^2]     | Allow actor to view the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints[^3] | Allow actor to create metadata constraints.                                                                        |
-| Manage Platform Settings[^2]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors[^2]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
-
-[^3]: Deprecated feature
+| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                      |
+| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                               |
+| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                        |
+| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
+| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
 
 #### Entity Management
 
@@ -195,20 +189,16 @@ These privileges are for DataHub operators to access & manage the administrative
 
 | Platform Privileges                           | Description                                                                                              |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
-| Restore Indices API[^1]                       | Allow actor to use the Restore Indices API.                                                              |     |
-| Get Timeseries index sizes API[^1]            | Allow actor to use the get Timeseries indices size API.                                                  |
-| Truncate timeseries aspect index size API[^1] | Allow actor to use the API to truncate a timeseries index.                                               |
-| Get ES task status API[^1]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
-| Enable/Disable Writeability API[^1]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
-| Apply Retention API[^1]                       | Allow actor to apply retention using the API.                                                            |
-| Analytics API access[^1]                      | Allow actor to use API read access to raw analytics data.                                                |
-| Explain ElasticSearch Query API[^1]           | Allow actor to use the Operations API explain endpoint.                                                  |
-| Produce Platform Event API[^1]                | Allow actor to produce Platform Events using the API.                                                    |
+| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                              |     |
+| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                  |
+| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                               |
+| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
+| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
+| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                            |
+| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                |
+| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                  |
+| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                    |
 | Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
 
 ### Common Metadata Privileges
 
@@ -223,15 +213,11 @@ These privileges are to view & modify any entity within DataHub.
 | Delete                             | Allow actor to delete this entity.                                                         |
 | Create Entity                      | Allow actor to create an entity if it doesn't exist.                                       |
 | Entity Exists                      | Allow actor to determine whether the entity exists.                                        |
-| Get Timeline API[^1]               | Allow actor to use the GET Timeline API.                                                   |
-| Get Entity + Relationships API[^1] | Allow actor to use the GET Entity and Relationships API.                                   |
-| Get Aspect/Entity Count APIs[^1]   | Allow actor to use the GET Aspect/Entity Count APIs.                                       |
-| View Entity[^2]                    | Allow actor to view the entity in search results.                                          |
-| Share Entity[^2]                   | Allow actor to share an entity with another DataHub Cloud instance.                        |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
+| Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                   |
+| Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                   |
+| Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                       |
+| View Entity[^1]                    | Allow actor to view the entity in search results.                                          |
+| Share Entity[^1]                   | Allow actor to share an entity with another DataHub Cloud instance.                        |
 
 #### Aspect Privileges
 
@@ -249,26 +235,35 @@ These privileges are to view & modify any entity within DataHub.
 | Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.       |
 | Edit Properties               | Allow actor to edit the properties for an entity.                  |
 | Edit Owners                   | Allow actor to add and remove owners of an entity.                 |
-| Get Timeseries Aspect API[^1] | Allow actor to use the GET Timeseries Aspect API.                  |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
+| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                  |
 
 #### Proposals
 
-| Proposals Privileges               | Description                                                          |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| Propose Tags[^2]                   | Allow actor to propose adding a tag to an asset.                     |
-| Propose Glossary Terms[^2]         | Allow actor to propose adding a glossary term to an asset.           |
-| Propose Documentation[^2]          | Allow actor to propose updates to an asset's documentation.          |
-| Manage Tag Proposals[^2]           | Allow actor to manage a proposal to add a tag to an asset.           |
-| Manage Glossary Term Proposals[^2] | Allow actor to manage a proposal to add a glossary term to an asset. |
-| Manage Documentation Proposals[^2] | Allow actor to manage a proposal update an asset's documentation     |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
+| Proposals Privileges                              | Description                                                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Propose Tags[^1]                                  | Allow actor to propose adding a tag to an asset.                                                |
+| Propose Glossary Terms[^1]                        | Allow actor to propose adding a glossary term to an asset.                                      |
+| Propose Owners[^1]                                | Allow actor to propose adding an owner to an asset.                                             |
+| Propose Domains[^1]                               | Allow actor to propose adding a domain to an asset.                                             |
+| Propose Data Contract[^1]                         | Allow actor to propose adding a data contract to a dataset.                                     |
+| Propose Structured properties[^1]                 | Allow actor to propose adding a structured property to an asset.                                |
+| Propose Documentation[^1]                         | Allow actor to propose updates to an asset's documentation.                                     |
+| Propose Dataset Column Glossary Terms[^1]         | Allow actor to propose a glossary term to a dataset schema column (field).                      |
+| Propose Dataset Column Tags[^1]                   | Allow actor to propose a tag to a dataset schema column (field).                                |
+| Propose Dataset Column Descriptions[^1]           | Allow actor to propose a updates to dataset's schema column (field) description                 |
+| Propose Dataset Column Structured Properties[^1]  | Allow actor to propose a structured property to a dataset schema column (field).                |
+| Propose Create Glossary Term[^1]                  | Allow actor to propose creation of a new glossary term.                                         |
+| Propose Create Glossary Node[^1]                  | Allow actor to propose creation of a new glossary node.                                         |
+| Manage Tag Proposals[^1]                          | Allow actor to manage a proposal to add a tag to an asset.                                      |
+| Manage Glossary Term Proposals[^1]                | Allow actor to manage a proposal to add a glossary term to an asset.                            |
+| Manage Domain Proposals[^1]                       | Allow actor to manage a proposal to add a domain to an asset.                                   |
+| Manage Owner Proposals[^1]                        | Allow actor to manage a proposal to add an owner to an asset.                                   |
+| Manage Property Proposals[^1]                     | Allow actor to manage a proposal to add a structured property to an asset.                      |
+| Manage Data Contract Proposals[^1]                | Allow actor to manage a proposal to add a data contract to a dataset.                           |
+| Manage Documentation Proposals[^1]                | Allow actor to manage updates to asset's documentation.                                         |
+| Manage Dataset Column Tag Proposals[^1]           | Allow actor to manage a proposal to add a tag to dataset schema field (column).                 |
+| Manage Dataset Column Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to dataset schema field (column).       |
+| Manage Dataset Column Property Proposals[^1]      | Allow actor to manage a proposal to add a structured property to dataset schema field (column). |
 
 ### Specific Entity-level Privileges
 
@@ -279,15 +274,11 @@ These privileges are not generalizable.
 | Entity | Privilege                              | Description                                                                                      |
 | ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Group  | Edit Group Members                     | Allow actor to add and remove members to a group.                                                |
-| Group  | Manage Group Notification Settings[^2] | Allow actor to manage notification settings for a group.                                         |
-| Group  | Manage Group Subscriptions[^2]         | Allow actor to manage subscriptions for a group.                                                 |
+| Group  | Manage Group Notification Settings[^1] | Allow actor to manage notification settings for a group.                                         |
+| Group  | Manage Group Subscriptions[^1]         | Allow actor to manage subscriptions for a group.                                                 |
 | Group  | Edit Contact Information               | Allow actor to change the contact information such as email & chat handles.                      |
 | User   | Edit Contact Information               | Allow actor to change the contact information such as email & chat handles.                      |
 | User   | Edit User Profile                      | Allow actor to change the user's profile including display name, bio, title, profile image, etc. |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
 
 #### Dataset
 
@@ -298,26 +289,22 @@ These privileges are not generalizable.
 | Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
 | Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
 | Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
-| Dataset      | Propose Dataset Column Glossary Terms[^2] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
-| Dataset      | Propose Dataset Column Tags[^2]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
-| Dataset      | Manage Dataset Column Glossary Terms[^2]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
-| Dataset      | Propose Dataset Column Descriptions[^2]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
-| Dataset      | Manage Dataset Column Tag Proposals[^2]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
+| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
+| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
+| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
+| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
+| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
 | Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
 | Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
 | Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
-| Dataset      | Edit Monitors[^2]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
-| Dataset      | Edit SQL Assertion Monitors[^2]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
-| Dataset      | Edit Data Contract[^2]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
-| Dataset      | Manage Data Contract Proposals[^2]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
+| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
+| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
+| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
+| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
 | Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                         |
 | Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
 | GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
 | GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
 
 #### Misc
 
@@ -327,10 +314,6 @@ These privileges are not generalizable.
 | Domain       | Manage Data Products            | Allow actor to create, edit, and delete Data Products within a Domain |
 | GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.  |
 | GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.   |
-
-[^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-
-[^2]: DataHub Cloud only
 
 ## Coming Soon
 
@@ -345,3 +328,9 @@ Under consideration
 ## Feedback / Questions / Concerns
 
 We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!
+
+[^3]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
+[^1]: DataHub Cloud only
+
+[^2]: Deprecated feature

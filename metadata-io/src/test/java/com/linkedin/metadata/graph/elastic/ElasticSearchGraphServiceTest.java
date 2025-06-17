@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -61,6 +62,7 @@ public class ElasticSearchGraphServiceTest {
     mockESBulkProcessor = mock(ESBulkProcessor.class);
     mockWriteDAO = mock(ESGraphWriteDAO.class);
     mockReadDAO = mock(ESGraphQueryDAO.class);
+    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     test =
         new ElasticSearchGraphService(
             new LineageRegistry(entityRegistry),
@@ -145,6 +147,7 @@ public class ElasticSearchGraphServiceTest {
     // Mock read DAO behavior
     when(mockReadDAO.getSearchResponse(any(), any(), any(), any(), anyInt()))
         .thenReturn(mockResponse);
+    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
 
     // Call the method under test
     RelatedEntitiesScrollResult result =
