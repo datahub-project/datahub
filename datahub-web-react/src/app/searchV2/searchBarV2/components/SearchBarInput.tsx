@@ -66,7 +66,6 @@ const SuffixWrapper = styled.div`
 `;
 
 interface Props {
-    value: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
@@ -77,12 +76,13 @@ interface Props {
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
-            value,
             onChange,
             onSearch,
             onFocus,
@@ -93,6 +93,8 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             placeholder,
             showCommandK,
             viewsEnabled,
+            onCompositionStart,
+            onCompositionEnd,
         },
         ref,
     ) => {
@@ -137,7 +139,6 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
-                    value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
@@ -145,6 +146,9 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     allowClear={isDropdownOpened || isFocused}
                     clearIcon={<Icon onClick={onClear} icon="XCircle" source="phosphor" size="2xl" />}
                     ref={ref}
+                    onCompositionStart={onCompositionStart}
+                    onCompositionEnd={onCompositionEnd}
+                    forceUncontrolled
                     suffix={
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}

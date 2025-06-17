@@ -50,6 +50,11 @@ export const SearchBarV2 = ({
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
     const shouldCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
+    const isComposingRef = useRef(false);
+
+    // State for what the user sees in the input field. Updates on every keystroke.
+    const [inputValue, setInputValue] = useState<string>(initialQuery || '');
+    // State for what is actually used to fetch search results. Updates only when stable.
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const filtersFromQueryParams = useFiltersMapFromQueryParams();
@@ -68,10 +73,8 @@ export const SearchBarV2 = ({
 
     const isSearching = useMemo(() => {
         const minimalLengthOfQuery = searchAPIVariant === SearchBarApi.SearchAcrossEntities ? 3 : 1;
-
         const hasSearchQuery = searchQuery.length >= minimalLengthOfQuery;
         const hasAnyAppliedFilters = flatAppliedFilters.length > 0;
-
         return hasSearchQuery || hasAnyAppliedFilters;
     }, [searchQuery, flatAppliedFilters, searchAPIVariant]);
 
@@ -86,6 +89,7 @@ export const SearchBarV2 = ({
     );
 
     const clearQueryAndFilters = useCallback(() => {
+        setInputValue('');
         setSearchQuery('');
         clear();
     }, [clear]);
@@ -96,17 +100,16 @@ export const SearchBarV2 = ({
     useEffect(() => () => clearQueryAndFilters(), [clearQueryAndFilters]);
 
     const onSearchHandler = useCallback(() => {
-        const filteredSearchQuery = filterSearchQuery(searchQuery || '');
+        const filteredSearchQuery = filterSearchQuery(inputValue || ''); // Use inputValue for submitting
         let cleanedQuery = filteredSearchQuery.trim();
         if (cleanedQuery.length === 0) {
             cleanedQuery = '*';
         } else if (!cleanedQuery.includes('*') && cleanedQuery.length < MIN_CHARACTER_COUNT_FOR_SEARCH) {
             cleanedQuery = `${cleanedQuery}*`;
         }
-
         onSearch(filteredSearchQuery, flatAppliedFilters);
         setIsDropdownVisible(false);
-    }, [searchQuery, flatAppliedFilters, onSearch]);
+    }, [inputValue, flatAppliedFilters, onSearch]);
 
     const onSelectHandler = useCallback(
         (value, option) => {
@@ -116,8 +119,32 @@ export const SearchBarV2 = ({
         [selectOption],
     );
 
-    const onChangeHandler = useCallback((value: string) => {
-        const filteredQuery = filterSearchQuery(value);
+    const onChangeHandler = useCallback(
+        (value: string) => {
+            const filteredQuery = filterSearchQuery(value);
+            // Always update the visible input value immediately
+            setInputValue(filteredQuery);
+
+            // If not composing, also update the stable search query
+            if (!isComposingRef.current) {
+                setSearchQuery(filteredQuery);
+            }
+            if (filteredQuery === '') {
+                clear();
+            }
+        },
+        [clear],
+    );
+
+    const handleCompositionStart = useCallback(() => {
+        isComposingRef.current = true;
+    }, []);
+
+    const handleCompositionEnd = useCallback((event: React.CompositionEvent<HTMLInputElement>) => {
+        isComposingRef.current = false;
+        // sync the stable search query with the final composed value.
+        const finalValue = event.currentTarget.value;
+        const filteredQuery = filterSearchQuery(finalValue);
         setSearchQuery(filteredQuery);
     }, []);
 
@@ -164,7 +191,7 @@ export const SearchBarV2 = ({
                 }
                 onSelect={onSelectHandler}
                 defaultValue={initialQuery || undefined}
-                value={searchQuery}
+                value={inputValue}
                 onChange={onChangeHandler}
                 dropdownAlign={
                     isShowNavBarRedesign ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR : AUTOCOMPLETE_DROPDOWN_ALIGN
@@ -190,7 +217,6 @@ export const SearchBarV2 = ({
                 <SearchBarInput
                     placeholder={placeholderText}
                     onSearch={onSearchHandler}
-                    value={searchQuery}
                     onFocus={onFocus}
                     onBlur={onBlur}
                     onViewsClick={onViewsClickHandler}
@@ -199,6 +225,8 @@ export const SearchBarV2 = ({
                     showCommandK={showCommandK}
                     isDropdownOpened={isDropdownVisible}
                     viewsEnabled={viewsEnabled}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
                 />
             </AutoComplete>
         </Wrapper>
