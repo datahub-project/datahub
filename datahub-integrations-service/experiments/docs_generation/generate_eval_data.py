@@ -1,3 +1,5 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import hashlib
 import json
 import os
@@ -6,7 +8,6 @@ import shutil
 from typing import Any, Dict, List, Tuple, TypedDict
 
 import asyncer
-import dotenv
 from datahub.utilities.perf_timer import PerfTimer
 from graph_helper import create_datahub_graph
 from loguru import logger
@@ -16,10 +17,10 @@ from datahub_integrations.gen_ai.description_context import (
     extract_metadata_for_urn,
 )
 
+assert AI_EXPERIMENTATION_INITIALIZED
 current_dir = pathlib.Path(__file__).parent.resolve()
 logger.info(f"eval directory: {current_dir}")
 logger.info(f"parent directory: {current_dir.parent}")
-dotenv.load_dotenv()
 
 
 class EvalEntry(TypedDict):

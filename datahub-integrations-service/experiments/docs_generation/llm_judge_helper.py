@@ -1,3 +1,5 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import ast
 import csv
 import dataclasses
@@ -6,7 +8,6 @@ import pathlib
 import re
 from typing import TypedDict
 
-import dotenv
 import tqdm
 from graph_helper import create_datahub_graph
 
@@ -16,7 +17,7 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 
-dotenv.load_dotenv()
+assert AI_EXPERIMENTATION_INITIALIZED
 
 
 @dataclasses.dataclass(frozen=True)

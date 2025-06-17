@@ -1,7 +1,8 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import argparse
 import os
 
-import dotenv
 import mlflow
 import mlflow.entities
 import pandas as pd
@@ -13,7 +14,7 @@ from mlflow_common import (
     load_eval_table,
 )
 
-dotenv.load_dotenv()
+assert AI_EXPERIMENTATION_INITIALIZED
 
 # Create an argument parser
 parser = argparse.ArgumentParser()

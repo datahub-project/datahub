@@ -1,8 +1,9 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import functools
 import os
 from typing import Optional
 
-import dotenv
 import mlflow
 import pandas as pd
 from eval_common import (
@@ -13,7 +14,7 @@ from eval_common import (
 from loguru import logger
 from mlflow.entities import Run
 
-dotenv.load_dotenv()
+assert AI_EXPERIMENTATION_INITIALIZED
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME", "docs_generation")
 mlflow.set_experiment(EXPERIMENT_NAME)
 

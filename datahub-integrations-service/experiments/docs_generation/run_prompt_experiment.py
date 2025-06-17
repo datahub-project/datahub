@@ -8,7 +8,6 @@ import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 import asyncer
-import dotenv
 import mlflow
 import mlflow.bedrock
 import mlflow.metrics
@@ -29,7 +28,6 @@ from datahub_integrations.gen_ai.description_v3 import (
     generate_entity_descriptions_for_urn_eval_v3,
 )
 
-dotenv.load_dotenv()
 assert AI_EXPERIMENTATION_INITIALIZED
 # Global constants
 BATCH_SIZE = 5  # Number of files to process concurrently

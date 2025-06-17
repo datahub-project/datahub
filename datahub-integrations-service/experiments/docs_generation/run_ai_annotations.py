@@ -1,3 +1,5 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import functools
 import glob
 import json
@@ -6,7 +8,6 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import asyncer
-import dotenv
 import mlflow
 import mlflow.bedrock
 import mlflow.metrics
@@ -41,7 +42,7 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 
-dotenv.load_dotenv()
+assert AI_EXPERIMENTATION_INITIALIZED
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 mlflow.bedrock.autolog()

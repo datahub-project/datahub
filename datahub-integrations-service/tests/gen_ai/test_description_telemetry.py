@@ -111,7 +111,7 @@ def test_suggest_description_with_custom_user_urn(
 ) -> None:
     # Test with a Dataset URN and custom user URN
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
-    custom_user_urn = "urn:li:user:custom-user"
+    custom_user_urn = "urn:li:corpuser:custom-user"
 
     expected_result = EntityDescriptionResult(
         table_description="This is a test table description",
@@ -200,7 +200,7 @@ def test_suggest_description_tracks_dataset_event(
 def test_suggest_description_tracks_error_event(mock_graph: DataHubGraph) -> None:
     # Test with an invalid URN
     invalid_urn = "urn:li:invalid:test"
-    custom_user_urn = "urn:li:user:custom-user"
+    custom_user_urn = "urn:li:corpuser:custom-user"
 
     with patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track:
         # Call the function and expect it to raise an error
@@ -220,7 +220,7 @@ def test_suggest_description_tracks_failed_generation(
 ) -> None:
     # Test with a Dataset URN that fails to generate description
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
-    custom_user_urn = "urn:li:user:custom-user"
+    custom_user_urn = "urn:li:corpuser:custom-user"
 
     expected_result = EntityDescriptionResult(
         table_description="",

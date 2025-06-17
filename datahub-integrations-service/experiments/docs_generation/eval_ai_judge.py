@@ -1,9 +1,10 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import datetime
 import os
 import tempfile
 from typing import Dict, List, Tuple
 
-import dotenv
 import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
@@ -24,10 +25,11 @@ from mlflow_common import (
 from pydantic import BaseModel, Field
 from run_ai_annotations import run_ai_annotations_experiment
 
+assert AI_EXPERIMENTATION_INITIALIZED
+
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 mlflow.bedrock.autolog()
-dotenv.load_dotenv()
 
 
 class MetricEvaluation(BaseModel):

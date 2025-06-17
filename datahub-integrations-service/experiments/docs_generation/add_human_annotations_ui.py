@@ -1,10 +1,11 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import argparse
 import functools
 import json
 import os
 from typing import Any, Dict, List, Optional
 
-import dotenv
 import mlflow
 import mlflow.entities
 import mlflow.metrics
@@ -40,7 +41,7 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 
-dotenv.load_dotenv()
+assert AI_EXPERIMENTATION_INITIALIZED
 # Create an argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument(
