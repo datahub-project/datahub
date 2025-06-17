@@ -258,9 +258,6 @@ input StructuredPropertyInputParams {
 }
 ```
 
-proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
-proposeCreateGlossaryNode(input: CreateGlossaryEntityInput!): Boolean
-
 ```
 type Mutation {
   proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
@@ -314,7 +311,3 @@ proposalNote: String # Context for the proposal
 To create & manage metadata proposals, certain access policies or roles are required.
 
 https://docs.datahub.com/docs/authorization/policies#proposals
-
-```
-
-```
