@@ -188,9 +188,9 @@ type Mutation {
 input ProposeTagsInput {
   description: String # Optional note explaining the proposal
   resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-	subResource: String # Optional. e.g. "fieldName"
-	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-	tagUrns: [String!]! # Required. e.g. ["urn:li:tag:Marketing"]
+  subResource: String # Optional. e.g. "fieldName"
+  subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+  tagUrns: [String!]! # Required. e.g. ["urn:li:tag:Marketing"]
 }
 ```
 
@@ -200,11 +200,11 @@ type Mutation {
 }
 
 input ProposeTermsInput {
-	description: String # Optional note explaining the proposal
+  description: String # Optional note explaining the proposal
   resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-	subResource: String # Optional. e.g. "fieldName"
-	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-	termUrns: [String!]! # Required. e.g. ["urn:li:glossaryTerm:Marketing"]
+  subResource: String # Optional. e.g. "fieldName"
+  subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+  termUrns: [String!]! # Required. e.g. ["urn:li:glossaryTerm:Marketing"]
 }
 ```
 
@@ -214,9 +214,9 @@ type Mutation {
 }
 
 input ProposeDomainInput {
-	description: String # Optional note explaining the proposal
+  description: String # Optional note explaining the proposal
   resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-	domainUrn: String! # Required. e.g. ["urn:li:domain:Marketing"]
+  domainUrn: String! # Required. e.g. ["urn:li:domain:Marketing"]
 }
 ```
 
@@ -226,9 +226,9 @@ type Mutation {
 }
 
 input ProposeOwnersInput {
-	description: String # Optional note explaining the proposal
+  description: String # Optional note explaining the proposal
   resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-	owners: [OwnerInput!]! # Required
+  owners: [OwnerInput!]! # Required
 }
 
 input OwnerInput {
@@ -245,11 +245,11 @@ type Mutation {
 }
 
 input ProposeStructuredPropertiesInput {
-	description: String # Optional note explaining the proposal
+  description: String # Optional note explaining the proposal
   resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-	subResource: String # Optional. e.g. "fieldName"
-	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-	structuredProperties: [StructuredPropertyInputParams!]!
+  subResource: String # Optional. e.g. "fieldName"
+  subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+  structuredProperties: [StructuredPropertyInputParams!]!
 }
 
 input StructuredPropertyInputParams {
@@ -288,18 +288,18 @@ input CreateGlossaryEntityInput {
 
 ```
 mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
-proposeUpdateDescription(input: $input)
+  proposeUpdateDescription(input: $input)
 }
 
 """
 Currently supports DatasetField descriptions only
 """
 input DescriptionUpdateInput {
-description: String! # the new description
-resourceUrn: String!
-subResourceType: SubResourceType
-subResource: String
-proposalNote: String # Context for the proposal
+  description: String! # the new description
+  resourceUrn: String!
+  subResourceType: SubResourceType
+  subResource: String
+  proposalNote: String # Context for the proposal
 }
 
 ```
