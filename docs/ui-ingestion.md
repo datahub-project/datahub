@@ -28,7 +28,7 @@ privileges assigned to your account. These can be granted by a [Platform Policy]
 Once you have these privileges, you can begin to manage ingestion by navigating to the 'Ingestion' tab in DataHub.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/navigate-ingestion.png"/>
 </p>
 
 On this page, you'll see a list of active **Ingestion Sources**. An Ingestion Sources is a unique source of metadata ingested
@@ -42,10 +42,10 @@ your first **Ingestion Source**.
 <Tabs>
   <TabItem value="ui" label="UI" default>
 
-Before ingesting any metadata, you need to create a new Ingestion Source. Start by clicking **+ Create new source**.
+Before ingesting any metadata, you need to create a new Ingestion Source. Start by clicking **+ Create source**.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/create-source.png"/>
 </p>
 
 #### Step 1: Select a Platform Template
@@ -223,35 +223,39 @@ To update sources, please use the `updateIngestionSource` endpoint. It is almost
 
 ### Running an Ingestion Source
 
-Once you've created your Ingestion Source, you can run it by clicking 'Execute'. Shortly after,
-you should see the 'Last Status' column of the ingestion source change from `N/A` to `Running`. This
+Once you've created your Ingestion Source, you can run it by clicking the 'Play' button. Shortly after,
+you should see the 'Last Status' column of the ingestion source change to `Running`. This
 means that the request to execute ingestion has been successfully picked up by the DataHub ingestion executor.
 
+<!-- update this image -->
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/running-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/running.png"/>
 </p>
 
 If ingestion has executed successfully, you should see it's state shown in green as `Succeeded`.
 
+<!-- update this image -->
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/successful-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/success-run.png"/>
 </p>
 
 ### Cancelling an Ingestion Run
 
 If your ingestion run is hanging, there may a bug in the ingestion source, or another persistent issue like exponential timeouts. If these situations,
-you can cancel ingestion by clicking **Cancel** on the problematic run.
+you can cancel ingestion by clicking the 'Stop' button on the problematic run.
 
+<!-- update this image -->
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/cancelled-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/cacnelled-run.png"/>
 </p>
 
-Once cancelled, you can view the output of the ingestion run by clicking **Details**.
+Once cancelled, you can view the output of the ingestion run by clicking on the status icon.
 
 ### Debugging a Failed Ingestion Run
 
+<!-- update this image -->
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/failed-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/failed-source.png"/>
 </p>
 
 A variety of things can cause an ingestion run to fail. Common reasons for failure include:
@@ -275,6 +279,15 @@ on the corresponding ingestion run.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-logs.png"/>
+</p>
+
+### Viewing Run History
+
+The **Run History** tab displays all past ingestion runs across all sources, ordered by most recent first. You can filter by source using the dropdown or navigate directly from the **Sources** tab by clicking the Last Run column or selecting View Run History from the source menu.
+
+<!-- update this image -->
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/run-history-tab.png"/>
 </p>
 
 ## FAQ
