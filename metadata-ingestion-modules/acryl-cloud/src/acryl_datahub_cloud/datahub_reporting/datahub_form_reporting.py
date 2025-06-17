@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.filters import RawSearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilter
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     FormAssociationClass,
@@ -149,7 +149,7 @@ class DataHubFormReportingData(FormData):
             )
         )
 
-    def get_form_existence_or_filters(self) -> List[RawSearchFilterRule]:
+    def get_form_existence_or_filters(self) -> RawSearchFilter:
         """
         Datasets must either have completedForms or incompleteForms assigned to
         them
@@ -157,25 +157,41 @@ class DataHubFormReportingData(FormData):
         if self.allowed_forms:
             return [
                 {
-                    "field": "completedForms",
-                    "condition": "EQUAL",
-                    "values": self.allowed_forms,
+                    "and": [
+                        {
+                            "field": "completedForms",
+                            "condition": "EQUAL",
+                            "values": self.allowed_forms,
+                        }
+                    ]
                 },
                 {
-                    "field": "incompleteForms",
-                    "condition": "EQUAL",
-                    "values": self.allowed_forms,
+                    "and": [
+                        {
+                            "field": "incompleteForms",
+                            "condition": "EQUAL",
+                            "values": self.allowed_forms,
+                        }
+                    ]
                 },
             ]
         else:
             return [
                 {
-                    "field": "completedForms",
-                    "condition": "EXISTS",
+                    "and": [
+                        {
+                            "field": "completedForms",
+                            "condition": "EXISTS",
+                        }
+                    ]
                 },
                 {
-                    "field": "incompleteForms",
-                    "condition": "EXISTS",
+                    "and": [
+                        {
+                            "field": "incompleteForms",
+                            "condition": "EXISTS",
+                        }
+                    ]
                 },
             ]
 
@@ -293,7 +309,7 @@ class DataHubFormReportingData(FormData):
         extra_fields = [f for f in self.DataHubDatasetSearchRow.__fields__]
         # TODO: Replace with the new search/filter SDK.
         result = self.graph.get_results_by_filter(
-            extra_or_filters=[{"and": self.get_form_existence_or_filters()}],
+            extra_or_filters=self.get_form_existence_or_filters(),
             extra_source_fields=extra_fields,
             skip_cache=True,
         )
