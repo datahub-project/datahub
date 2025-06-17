@@ -25,7 +25,7 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
                         navigator.clipboard.writeText(record.urn);
                     }}
                 >
-                    Copy URN
+                    Copy Urn
                 </MenuItem>
             ),
         },
