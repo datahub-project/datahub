@@ -438,7 +438,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         description="Whether to use QVCI to get column information. This is faster but requires to have QVCI enabled.",
     )
 
-
 @platform_name("Teradata")
 @config_class(TeradataConfig)
 @support_status(SupportStatus.TESTING)
@@ -502,6 +501,56 @@ class TeradataSource(TwoTierSQLAlchemySource):
         {databases_filter}
     ORDER BY "query_id", "row_no"
     """.strip()
+
+    QUERY_TEXT_PDCR_QUERY: str = """
+      WITH unified_data AS (
+          SELECT
+              s.QueryID as "query_id",
+              UserName as "user",
+              StartTime AT TIME ZONE 'GMT' as "timestamp",
+              DefaultDatabase as default_database,
+              s.SqlTextInfo as "query_text",
+              s.SqlRowNo as "row_no"
+          FROM "DBC".QryLogV as l
+          JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
+          UNION
+          SELECT
+              s.QueryID as "query_id",
+              UserName as "user",
+              StartTime AT TIME ZONE 'GMT' as "timestamp",
+              DefaultDatabase as default_database,
+              s.SqlTextInfo as "query_text",
+              s.SqlRowNo as "row_no"
+          FROM "PDCR".DBQLogTbl_Hst as l
+          JOIN "PDCR".DBQLSqlTbl_Hst as s on s.QueryID = l.QueryID          
+      )
+      SELECT * 
+      FROM unified_data
+      WHERE
+          ErrorCode = 0
+          AND statementtype not in (
+          'Unrecognized type',
+          'Create Database/User',
+          'Help',
+          'Modify Database',
+          'Drop Table',
+          'Show',
+          'Not Applicable',
+          'Grant',
+          'Abort',
+          'Database',
+          'Flush Query Logging',
+          'Null',
+          'Begin/End DBQL',
+          'Revoke'
+      )
+          and "timestamp" >= TIMESTAMP '{start_time}'
+          and "timestamp" < TIMESTAMP '{end_time}'
+          and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
+          and default_database not in ('DEMONOW_MONITOR')
+          {databases_filter}
+      ORDER BY "query_id", "row_no"
+      """.strip()
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
@@ -569,6 +618,8 @@ WHERE DataBaseName NOT IN (
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
      """.strip()
+
+
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
 
@@ -848,12 +899,39 @@ ORDER by DataBaseName, TableName;
             )
         )
 
-        query = self.QUERY_TEXT_QUERY.format(
-            start_time=self.config.start_time,
-            end_time=self.config.end_time,
-            databases_filter=databases_filter,
-        )
+        def pdcr_exists(self) -> bool:
+            # check if the PDCR tables exists
+            engine = self.get_metadata_engine()
+
+            with engine.connect() as conn:
+                result = conn.execute(f"""
+                       SELECT TableName
+                       FROM DBC.TablesV
+                       WHERE DatabaseName = 'DBC'
+                       AND TableName LIKE 'PDCR%'
+                   """).fetch
+                row = result.fetchone()
+
+                if row is None:
+                    return False
+                else:
+                    return True
+
+        if pdcr_exists():
+            query = self.QUERY_TEXT_PDCR_QUERY.format(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                databases_filter=databases_filter,
+            )
+        else:
+            query = self.QUERY_TEXT_QUERY.format(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                databases_filter=databases_filter,
+            )
+
         return query
+
 
     def gen_lineage_from_query(
         self,
