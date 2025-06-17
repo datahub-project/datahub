@@ -213,9 +213,14 @@ module.exports = {
           type: "category",
           link: {
             type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
+            id: "docs/features/feature-guides/lineage",
           },
           items: [
+            {
+            label: "Automatic Lineage Extraction",
+              type: "doc",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
+            },
             {
               label: "Lineage Impact analysis",
               type: "doc",
