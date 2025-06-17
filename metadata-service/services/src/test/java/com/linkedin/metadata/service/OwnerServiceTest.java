@@ -1,11 +1,12 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.service.OwnerService.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.resource.ResourceReference;
@@ -35,10 +37,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+@Slf4j
 public class OwnerServiceTest {
 
   private static final Urn TEST_OWNER_URN_1 = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -137,6 +142,36 @@ public class OwnerServiceTest {
         GenericRecordUtils.deserializeAspect(
             event2.getAspect().getValue(), event2.getAspect().getContentType(), Ownership.class);
     Assert.assertEquals(ownerAspect2.getOwners(), expectedOwners);
+  }
+
+  @Test
+  private void testAddOwnersToEntity() throws Exception {
+    SystemEntityClient mockClient = createMockOwnersClient(null);
+
+    final OwnerService service = new OwnerService(mockClient);
+
+    Owner owner = new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER);
+
+    service.addOwners(opContext, TEST_ENTITY_URN_1, ImmutableList.of(owner));
+
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient, times(1))
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+
+    MetadataChangeProposal resultProposal = proposalCaptor.getValue();
+    assertEquals(resultProposal.getEntityType(), DATASET_ENTITY_NAME);
+    assertEquals(resultProposal.getAspectName(), OWNERSHIP_ASPECT_NAME);
+    assertEquals(resultProposal.getChangeType(), ChangeType.UPSERT);
+    assertEquals(resultProposal.getEntityUrn(), TEST_ENTITY_URN_1);
+    Ownership resultInfo =
+        GenericRecordUtils.deserializeAspect(
+            resultProposal.getAspect().getValue(),
+            resultProposal.getAspect().getContentType(),
+            Ownership.class);
+    assertEquals(resultInfo.getOwners().get(0).getOwner(), TEST_OWNER_URN_1);
+    assertEquals(resultInfo.getOwners().get(0).getType(), OwnershipType.TECHNICAL_OWNER);
+    assertEquals(resultInfo.getOwners().size(), 1);
   }
 
   @Test
