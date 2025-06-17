@@ -12,6 +12,8 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 ## Using Approval Workflows
 
+**Note:** You can select and propose multiple Tags, Glossary Terms, Owners, or Structure Properties at once. The workflow process remains the same whether proposing single or multiple items.
+
 ### Proposing Tags and Glossary Terms
 
 1. When adding a Tag or Glossary Term to a column or entity, you will see a propose button.
@@ -23,7 +25,7 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 2. After proposing the Glossary Term, you will see it appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propsed_term_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_term_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
@@ -33,6 +35,84 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
+
+### Proposing Owners
+
+1. When adding an Owner to an entity, you will see a propose button.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_owner_on_dataset.png"/>
+</p>
+
+2. After proposing the Owner(s), you will see the owner(s) appear in a proposed state.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_owner_on_dataset.png"/>
+</p>
+
+3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_owner_to_dataset_in_inbox.png"/>
+</p>
+
+4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
+
+### Proposing Domain
+
+1. When adding a Domain to an entity, you will see a propose button.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_domain_on_dataset.png"/>
+</p>
+
+2. After proposing the Domain, you will see the Domain appear in a proposed state.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_domain_on_dataset.png"/>
+</p>
+
+3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_domain_to_dataset_in_inbox.png"/>
+</p>
+
+4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
+
+### Proposing Structured Properties
+
+1. When adding a Structured property to a column or an entity, you will see a propose button.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_property_on_dataset.png"/>
+</p>
+
+2. After proposing the Structured Properties, you will see them appear in a proposed state.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_property_on_dataset.png"/>
+</p>
+
+3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_property_to_dataset_in_inbox.png"/>
+</p>
+
+4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
+
+### Proposing Documentation or Description Updates
+
+1. When updating the documentation of any entity, or description of a dataset column, you can click the propose button
+
+2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_description_proposal.png"/>
+</p>
+
+3. From there, they can choose to either accept or reject the proposal.
 
 ### Proposing additions to your Business Glossary
 
@@ -52,22 +132,6 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
 
-### Proposing Glossary Term Description Updates
-
-1. When updating the description of a Glossary Term, click propse after making your change.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_glossary_description_change.png"/>
-</p>
-
-2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_description_proposal.png"/>
-</p>
-
-3. From there, they can choose to either accept or reject the proposal.
-
 ## Proposing Programatically
 
 DataHub exposes a GraphQL API for proposing Tags and Glossary Terms.
@@ -75,8 +139,8 @@ DataHub exposes a GraphQL API for proposing Tags and Glossary Terms.
 At a high level, callers of this API will be required to provide the following details:
 
 1. A unique identifier for the target Metadata Entity (URN)
-2. An optional sub-resource identifier which designates a sub-resource to attach the Tag or Glossary Term to. for example reference to a particular "field" within a Dataset.
-3. A unique identifier for the Tag or Glossary Term they wish to propose (URN)
+2. An optional sub-resource identifier which designates a sub-resource to attach the Tag, Glossary Term, owner, domain or Structured property to. For example reference to a particular "field" within a Dataset.
+3. A unique identifier for the Tag/Glossary Term/Owner/Domain/Structured property they wish to propose (URN)
 
 In the following sections, we will describe how to construct each of these items and use the DataHub GraphQL API to submit Tag or Glossary Term proposals.
 
@@ -89,9 +153,9 @@ Inside DataHub, each Metadata Entity is uniquely identified by a Universal Resou
 Specific Metadata Entity types have additional sub-resources to which Tags may be applied.
 Today, this only applies for Dataset Metadata Entities, which have a "fields" sub-resource. In this case, the `subResource` value would be the field path for the schema field.
 
-#### Finding a Tag or Glossary Term Identifier
+#### Finding an Identifier for Tag/Glossary Term/Owner/Domain/Structure property
 
-Tags and Glossary Terms are also uniquely identified by an URN.
+All of these are uniquely identified by an URN.
 
 Tag URNs have the following format:
 `urn:li:tag:<id>`
@@ -99,60 +163,148 @@ Tag URNs have the following format:
 Glossary Term URNs have the following format:
 `urn:li:glossaryTerm:<id>`
 
-These full identifiers can be copied from the entity pages of the Tag or Glossary Term.
+Domain URNs have the following format:
+`urn:li:domain:<id>`
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/copy_urn_from_entity.png"/>
-</p>
+Owner URNs have the following format:
+`urn:li:corpuser:<id>` or `urn:li:corpGroup:<id>`
+
+Structured Property URNs have the following format:
+`urn:li:structuredProperty:<id>`
+
+These identifiers can be copied from the url of the corresponding entity pages.
 
 #### Issuing a GraphQL Query
 
-Once we've constructed an Entity URN, any relevant sub-resource identifiers, and a Tag or Term URN, we're ready to propose! To do so, we'll use the DataHub GraphQL API.
+Once we've constructed an Entity URN, any relevant sub-resource identifiers, we're ready to propose! To do so, we'll use the DataHub GraphQL API.
 
-In particular, we'll be using the proposeTag, proposeGlossaryTerm, and proposeUpdateDescription Mutations, which have the following interface:
+In particular, we'll be using the proposeTags, proposeTerms, proposeDomain, proposeOwners, proposeStructuredProperties, proposeCreateGlossaryTerm, proposeCreateGlossaryNode, proposeDataContract, and proposeUpdateDescription Mutations, which have the following interface:
 
 ```
 type Mutation {
-proposeTerm(input: TermAssociationInput!): String! # Returns Proposal URN.
+  proposeTags(input: ProposeTagsInput!): String! # Returns Proposal URN.
 }
 
-input TermAssociationInput {
-	resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+input ProposeTagsInput {
+  description: String # Optional note explaining the proposal
+  resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
 	subResource: String # Optional. e.g. "fieldName"
 	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-	term: String! # Required. e.g. "urn:li:tag:Marketing"
+	tagUrns: [String!]! # Required. e.g. ["urn:li:tag:Marketing"]
 }
 ```
 
 ```
 type Mutation {
-proposeTag(input: TagAssociationInput!): String! # Returns Proposal URN.
+  proposeTerms(input: ProposeTermsInput!): String! # Returns Proposal URN.
 }
 
-input TagAssociationInput {
-	resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)" subResource: String # Optional. e.g. "fieldName"
+input ProposeTermsInput {
+	description: String # Optional note explaining the proposal
+  resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+	subResource: String # Optional. e.g. "fieldName"
 	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-	tagUrn: String! # Required. e.g. "urn:li:tag:Marketing"
+	termUrns: [String!]! # Required. e.g. ["urn:li:glossaryTerm:Marketing"]
+}
+```
+
+```
+type Mutation {
+  proposeDomain(input: ProposeDomainInput!): String! # Returns Proposal URN.
+}
+
+input ProposeDomainInput {
+	description: String # Optional note explaining the proposal
+  resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+	domainUrn: String! # Required. e.g. ["urn:li:domain:Marketing"]
+}
+```
+
+```
+type Mutation {
+  proposeOwners(input: ProposeOwnersInput!): String! # Returns Proposal URN.
+}
+
+input ProposeOwnersInput {
+	description: String # Optional note explaining the proposal
+  resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+	owners: [OwnerInput!]! # Required
+}
+
+input OwnerInput {
+  ownerUrn: String! # Required. e.g. "urn:li:owner:(...)"
+  ownerEntityType: OwnerEntityType! # Required. e.g. "CORP_USER"
+  type: OwnershipType # Optional
+  ownershipTypeUrn: String # Optional. The urn of the ownership type entity.
+}
+```
+
+```
+type Mutation {
+  proposeStructuredProperties(input: ProposeStructuredPropertiesInput!): String! # Returns Proposal URN.
+}
+
+input ProposeStructuredPropertiesInput {
+	description: String # Optional note explaining the proposal
+  resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+	subResource: String # Optional. e.g. "fieldName"
+	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+	structuredProperties: [StructuredPropertyInputParams!]!
+}
+
+input StructuredPropertyInputParams {
+  structuredPropertyUrn: String! # Required. e.g. "urn:li:structuredProperty:(...)"
+  values: [PropertyValueInput!]! # Required. e.g. "{ stringValue: ''}"
+}
+```
+
+proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
+proposeCreateGlossaryNode(input: CreateGlossaryEntityInput!): Boolean
+
+```
+type Mutation {
+  proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
+}
+
+input CreateGlossaryEntityInput {
+  id: String # Optional. Otherwise uuid is generated
+  name: String! # Required. e.g. "Marketing"
+  description: String # Optional
+  parentNode: String # Optional. e.g. "urn:li:glossaryNode:(...)"
+  proposalNote: String # Optional. Context for the proposal
+}
+```
+
+```
+type Mutation {
+  proposeCreateGlossaryNode(input: CreateGlossaryEntityInput!): Boolean
+}
+
+input CreateGlossaryEntityInput {
+  id: String # Optional. Otherwise uuid is generated
+  name: String! # Required. e.g. "Marketing"
+  description: String # Optional
+  parentNode: String # Optional. e.g. "urn:li:glossaryNode:(...)"
+  proposalNote: String # Optional. Context for the proposal
 }
 ```
 
 ```
 mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
-    proposeUpdateDescription(input: $input)
+proposeUpdateDescription(input: $input)
 }
 
 """
-Currently supports updates to Glossary Term descriptions only
+Currently supports DatasetField descriptions only
 """
 input DescriptionUpdateInput {
-    description: String! # the new description
-
-    resourceUrn: String!
-
-    subResourceType: SubResourceType
-
-    subResource: String
+description: String! # the new description
+resourceUrn: String!
+subResourceType: SubResourceType
+subResource: String
+proposalNote: String # Context for the proposal
 }
+
 ```
 
 ## Additional Resources
@@ -161,34 +313,8 @@ input DescriptionUpdateInput {
 
 To create & manage metadata proposals, certain access policies or roles are required.
 
-#### Privileges for Creating Proposals
+https://docs.datahub.com/docs/authorization/policies#proposals
 
-To create a new proposal one of these Metadata privileges are required. All roles have these priveleges by default.
+```
 
-- Propose Tags - Allows to propose tags at the Entity level
-- Propose Dataset Column Tags - Allows to propose tags at the Dataset Field level
-- Propose Glossary Terms - Allows to propose terms at the Entity level
-- Propose Dataset Column Glossary Terms - Allows to propose terms at the Dataset Field level
-
-To be able to see the Proposals Tab you need the <strong>"View Metadata Proposals"</strong> PLATFORM privilege
-
-#### Privileges for Managing Proposals
-
-To be able to approve or deny proposals you need one of the following Metadata privileges. `Admin` and `Editor` roles already have these by default.
-
-- Manage Tag Proposals
-- Manage Glossary Term Proposals
-- Manage Dataset Column Tag Proposals
-- Manage Dataset Column Term Proposals
-
-These map directly to the 4 privileges for doing the proposals.
-
-To be able to approve or deny proposals to the glossary itself, you just need one permission:
-
-- Manage Glossaries
-
-### Videos
-
-<p align="center">
-<iframe width="560" height="315" src="https://www.loom.com/embed/1e450bde6b544653bbbf7f9762d1b157" title="Approval Workflows" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</p>
+```
