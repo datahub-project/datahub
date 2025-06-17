@@ -8,7 +8,6 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { toProperTitleCase } from '@app/entityV2/shared/utils';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
@@ -152,7 +151,7 @@ ASSERTION_INFO.forEach((info) => {
 });
 
 export const getAssertionGroupName = (type: string): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
 export const getAssertionGroupTypeIcon = (type: string) => {
@@ -234,7 +233,7 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
 };
 
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    return assertion?.info?.customAssertion?.type || assertion?.info?.type;
 };
 
 /**

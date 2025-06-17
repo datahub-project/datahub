@@ -41,10 +41,6 @@ describe('acrylUtils', () => {
         it('should return proper name for known assertion type', () => {
             expect(getAssertionGroupName('FRESHNESS')).toBe('Freshness');
         });
-
-        it('should return title case for unknown assertion type', () => {
-            expect(getAssertionGroupName('UNKNOWN TYPE')).toBe('Unknown Type');
-        });
     });
 
     describe('getAssertionType', () => {
@@ -58,7 +54,7 @@ describe('acrylUtils', () => {
                     },
                 },
             };
-            expect(getAssertionType(assertion as Assertion)).toBe('CUSTOMTYPE');
+            expect(getAssertionType(assertion as Assertion)).toBe('customType');
         });
 
         it('should return type from regular assertion', () => {
