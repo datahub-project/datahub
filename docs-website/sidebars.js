@@ -247,6 +247,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "MCP Server",
+          type: "doc",
+          id: "docs/features/feature-guides/mcp",
+        },
+        {
           label: "Ownership",
           type: "doc",
           id: "docs/ownership/ownership-types",
