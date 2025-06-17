@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.telemetry;
 
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
@@ -52,6 +53,7 @@ public class TrackingServiceFactory {
 
     TelemetryConfiguration _telemetryConfiguration = _configurationProvider.getTelemetry();
     MixpanelConfiguration _mixpanelConfiguration = _telemetryConfiguration.getMixpanel();
+    TopicsConfiguration _topicsConfiguration = _configurationProvider.getKafka().getTopics();
 
     // Check if telemetry is enabled
     boolean telemetryEnabled = _telemetryConfiguration.isEnabledServer();
@@ -74,6 +76,7 @@ public class TrackingServiceFactory {
     TrackingService trackingService =
         new TrackingService(
             mixpanelConfiguration,
+            _topicsConfiguration,
             _secretService,
             mixpanelMessageBuilder,
             mixpanelAPI,
