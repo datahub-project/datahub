@@ -258,15 +258,14 @@ def _get_column_quantiles_awsathena_patch(  # type:ignore
 ) -> list:
     import ast
 
-    table_name = ".".join(
-        [f'"{table_part}"' for table_part in str(self._table).split(".")]
-    )
-
     quantiles_list = list(quantiles)
-    quantiles_query = (
-        f"SELECT approx_percentile({column}, ARRAY{str(quantiles_list)}) as quantiles "
-        f"from (SELECT {column} from {table_name})"
-    )
+    quantiles_query = sa.select(
+        [
+            sa.func.approx_percentile(
+                sa.column(column), sa.text(f"ARRAY{str(quantiles_list)}")
+            )
+        ]
+    ).select_from(self._table)
     try:
         quantiles_results = self.engine.execute(quantiles_query).fetchone()[0]
         quantiles_results_list = ast.literal_eval(quantiles_results)
@@ -283,11 +282,10 @@ def _get_column_median_patch(self, column):
         self.sql_engine_dialect.name.lower() == GXSqlDialect.AWSATHENA
         or self.sql_engine_dialect.name.lower() == GXSqlDialect.TRINO
     ):
-        table_name = ".".join(
-            [f'"{table_part}"' for table_part in str(self._table).split(".")]
-        )
         element_values = self.engine.execute(
-            f"SELECT approx_percentile({column},  0.5) FROM {table_name}"
+            sa.select([sa.func.approx_percentile(sa.column(column), 0.5)]).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     else:
