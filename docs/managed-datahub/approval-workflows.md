@@ -19,19 +19,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When adding a Tag or Glossary Term to a column or entity, you will see a propose button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_term_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_term_on_dataset.png"/>
 </p>
 
 2. After proposing the Glossary Term, you will see it appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_term_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_term_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_term_to_dataset_in_inbox.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_term_to_dataset_in_inbox.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -41,19 +41,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When adding an Owner to an entity, you will see a propose button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_owner_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_owner_on_dataset.png"/>
 </p>
 
 2. After proposing the Owner(s), you will see the owner(s) appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_owner_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_owner_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_owner_to_dataset_in_inbox.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_owner_to_dataset_in_inbox.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -63,19 +63,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When adding a Domain to an entity, you will see a propose button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_domain_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_domain_on_dataset.png"/>
 </p>
 
 2. After proposing the Domain, you will see the Domain appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_domain_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_domain_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_domain_to_dataset_in_inbox.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_domain_to_dataset_in_inbox.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -85,19 +85,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When adding a Structured property to a column or an entity, you will see a propose button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_property_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_property_on_dataset.png"/>
 </p>
 
 2. After proposing the Structured Properties, you will see them appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_property_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_property_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_property_to_dataset_in_inbox.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_property_to_dataset_in_inbox.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -109,7 +109,7 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_description_proposal.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/inbox_with_description_proposal.png"/>
 </p>
 
 3. From there, they can choose to either accept or reject the proposal.
@@ -121,13 +121,13 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 2. Click the plus button to create a new Glossary Term. From that menu, select Propose.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposing_new_glossary_term.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposing_new_glossary_term.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_new_glossary_proposal.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/inbox_with_new_glossary_proposal.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
