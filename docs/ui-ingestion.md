@@ -246,7 +246,7 @@ you can cancel ingestion by clicking the 'Stop' button on the problematic run.
 
 <!-- update this image -->
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/cacnelled-run.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/cancelled-run.png"/>
 </p>
 
 Once cancelled, you can view the output of the ingestion run by clicking on the status icon.
