@@ -3,7 +3,12 @@ import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
 import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
-import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from '@components/components/Select/utils';
+import {
+    getDropdownStyle,
+    getOptionLabelStyle,
+    getSelectFontStyles,
+    getSelectStyle,
+} from '@components/components/Select/utils';
 import {
     formLabelTextStyles,
     inputPlaceholderTextStyles,
@@ -89,6 +94,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
 });
 
 export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
+    ...getDropdownStyle(),
     borderRadius: radius.md,
     background: colors.white,
     zIndex: zIndices.dropdown,

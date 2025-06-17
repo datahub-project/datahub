@@ -150,3 +150,11 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...minHeightStyles,
     };
 };
+
+export const getDropdownStyle = () => {
+    const baseStyle = {
+        fontFamily: typography.fonts.body,
+    };
+
+    return { ...baseStyle };
+};
