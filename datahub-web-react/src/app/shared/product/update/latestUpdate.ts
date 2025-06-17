@@ -11,10 +11,10 @@ export type ProductUpdate = {
 };
 
 /* Important: Change this section to adjust the system announcement shown in the bottom left corner of the product! */
-// TODO: Update this before v0.3.12 release.
+// TODO: Migrate this to be served via an aspect!
 export const latestUpdate: ProductUpdate = {
     enabled: true,
-    id: 'v0.3.12-1', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
+    id: 'v0.3.12-3', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
     title: "What's New In DataHub",
     description: 'Explore version v0.3.12',
     image: SampleImage, // Import and use image.,

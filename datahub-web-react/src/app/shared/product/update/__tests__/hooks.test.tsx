@@ -14,7 +14,7 @@ import * as useAppConfigModule from '@app/useAppConfig';
 
 import { BatchGetStepStatesDocument } from '@graphql/step.generated';
 
-const STEP_ID = 'product-updates-test';
+const STEP_ID = 'urn:li:user:123-product_updates-test';
 const TEST_UPDATE = {
     enabled: true,
     id: 'test',

@@ -6,7 +6,11 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { useBatchGetStepStatesQuery, useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
 
-const PRODUCT_UPDATE_STEP_PREFIX = 'product-updates';
+const PRODUCT_UPDATE_STEP_PREFIX = 'product_updates';
+
+function buildProductUpdateStepId(userUrn: string, updateId: string): string {
+    return `${userUrn}-${PRODUCT_UPDATE_STEP_PREFIX}-${updateId}`;
+}
 
 /**
  * Determine whether product announcements feature is enabled and viewabled.
@@ -34,10 +38,11 @@ export type ProductAnnouncementResult = {
  */
 export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductAnnouncementResult {
     const userUrn = useUserContext()?.user?.urn;
-    const productUpdateStepId = `${PRODUCT_UPDATE_STEP_PREFIX}-${update.id}`;
+    const productUpdateStepId = userUrn ? buildProductUpdateStepId(userUrn, update.id) : null;
+    const productUpdateStepIds = productUpdateStepId ? [productUpdateStepId] : [];
     const { data, loading, error, refetch } = useBatchGetStepStatesQuery({
         skip: !userUrn,
-        variables: { input: { ids: [productUpdateStepId] } },
+        variables: { input: { ids: productUpdateStepIds } },
         fetchPolicy: 'cache-first',
     });
 
@@ -66,11 +71,12 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
  */
 export function useDismissProductAnnouncement(update: ProductUpdate, refetch: () => void): () => void {
     const userUrn = useUserContext()?.user?.urn;
-    const productUpdateStepId = `${PRODUCT_UPDATE_STEP_PREFIX}-${update.id}`;
+    const productUpdateStepId = userUrn ? buildProductUpdateStepId(userUrn, update.id) : null;
+
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
     return useCallback(() => {
-        if (!userUrn) return;
+        if (!productUpdateStepId) return;
 
         const stepStates = [
             {
@@ -86,5 +92,5 @@ export function useDismissProductAnnouncement(update: ProductUpdate, refetch: ()
                 console.error('Failed to dismiss product announcement:', error);
             })
             .finally(() => refetch());
-    }, [userUrn, productUpdateStepId, batchUpdateStepStates, refetch]);
+    }, [productUpdateStepId, batchUpdateStepStates, refetch]);
 }
