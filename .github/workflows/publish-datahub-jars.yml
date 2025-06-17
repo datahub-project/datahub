@@ -27,8 +27,13 @@ jobs:
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo "Enable publish: ${{ env.SIGNING_KEY != '' }}"
-          echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.repository }}" == "acryldata/datahub" ]]; then
+            echo "Enable publish for main repository: ${{ env.SIGNING_KEY != '' }}"
+            echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          else
+            echo "Skipping publish for repository: ${{ github.repository }}"
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
   setup:
     runs-on: ubuntu-latest
     outputs:
