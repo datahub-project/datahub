@@ -170,6 +170,7 @@ def test_telemetry_api_via_tracking(graph_client, auth_session):
         assert message["message_contents"] == "Test message"
         assert message["response_contents"] == "Test response"
         assert "timestamp" in message
+        assert "origin" in message
         logger.info("Event verification successful")
 
     finally:

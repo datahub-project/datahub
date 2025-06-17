@@ -41,6 +41,11 @@ def _get_server_id() -> str:
     return graph.server_id
 
 
+@functools.cache
+def _get_origin() -> str:
+    return graph.frontend_base_url
+
+
 def _default_properties() -> dict:
     return {
         **_default_telemetry_properties(),
@@ -68,11 +73,13 @@ def _send_to_api(event: BaseEvent) -> None:
             "type": event.type,
             "timestamp": event.timestamp.isoformat(),
             "actorUrn": event.user_urn or "urn:li:corpuser:admin",
+            "origin": _get_origin(),
             **event.model_dump(
-                exclude={"timestamp", "type", "user_urn"}
+                exclude={"timestamp", "type", "user_urn", "origin"}
             ),  # Include all other fields from the event
         }
 
+        # TODO: TrackingService.java may use actorUrn set above as distinct_id.
         # Get the server URL from the graph client's config and append the tracking endpoint path
         server_url = graph.config.server.rstrip("/")
         tracking_url = f"{server_url}/openapi/v1/tracking/track"
@@ -99,15 +106,17 @@ def track_saas_event(
     properties = {
         **_default_properties(),
         **event.model_dump(
-            exclude={"timestamp"}
-        ),  # Exclude timestamp from event.dict()
+            exclude={"timestamp", "origin", "user_urn"}
+        ),  # Exclude timestamp, origin, user_urn from event.dict()
+        "distinct_id": event.user_urn or _get_server_id(),
+        "origin": _get_origin(),
         "timestamp": event.timestamp.isoformat(),  # Include ISO formatted timestamp
     }
 
     # Send to Mixpanel only if the environment variable is set
     if SEND_MIXPANEL_EVENTS:
         telemetry_client.track(
-            _get_server_id(),
+            event.user_urn or _get_server_id(),
             event.type,
             properties,
         )
