@@ -1,4 +1,5 @@
 import { useGetSubscriptionQuery } from '@graphql/subscriptions.generated';
+import { DataHubSubscription } from '@types';
 
 type Props = {
     isPersonal: boolean;
@@ -6,6 +7,7 @@ type Props = {
     groupUrn?: string;
     isEntityExists?: boolean;
 };
+
 const useSubscription = ({ isPersonal, entityUrn, groupUrn, isEntityExists = true }: Props) => {
     const skip = (!isPersonal && !groupUrn) || !isEntityExists;
 
@@ -23,7 +25,9 @@ const useSubscription = ({ isPersonal, entityUrn, groupUrn, isEntityExists = tru
         },
     });
 
-    const subscription = (!skip && getSubscriptionData?.getSubscription.subscription) || undefined;
+    const subscription = (!skip && getSubscriptionData?.getSubscription.subscription) as
+        | DataHubSubscription
+        | undefined;
     const isSubscribed = !!subscription;
     const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription?.privileges?.canManageEntity;
 

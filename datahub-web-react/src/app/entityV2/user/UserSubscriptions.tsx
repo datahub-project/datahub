@@ -11,6 +11,7 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ANTD_GRAY_V2 } from '@src/app/entity/shared/constants';
 
 import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
+import { DataHubSubscription } from '@types';
 
 const UserSubscriptionsWrapper = styled.div`
     height: 100%;
@@ -76,7 +77,7 @@ export const UserSubscriptions = ({ isCompact, urn }: Props) => {
         variables: { input: { start, count: PAGE_SIZE, groupUrn: undefined, actorUrn: urn } },
     });
 
-    const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
+    const subscriptions = (listSubscriptionData?.listSubscriptions?.subscriptions as DataHubSubscription[]) || [];
     const totalSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
 
     const onChangePage = (newPage: number) => {
