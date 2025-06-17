@@ -247,6 +247,7 @@ class DremioAPIOperations:
             self.report.api_call_secs_by_method_and_path["GET " + url] += (
                 timer.elapsed_seconds()
             )
+            response.raise_for_status()
             return response.json()
 
     def post(self, url: str, data: str) -> Dict:
@@ -265,6 +266,7 @@ class DremioAPIOperations:
             self.report.api_call_secs_by_method_and_path["POST " + url] += (
                 timer.elapsed_seconds()
             )
+            response.raise_for_status()
             return response.json()
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
