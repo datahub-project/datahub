@@ -82,7 +82,7 @@ export const ManageIngestionPage = () => {
     const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
     const canManagePools = canManageIngestion;
-    const canViewPools = canViewIngestionPage;
+    const canViewPools = canManagePools || canViewIngestionPage;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 

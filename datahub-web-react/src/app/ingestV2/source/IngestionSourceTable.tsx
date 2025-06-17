@@ -144,6 +144,7 @@ function IngestionSourceTable({
                                   onClick={(e) => {
                                       e.stopPropagation();
                                       saasProps.onViewPool(record.executorPoolId);
+                                      setSelectedTab(TabType.RemoteExecutors);
                                   }}
                               >
                                   {getDisplayablePoolId({ executorPoolId: record.executorPoolId })}
