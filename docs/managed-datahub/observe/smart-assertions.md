@@ -24,7 +24,7 @@ Today, you can create Smart Assertions for 3 types of assertions. To learn more 
 2. [Freshness](./freshness-assertions.md#anomaly-detection-with-smart-assertions-)
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
 
-## Improving predictions
+## Improving Smart assertion quality
 
 You can improve predictions through two key levers:
 
@@ -60,9 +60,9 @@ When an anomaly is flagged by the smart assertion, you may hover over the result
 
 If an anomaly is not caught by our Smart Assertions, we recommend doing a few things:
 
-1. You can click `Mark as Anomaly` to flag this specific data point as an anomaly.
-2. You should look back at the historical stats on the `Stats` tab of the table, and see if there were any periods of anomalous data that may be polluting the training set. If so, add an `Exclusion Window` in the **Settings tab** of the assertion, to remove this polluted period of data.
-3. Finally, consider increasing the sensitivity of the assertion in the **Settings tab**
+1. You can click `Mark as Anomaly` to flag this specific data point as an anomaly. This will exclude that data point from the training data.
+2. You should look back at the historical stats on the `Stats` tab of the table, and see if there were any periods of anomalous data that may be polluting the training set. If so, add an `Exclusion Window` in the **Settings tab** of the assertion, to remove this polluted period of data from the training data.
+3. Finally, consider increasing the sensitivity of the assertion in the **Settings tab** which will reduce the range of allowable values.
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/smart-assertion-feedback.png"/>

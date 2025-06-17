@@ -31,22 +31,27 @@ There are two ways to slice assertions:
 2. By Table
 
 **When to use `By Assertion`**
+
 This view presents an activity log of assertion runs, sorted by the last time a given assertion ran. This is incredibly valuable for triaging and detecting trends in the data quality checks.
+
 For instance, by applying a time range filter (i.e., `Last 7 Days`), and setting `Results` to `At least one failure`, you can quickly see which assertions have failed at least once in the last 7 days. Furthermore, you'll be able to see how often their failing, relative to how often they're running, enabling you to quickly find and investigate flaky checks.
 
 **When to use `By Table`**
+
 This view presents a list of tables that have at least one assertion that has ran on it. It is sorted by the last time any assertion ran on that table. The health dots indicate the last status of an assertion of that given type on the table.
+
 This view is incredibly useful for understanding monitoring coverage across your team's tables.
 
 ### Incidents Tab
 
 The incidents tab presents the tables that have active incidents open against them. It is sorted by the last time an incident activity was reported on the given table.
+
 At a glance, you can grasp how many incidents are open against any given table, see which incident last had updates on that table, and who owns it.
 
 **Coming soon:** In the future we'll be introducing high-level visual cards giving useful statistics on table coverage, time to resolution, and more.
 We will also be introducing a timeline view of assertion failures over a given time period. Our hope is to make it even easier to detect trends in data quality failures at a single glance.
 
-## Personalizing
+## Personalizing the Dashboard
 
 We understand that each team, and perhaps even an individual may care about a different subset of data than others.
 For this reason, we have included a broad range of filters to make it easy to drill down the Dashboard to the specific subset of data you care about. You can filter by:
