@@ -338,6 +338,18 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                     },
                     {
                         key: '1',
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    navigator.clipboard.writeText(record.entity.urn);
+                                }}
+                            >
+                                Copy Urn
+                            </MenuItem>
+                        ),
+                    },
+                    {
+                        key: '2',
                         disabled: !canEditForms,
                         label: (
                             <Tooltip
@@ -366,7 +378,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
 
                 if (record.entity.formInfo.status?.state === FormState.Published) {
                     items.splice(1, 0, {
-                        key: '2',
+                        key: '3',
                         disabled: !canEditForms,
                         label: (
                             <Tooltip
