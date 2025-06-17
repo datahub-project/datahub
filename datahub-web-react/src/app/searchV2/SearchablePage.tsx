@@ -166,11 +166,11 @@ export const SearchablePage = ({ children }: Props) => {
             <Body>
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
-                    {/** DataHub Cloud Only (For Now) */}
-                    <ProductUpdates />
                 </Navigation>
                 <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
+            {/** DataHub Cloud Only (For Now) */}
+            <ProductUpdates />
         </>
     );
 };
