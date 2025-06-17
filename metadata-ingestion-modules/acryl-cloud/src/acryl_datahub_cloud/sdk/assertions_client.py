@@ -97,68 +97,35 @@ class AssertionsClient:
     ) -> SmartFreshnessAssertion:
         """Upsert and merge a smart freshness assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated. Existing assertion fields will
         be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
 
         Schedule behavior:
-        - Create case: Uses default hourly schedule ("0 * * * *")
-        - Update case: Preserves existing schedule from backend (not modifiable)
+            - Create case: Uses default hourly schedule ("0 * * * *")
+            - Update case: Preserves existing schedule from backend (not modifiable)
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored.
-            urn: The urn of the assertion. If not provided, a urn will be generated and the
-                assertion will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display
-                name will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            detection_mechanism: The detection mechanism to be used for the assertion. Information
-                schema is recommended. Valid values are:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Information schema is recommended. Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
                 - "audit_log" or DetectionMechanism.AUDIT_LOG
-                - {
-                    "type": "last_modified_column",
-                    "column_name": "last_modified",
-                    "additional_filter": "last_modified > '2021-01-01'",
-                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
-                additional_filter='last_modified > 2021-01-01')
+                - {"type": "last_modified_column", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            sensitivity: The sensitivity to be applied to the assertion. Valid values are:
-                - "low" or InferenceSensitivity.LOW
-                - "medium" or InferenceSensitivity.MEDIUM
-                - "high" or InferenceSensitivity.HIGH
-            exclusion_windows: The exclusion windows to be applied to the assertion, currently only
-                fixed range exclusion windows are supported. Valid values are:
-                - from datetime.datetime objects: {
-                    "start": "datetime(2025, 1, 1, 0, 0, 0)",
-                    "end": "datetime(2025, 1, 2, 0, 0, 0)",
-                }
-                - from string datetimes: {
-                    "start": "2025-01-01T00:00:00",
-                    "end": "2025-01-02T00:00:00",
-                }
-                - from FixedRangeExclusionWindow objects: FixedRangeExclusionWindow(
-                    start=datetime(2025, 1, 1, 0, 0, 0),
-                    end=datetime(2025, 1, 2, 0, 0, 0)
-                )
-            training_data_lookback_days: The training data lookback days to be applied to the
-                assertion as an integer.
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
+            sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
+            training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
 
         Returns:
             SmartFreshnessAssertion: The created or updated assertion.
@@ -1941,79 +1908,35 @@ class AssertionsClient:
     ) -> SmartVolumeAssertion:
         """Upsert and merge a smart volume assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated. Existing assertion fields will
         be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
 
         Schedule behavior:
-        - Create case: Uses default hourly schedule (\"0 * * * *\") or provided schedule
-        - Update case: Different than `sync_smart_freshness_assertion`, schedule is updated.
+            - Create case: Uses default hourly schedule ("0 * * * *") or provided schedule
+            - Update case: Schedule is updated if provided, otherwise existing schedule is preserved.
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored.
-            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
-                will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display name
-                will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            detection_mechanism: The detection mechanism to be used for the assertion. Information
-                schema is recommended. Valid values are:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Information schema is recommended. Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
-                - "audit_log" or DetectionMechanism.AUDIT_LOG
-                - {
-                    "type": "last_modified_column",
-                    "column_name": "last_modified",
-                    "additional_filter": "last_modified > '2021-01-01'",
-                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
-                additional_filter='last_modified > 2021-01-01')
-                - {
-                    "type": "high_watermark_column",
-                    "column_name": "id",
-                    "additional_filter": "id > 1000",
-                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
-                additional_filter='id > 1000')
-                - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            sensitivity: The sensitivity to be applied to the assertion. Valid values are:
-                - "low" or InferenceSensitivity.LOW
-                - "medium" or InferenceSensitivity.MEDIUM
-                - "high" or InferenceSensitivity.HIGH
-            exclusion_windows: The exclusion windows to be applied to the assertion, currently only
-                fixed range exclusion windows are supported. Valid values are:
-                - from datetime.datetime objects: {
-                    "start": "datetime(2025, 1, 1, 0, 0, 0)",
-                    "end": "datetime(2025, 1, 2, 0, 0, 0)",
-                }
-                - from string datetimes: {
-                    "start": "2025-01-01T00:00:00",
-                    "end": "2025-01-02T00:00:00",
-                }
-                - from FixedRangeExclusionWindow objects: FixedRangeExclusionWindow(
-                    start=datetime(2025, 1, 1, 0, 0, 0),
-                    end=datetime(2025, 1, 2, 0, 0, 0)
-                )
-            training_data_lookback_days: The training data lookback days to be applied to the
-                assertion as an integer.
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
-            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
-                schedule will be used. The schedule determines when the assertion will be evaluated.
-                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
-                Alternatively, a models.CronScheduleClass object can be provided with string parameters
-                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+                - {"type": "query", "additional_filter": "value > 1000"} or DetectionMechanism.QUERY(additional_filter='value > 1000')
+                - "dataset_profile" or DetectionMechanism.DATASET_PROFILE
+            sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
+            training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
 
         Returns:
             SmartVolumeAssertion: The created or updated assertion.
@@ -2135,88 +2058,43 @@ class AssertionsClient:
     ) -> SmartColumnMetricAssertion:
         """Upsert and merge a smart column metric assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated.
 
         Existing assertion fields will be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
+
+        Schedule behavior:
+            - Create case: Uses default schedule of every 6 hours or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored. (Required)
-            column_name: The name of the column to be monitored. (Required)
-            metric_type: The type of the metric to be monitored. (Required)
-            operator: The operator to be used for the assertion. (Required)
-            value: The value to be used for the assertion. (Required if operator requires a value)
-            value_type: The type of the value to be used for the assertion. (Required if operator requires a value)
-            range: The range to be used for the assertion. (Required if operator requires a range)
-            range_type: The type of the range to be used for the assertion. (Required if operator requires a range)
-            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
-                will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display name
-                will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            detection_mechanism: The detection mechanism to be used for the assertion. Valid values are:
-                - All rows query datahub dataset profile:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            column_name (str): The name of the column to be monitored.
+            metric_type (MetricInputType): The type of the metric to be monitored.
+            operator (OperatorInputType): The operator to be used for the assertion.
+            value (Optional[ValueInputType]): The value to be used for the assertion. Required if operator requires a value.
+            value_type (Optional[ValueTypeInputType]): The type of the value to be used for the assertion. Required if operator requires a value.
+            range (Optional[RangeInputType]): The range to be used for the assertion. Required if operator requires a range.
+            range_type (Optional[RangeTypeInputType]): The type of the range to be used for the assertion. Required if operator requires a range.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Valid values are (additional_filter is optional):
                 - "all_rows_query_datahub_dataset_profile" or DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE
-
-                - All rows query:
-                - "all_rows_query" or DetectionMechanism.ALL_ROWS_QUERY
-                - with optional additional filter: DetectionMechanism.ALL_ROWS_QUERY(additional_filter='last_modified > 2021-01-01')
-                - Or as a dict: {
-                    "type": "all_rows_query",
-                    "additional_filter": "last_modified > '2021-01-01'", # optional
-                }
-
-                - Changed rows query:
-                - For changed rows query, you need to pass a supported column type (Number, Date or Time)
-                - DetectionMechanism.CHANGED_ROWS_QUERY(column_name='last_modified')
-                - With optional additional filter: DetectionMechanism.CHANGED_ROWS_QUERY(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
-                - Or as a dict: {
-                    "type": "changed_rows_query",
-                    "column_name": "last_modified",
-                    "additional_filter": "last_modified > '2021-01-01'", # optional
-                }
-
-            sensitivity: The sensitivity to be applied to the assertion. Valid values are:
-                - "low" or InferenceSensitivity.LOW
-                - "medium" or InferenceSensitivity.MEDIUM
-                - "high" or InferenceSensitivity.HIGH
-            exclusion_windows: The exclusion windows to be applied to the assertion, currently only
-                fixed range exclusion windows are supported. Valid values are:
-                - from datetime.datetime objects: {
-                    "start": "datetime(2025, 1, 1, 0, 0, 0)",
-                    "end": "datetime(2025, 1, 2, 0, 0, 0)",
-                }
-                - from string datetimes: {
-                    "start": "2025-01-01T00:00:00",
-                    "end": "2025-01-02T00:00:00",
-                }
-                - from FixedRangeExclusionWindow objects: FixedRangeExclusionWindow(
-                    start=datetime(2025, 1, 1, 0, 0, 0),
-                    end=datetime(2025, 1, 2, 0, 0, 0)
-                )
-            training_data_lookback_days: The training data lookback days to be applied to the
-                assertion as an integer.
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
-            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
-                schedule of every 6 hours will be used. The schedule determines when the assertion will be evaluated.
-                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
-                Alternatively, a models.CronScheduleClass object can be provided with string parameters
-                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+                - "all_rows_query" or DetectionMechanism.ALL_ROWS_QUERY(), or with additional_filter: {"type": "all_rows_query", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.ALL_ROWS_QUERY(additional_filter='last_modified > 2021-01-01')
+                - {"type": "changed_rows_query", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.CHANGED_ROWS_QUERY(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
+            sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
+            training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
 
         Returns:
             SmartColumnMetricAssertion: The created or updated assertion.
@@ -2842,59 +2720,36 @@ class AssertionsClient:
     ) -> FreshnessAssertion:
         """Upsert and merge a freshness assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated. Existing assertion fields will
         be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
 
         Schedule behavior:
-        - Create case: Uses default daily schedule (\"0 0 * * *\") or provided schedule
-        - Update case: Uses existing schedule or provided schedule.
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored.
-            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
-                will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display name
-                will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            detection_mechanism: The detection mechanism to be used for the assertion. Information
-                schema is recommended. Valid values are:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Information schema is recommended. Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
                 - "audit_log" or DetectionMechanism.AUDIT_LOG
-                - {
-                    "type": "last_modified_column",
-                    "column_name": "last_modified",
-                    "additional_filter": "last_modified > '2021-01-01'",
-                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
-                additional_filter='last_modified > 2021-01-01')
-                - {
-                    "type": "high_watermark_column",
-                    "column_name": "id",
-                    "additional_filter": "id > 1000",
-                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
-                additional_filter='id > 1000')
+                - {"type": "last_modified_column", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
+                - {"type": "high_watermark_column", "column_name": "id", "additional_filter": "id > 1000"} or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id', additional_filter='id > 1000')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
-            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
-                schedule will be used. The schedule determines when the assertion will be evaluated.
-                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
-                Alternatively, a models.CronScheduleClass object can be provided with string parameters
-                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            freshness_schedule_check_type (Optional[Union[str, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "cron".
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion.
 
         Returns:
             FreshnessAssertion: The created or updated assertion.
@@ -3009,75 +2864,36 @@ class AssertionsClient:
     ) -> VolumeAssertion:
         """Upsert and merge a volume assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated. Existing assertion fields will
         be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
 
         Schedule behavior:
-        - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
-        - Update case: Uses existing schedule or provided schedule.
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored.
-            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
-                will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display name
-                will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            detection_mechanism: The detection mechanism to be used for the assertion. Information
-                schema is recommended. Valid values are:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Information schema is recommended. Valid values are (additional_filter is optional):
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
-                - "audit_log" or DetectionMechanism.AUDIT_LOG
-                - {
-                    "type": "last_modified_column",
-                    "column_name": "last_modified",
-                    "additional_filter": "last_modified > '2021-01-01'",
-                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
-                additional_filter='last_modified > 2021-01-01')
-                - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
-            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
-                schedule will be used. The schedule determines when the assertion will be evaluated.
-                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
-                Alternatively, a models.CronScheduleClass object can be provided with string parameters
-                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
-            criteria_type: Optional type of volume assertion. Must be either VolumeAssertionDefinitionType.ROW_COUNT_TOTAL or VolumeAssertionDefinitionType.ROW_COUNT_CHANGE.
-                Raw string values are also accepted: "ROW_COUNT_TOTAL" or "ROW_COUNT_CHANGE".
-                If not provided, the existing definition from the backend will be preserved (for update operations).
-                Required when creating a new assertion (when urn is None).
-            criteria_change_type: Optional change type for row count change assertions. Must be either VolumeAssertionDefinitionChangeKind.ABSOLUTE
-                or VolumeAssertionDefinitionChangeKind.PERCENT. Required when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. Ignored when criteria_type
-                is VolumeAssertionDefinitionType.ROW_COUNT_TOTAL. If not provided, existing value is preserved for updates.
-                Raw string values are also accepted: "ABSOLUTE" or "PERCENTAGE".
-            criteria_operator: Optional comparison operator for the assertion. Must be a VolumeAssertionOperator value:
-                - VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
-                - VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO
-                - VolumeAssertionOperator.BETWEEN
-                Raw string values are also accepted: "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN_OR_EQUAL_TO", "BETWEEN".
-                If not provided, existing value is preserved for updates. Required when creating a new assertion.
-            criteria_parameters: Optional parameters for the assertion. For single-value operators
-                (GREATER_THAN_OR_EQUAL_TO, LESS_THAN_OR_EQUAL_TO), provide a single number.
-                For BETWEEN operator, provide a tuple of two numbers (min_value, max_value).
-                If not provided, existing value is preserved for updates. Required when creating a new assertion.
-
-                Examples:
-                - For single value: 100 or 50.5
-                - For BETWEEN: (10, 100) or (5.0, 15.5)
+                - {"type": "query", "additional_filter": "value > 1000"} or DetectionMechanism.QUERY(additional_filter='value > 1000')
+                - "dataset_profile" or DetectionMechanism.DATASET_PROFILE
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            criteria_type (Optional[Union[str, VolumeAssertionDefinitionType]]): Optional type of volume assertion. Must be either VolumeAssertionDefinitionType.ROW_COUNT_TOTAL or VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. If not provided, the existing definition from the backend will be preserved (for update operations). Required when creating a new assertion (when urn is None).
+            criteria_change_type (Optional[Union[str, VolumeAssertionDefinitionChangeKind]]): Optional change type for row count change assertions. Required when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. Ignored when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_TOTAL. If not provided, existing value is preserved for updates.
+            criteria_operator (Optional[Union[str, VolumeAssertionOperator]]): Optional comparison operator for the assertion. Must be a VolumeAssertionOperator value. If not provided, existing value is preserved for updates. Required when creating a new assertion.
+            criteria_parameters (Optional[VolumeAssertionDefinitionParameters]): Optional parameters for the assertion. For single-value operators provide a single number. For BETWEEN operator, provide a tuple of two numbers (min_value, max_value). If not provided, existing value is preserved for updates. Required when creating a new assertion.
 
         Returns:
             VolumeAssertion: The created or updated assertion.
@@ -3257,61 +3073,33 @@ class AssertionsClient:
     ) -> SqlAssertion:
         """Upsert and merge a sql assertion.
 
-        Note: keyword arguments are required.
+        Note:
+            Keyword arguments are required.
 
         Upsert and merge is a combination of create and update. If the assertion does not exist,
         it will be created. If it does exist, it will be updated. Existing assertion fields will
         be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set e.g. by passing an empty list or
-        empty string.
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
 
         Schedule behavior:
-        - Create case: Uses default daily schedule (\"0 0 * * *\") or provided schedule
-        - Update case: Uses existing schedule or provided schedule.
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
 
         Args:
-            dataset_urn: The urn of the dataset to be monitored.
-            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
-                will be _created_ in the DataHub instance.
-            display_name: The display name of the assertion. If not provided, a random display name
-                will be generated.
-            enabled: Whether the assertion is enabled. If not provided, the existing value
-                will be preserved.
-            criteria_type: The type of sql assertion. Valid values are:
-                - "METRIC" -> Looks at the current value of the metric.
-                - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
-            criteria_change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
-                - "ABSOLUTE" -> Looks at the absolute change in the metric.
-                - "PERCENTAGE" -> Looks at the percentage change in the metric.
-            criteria_operator: The operator to be used for the assertion. Valid values are:
-                - "GREATER_THAN" -> The metric value is greater than the threshold.
-                - "LESS_THAN" -> The metric value is less than the threshold.
-                - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
-                - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
-                - "EQUAL_TO" -> The metric value is equal to the threshold.
-                - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
-                - "BETWEEN" -> The metric value is between the two thresholds.
-            criteria_parameters: The parameters to be used for the assertion. This can be a single value or a tuple range.
-                - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
-                - If the operator is not "BETWEEN", the value is a single value.
-            statement: The SQL statement to be used for the assertion.
-                - "SELECT COUNT(*) FROM table WHERE column > 100"
-            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
-                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
-                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
-            tags: The tags to be applied to the assertion. Valid values are:
-                - a list of strings (strings will be converted to TagUrn objects)
-                - a list of TagUrn objects
-                - a list of TagAssociationClass objects
-            updated_by: Optional urn of the user who updated the assertion. The format is
-                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
-                The default is the datahub system user.
-                TODO: Retrieve the SDK user as the default instead of the datahub system user.
-            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
-                schedule will be used. The schedule determines when the assertion will be evaluated.
-                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
-                Alternatively, a models.CronScheduleClass object can be provided with string parameters
-                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            statement (str): The SQL statement to be used for the assertion.
+            criteria_type (Union[SqlAssertionType, str]): The type of sql assertion. Valid values are: "METRIC", "METRIC_CHANGE".
+            criteria_change_type (Optional[Union[SqlAssertionChangeType, str]]): The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are: "ABSOLUTE", "PERCENTAGE".
+            criteria_operator (Union[SqlAssertionOperator, str]): The operator to be used for the assertion. Valid values are: "GREATER_THAN", "LESS_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN_OR_EQUAL_TO", "EQUAL_TO", "NOT_EQUAL_TO", "BETWEEN".
+            criteria_parameters (Union[float, int, tuple[float, int]]): The parameters to be used for the assertion. This can be a single value or a tuple range. If the operator is "BETWEEN", the value is a tuple of two values, with format min, max. If the operator is not "BETWEEN", the value is a single value.
+            incident_behavior (Optional[Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass".
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
 
         Returns:
             SqlAssertion: The created or updated assertion.
