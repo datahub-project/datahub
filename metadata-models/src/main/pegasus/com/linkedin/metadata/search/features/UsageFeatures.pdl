@@ -117,6 +117,15 @@ record UsageFeatures {
    * Ranked list of the top 10 users in past 30 days. 
    * It is ranked by highest usage descending.
    */
+  @Searchable = {
+    "/*": {
+      "fieldName": "topUsersLast30Days",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasTopUsersLast30Days",
+      "addToFilters": true,
+      "filterNameOverride": "Top users last 30 days"
+    }
+  }
   topUsersLast30Days: optional array[Urn]
 
   /**
