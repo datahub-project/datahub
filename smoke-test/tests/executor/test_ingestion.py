@@ -2,6 +2,7 @@ import os
 import time
 import uuid
 from typing import Any
+import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -98,12 +99,14 @@ def wait_for_ingestion_request_completion(graph_client, request_id, timeout=60) 
         time.sleep(1.0)
 
 
+@pytest.mark.remote_executor
 def test_ingestion_embedded(auth_session, graph_client):
     create_ingestion_source(graph_client, "demo-data-embedded", "default")
     request = create_ingestion_request(graph_client, "demo-data-embedded", "default")
     assert wait_for_ingestion_request_completion(graph_client, request)
 
 
+@pytest.mark.remote_executor
 def test_ingestion_remote(auth_session, graph_client):
     executor_id = os.environ.get("DATAHUB_SMOKETEST_EXECUTOR_ID", "remote-ci")
     create_ingestion_source(graph_client, "demo-data-remote", executor_id)
