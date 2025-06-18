@@ -1,14 +1,15 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSectionV2';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
-import { Entity } from '@types';
+import { Entity, Owner } from '@types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -24,17 +25,11 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({
-    state,
-    updateState,
-    prev,
-    submit,
-    sourceRefetch,
-    isEditing,
-    selectedSource,
-}: StepProps) => {
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
+    const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(state.owners?.map((owner) => owner.urn) ?? []);
+    const [isInitialized, setIsInitialized] = useState<boolean>(false);
+    const { user: defaultOwner } = useUserContext();
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -48,13 +43,25 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: Entity[]) => {
-        const newState: SourceBuilderState = {
-            ...state,
-            owners: newOwners,
-        };
-        updateState(newState);
-    };
+    const setOwners = useCallback(
+        (newOwners: Entity[]) => {
+            const newState: SourceBuilderState = {
+                ...state,
+                owners: newOwners,
+            };
+            updateState(newState);
+        },
+        [updateState, state],
+    );
+
+    // Initialize state with default owner (the current user) when creating the new source
+    useEffect(() => {
+        if (!isInitialized && !isEditing && defaultOwner && (state.owners?.length ?? 0) === 0) {
+            setSelectedOwnerUrns([defaultOwner.urn]);
+            setOwners([defaultOwner]);
+            setIsInitialized(true);
+        }
+    }, [isInitialized, isEditing, defaultOwner, updateState, state, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {
@@ -212,9 +219,8 @@ export const NameSourceStep = ({
                     setSelectedOwnerUrns={setSelectedOwnerUrns}
                     existingOwners={existingOwners}
                     onChange={setOwners}
-                    sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
-                    shouldSetOwnerEntities
+                    canEdit
                 />
 
                 <Collapse ghost>

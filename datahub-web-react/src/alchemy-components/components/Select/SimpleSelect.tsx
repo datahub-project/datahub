@@ -81,6 +81,7 @@ export const SimpleSelect = ({
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
     dataTestId,
+    selectMinHeight,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -290,6 +291,7 @@ export const SimpleSelect = ({
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                         position={position}
+                        minHeight={selectMinHeight}
                     >
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}

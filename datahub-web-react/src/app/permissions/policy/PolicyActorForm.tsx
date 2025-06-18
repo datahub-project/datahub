@@ -5,7 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { CustomAvatar } from '@app/shared/avatar';
-import ActorPill from '@app/sharedV2/owners/ActorPill';
+import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
@@ -326,7 +326,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === value);
                         return (
                             <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
+                                <OwnerPill owner={selectedItem} isProposed={false} hideLink onRemove={handleClose} />
                             </ActorWrapper>
                         );
                     }}
@@ -370,7 +370,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === value);
                         return (
                             <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
+                                <OwnerPill owner={selectedItem} isProposed={false} hideLink onRemove={handleClose} />
                             </ActorWrapper>
                         );
                     }}

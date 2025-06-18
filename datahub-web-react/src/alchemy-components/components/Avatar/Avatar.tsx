@@ -14,6 +14,7 @@ export const avatarDefaults: AvatarProps = {
     showInPill: false,
     isOutlined: false,
     type: AvatarType.user,
+    pillBorderType: 'default',
 };
 
 export const Avatar = ({
@@ -24,11 +25,13 @@ export const Avatar = ({
     type = avatarDefaults.type,
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
+    extraRightContent,
+    pillBorderType = avatarDefaults.pillBorderType,
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
     return (
-        <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
+        <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill} $borderType={pillBorderType}>
             {(type === AvatarType.user || imageUrl) && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
                     {!hasError && imageUrl ? (
@@ -49,6 +52,7 @@ export const Avatar = ({
                 </AvatarImageWrapper>
             )}
             {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
+            {extraRightContent}
         </Container>
     );
 };

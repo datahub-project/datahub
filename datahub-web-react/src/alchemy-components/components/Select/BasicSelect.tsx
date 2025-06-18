@@ -40,6 +40,8 @@ export const selectDefaults: SelectProps = {
     showSelectAll: false,
     selectAllLabel: 'Select All',
     showDescriptions: false,
+    hideSelectedOptions: false,
+    filterResultsByQuery: true,
 };
 
 export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
@@ -69,6 +71,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     descriptionMaxWidth,
     dataTestId,
     autoUpdate = false,
+    renderCustomSelectedValue,
+    hideSelectedOptions,
+    filterResultsByQuery = selectDefaults.filterResultsByQuery,
+    selectMinHeight,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -112,10 +118,21 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         setAreAllSelected(tempValues.length === options.length);
     }, [options, tempValues]);
 
-    const filteredOptions = useMemo(
-        () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
-        [options, searchQuery],
-    );
+    const filteredOptions = useMemo(() => {
+        let processingOptions = options;
+
+        if (hideSelectedOptions) {
+            processingOptions = processingOptions.filter((option) => !selectedValues.includes(option.value));
+        }
+
+        if (filterResultsByQuery) {
+            processingOptions = processingOptions.filter((option) =>
+                option.label.toLowerCase().includes(searchQuery.toLowerCase()),
+            );
+        }
+
+        return processingOptions;
+    }, [options, searchQuery, hideSelectedOptions, selectedValues, filterResultsByQuery]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -139,11 +156,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         (option: SelectOption) => {
             const updatedValues = selectedValues.filter((val) => val !== option.value);
             setSelectedValues(updatedValues);
-            if (onUpdate) {
-                onUpdate(updatedValues);
-            }
+            setTempValues(updatedValues);
+            onUpdate?.(updatedValues);
         },
-        [selectedValues, onUpdate],
+        [onUpdate, selectedValues],
     );
 
     const handleCancelClick = useCallback(() => {
@@ -291,6 +307,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         onClick={handleSelectClick}
                         fontSize={size}
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
+                        minHeight={selectMinHeight}
                         {...props}
                     >
                         <SelectLabelContainer>
@@ -303,6 +320,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 removeOption={removeOption}
                                 disabledValues={disabledValues}
                                 showDescriptions={showDescriptions}
+                                renderCustomSelectedValue={renderCustomSelectedValue}
                                 {...(selectLabelProps || {})}
                             />
                         </SelectLabelContainer>

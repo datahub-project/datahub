@@ -15,8 +15,11 @@ export default function SingleSelectCustom<OptionType extends SelectOption>({
     placeholder,
     isMultiSelect,
     showDescriptions,
+    removeOption,
     renderCustomSelectedValue,
 }: SelectLabelVariantProps<OptionType>) {
+    const option = selectedOptions[0];
+
     return (
         <LabelsWrapper shouldShowGap={false}>
             {!selectedValues?.length && <Placeholder>{placeholder}</Placeholder>}
@@ -25,11 +28,11 @@ export default function SingleSelectCustom<OptionType extends SelectOption>({
                     <ActionButtonsContainer>
                         <SelectValue>
                             {renderCustomSelectedValue
-                                ? renderCustomSelectedValue(selectedOptions[0])
-                                : selectedOptions[0]?.label}
+                                ? renderCustomSelectedValue(option, () => removeOption?.(option))
+                                : option?.label}
                         </SelectValue>
                     </ActionButtonsContainer>
-                    {showDescriptions && <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>}
+                    {showDescriptions && <DescriptionContainer>{option?.description}</DescriptionContainer>}
                 </>
             )}
         </LabelsWrapper>

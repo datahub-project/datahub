@@ -43,7 +43,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     selectAllLabel?: string;
     showDescriptions?: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
-    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
+    renderCustomSelectedValue?: (selectedOption: OptionType, onRemove?: () => void) => void;
     filterResultsByQuery?: boolean;
     onSearchChange?: (searchText: string) => void;
     combinedSelectedAndSearchOptions?: OptionType[];
@@ -60,6 +60,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     descriptionMaxWidth?: number;
     dataTestId?: string;
     autoUpdate?: boolean;
+    hideSelectedOptions?: boolean;
+    selectMinHeight?: string;
 }
 
 export interface SelectStyleProps {
@@ -70,6 +72,7 @@ export interface SelectStyleProps {
     isOpen?: boolean;
     width?: number | 'full' | 'fit-content';
     position?: OptionPosition;
+    minHeight?: string;
 }
 
 export interface ActionButtonsProps {
@@ -91,7 +94,7 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     disabledValues?: string[];
     showDescriptions?: boolean;
     isCustomisedLabel?: boolean;
-    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
+    renderCustomSelectedValue?: (selectedOptions: OptionType, remove?: () => void) => void;
     variant?: SelectLabelVariants;
     label?: string;
     selectedOptionListStyle?: React.CSSProperties;

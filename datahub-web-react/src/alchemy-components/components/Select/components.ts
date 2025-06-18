@@ -23,15 +23,15 @@ const sharedTransition = `${transition.property.colors} ${transition.easing['eas
  * Base Select component styling
  */
 export const SelectBase = styled.div<SelectStyleProps>(
-    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position }) => ({
-        ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen }),
+    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position, minHeight }) => ({
+        ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen, minHeight }),
         display: 'flex',
         flexDirection: 'row' as const,
         gap: spacing.xsm,
         transition: sharedTransition,
         justifyContent: 'space-between',
         alignSelf: position || 'end',
-        minHeight: '36px',
+        minHeight: minHeight ?? '36px',
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',

@@ -50,6 +50,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
     dataTestId?: string;
+    selectMinHeight?: string;
 }
 
 export const selectDefaults: SelectProps = {
@@ -92,6 +93,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     selectLabelProps,
     renderCustomOptionText,
     dataTestId,
+    selectMinHeight,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -317,6 +319,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         fontSize={size}
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         width={props.width}
+                        minHeight={selectMinHeight}
                         {...props}
                     >
                         <SelectLabelRenderer

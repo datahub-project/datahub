@@ -66,7 +66,7 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
         return (
             <Container>
                 {platforms?.map((platform) => (
-                    <IconContainer>
+                    <IconContainer key={platform.urn}>
                         <PlatformIcon platform={platform} size={SIBLING_ICON_SIZE} />
                     </IconContainer>
                 ))}
@@ -77,7 +77,7 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
     return (
         <Container>
             {entitiesToShowIcons?.map((entityToShowIcon) => (
-                <IconContainer>
+                <IconContainer key={entityToShowIcon.urn}>
                     <SingleEntityIcon entity={entityToShowIcon} key={entityToShowIcon.urn} size={iconSize} />
                 </IconContainer>
             ))}

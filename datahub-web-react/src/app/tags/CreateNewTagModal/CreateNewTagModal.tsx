@@ -5,11 +5,15 @@ import React, { useState } from 'react';
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSectionV2';
+import useOwnershipTypes from '@app/sharedV2/owners/hooks/useOwnershipTypes';
+import { PendingOwner } from '@app/sharedV2/owners/types';
+import { convertOwnerToPendingOwner } from '@app/sharedV2/owners/utils';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
+import { OwnerType } from '@types';
 
 type CreateNewTagModalProps = {
     open: boolean;
@@ -37,8 +41,10 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
+    const { defaultOwnershipType } = useOwnershipTypes();
+
+    const onChangeOwners = (newOwners: OwnerType[]) => {
+        setPendingOwners(newOwners.map((owner) => convertOwnerToPendingOwner(owner, defaultOwnershipType)));
     };
 
     /**

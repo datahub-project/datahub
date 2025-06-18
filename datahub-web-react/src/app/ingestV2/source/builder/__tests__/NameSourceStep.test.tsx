@@ -4,6 +4,17 @@ import React from 'react';
 
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 
+beforeEach(() => {
+    // IntersectionObserver isn't available in test environment
+    const mockIntersectionObserver = vi.fn();
+    mockIntersectionObserver.mockReturnValue({
+        observe: () => null,
+        unobserve: () => null,
+        disconnect: () => null,
+    });
+    window.IntersectionObserver = mockIntersectionObserver;
+});
+
 describe('NameSourceStep', () => {
     it('should trim leading and trailing whitespaces from the text field on blur', () => {
         let updatedState;

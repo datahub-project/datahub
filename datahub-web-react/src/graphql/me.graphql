@@ -4,6 +4,7 @@ query getMe {
             type
             urn
             username
+            type
             info {
                 active
                 displayName

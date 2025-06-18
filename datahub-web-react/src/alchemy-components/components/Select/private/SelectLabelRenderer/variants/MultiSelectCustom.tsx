@@ -23,7 +23,7 @@ export default function MultiSelectCustom<OptionType extends SelectOption>({
                 selectedOptions.map((o) => {
                     const isDisabled = disabledValues?.includes(o.value);
                     return renderCustomSelectedValue ? (
-                        renderCustomSelectedValue(o)
+                        renderCustomSelectedValue(o, () => removeOption?.(o))
                     ) : (
                         <Pill
                             label={o?.label}

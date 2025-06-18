@@ -53,6 +53,13 @@ const meta = {
             },
             control: 'boolean',
         },
+        pillBorderType: {
+            description: "Type of pill's border",
+            table: {
+                defaultValue: { summary: `${avatarDefaults.pillBorderType}` },
+            },
+            control: 'select',
+        },
 
         isOutlined: {
             description: 'Whether Avatar is outlined.',
@@ -60,6 +67,10 @@ const meta = {
                 defaultValue: { summary: `${avatarDefaults.isOutlined}` },
             },
             control: 'boolean',
+        },
+
+        extraRightContent: {
+            description: 'Additional content to render in the right side of the component',
         },
     },
 
@@ -117,6 +128,12 @@ export const pills = () => (
             <Avatar name="John Doe" size="default" imageUrl={IMAGE_URL} showInPill />
             <Avatar name="John Doe" size="sm" imageUrl={IMAGE_URL} showInPill />
         </GridList>
+        <GridList>
+            <Avatar name="John Doe" size="lg" imageUrl={IMAGE_URL} showInPill pillBorderType="dashed" />
+            <Avatar name="John Doe" size="md" imageUrl={IMAGE_URL} showInPill pillBorderType="dashed" />
+            <Avatar name="John Doe" size="default" imageUrl={IMAGE_URL} showInPill pillBorderType="dashed" />
+            <Avatar name="John Doe" size="sm" imageUrl={IMAGE_URL} showInPill pillBorderType="dashed" />
+        </GridList>
     </GridList>
 );
 
@@ -131,5 +148,11 @@ export const withOnClick = () => (
     <GridList>
         <Avatar name="John Doe" onClick={() => window.alert('Avatar clicked')} />
         <Avatar name="John Doe" onClick={() => window.alert('Avatar clicked')} showInPill />
+    </GridList>
+);
+
+export const withExtraRightContent = () => (
+    <GridList>
+        <Avatar name="John Doe" extraRightContent={<div>Extra content</div>} showInPill />
     </GridList>
 );
