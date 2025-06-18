@@ -1,36 +1,75 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Approval Workflows
+# Change Proposals & Approval Workflows
 
 <FeatureAvailability saasOnly />
 
 ## Overview
 
-Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With DataHub Cloud, you can source proposals of Tags and Glossary Terms associated to datasets or dataset columns. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
+Keeping your data organized can be hard work when you have a limited number of data owners. With DataHub Cloud, you can crowdsource metadata completion using change proposals. Change Proposals enable data users to suggest Tags, Terms, Domains, Owners, Descriptions, and even Structured Properties to be added to data assets. Once a change proposal is raised, data owners and stewards can review change proposals, approving or denying these suggestion.
 
-Approval workflows also cover the Business Glossary itself. This allows you to source Glossary Terms and Glossary Term description changes from across your organization while limiting who has final control over what gets in.
+## Permissions
+
+### Creating Proposals
+
+To create proposals on assets, users need to have the following resource privileges:
+
+- `Propose Tags`
+- `Propose Glossary Terms`
+- `Propose Owners`
+- `Propose Domain`
+- `Propose Properties`
+- `Propose Description`
+- `Propose Dataset Column Tags`
+- `Propose Dataset Column Glossary Terms`
+- `Propose Dataset Column Structured Properties`
+- `Propose Dataset Column Descriptions`
+
+To create proposals to change the Business Glossary, users need to have the following platform privileges:
+
+- `Propose Create Glossary Term`
+- `Propose Create Glossary Node (Term Group)`
+
+Which are granted by default using the **Reader**, **Editor**, and **Admin** roles by default. 
+
+
+### Reviewing Proposals
+
+To review proposals for an asset, users need to have the following resource privileges:
+
+- `Manage Tag Proposals`
+- `Manage Glossary Term Proposals`
+- `Manage Property Proposals`
+- `Manage Domain Proposals`
+- `Manage Owner Proposals`
+- `Manage Description Proposals`
+
+To review proposals to change the Business Glossary, users need to have the following platform privileges:
+
+- `Manage Glossaries`
+
+Which are granted by default **Editor** and **Admin** roles. 
+
 
 ## Using Approval Workflows
-
-**Note:** You can select and propose multiple Tags, Glossary Terms, Owners, or Structure Properties at once. The workflow process remains the same whether proposing single or multiple items.
 
 ### Proposing Tags and Glossary Terms
 
 1. When adding a Tag or Glossary Term to a column or entity, you will see a propose button.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_term_on_dataset.png"/>
 </p>
 
 2. After proposing the Glossary Term, you will see it appear in a proposed state.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_term_on_dataset.png"/>
 </p>
 
-3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+3. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_term_to_dataset_in_inbox.png"/>
 </p>
 
@@ -40,19 +79,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 1. When adding an Owner to an entity, you will see a propose button.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_owner_on_dataset.png"/>
 </p>
 
 2. After proposing the Owner(s), you will see the owner(s) appear in a proposed state.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_owner_on_dataset.png"/>
 </p>
 
-3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+3. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_owner_to_dataset_in_inbox.png"/>
 </p>
 
@@ -62,19 +101,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 1. When adding a Domain to an entity, you will see a propose button.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_domain_on_dataset.png"/>
 </p>
 
 2. After proposing the Domain, you will see the Domain appear in a proposed state.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_domain_on_dataset.png"/>
 </p>
 
-3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+3. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_domain_to_dataset_in_inbox.png"/>
 </p>
 
@@ -84,19 +123,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 1. When adding a Structured property to a column or an entity, you will see a propose button.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/propose_property_on_dataset.png"/>
 </p>
 
 2. After proposing the Structured Properties, you will see them appear in a proposed state.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_property_on_dataset.png"/>
 </p>
 
-3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+3. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposed_property_to_dataset_in_inbox.png"/>
 </p>
 
@@ -106,9 +145,9 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 1. When updating the documentation of any entity, or description of a dataset column, you can click the propose button
 
-2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+2. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/inbox_with_description_proposal.png"/>
 </p>
 
@@ -120,23 +159,37 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 
 2. Click the plus button to create a new Glossary Term. From that menu, select Propose.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/proposing_new_glossary_term.png"/>
 </p>
 
-3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+3. This proposal will be sent to the inbox of reviewers.
 
-<p align="center">
+<p align="left">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposals/inbox_with_new_glossary_proposal.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
 
-## Proposing Programatically
+### Reviewing Proposals
 
-DataHub exposes a GraphQL API for proposing Tags and Glossary Terms.
+Proposals will be visible inside your **Task Center**, which is accessible via the navigation sidebar. From the task center, you can choose to accept or deny proposals sourced for assets you are responsible for. 
 
-At a high level, callers of this API will be required to provide the following details:
+### Notifications 
+
+You can enable notifications in the following scenarios:
+
+- A proposal you raised is approved or denied
+- You are assigned to a new change proposal
+- A proposal you are assigned to is approved or denied
+
+Via **Slack** and **Email**. 
+
+To enable notifications, navigate to **Settings > My Notifications**. 
+
+## Creating Proposals via API
+
+DataHub exposes a GraphQL API for each type of change proposal. At a high level, callers of this API will be required to provide the following details:
 
 1. A unique identifier for the target Metadata Entity (URN)
 2. An optional sub-resource identifier which designates a sub-resource to attach the Tag, Glossary Term, owner, domain or Structured property to. For example reference to a particular "field" within a Dataset.
@@ -304,10 +357,9 @@ input DescriptionUpdateInput {
 
 ```
 
-## Additional Resources
+## FAQ
 
-### Permissions
+**1. My colleagues have created some proposals, but I'm not seeing this in my Task Center. Why not?**
 
-To create & manage metadata proposals, certain access policies or roles are required.
+Most likely, this means your privileges are not configured properly. If you are a DataHub Admin, navigate to **Settings > Permissions** to edit your roles and policies to ensure you have the privileges listed in the **Permissions** section above. 
 
-https://docs.datahub.com/docs/authorization/policies#proposals
