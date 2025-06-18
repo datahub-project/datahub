@@ -2,14 +2,11 @@ import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
-import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
 import { useCreateApplicationMutation } from '@graphql/application.generated';
-import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
-import { useCreateTagMutation } from '@graphql/tag.generated';
+import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 
 import ApplicationDetailsSection from './ApplicationDetailsSection';
 
@@ -19,7 +16,7 @@ type CreateNewApplicationModalProps = {
 };
 
 /**
- * Modal for creating a new tag with owners and applying it to entities
+ * Modal for creating a new application with owners and applying it to entities
  */
 const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onClose, open }) => {
     // Application details state
@@ -46,6 +43,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
      */
     const onOk = async () => {
         if (!applicationName) {
+            // this should not happen due to validation in the modal, but doesnt hurt to be safe
             message.error('Application name is required');
             return;
         }

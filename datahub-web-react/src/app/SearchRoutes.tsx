@@ -60,8 +60,6 @@ export const SearchRoutes = (): JSX.Element => {
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
-    const showApplications = true; // config?.featureFlags?.showManageApplications;
-
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
 
     return (
@@ -86,9 +84,7 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
-                {showApplications ? (
-                    <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                ) : null}
+                <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route

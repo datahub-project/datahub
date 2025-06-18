@@ -96,7 +96,7 @@ export const ApplicationOwnersColumn = React.memo(
                         <ExpandedOwner
                             key={ownerItem.owner?.urn}
                             entityUrn={applicationUrn}
-                            owner={ownerItem as any}
+                            owner={ownerItem}
                             hidePopOver
                         />
                     ))}
