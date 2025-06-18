@@ -1429,6 +1429,41 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
+    def restore_indices(
+        self,
+        urn_pattern: str,
+        aspect: Optional[str] = None,
+        start: Optional[int] = None,
+        batch_size: Optional[int] = None,
+    ) -> str:
+        """Restore the indices for a given urn or urn-like pattern.
+
+        Args:
+            urn_pattern: The exact URN or a pattern (with % for wildcard) to match URNs.
+            aspect: Optional aspect string to restore indices for a specific aspect.
+            start: Optional integer to decide which row number of sql store to restore from. Default: 0.
+            batch_size: Optional integer to decide how many rows to restore. Default: 10.
+
+        Returns:
+            A string containing the result of the restore indices operation. This format is subject to change.
+        """
+        if "%" in urn_pattern:
+            payload_obj: dict = {"urnLike": urn_pattern}
+        else:
+            payload_obj = {"urn": urn_pattern}
+        if aspect is not None:
+            payload_obj["aspect"] = aspect
+        if start is not None:
+            payload_obj["start"] = start
+        if batch_size is not None:
+            payload_obj["batchSize"] = batch_size
+        raw_result = self._post_generic(
+            f"{self._gms_server}/operations?action=restoreIndices", payload_obj
+        )
+        result = raw_result["value"]
+        logger.debug(f"Restore indices result: {result}")
+        return result
+
     @functools.lru_cache
     def _make_schema_resolver(
         self,
