@@ -5,7 +5,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 
 import {
     ApplicationActionsColumn,
-    ApplicationAppliedToColumn,
     ApplicationDescriptionColumn,
     ApplicationNameColumn,
     ApplicationOwnersColumn,
@@ -28,7 +27,6 @@ interface Props {
 
 const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, networkStatus, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const userContext = useUserContext();
     const [deleteApplicationMutation] = useDeleteApplicationMutation();
 
     // Optimize the applicationsData with useMemo to prevent unnecessary filtering on re-renders
@@ -150,18 +148,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                         <ApplicationOwnersColumn
                             key={`owners-${record.entity.urn}`}
                             applicationUrn={record.entity.urn}
-                        />
-                    );
-                },
-            },
-            {
-                title: 'Applied to',
-                key: 'appliedTo',
-                render: (record) => {
-                    return (
-                        <ApplicationAppliedToColumn
-                            key={`applied-${record.entity.urn}`}
-                            applicationUrn={record.entity.urn}
+                            owners={record.entity.ownership}
                         />
                     );
                 },
@@ -174,11 +161,6 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                     return (
                         <ApplicationActionsColumn
                             applicationUrn={record.entity.urn}
-                            onEdit={() => {
-                                // link to the application page
-                                const url = entityRegistry.getEntityUrl(EntityType.Application, record.entity.urn);
-                                window.open(url, '_blank');
-                            }}
                             onDelete={() => {
                                 showDeleteConfirmation(record.entity.urn);
                             }}

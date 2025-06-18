@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { useUserContext } from '@app/context/useUserContext';
 import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
 import { Message } from '@src/app/shared/Message';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
@@ -58,14 +57,11 @@ const ManageApplications = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
-    const entityRegistry = useEntityRegistry();
     const [showCreateApplicationModal, setShowCreateApplicationModal] = useState(false);
 
-    // Check permissions using UserContext
-    const userContext = useUserContext();
     // TODO: Add permissions for applications
-    // const canCreateApplications = userContext?.platformPrivileges?.createApplications || userContext?.platformPrivileges?.manageApplications;
-    const canCreateApplications = true;
+    const userContext = useUserContext();
+    const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
     // Debounce search query input to reduce unnecessary renders
     useEffect(() => {
@@ -107,7 +103,7 @@ const ManageApplications = () => {
     }
     // Create the Create Application button with proper permissions handling
     const renderCreateApplicationButton = () => {
-        if (!canCreateApplications) {
+        if (!canManageApplications) {
             return (
                 <StructuredPopover
                     title="You do not have permission to create applications"

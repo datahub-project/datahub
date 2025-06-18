@@ -3,13 +3,11 @@ import React from 'react';
 import styled from 'styled-components';
 
 // Tag details section props
-export interface TagDetailsProps {
-    tagName: string;
-    setTagName: React.Dispatch<React.SetStateAction<string>>;
-    tagDescription: string;
-    setTagDescription: React.Dispatch<React.SetStateAction<string>>;
-    tagColor: string;
-    setTagColor: (color: string) => void;
+export interface ApplicationDetailsProps {
+    applicationName: string;
+    setApplicationName: React.Dispatch<React.SetStateAction<string>>;
+    applicationDescription: string;
+    setApplicationDescription: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const SectionContainer = styled.div`
@@ -21,44 +19,22 @@ const FormSection = styled.div`
 `;
 
 /**
- * Component for tag name, description, and color selection
+ * Component for application name and description
  */
-const TagDetailsSection: React.FC<TagDetailsProps> = ({
-    tagName,
-    setTagName,
-    tagDescription,
-    setTagDescription,
-    tagColor,
-    setTagColor,
+const ApplicationDetailsSection: React.FC<ApplicationDetailsProps> = ({
+    applicationName,
+    setApplicationName,
+    applicationDescription,
+    setApplicationDescription,
 }) => {
-    const handleTagNameChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
-        if (typeof value === 'function') {
-            setTagName(value);
-        } else {
-            setTagName(value);
-        }
-    };
-
-    const handleDescriptionChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
-        if (typeof value === 'function') {
-            setTagDescription(value);
-        } else {
-            setTagDescription(value);
-        }
-    };
-
-    const handleColorChange = (color: string) => {
-        setTagColor(color);
-    };
-
     return (
         <SectionContainer>
             <FormSection>
                 <Input
                     label="Name"
-                    value={tagName}
-                    setValue={handleTagNameChange}
-                    placeholder="Enter tag name"
+                    value={applicationName}
+                    setValue={setApplicationName}
+                    placeholder="Enter application name"
                     required
                 />
             </FormSection>
@@ -66,18 +42,14 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
             <FormSection>
                 <Input
                     label="Description"
-                    value={tagDescription}
-                    setValue={handleDescriptionChange}
-                    placeholder="Add a description for your new tag"
+                    value={applicationDescription}
+                    setValue={setApplicationDescription}
+                    placeholder="Add a description for your new application"
                     type="textarea"
                 />
-            </FormSection>
-
-            <FormSection>
-                <ColorPicker initialColor={tagColor} onChange={handleColorChange} label="Color" />
             </FormSection>
         </SectionContainer>
     );
 };
 
-export default TagDetailsSection;
+export default ApplicationDetailsSection;
