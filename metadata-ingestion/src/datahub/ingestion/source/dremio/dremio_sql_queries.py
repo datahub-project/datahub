@@ -1,3 +1,7 @@
+from datetime import datetime, timedelta
+from typing import Optional
+
+
 class DremioSQLQueries:
     QUERY_DATASETS_CE = """
     SELECT* FROM
@@ -235,11 +239,66 @@ class DremioSQLQueries:
             TABLE_NAME ASC
             """
 
+    @staticmethod
+    def _get_default_start_timestamp_millis() -> str:
+        """Get default start timestamp (7 days ago) in milliseconds precision format"""
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        return seven_days_ago.strftime("%Y-%m-%d %H:%M:%S.%f")[
+            :-3
+        ]  # Truncate to milliseconds
+
+    @staticmethod
+    def _get_default_end_timestamp_millis() -> str:
+        """Get default end timestamp (now) in milliseconds precision format"""
+        now = datetime.now()
+        return now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # Truncate to milliseconds
+
+    @staticmethod
+    def get_query_all_jobs(
+        start_timestamp_millis: Optional[str] = None,
+        end_timestamp_millis: Optional[str] = None,
+    ) -> str:
+        """
+        Get query for all jobs with optional time filtering.
+
+        Args:
+            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 7 days ago)
+            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
+
+        Returns:
+            SQL query string with time filtering applied
+        """
+        if start_timestamp_millis is None:
+            start_timestamp_millis = (
+                DremioSQLQueries._get_default_start_timestamp_millis()
+            )
+        if end_timestamp_millis is None:
+            end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
+
+        return f"""
+        SELECT
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            queried_datasets
+        FROM
+            SYS.JOBS_RECENT
+        WHERE
+            STATUS = 'COMPLETED'
+            AND LENGTH(queried_datasets)>0
+            AND user_name != '$dremio$'
+            AND query_type not like '%INTERNAL%'
+            AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
+            AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        """
+
     # Dremio Documentation: https://docs.dremio.com/current/reference/sql/system-tables/jobs_recent/
     # SYS.JOBS_RECENT contains recent job history limited by jobs.max.age_in_days config [default 30 days]
     # Used for on-premise Dremio (Community/Enterprise editions)
     # queried_datasets incorrectly documented as [varchar]. Observed as varchar.
     # LENGTH used as opposed to ARRAY_SIZE
+    # DEPRECATED: Use get_query_all_jobs() instead for time filtering support
     QUERY_ALL_JOBS = """
     SELECT
         job_id,
@@ -256,10 +315,51 @@ class DremioSQLQueries:
         AND query_type not like '%INTERNAL%'
     """
 
+    @staticmethod
+    def get_query_all_jobs_cloud(
+        start_timestamp_millis: Optional[str] = None,
+        end_timestamp_millis: Optional[str] = None,
+    ) -> str:
+        """
+        Get query for all jobs in Dremio Cloud with optional time filtering.
+
+        Args:
+            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 7 days ago)
+            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
+
+        Returns:
+            SQL query string with time filtering applied
+        """
+        if start_timestamp_millis is None:
+            start_timestamp_millis = (
+                DremioSQLQueries._get_default_start_timestamp_millis()
+            )
+        if end_timestamp_millis is None:
+            end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
+
+        return f"""
+        SELECT
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
+        FROM
+            sys.project.history.jobs
+        WHERE
+            STATUS = 'COMPLETED'
+            AND ARRAY_SIZE(queried_datasets)>0
+            AND user_name != '$dremio$'
+            AND query_type not like '%INTERNAL%'
+            AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
+            AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        """
+
     # Dremio Documentation: https://docs.dremio.com/cloud/reference/sql/system-tables/jobs-historical
     # sys.project.history.jobs contains complete historical job metadata for the project
     # Used for Dremio Cloud - refreshes data once per hour, so new jobs may take ~1 hour to appear
     # queried_datasets correctly documented as [varchar]
+    # DEPRECATED: Use get_query_all_jobs_cloud() instead for time filtering support
     QUERY_ALL_JOBS_CLOUD = """
         SELECT
             job_id,

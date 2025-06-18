@@ -629,9 +629,9 @@ class DremioAPIOperations:
 
     def extract_all_queries(self) -> List[Dict[str, Any]]:
         if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS_CLOUD
+            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud()
         else:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS
+            jobs_query = DremioSQLQueries.get_query_all_jobs()
 
         return self.execute_query(query=jobs_query)
 
