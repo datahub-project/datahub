@@ -3,6 +3,7 @@ import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
@@ -33,8 +34,9 @@ export const NameSourceStep = ({
     isEditing,
     selectedSource,
 }: StepProps) => {
+    const me = useUserContext();
     const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(!isEditing && me.urn ? [me.urn] : []);
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
