@@ -175,7 +175,7 @@ Which are granted by default **Editor** and **Admin** roles.
 
 Proposals will be visible inside your **Task Center**, which is accessible via the navigation sidebar. From the task center, you can choose to accept or deny proposals sourced for assets you are responsible for. 
 
-### Notifications 
+## Change Proposal Notifications 
 
 You can enable notifications in the following scenarios:
 
