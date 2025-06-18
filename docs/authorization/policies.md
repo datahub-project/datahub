@@ -176,6 +176,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                        |
 | Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
 | Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                      |
 
 #### Entity Management
 
@@ -289,6 +290,7 @@ These privileges are not generalizable.
 | Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
 | Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
 | Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
+| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
 | Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
 | Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
 | Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
@@ -296,6 +298,7 @@ These privileges are not generalizable.
 | Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
 | Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
 | Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
+| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
 | Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
 | Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
 | Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
