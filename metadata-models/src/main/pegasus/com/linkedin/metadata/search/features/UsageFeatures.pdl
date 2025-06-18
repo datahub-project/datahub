@@ -123,7 +123,8 @@ record UsageFeatures {
       "fieldType": "URN",
       "hasValuesFieldName": "hasTopUsersLast30Days",
       "addToFilters": true,
-      "filterNameOverride": "Top users last 30 days"
+      "filterNameOverride": "Top users last 30 days",
+      "queryByDefault": false,
     }
   }
   topUsersLast30Days: optional array[Urn]
