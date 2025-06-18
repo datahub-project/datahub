@@ -125,6 +125,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
         "Supported only in `snowflake` and `BigQuery`.",
+        schema_extra={"supported_sources": ["snowflake", "bigquery"]},
     )
 
     profile_table_size_limit: Optional[int] = Field(
@@ -132,6 +133,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
         "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
         "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
+        schema_extra={"supported_sources": ["snowflake", "bigquery", "oracle"]},
     )
 
     profile_table_row_limit: Optional[int] = Field(
@@ -139,12 +141,14 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported only in "
         "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
+        schema_extra={"supported_sources": ["snowflake", "bigquery", "oracle"]},
     )
 
     profile_table_row_count_estimate_only: bool = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres and MySQL. ",
+        schema_extra={"supported_sources": ["postgres", "mysql"]},
     )
 
     # The query combiner enables us to combine multiple queries into a single query,

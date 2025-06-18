@@ -343,7 +343,26 @@ def priority_value(path: str) -> str:
     return "A"
 
 
-def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> str:
+def should_hide_field(schema_field, current_source: str, schema_dict: Dict[str, Any]) -> bool:
+    """Check if field should be hidden for the current source"""
+    # Extract field name from the path
+    field_name = schema_field.fieldPath.split('.')[-1]
+    
+    # Look in definitions for the field schema
+    definitions = schema_dict.get("definitions", {})
+    for _, def_schema in definitions.items():
+        properties = def_schema.get("properties", {})
+        if field_name in properties:
+            field_schema = properties[field_name]
+            schema_extra = field_schema.get("schema_extra", {})
+            supported_sources = schema_extra.get("supported_sources")
+            
+            if supported_sources and current_source:
+                return current_source.lower() not in [s.lower() for s in supported_sources]
+    
+    return False
+
+def gen_md_table_from_json_schema(schema_dict: Dict[str, Any], current_source: Optional[str] = None) -> str:
     # we don't want default field values to be injected into the description of the field
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
@@ -352,6 +371,8 @@ def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> str:
     field_tree = FieldTree(field=None)
     for field in schema_fields:
         row: FieldRow = FieldRow.from_schema_field(field)
+        if current_source and should_hide_field(field, current_source, schema_dict):
+            continue
         field_tree.add_field(row)
 
     field_tree.sort()
@@ -365,12 +386,13 @@ def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> str:
     return "".join(result)
 
 
-def gen_md_table_from_pydantic(model: Type[BaseModel]) -> str:
-    return gen_md_table_from_json_schema(model.schema())
+def gen_md_table_from_pydantic(model: Type[BaseModel], current_source: Optional[str] = None) -> str:
+    return gen_md_table_from_json_schema(model.schema(), current_source)
+
 
 
 if __name__ == "__main__":
     # Simple test code.
     from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 
-    print("".join(gen_md_table_from_pydantic(SnowflakeV2Config)))
+    print("".join(gen_md_table_from_pydantic(SnowflakeV2Config, current_source="snowflake")))
