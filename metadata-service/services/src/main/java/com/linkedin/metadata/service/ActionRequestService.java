@@ -1582,7 +1582,7 @@ public class ActionRequestService extends BaseService {
    *             GET PROPOSED TERMS HELPER METHODS
    *------------------------------------------------------------------------*/
 
-  private List<Urn> getProposedTermsForEntity(
+  List<Urn> getProposedTermsForEntity(
       @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn)
       throws RemoteInvocationException, URISyntaxException {
 
@@ -1595,6 +1595,7 @@ public class ActionRequestService extends BaseService {
             null);
 
     return getActionRequestInfosFromFilter(opContext, filter, entityClient)
+        .filter(info -> info.getSubResource() == null)
         .flatMap(
             actionRequestInfo ->
                 actionRequestInfo.getParams().getGlossaryTermProposal().hasGlossaryTerms()
@@ -1607,7 +1608,7 @@ public class ActionRequestService extends BaseService {
         .collect(Collectors.toList());
   }
 
-  private List<Urn> getProposedTermsForSchemaField(
+  List<Urn> getProposedTermsForSchemaField(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String schemaFieldPath)
@@ -2106,7 +2107,7 @@ public class ActionRequestService extends BaseService {
     }
   }
 
-  private List<Urn> getProposedTagsForEntity(
+  List<Urn> getProposedTagsForEntity(
       @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn)
       throws RemoteInvocationException, URISyntaxException {
     final Filter filter =
@@ -2117,6 +2118,7 @@ public class ActionRequestService extends BaseService {
             null,
             null);
     return getActionRequestInfosFromFilter(opContext, filter, entityClient)
+        .filter(info -> info.getSubResource() == null) // filter out schema field proposals
         .flatMap(
             actionRequestInfo ->
                 actionRequestInfo.getParams().getTagProposal().hasTags()
@@ -2126,7 +2128,7 @@ public class ActionRequestService extends BaseService {
         .collect(Collectors.toList());
   }
 
-  private List<Urn> getProposedTagsForSchemaField(
+  List<Urn> getProposedTagsForSchemaField(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String schemaFieldPath)

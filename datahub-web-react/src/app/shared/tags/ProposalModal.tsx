@@ -46,7 +46,7 @@ export default function ProposalModal({
 
     const onCloseProposalDecisionModal = () => {
         setSelectedActionRequest(null);
-        setTimeout(() => handleRefetch(), 2000);
+        setTimeout(() => handleRefetch(), 3500);
     };
 
     const onProposalAcceptance = () => {

@@ -30,6 +30,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionrequest.ActionRequestStatus;
@@ -736,8 +737,8 @@ public class ActionRequestServiceTest {
     tagProposal.setTags(new UrnArray(Arrays.asList(TEST_TAG_URN, TEST_TAG_URN_2)));
     ActionRequestParams params = new ActionRequestParams().setTagProposal(tagProposal);
     existingActionRequestInfo.setParams(params);
-    existingActionRequestInfo.setSubResource(TEST_FIELD_PATH);
     existingActionRequestInfo.setSubResourceType(SubResourceType.DATASET_FIELD.toString());
+    existingActionRequestInfo.setSubResource(TEST_FIELD_PATH);
 
     ActionRequestStatus existingActionRequestStatus =
         new ActionRequestStatus().setStatus(ACTION_REQUEST_STATUS_PENDING);
@@ -3733,5 +3734,171 @@ public class ActionRequestServiceTest {
     }
 
     abstract boolean matchesAspect(GenericAspect aspect);
+  }
+
+  private void setUpProposeTagsTermsForEntityTests(
+      ActionRequestParams params1, ActionRequestParams params2) throws Exception {
+    ActionRequestInfo entityTagProposal =
+        new ActionRequestInfo()
+            .setType(TAG_ASSOCIATION_PROPOSAL_TYPE)
+            .setResource(TEST_ENTITY_URN.toString())
+            .setParams(params1);
+
+    ActionRequestInfo schemaFieldTagProposal =
+        new ActionRequestInfo()
+            .setType(TAG_ASSOCIATION_PROPOSAL_TYPE)
+            .setResource(TEST_ENTITY_URN.toString())
+            .setSubResource(TEST_FIELD_PATH) // Has subresource for schema field proposal
+            .setParams(params2);
+
+    // Create URNs for the action requests
+    Urn entityTagProposalUrn = UrnUtils.getUrn("urn:li:actionRequest:entity-tag-proposal");
+    Urn schemaFieldTagProposalUrn =
+        UrnUtils.getUrn("urn:li:actionRequest:schema-field-tag-proposal");
+
+    // Mock filter response to return the URNs
+    when(mockEntityClient.filter(
+            eq(mockOpContext),
+            eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            any(Filter.class),
+            eq(null),
+            eq(0),
+            eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableList.of(
+                            new SearchEntity().setEntity(entityTagProposalUrn),
+                            new SearchEntity().setEntity(schemaFieldTagProposalUrn)))));
+
+    // Mock batchGetV2 response with the actual entity data
+    Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
+
+    EntityResponse entityResponse =
+        new EntityResponse()
+            .setEntityName(Constants.ACTION_REQUEST_ENTITY_NAME)
+            .setUrn(entityTagProposalUrn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(entityTagProposal.data())),
+                        Constants.ACTION_REQUEST_STATUS_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(
+                                new Aspect(
+                                    new ActionRequestStatus()
+                                        .setStatus(ACTION_REQUEST_STATUS_PENDING)
+                                        .data())))));
+
+    EntityResponse entityResponse2 =
+        new EntityResponse()
+            .setEntityName(Constants.ACTION_REQUEST_ENTITY_NAME)
+            .setUrn(schemaFieldTagProposalUrn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaFieldTagProposal.data())),
+                        Constants.ACTION_REQUEST_STATUS_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(
+                                new Aspect(
+                                    new ActionRequestStatus()
+                                        .setStatus(ACTION_REQUEST_STATUS_PENDING)
+                                        .data())))));
+
+    entityResponseMap.put(entityTagProposalUrn, entityResponse);
+    entityResponseMap.put(schemaFieldTagProposalUrn, entityResponse2);
+
+    when(mockEntityClient.batchGetV2(
+            eq(mockOpContext),
+            eq(Constants.ACTION_REQUEST_ENTITY_NAME),
+            eq(ImmutableSet.of(entityTagProposalUrn, schemaFieldTagProposalUrn)),
+            eq(
+                ImmutableSet.of(
+                    Constants.ACTION_REQUEST_INFO_ASPECT_NAME,
+                    Constants.ACTION_REQUEST_STATUS_ASPECT_NAME))))
+        .thenReturn(entityResponseMap);
+  }
+
+  @Test
+  public void testGetProposedTagsForEntityFiltersOutSchemaFieldProposals() throws Exception {
+    ActionRequestParams params1 =
+        new ActionRequestParams().setTagProposal(new TagProposal().setTag(TEST_TAG_URN));
+    ActionRequestParams params2 =
+        new ActionRequestParams().setTagProposal(new TagProposal().setTag(TEST_TAG_URN_2));
+    setUpProposeTagsTermsForEntityTests(params1, params2);
+
+    // Call the method
+    List<Urn> result =
+        actionRequestService.getProposedTagsForEntity(mockOpContext, TEST_ENTITY_URN);
+
+    // Verify results
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), TEST_TAG_URN);
+  }
+
+  @Test
+  public void testGetProposedTagsForSchemaFieldOnlyIncludesSchemaFieldProposals() throws Exception {
+    ActionRequestParams params1 =
+        new ActionRequestParams().setTagProposal(new TagProposal().setTag(TEST_TAG_URN));
+    ActionRequestParams params2 =
+        new ActionRequestParams().setTagProposal(new TagProposal().setTag(TEST_TAG_URN_2));
+    setUpProposeTagsTermsForEntityTests(params1, params2);
+
+    // Call the method
+    List<Urn> result =
+        actionRequestService.getProposedTagsForSchemaField(
+            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH);
+
+    // Verify results
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), TEST_TAG_URN_2);
+  }
+
+  @Test
+  public void testGetProposedTermsForEntityFiltersOutSchemaFieldProposals() throws Exception {
+    ActionRequestParams params1 =
+        new ActionRequestParams()
+            .setGlossaryTermProposal(
+                new GlossaryTermProposal().setGlossaryTerms(new UrnArray(TEST_TERM_URN)));
+    ActionRequestParams params2 =
+        new ActionRequestParams()
+            .setGlossaryTermProposal(
+                new GlossaryTermProposal().setGlossaryTerms(new UrnArray(TEST_TERM_URN_2)));
+    setUpProposeTagsTermsForEntityTests(params1, params2);
+
+    // Call the method
+    List<Urn> result =
+        actionRequestService.getProposedTermsForEntity(mockOpContext, TEST_ENTITY_URN);
+
+    // Verify results
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), TEST_TERM_URN);
+  }
+
+  @Test
+  public void testGetProposedTermsForSchemaFieldOnlyIncludesSchemaFieldProposals()
+      throws Exception {
+    ActionRequestParams params1 =
+        new ActionRequestParams()
+            .setGlossaryTermProposal(
+                new GlossaryTermProposal().setGlossaryTerms(new UrnArray(TEST_TERM_URN)));
+    ActionRequestParams params2 =
+        new ActionRequestParams()
+            .setGlossaryTermProposal(
+                new GlossaryTermProposal().setGlossaryTerms(new UrnArray(TEST_TERM_URN_2)));
+    setUpProposeTagsTermsForEntityTests(params1, params2);
+
+    // Call the method
+    List<Urn> result =
+        actionRequestService.getProposedTermsForSchemaField(
+            mockOpContext, TEST_ENTITY_URN, TEST_FIELD_PATH);
+
+    // Verify results
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), TEST_TERM_URN_2);
   }
 }

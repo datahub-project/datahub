@@ -43,7 +43,7 @@ export default function AddTagTerm({
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        setTimeout(() => refetch?.(), 2000);
+                        setTimeout(() => refetch?.(), 3500);
                     }}
                     resources={[
                         {
