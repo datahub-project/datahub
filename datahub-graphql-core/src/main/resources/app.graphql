@@ -42,6 +42,11 @@ extend type Mutation {
   updateDocPropagationSettings(
     input: UpdateDocPropagationSettingsInput!
   ): Boolean!
+
+  """
+  Update the applications settings.
+  """
+  updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 }
 
 """
@@ -177,6 +182,11 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage applications.
+  """
+  manageApplications: Boolean!
 }
 
 """
@@ -377,6 +387,11 @@ type ApplicationConfig {
   Whether to show the application sidebar section even when empty
   """
   showSidebarSectionWhenEmpty: Boolean
+
+  """
+  Whether to show the application in the navigation sidebar
+  """
+  showApplicationInNavigation: Boolean
 }
 
 """
@@ -749,6 +764,16 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update global applications settings.
+"""
+input UpdateApplicationsSettingsInput {
+  """
+  Whether the Applications feature is enabled
+  """
+  enabled: Boolean
 }
 
 """

@@ -1,22 +1,13 @@
-import { Icon, Text, colors, typography } from '@components';
+import { Icon, colors, typography } from '@components';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
-import { getTagColor } from '@app/tags/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { UnionType } from '@src/app/search/utils/constants';
-import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
-import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { useGetTagQuery } from '@src/graphql/tag.generated';
-import { Entity, EntityType } from '@src/types.generated';
-
-import { useGetApplicationQuery } from '@graphql/application.generated';
+import { EntityType, Ownership } from '@src/types.generated';
 
 const ApplicationName = styled.div`
     font-size: 14px;
@@ -25,6 +16,10 @@ const ApplicationName = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 const ApplicationDescription = styled.div`
@@ -57,18 +52,6 @@ const MenuItem = styled.div`
     font-family: ${typography.fonts.body};
 `;
 
-const ColorDotContainer = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const ColorDot = styled.div`
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    margin-right: 8px;
-`;
-
 export const ApplicationNameColumn = React.memo(
     ({
         applicationUrn,
@@ -79,9 +62,12 @@ export const ApplicationNameColumn = React.memo(
         displayName: string;
         searchQuery?: string;
     }) => {
+        const entityRegistry = useEntityRegistry();
+        const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
+
         return (
             <ColumnContainer>
-                <ApplicationName data-testid={`${applicationUrn}-name`}>
+                <ApplicationName onClick={() => window.open(url, '_blank')} data-testid={`${applicationUrn}-name`}>
                     <Highlight search={searchQuery}>{displayName}</Highlight>
                 </ApplicationName>
             </ColumnContainer>
@@ -101,161 +87,36 @@ export const ApplicationDescriptionColumn = React.memo(
     },
 );
 
-export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const {
-        data,
-        loading: ownerLoading,
-        refetch: refetchOwners,
-    } = useGetTagQuery({
-        variables: { urn: tagUrn },
-        fetchPolicy: 'cache-first',
-    });
+export const ApplicationOwnersColumn = React.memo(
+    ({ applicationUrn, owners }: { applicationUrn: string; owners: Ownership }) => {
+        return (
+            <ColumnContainer>
+                <OwnersContainer>
+                    {owners?.owners?.map((ownerItem) => (
+                        <ExpandedOwner
+                            key={ownerItem.owner?.urn}
+                            entityUrn={applicationUrn}
+                            owner={ownerItem as any}
+                            hidePopOver
+                        />
+                    ))}
+                </OwnersContainer>
+            </ColumnContainer>
+        );
+    },
+);
 
-    // Empty placeholder instead of "Loading..." text
-    if (ownerLoading) {
-        return <ColumnContainer aria-busy="true" />;
-    }
+export const ApplicationActionsColumn = React.memo(
+    ({ applicationUrn, onDelete }: { applicationUrn: string; onDelete: () => void }) => {
+        const entityRegistry = useEntityRegistry();
+        const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
-    const ownershipData = data?.tag?.ownership?.owners || [];
-
-    return (
-        <ColumnContainer>
-            <OwnersContainer>
-                {ownershipData.map((ownerItem) => (
-                    <ExpandedOwner
-                        key={ownerItem.owner?.urn}
-                        entityUrn={tagUrn}
-                        owner={ownerItem as any}
-                        hidePopOver
-                        refetch={refetchOwners}
-                    />
-                ))}
-            </OwnersContainer>
-        </ColumnContainer>
-    );
-});
-
-export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const history = useHistory();
-    const entityRegistry = useEntityRegistry();
-    const entityFilters = [{ field: 'tags', values: [tagUrn] }];
-
-    const { data: facetData, loading: facetLoading } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: {
-                query: '*',
-                start: 0,
-                count: 1,
-                orFilters: generateOrFilters(UnionType.OR, entityFilters),
-            },
-        },
-        fetchPolicy: 'cache-first',
-    });
-
-    // Empty placeholder instead of "Loading..." text
-    if (facetLoading) {
-        return <ColumnContainer aria-busy="true" />;
-    }
-
-    const facets = facetData?.searchAcrossEntities?.facets || [];
-    const entityFacet = facets.find((facet) => facet?.field === 'entity');
-    const aggregations = entityFacet?.aggregations || [];
-
-    if (aggregations.length === 0) {
-        return <Text>Not applied</Text>;
-    }
-
-    // Get total count of entities this tag is applied to
-    const totalCount = aggregations.reduce((sum, agg) => sum + (agg?.count || 0), 0);
-
-    // Navigate to search with entity filter
-    const navigateToEntitySearch = (entityTypeValue: string) => {
-        // Convert the string to EntityType
-        const entityType = entityTypeValue as unknown as EntityType;
-
-        navigateToSearchUrl({
-            filters: [
-                ...entityFilters,
-                {
-                    field: 'entity',
-                    values: [entityType],
-                },
-            ],
-            unionType: UnionType.AND,
-            history,
-        });
-    };
-
-    // Navigate to search with just the tag filter
-    const navigateToAllTagSearch = () => {
-        navigateToSearchUrl({
-            filters: entityFilters,
-            unionType: UnionType.AND,
-            history,
-        });
-    };
-
-    return (
-        <ColumnContainer>
-            <div
-                style={{ cursor: 'pointer' }}
-                onClick={navigateToAllTagSearch}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        navigateToAllTagSearch();
-                    }
-                }}
-            >
-                <Text style={{ color: colors.violet[500] }}>
-                    {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
-                </Text>
-            </div>
-
-            {aggregations.slice(0, 3).map((agg) => {
-                if (!agg?.value || !agg?.count || agg.count === 0) return null;
-                return (
-                    <div
-                        key={agg.value}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => navigateToEntitySearch(agg.value)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                navigateToEntitySearch(agg.value);
-                            }
-                        }}
-                    >
-                        <Text style={{ color: colors.violet[500] }}>
-                            {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
-                        </Text>
-                    </div>
-                );
-            })}
-        </ColumnContainer>
-    );
-});
-
-export const TagActionsColumn = React.memo(
-    ({
-        tagUrn,
-        onEdit,
-        onDelete,
-        canManageTags,
-    }: {
-        tagUrn: string;
-        onEdit: () => void;
-        onDelete: () => void;
-        canManageTags: boolean;
-    }) => {
         const items = [
             {
                 key: '0',
                 label: (
-                    <MenuItem onClick={onEdit} data-testid="action-edit">
-                        Edit
+                    <MenuItem onClick={() => window.open(url, '_blank')} data-testid="action-edit">
+                        View
                     </MenuItem>
                 ),
             },
@@ -264,48 +125,29 @@ export const TagActionsColumn = React.memo(
                 label: (
                     <MenuItem
                         onClick={() => {
-                            navigator.clipboard.writeText(tagUrn);
+                            navigator.clipboard.writeText(applicationUrn);
                         }}
                     >
                         Copy Urn
                     </MenuItem>
                 ),
             },
-            ...(canManageTags
-                ? [
-                      {
-                          key: '2',
-                          label: (
-                              <MenuItem
-                                  onClick={onDelete}
-                                  data-testid="action-delete"
-                                  style={{ color: colors.red[500] }}
-                              >
-                                  Delete
-                              </MenuItem>
-                          ),
-                      },
-                  ]
-                : []),
+            {
+                key: '2',
+                label: (
+                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: colors.red[500] }}>
+                        Delete
+                    </MenuItem>
+                ),
+            },
         ];
 
         return (
             <CardIcons>
-                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
                     <Icon icon="MoreVert" size="md" />
                 </Dropdown>
             </CardIcons>
         );
     },
 );
-
-export const TagColorColumn = React.memo(({ tag }: { tag: Entity }) => {
-    const colorHex = getTagColor(tag);
-    return (
-        <ColumnContainer>
-            <ColorDotContainer>
-                <ColorDot style={{ backgroundColor: colorHex }} />
-            </ColorDotContainer>
-        </ColumnContainer>
-    );
-});

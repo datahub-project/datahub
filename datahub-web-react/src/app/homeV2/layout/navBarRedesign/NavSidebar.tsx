@@ -1,4 +1,5 @@
 import {
+    AppWindow,
     BookBookmark,
     Gear,
     Globe,
@@ -155,6 +156,15 @@ export const NavSidebar = () => {
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
                         isHidden: !showManageTags,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Applications',
+                        key: 'applications',
+                        icon: <AppWindow />,
+                        selectedIcon: <AppWindow weight="fill" />,
+                        link: PageRoutes.MANAGE_APPLICATIONS,
+                        isHidden: !(appConfig.config.visualConfig.application?.showApplicationInNavigation ?? false),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
