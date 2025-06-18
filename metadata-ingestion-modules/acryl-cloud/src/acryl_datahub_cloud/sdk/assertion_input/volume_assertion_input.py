@@ -176,8 +176,11 @@ class VolumeAssertionDefinition:
         definition_dict: dict[str, Any],
     ) -> _VolumeAssertionDefinitionTypes:
         """Parse and validate dictionary-based volume assertion definitions."""
+        # Make a copy of the dictionary to avoid mutating the original
+        definition_copy = definition_dict.copy()
+
         try:
-            assertion_type = definition_dict.pop("type")
+            assertion_type = definition_copy.pop("type")
         except KeyError as e:
             raise SDKUsageError(
                 "Volume assertion definition must include a 'type' field"
@@ -193,8 +196,8 @@ class VolumeAssertionDefinition:
             )
 
         # Extract operator and parameters for validation
-        operator = definition_dict.get("operator")
-        parameters = definition_dict.get("parameters")
+        operator = definition_copy.get("operator")
+        parameters = definition_copy.get("parameters")
 
         if operator is None:
             raise SDKUsageError(
@@ -218,20 +221,20 @@ class VolumeAssertionDefinition:
 
         # Convert string operator to enum for object creation
         if isinstance(operator, str):
-            definition_dict["operator"] = VolumeAssertionDefinition._parse_operator(
+            definition_copy["operator"] = VolumeAssertionDefinition._parse_operator(
                 operator
             )
 
         if assertion_type == VolumeAssertionDefinitionType.ROW_COUNT_TOTAL:
             try:
-                return RowCountTotal(**definition_dict)
+                return RowCountTotal(**definition_copy)
             except Exception as e:
                 raise SDKUsageError(
                     f"Failed to create {VolumeAssertionDefinitionType.ROW_COUNT_TOTAL.value} volume assertion: {str(e)}"
                 ) from e
         else:  # assertion_type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
             try:
-                return RowCountChange(**definition_dict)
+                return RowCountChange(**definition_copy)
             except Exception as e:
                 raise SDKUsageError(
                     f"Failed to create {VolumeAssertionDefinitionType.ROW_COUNT_CHANGE.value} volume assertion: {str(e)}"
@@ -310,7 +313,7 @@ class VolumeAssertionDefinition:
                 f"Volume assertion definition must be a dict or a volume assertion definition object, got: {type(definition)}"
             )
 
-        return VolumeAssertionDefinition._parse_dict_definition(definition.copy())
+        return VolumeAssertionDefinition._parse_dict_definition(definition)
 
     @staticmethod
     def build_model_volume_info(

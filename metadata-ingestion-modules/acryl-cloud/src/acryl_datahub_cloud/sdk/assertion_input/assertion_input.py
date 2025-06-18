@@ -318,8 +318,11 @@ class DetectionMechanism:
     def _try_parse_from_dict(
         detection_mechanism_config: dict[str, str],
     ) -> _DetectionMechanismTypes:
+        # Make a copy of the dictionary to avoid mutating the original
+        config_copy = detection_mechanism_config.copy()
+
         try:
-            detection_mechanism_type = detection_mechanism_config.pop("type")
+            detection_mechanism_type = config_copy.pop("type")
         except KeyError as e:
             raise SDKUsageErrorWithExamples(
                 msg="Detection mechanism type is required if using a dict to create a DetectionMechanism",
@@ -336,23 +339,23 @@ class DetectionMechanism:
             ) from e
 
         try:
-            return detection_mechanism_obj(**detection_mechanism_config)
+            return detection_mechanism_obj(**config_copy)
         except TypeError as e:
             if "object is not callable" not in e.args[0]:
                 raise e
-            if detection_mechanism_config:
+            if config_copy:
                 # If we are here in the TypeError case, the detection mechanism is an instance of a class,
                 # not a class itself, so we can't instantiate it with the config dict.
                 # In this case, the config dict should be empty after the type is popped.
                 # If it is not empty, we raise an error.
                 raise SDKUsageErrorWithExamples(
-                    msg=f"Invalid additional fields specified for detection mechanism '{detection_mechanism_type}': {detection_mechanism_config}",
+                    msg=f"Invalid additional fields specified for detection mechanism '{detection_mechanism_type}': {config_copy}",
                     examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
                 ) from e
             return detection_mechanism_obj
         except ValidationError as e:
             raise SDKUsageErrorWithExamples(
-                msg=f"Invalid detection mechanism type '{detection_mechanism_type}': {detection_mechanism_config} {e}",
+                msg=f"Invalid detection mechanism type '{detection_mechanism_type}': {config_copy} {e}",
                 examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
 

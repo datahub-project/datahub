@@ -1458,3 +1458,23 @@ class TestVolumeAssertionDefinitionFromAssertion:
 
             if test_params.expected_error:
                 assert test_params.expected_error in str(exc_info.value)
+
+
+def test_parse_volume_assertion_definition_no_mutate_input_dict() -> None:
+    """Test that calling VolumeAssertionDefinition.parse() does not mutate the input dictionary."""
+    # Create a dictionary that should NOT be mutated by parse() calls
+    definition_dict = {
+        "type": "ROW_COUNT_TOTAL",
+        "operator": "GREATER_THAN_OR_EQUAL_TO",
+        "parameters": 100,
+    }
+    original_dict = definition_dict.copy()  # Keep a copy to verify no mutation
+
+    # Call parse and verify it succeeds
+    result = VolumeAssertionDefinition.parse(definition_dict)
+    assert isinstance(result, RowCountTotal)
+    assert result.operator == VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
+    assert result.parameters == 100
+
+    # Verify the original dict was not mutated
+    assert definition_dict == original_dict, "Original dictionary should not be mutated"

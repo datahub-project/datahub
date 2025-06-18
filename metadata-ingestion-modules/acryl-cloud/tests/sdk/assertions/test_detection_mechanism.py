@@ -198,3 +198,18 @@ def test_parse_detection_mechanism_with_unrelated_instance() -> None:
     with pytest.raises(SDKUsageErrorWithExamples) as e:
         DetectionMechanism.parse(NotADetectionMechanism())  # type: ignore[arg-type]  # Purposely testing an invalid type
     assert "Invalid detection mechanism:" in str(e.value)
+
+
+def test_parse_detection_mechanism_no_mutate_input_dict() -> None:
+    """Test that calling parse() does not mutate the input dictionary."""
+    # Create a dictionary that should NOT be mutated by parse() calls
+    mechanism_dict = {"type": "last_modified_column", "column_name": "last_modified"}
+    original_dict = mechanism_dict.copy()  # Keep a copy to verify no mutation
+
+    # Call parse and verify it succeeds
+    result = DetectionMechanism.parse(mechanism_dict)
+    assert result.type == "last_modified_column"
+    assert result.column_name == "last_modified"
+
+    # Verify the original dict was not mutated
+    assert mechanism_dict == original_dict, "Original dictionary should not be mutated"
