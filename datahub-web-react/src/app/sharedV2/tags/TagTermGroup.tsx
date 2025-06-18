@@ -15,7 +15,7 @@ import Tag from '@app/sharedV2/tags/tag/Tag';
 import ProposedTermPill from '@app/sharedV2/tags/term/ProposedTermPill';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
+import { Tooltip, colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
@@ -292,18 +292,20 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tag
-                        tag={tag}
-                        entityUrn={entityUrn}
-                        entitySubresource={entitySubresource}
-                        canRemove={false}
-                        readOnly={readOnly}
-                        highlightText={highlightText}
-                        onOpenModal={onOpenModal}
-                        refetch={refetch}
-                        fontSize={fontSize}
-                        showOneAndCount={showOneAndCount}
-                    />
+                    <Tooltip title="This tag is managed within another platform">
+                        <Tag
+                            tag={tag}
+                            entityUrn={entityUrn}
+                            entitySubresource={entitySubresource}
+                            canRemove={false}
+                            readOnly={readOnly}
+                            highlightText={highlightText}
+                            onOpenModal={onOpenModal}
+                            refetch={refetch}
+                            fontSize={fontSize}
+                            showOneAndCount={showOneAndCount}
+                        />
+                    </Tooltip>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
