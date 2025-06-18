@@ -164,7 +164,7 @@ information like tokens.
 | spark.jars.packages                                              | ✅       |                       | Set with latest/required version io.acryl:acryl-spark-lineage:0.2.15                                                                                                                                         |
 | spark.extraListeners                                             | ✅       |                       | datahub.spark.DatahubSparkListener                                                                                                                                                                           |
 | spark.datahub.emitter                                            |          | rest                  | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                                                  |
-| spark.datahub.rest.server                                        |          | http://localhost:8080 | Datahub server url eg: <http://localhost:8080>                                                                                                                                                               |
+| spark.datahub.rest.server                                        |          | <http://localhost:8080> | Datahub server url eg: <http://localhost:8080>                                                                                                                                                               |
 | spark.datahub.rest.token                                         |          |                       | Authentication token.                                                                                                                                                                                        |
 | spark.datahub.rest.disable_ssl_verification                      |          | false                 | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                                   |
 | spark.datahub.rest.disable_chunked_encoding                      |          | false                 | Disable Chunked Transfer Encoding. In some environment chunked encoding causes issues. With this config option it can be disabled.                                                                           |
@@ -390,9 +390,12 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.18
 
 - _Changes_:
-  - OpenLineage 1.31.0 upgrade
+  - OpenLineage 1.33.0 upgrade
   - Add `spark.datahub.capture_spark_plan` option to capture the Spark plan. By default, it is disabled.
-
+  - Add proper support for Spark Streaming
+  - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
+  - Option for Enhanced Merge Into Extraction
+  
 ### Version 0.2.17
 
 - _Major changes_:
