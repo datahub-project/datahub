@@ -11,6 +11,7 @@ import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip } from '@src/alchemy-components';
 
 import { Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
 
@@ -213,18 +214,20 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tag
-                        tag={tag}
-                        entityUrn={entityUrn}
-                        entitySubresource={entitySubresource}
-                        canRemove={false}
-                        readOnly={readOnly}
-                        highlightText={highlightText}
-                        onOpenModal={onOpenModal}
-                        refetch={refetch}
-                        fontSize={fontSize}
-                        showOneAndCount={showOneAndCount}
-                    />
+                    <Tooltip title="This tag is managed within another platform">
+                        <Tag
+                            tag={tag}
+                            entityUrn={entityUrn}
+                            entitySubresource={entitySubresource}
+                            canRemove={false}
+                            readOnly={readOnly}
+                            highlightText={highlightText}
+                            onOpenModal={onOpenModal}
+                            refetch={refetch}
+                            fontSize={fontSize}
+                            showOneAndCount={showOneAndCount}
+                        />
+                    </Tooltip>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}

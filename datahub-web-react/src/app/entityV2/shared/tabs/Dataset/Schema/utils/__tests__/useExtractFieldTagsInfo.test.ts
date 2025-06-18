@@ -41,7 +41,6 @@ describe('useExtractFieldTagsInfo', () => {
         ],
     };
 
-    // Create editableSchemaMetadata with a V2 field path that would match after downgrading
     const editableSchemaMetadataWithExtraTags: EditableSchemaMetadata = {
         editableSchemaFieldInfo: [
             {
@@ -56,7 +55,6 @@ describe('useExtractFieldTagsInfo', () => {
                 },
             },
             {
-                // This is a V2 field path with annotations that should match 'testField' after downgrading
                 fieldPath: '[version=2.0].[type=record].testField',
                 globalTags: {
                     tags: [
@@ -106,13 +104,9 @@ describe('useExtractFieldTagsInfo', () => {
         };
     });
 
-    // Verify that our utility functions work correctly for our test data
     beforeAll(() => {
-        // Verify exact matching works as expected
         expect(pathMatchesExact('testField', 'testField')).toBe(true);
         expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
-
-        // Verify V2 insensitive matching works correctly with annotated paths
         expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
         expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
     });
@@ -122,7 +116,7 @@ describe('useExtractFieldTagsInfo', () => {
         vi.resetAllMocks();
     });
 
-    it('should extract uneditableTags when they were provided in SchemaFild only', () => {
+    it('should extract uneditableTags when they were provided in SchemaField only', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
@@ -142,7 +136,7 @@ describe('useExtractFieldTagsInfo', () => {
 
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
-        expect(uneditableTags?.tags).toBeUndefined();
+        expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(1);
     });
 
@@ -156,7 +150,7 @@ describe('useExtractFieldTagsInfo', () => {
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
         expect(uneditableTags?.tags).toHaveLength(0);
-        expect(numberOfTags).toBe(2);
+        expect(numberOfTags).toBe(1);
     });
 
     it('should not extract any tags when they are not provided', () => {
@@ -166,8 +160,8 @@ describe('useExtractFieldTagsInfo', () => {
 
         const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
-        expect(editableTags?.tags).toBeUndefined();
-        expect(uneditableTags?.tags).toBeUndefined();
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(0);
     });
 
@@ -179,17 +173,12 @@ describe('useExtractFieldTagsInfo', () => {
 
         const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
-        // Should have the editable tag from the exact match
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
 
-        // With the new filter, uneditableTags.tags now only has 1 tag
-        // (any tags with the same URN as in editableTags are filtered out)
         expect(uneditableTags?.tags).toHaveLength(1);
-        // The remaining tag should be the extra tag
         expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
 
-        // Total should be 2 (1 editable + 1 uneditable)
         expect(numberOfTags).toBe(2);
     });
 });

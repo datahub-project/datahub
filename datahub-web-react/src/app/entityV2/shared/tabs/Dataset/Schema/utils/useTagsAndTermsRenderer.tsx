@@ -4,11 +4,12 @@ import { Info } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
@@ -34,9 +35,14 @@ export default function useTagsAndTermsRenderer(
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
+    const entityRegistry = useEntityRegistry();
     const schemaRefetch = useSchemaRefetch();
     const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const { entityData } = useEntityData();
+    const platformName = entityData?.platform
+        ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)
+        : null;
 
     const refresh: any = () => {
         refetch?.();
@@ -50,8 +56,10 @@ export default function useTagsAndTermsRenderer(
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
                 {/* If can edit, show disclaimer for uneditable tags */}
-                {canEdit && options.showTags && !uneditableTags?.tags?.length && (
-                    <Tooltip title="Uneditable tags have either been provided by Ingestion or are managed via GraphQL API.">
+                {canEdit && options.showTags && !!uneditableTags?.tags?.length && (
+                    <Tooltip
+                        title={`Some tags were sourced from ${platformName || 'an external platform'}. They will be resynced periodically during scheduled ingestion.`}
+                    >
                         <TagDisclaimer type="secondary">
                             <Info /> Some tags are not editable.
                         </TagDisclaimer>
