@@ -1,6 +1,6 @@
 import logging
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from datahub.utilities.perf_timer import PerfTimer
@@ -22,7 +22,7 @@ PROFILING = "Profiling"
 
 @dataclass
 class IngestionStageReport:
-    ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
+    ingestion_stage_durations: TopKDict[str, float] = TopKDict(50)
 
     def new_stage(self, stage: str) -> "IngestionStageContext":
         return IngestionStageContext(stage, self)
