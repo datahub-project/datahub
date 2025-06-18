@@ -34,6 +34,7 @@ import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
+    ListIngestionSourcesQuery,
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
@@ -180,6 +181,7 @@ export const IngestionSourceList = ({
     const [sourcesToRefetch, setSourcesToRefetch] = useState<Set<string>>(new Set());
     const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
+    const [totalSources, setTotalSources] = useState<number>(0);
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
 
     // Set of removed urns used to account for eventual consistency
@@ -230,6 +232,12 @@ export const IngestionSourceList = ({
         sort,
     };
 
+    const onRequestCompleted = useCallback((data: ListIngestionSourcesQuery) => {
+        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
+        setFinalSources(sources);
+        setTotalSources(data?.listIngestionSources?.total || 0);
+    }, []);
+
     // Fetch list of Ingestion Sources
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
@@ -237,6 +245,7 @@ export const IngestionSourceList = ({
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-and-network',
         nextFetchPolicy: 'cache-first',
+        onCompleted: onRequestCompleted,
     });
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
@@ -247,14 +256,8 @@ export const IngestionSourceList = ({
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
-    const totalSources = data?.listIngestionSources?.total || 0;
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
-
-    useEffect(() => {
-        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
-        setFinalSources(sources);
-    }, [data?.listIngestionSources?.ingestionSources]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
