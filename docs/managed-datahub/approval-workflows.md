@@ -30,8 +30,7 @@ To create proposals to change the Business Glossary, users need to have the foll
 - `Propose Create Glossary Term`
 - `Propose Create Glossary Node (Term Group)`
 
-Which are granted by default using the **Reader**, **Editor**, and **Admin** roles by default. 
-
+Which are granted by default using the **Reader**, **Editor**, and **Admin** roles by default.
 
 ### Reviewing Proposals
 
@@ -48,8 +47,7 @@ To review proposals to change the Business Glossary, users need to have the foll
 
 - `Manage Glossaries`
 
-Which are granted by default **Editor** and **Admin** roles. 
-
+Which are granted by default **Editor** and **Admin** roles.
 
 ## Using Approval Workflows
 
@@ -173,9 +171,9 @@ Which are granted by default **Editor** and **Admin** roles.
 
 ### Reviewing Proposals
 
-Proposals will be visible inside your **Task Center**, which is accessible via the navigation sidebar. From the task center, you can choose to accept or deny proposals sourced for assets you are responsible for. 
+Proposals will be visible inside your **Task Center**, which is accessible via the navigation sidebar. From the task center, you can choose to accept or deny proposals sourced for assets you are responsible for.
 
-## Change Proposal Notifications 
+## Change Proposal Notifications
 
 You can enable notifications in the following scenarios:
 
@@ -183,9 +181,9 @@ You can enable notifications in the following scenarios:
 - You are assigned to a new change proposal
 - A proposal you are assigned to is approved or denied
 
-Via **Slack** and **Email**. 
+Via **Slack** and **Email**.
 
-To enable notifications, navigate to **Settings > My Notifications**. 
+To enable notifications, navigate to **Settings > My Notifications**.
 
 ## Creating Proposals via API
 
@@ -361,5 +359,4 @@ input DescriptionUpdateInput {
 
 **1. My colleagues have created some proposals, but I'm not seeing this in my Task Center. Why not?**
 
-Most likely, this means your privileges are not configured properly. If you are a DataHub Admin, navigate to **Settings > Permissions** to edit your roles and policies to ensure you have the privileges listed in the **Permissions** section above. 
-
+Most likely, this means your privileges are not configured properly. If you are a DataHub Admin, navigate to **Settings > Permissions** to edit your roles and policies to ensure you have the privileges listed in the **Permissions** section above.
