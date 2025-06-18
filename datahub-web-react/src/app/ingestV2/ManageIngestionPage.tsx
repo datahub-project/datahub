@@ -170,6 +170,7 @@ export const ManageIngestionPage = () => {
             canViewPools && {
                 component: (
                     <RemoteExecutorPoolsList
+                        selectedTab={selectedTab}
                         showCreatePoolModal={showCreatePoolModal}
                         setShowCreatePoolModal={setShowCreatePoolModal}
                         shouldPreserveParams={shouldPreserveParams}

@@ -23,6 +23,7 @@ import {
 import { RemoteExecutorPool } from '@src/types.generated';
 
 const DEFAULT_PAGE_SIZE = 25;
+const POLL_INTERVAL = 10000;
 export const REMOTE_EXECUTORS_CREATE_SOURCE_ID = 'REMOTE_EXECUTORS_CREATE_SOURCE_ID';
 const REMOTE_EXECUTORS_REFRESH_SOURCE_ID = 'REMOTE_EXECUTORS_REFRESH_SOURCE_ID';
 
@@ -64,12 +65,14 @@ const PaginationContainer = styled.div`
 `;
 
 type Props = {
+    selectedTab?: TabType | null;
     showCreatePoolModal: boolean;
     setShowCreatePoolModal: (show: boolean) => void;
     shouldPreserveParams: React.MutableRefObject<boolean>;
 };
 
 export const RemoteExecutorPoolsList = ({
+    selectedTab,
     showCreatePoolModal,
     setShowCreatePoolModal,
     shouldPreserveParams,
@@ -88,17 +91,25 @@ export const RemoteExecutorPoolsList = ({
         }
     }, [defaultQuery]);
 
-    const { loading, error, data, refetch } = useListRemoteExecutorPoolsQuery({
+    const { loading, error, data, refetch, startPolling, stopPolling } = useListRemoteExecutorPoolsQuery({
         variables: {
             start,
             count: pageSize,
             query,
         },
         fetchPolicy: 'no-cache',
-        pollInterval: 10000,
     });
     const total = data?.listRemoteExecutorPools?.total;
     const remoteExecutorPools = (data?.listRemoteExecutorPools?.remoteExecutorPools ?? []) as RemoteExecutorPool[];
+
+    useEffect(() => {
+        if (selectedTab === TabType.RemoteExecutors) {
+            startPolling(POLL_INTERVAL);
+        } else {
+            stopPolling();
+        }
+        return () => stopPolling();
+    }, [selectedTab, startPolling, stopPolling]);
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const onRefresh = () => {
