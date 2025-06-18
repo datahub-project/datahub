@@ -121,6 +121,7 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
                     setHideSystemSources={setHideSystemSources}
+                    selectedTab={selectedTab}
                 />
             ),
             key: TabType.Sources as string,

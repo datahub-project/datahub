@@ -36,6 +36,7 @@ import {
 } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
+import { TabType } from '@app/ingestV2/types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -117,6 +118,7 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    selectedTab: TabType | undefined | null;
 }
 
 export const IngestionSourceList = ({
@@ -125,6 +127,7 @@ export const IngestionSourceList = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
+    selectedTab,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
@@ -559,7 +562,6 @@ export const IngestionSourceList = ({
                                 isLastPage={isLastPage}
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
-                                saasProps={{ onViewPool }}
                             />
                         </TableContainer>
                         <PaginationContainer>
@@ -594,17 +596,18 @@ export const IngestionSourceList = ({
                 <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
             {/* For refetching and polling */}
-            {Array.from(sourcesToRefetch).map((urn) => (
-                <IngestionSourceRefetcher
-                    key={urn}
-                    urn={urn}
-                    setFinalSources={setFinalSources}
-                    setSourcesToRefetch={setSourcesToRefetch}
-                    setExecutedUrns={setExecutedUrns}
-                    queryInputs={queryInputs}
-                    isExecutedNow={executedUrns.has(urn)}
-                />
-            ))}
+            {selectedTab === TabType.Sources &&
+                Array.from(sourcesToRefetch).map((urn) => (
+                    <IngestionSourceRefetcher
+                        key={urn}
+                        urn={urn}
+                        setFinalSources={setFinalSources}
+                        setSourcesToRefetch={setSourcesToRefetch}
+                        setExecutedUrns={setExecutedUrns}
+                        queryInputs={queryInputs}
+                        isExecutedNow={executedUrns.has(urn)}
+                    />
+                ))}
         </>
     );
 };

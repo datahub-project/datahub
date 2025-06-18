@@ -110,7 +110,7 @@ export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHide
     const isLastPage = totalExecutionRequests <= pageSize * page;
 
     // refresh the data when there are some running execution requests
-    useRefresh(executionRequests, refetch);
+    useRefresh(executionRequests, refetch, loading, selectedTab);
 
     const onPageChangeHandler = useCallback(
         (newPage: number) => {
