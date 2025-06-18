@@ -1116,6 +1116,7 @@ module.exports = {
     // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
+    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };
