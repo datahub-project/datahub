@@ -22,6 +22,8 @@ As of DataHub Cloud v0.3.12, AI documentation is in public beta. Admins (or user
 
 Ensure you have permissions to edit the dataset description. No other configuration is required - just hit "Generate" on any table or column in the UI.
 
+All AI-generated documentation that has not been reviewed by a human will be marked as such with the sparkle icon.
+
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-docs/ai-docs-generation.gif"/>
 </p>
@@ -39,5 +41,5 @@ Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedr
 
 ## Limitations
 
-- AI documentation is not available for tables with more than 1000 columns (prior to v0.3.12, this was 100 columns).
+- AI documentation is not available for tables with more than 1000 columns (prior to v0.3.12, this limit was 100 columns).
 - This feature is powered by LLMs, which can produce inaccurate results. While we've taken steps to reduce the likelihood of hallucinations, they may still occur.
