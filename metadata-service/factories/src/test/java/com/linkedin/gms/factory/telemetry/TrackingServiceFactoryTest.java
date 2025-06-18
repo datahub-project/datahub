@@ -5,7 +5,6 @@ import static org.testng.Assert.*;
 
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
@@ -23,7 +22,24 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@TestPropertySource(properties = {"telemetry.enabledServer=false"})
+@TestPropertySource(
+    properties = {
+      "telemetry.enabledServer=false",
+      "kafka.topics.dataHubUsage=DataHubUsageEvent_v1",
+      "kafka.bootstrapServers=localhost:9092",
+      "kafka.schemaRegistry.type=INTERNAL",
+      "kafka.schemaRegistry.url=http://localhost:8081",
+      "kafka.producer.retryCount=3",
+      "kafka.producer.deliveryTimeout=30000",
+      "kafka.producer.requestTimeout=3000",
+      "kafka.producer.backoffTimeout=500",
+      "kafka.producer.compressionType=snappy",
+      "kafka.producer.maxRequestSize=5242880",
+      "kafka.serde.usageEvent.key.serializer=org.apache.kafka.common.serialization.StringSerializer",
+      "kafka.serde.usageEvent.key.deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+      "kafka.serde.usageEvent.value.serializer=org.apache.kafka.common.serialization.StringSerializer",
+      "kafka.serde.usageEvent.value.deserializer=org.apache.kafka.common.serialization.StringDeserializer"
+    })
 @ContextConfiguration(classes = {TrackingServiceFactoryTest.TestConfig.class})
 public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests {
 
@@ -119,6 +135,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public ConfigurationProvider configurationProvider() {
       ConfigurationProvider mockProvider = mock(ConfigurationProvider.class);
       when(mockProvider.getTelemetry()).thenReturn(telemetryConfiguration());
+      when(mockProvider.getKafka()).thenReturn(kafkaConfiguration());
       return mockProvider;
     }
 
@@ -127,12 +144,18 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public TelemetryConfiguration telemetryConfiguration() {
       TelemetryConfiguration config = new TelemetryConfiguration();
       config.setEnabledServer(false);
+      return config;
+    }
 
-      // Create and configure MixpanelConfiguration
-      MixpanelConfiguration mixpanelConfig = new MixpanelConfiguration();
-      mixpanelConfig.setEnabled(true); // Make sure Mixpanel is enabled too
-      config.setMixpanel(mixpanelConfig);
-
+    @Bean
+    @Primary
+    public com.linkedin.metadata.config.kafka.KafkaConfiguration kafkaConfiguration() {
+      com.linkedin.metadata.config.kafka.KafkaConfiguration config =
+          new com.linkedin.metadata.config.kafka.KafkaConfiguration();
+      com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+      topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
+      config.setTopics(topicsConfig);
       return config;
     }
 
@@ -164,12 +187,6 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("gitVersion")
     public GitVersion gitVersion() {
       return mock(GitVersion.class);
-    }
-
-    @Bean
-    @Qualifier("mixpanelConfiguration")
-    public MixpanelConfiguration mixpanelConfiguration() {
-      return mock(MixpanelConfiguration.class);
     }
 
     @Bean
@@ -188,8 +205,6 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public TelemetryConfiguration telemetryConfiguration() {
       TelemetryConfiguration config = new TelemetryConfiguration();
       config.setEnabledServer(true);
-      MixpanelConfiguration mixpanelConfig = new MixpanelConfiguration();
-      config.setMixpanel(mixpanelConfig);
       return config;
     }
 
@@ -198,7 +213,20 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public ConfigurationProvider configurationProvider() {
       ConfigurationProvider mockProvider = mock(ConfigurationProvider.class);
       when(mockProvider.getTelemetry()).thenReturn(telemetryConfiguration());
+      when(mockProvider.getKafka()).thenReturn(kafkaConfiguration());
       return mockProvider;
+    }
+
+    @Bean
+    @Primary
+    public com.linkedin.metadata.config.kafka.KafkaConfiguration kafkaConfiguration() {
+      com.linkedin.metadata.config.kafka.KafkaConfiguration config =
+          new com.linkedin.metadata.config.kafka.KafkaConfiguration();
+      com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+      topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
+      config.setTopics(topicsConfig);
+      return config;
     }
 
     @Bean
@@ -229,12 +257,6 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("gitVersion")
     public GitVersion gitVersion() {
       return mock(GitVersion.class);
-    }
-
-    @Bean
-    @Qualifier("mixpanelConfiguration")
-    public MixpanelConfiguration mixpanelConfiguration() {
-      return mock(MixpanelConfiguration.class);
     }
 
     @Bean

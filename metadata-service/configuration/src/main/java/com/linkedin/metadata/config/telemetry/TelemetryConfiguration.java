@@ -16,7 +16,4 @@ public class TelemetryConfiguration {
 
   /** Whether or not server telemetry should be enabled */
   public boolean enabledServer;
-
-  /** Configuration for Mixpanel. This is used to track user interactions with the product. */
-  public MixpanelConfiguration mixpanel;
 }
