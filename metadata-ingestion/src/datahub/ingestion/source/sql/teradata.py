@@ -932,7 +932,6 @@ ORDER by DataBaseName, TableName;
 
         return query
 
-
     def gen_lineage_from_query(
         self,
         query: str,
