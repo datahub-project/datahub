@@ -1486,6 +1486,13 @@ def _sqlglot_lineage_nocache(
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
+    except BaseException as e:
+        # Handle pyo3_runtime.PanicException from SQLGlot's Rust tokenizer.
+        # pyo3_runtime.PanicException inherits from BaseException (like SystemExit or
+        # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
+        wrapped_exception = Exception(f"BaseException during SQL parsing: {e}")
+        wrapped_exception.__cause__ = e
+        return SqlParsingResult.make_from_error(wrapped_exception)
 
 
 _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
