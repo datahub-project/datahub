@@ -14,8 +14,6 @@ import {
 } from '@app/ingest/source/IngestionSourceTableColumns';
 import { IngestionSourceExecutionList } from '@app/ingest/source/executions/IngestionSourceExecutionList';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingest/source/utils';
-import { OwnerColumn } from '@app/ingestV2/source/IngestionSourceTableColumns';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -93,7 +91,6 @@ function IngestionSourceTable({
     onChangeSort,
     saasProps,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
     const appConfig = useAppConfig();
     const isPoolsDisplayEnabled = appConfig.config.featureFlags.displayExecutorPools;
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -120,8 +117,7 @@ function IngestionSourceTable({
             source.executions?.executionRequests?.length > 0 &&
             getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
-        owners: source.ownership?.owners,
-        executorPoolId: source.config.executorId, // SaaS only
+        executorPoolId: source.config?.executorId, // SaaS only
     }));
 
     const tableColumns = [
@@ -163,11 +159,6 @@ function IngestionSourceTable({
                   },
               ]
             : []),
-        {
-            title: 'Owner',
-            key: 'owner',
-            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-        },
         {
             title: 'Status',
             dataIndex: 'lastExecStatus',

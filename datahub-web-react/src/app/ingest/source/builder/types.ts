@@ -38,7 +38,6 @@ export type StepProps = {
     cancel: () => void;
     ingestionSources: SourceConfig[];
     isEditing: boolean;
-    sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
 };
 

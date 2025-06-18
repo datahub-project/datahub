@@ -26,18 +26,15 @@ import {
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
-    useGetIngestionSourceQuery,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
@@ -225,7 +222,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
@@ -234,24 +230,8 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
     const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
-    const [focusSource, setFocusSource] = useState(
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
-    );
-
-    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
-        variables: {
-            urn: focusSourceUrn || '',
-        },
-        skip: !focusSourceUrn,
-    });
-
-    const combinedRefetch = async () => {
-        await Promise.all([focusSourceRefetch(), refetch()]);
-    };
-
-    useEffect(() => {
-        setFocusSource(focusSourceData?.ingestionSource as IngestionSource);
-    }, [focusSourceData?.ingestionSource]);
+    const focusSource =
+        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
     const onRefresh = useCallback(() => {
         refetch();
@@ -315,22 +295,11 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
     ) => {
         if (focusSourceUrn) {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: owners || [],
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
@@ -355,7 +324,7 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: 'Loading...', duration: 3 });
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -375,16 +344,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                         executions: null,
                         ownership: null,
                     };
-                    if (owners && owners.length > 0) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners,
-                                    resources: [{ resourceUrn: newSource.urn }],
-                                },
-                            },
-                        });
-                    }
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
                         refetch();
@@ -400,7 +359,7 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                         if (shouldRun && result.data?.createIngestionSource) {
                             executeIngestionSource(result.data.createIngestionSource);
                         }
-                    }, 2000);
+                    }, 3000);
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();
@@ -469,7 +428,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
             },
             resetState,
             shouldRun,
-            recipeBuilderState.owners,
         );
     };
 
@@ -604,7 +562,6 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
-                sourceRefetch={combinedRefetch}
                 selectedSource={focusSource}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}

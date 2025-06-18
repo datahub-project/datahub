@@ -1,13 +1,12 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
 import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
@@ -20,22 +19,8 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({
-    state,
-    updateState,
-    prev,
-    submit,
-    sourceRefetch,
-    isEditing,
-    selectedSource,
-}: StepProps) => {
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
     const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
-
-    useEffect(() => {
-        setExistingOwners(selectedSource?.ownership?.owners || []);
-    }, [selectedSource?.ownership?.owners]);
 
     const [searchPoolQuery, setSearchPoolQuery] = useState('');
 
@@ -43,14 +28,6 @@ export const NameSourceStep = ({
         const newState: SourceBuilderState = {
             ...state,
             name: stagedName,
-        };
-        updateState(newState);
-    };
-
-    const setOwners = (newOwners: PendingOwner[]) => {
-        const newState: SourceBuilderState = {
-            ...state,
-            owners: newOwners,
         };
         updateState(newState);
     };
@@ -175,7 +152,6 @@ export const NameSourceStep = ({
     const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
             submit(shouldRun);
-            setSelectedOwnerUrns([]);
         }
     };
 
@@ -205,15 +181,6 @@ export const NameSourceStep = ({
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-                <OwnersSection
-                    selectedOwnerUrns={selectedOwnerUrns}
-                    setSelectedOwnerUrns={setSelectedOwnerUrns}
-                    existingOwners={existingOwners}
-                    onChange={setOwners}
-                    sourceRefetch={sourceRefetch}
-                    isEditForm={isEditing}
-                    canEdit={!!canEditSource}
-                />
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
