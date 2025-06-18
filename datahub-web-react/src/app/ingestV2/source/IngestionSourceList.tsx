@@ -142,6 +142,7 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    selectedTab: TabType | undefined | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
@@ -151,6 +152,7 @@ export const IngestionSourceList = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
+    selectedTab,
     setSelectedTab,
 }: Props) => {
     const location = useLocation();
@@ -675,17 +677,18 @@ export const IngestionSourceList = ({
                 onConfirm={onConfirmCancelExecution}
             />
             {/* For refetching and polling */}
-            {Array.from(sourcesToRefetch).map((urn) => (
-                <IngestionSourceRefetcher
-                    key={urn}
-                    urn={urn}
-                    setFinalSources={setFinalSources}
-                    setSourcesToRefetch={setSourcesToRefetch}
-                    setExecutedUrns={setExecutedUrns}
-                    queryInputs={queryInputs}
-                    isExecutedNow={executedUrns.has(urn)}
-                />
-            ))}
+            {selectedTab === TabType.Sources &&
+                Array.from(sourcesToRefetch).map((urn) => (
+                    <IngestionSourceRefetcher
+                        key={urn}
+                        urn={urn}
+                        setFinalSources={setFinalSources}
+                        setSourcesToRefetch={setSourcesToRefetch}
+                        setExecutedUrns={setExecutedUrns}
+                        queryInputs={queryInputs}
+                        isExecutedNow={executedUrns.has(urn)}
+                    />
+                ))}
         </>
     );
 };
