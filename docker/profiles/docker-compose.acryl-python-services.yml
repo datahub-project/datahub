@@ -5,7 +5,7 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
 
 x-executor-worker-env: &executor-worker-env
-  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-remote-ci}
+  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
   DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID}
 
 x-datahub-executor-coordinator-env: &datahub-executor-coordinator-env
@@ -51,9 +51,11 @@ x-datahub-executor-setup: &datahub-executor-worker-setup
   env_file: datahub-executor/env/docker-worker.env
   environment: &datahub-executor-worker-setup-env
     <<: *executor-worker-env
+  volumes:
+    - ../../datahub-executor/scripts/smoke-test-helper.py:/datahub-executor/smoke-test-helper.py
   command:
     - python
-    - /datahub-executor/scripts/smoke-test-helper.py
+    - /datahub-executor/smoke-test-helper.py
 
 x-datahub-executor: &datahub-executor
   hostname: datahub-executor

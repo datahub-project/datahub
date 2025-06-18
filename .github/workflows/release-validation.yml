@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 
 concurrency:
+  group: release-validation
   cancel-in-progress: true
 
 env:
@@ -184,10 +185,11 @@ jobs:
     needs: [setup, base_build]
 
     strategy:
+      fail-fast: false
       matrix:
         remote_executor_version: [ "v0.3.11.1-acryl", "v0.3.10.4-acryl" ]
         include:
-          - remote_executor_version: ${{ needs.setup.outputs.tag }}
+          - remote_executor_version: ${{ needs.setup.outputs.tag }} # latest
 
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
@@ -253,6 +255,10 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
+      - name: Executor Version
+        id: version
+        run: echo "::set-output name=with_dashes::$(echo '${{ matrix.remote_executor_version }}' | tr '.' '-')"
+
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -262,7 +268,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.remote_executor_version }}"
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ steps.version.outputs.with_dashes }}"
           AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
           AWS_REGION: us-west-2
@@ -310,8 +316,10 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
-          TEST_STRATEGY: release_validation
-          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.remote_executor_version }}"
+          TEST_STRATEGY: remote_executor
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ steps.version.outputs.with_dashes }}"
+          BATCH_COUNT: "-1"
+          BATCH_NUMBER: "-1"
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -324,20 +332,20 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          TEST_STRATEGY="-${{ matrix.remote_executor_version }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          name: docker-logs-${{ matrix.remote_executor_version }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          name: cypress-snapshots-${{ matrix.remote_executor_version }}
           path: smoke-test/tests/cypress/cypress/screenshots/
           retention-days: 5
       - name: Upload videos
@@ -350,7 +358,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          name: Test Results (smoke tests) ${{ matrix.remote_executor_version }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**

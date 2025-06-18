@@ -56,7 +56,7 @@ elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
   # tests and isnt very helpful.
   pytest -rP --durations=20 -vvs --continue-on-collection-errors tests/cypress/integration_test.py
 elif [[ "${TEST_STRATEGY}" == "remote_executor" ]]; then
-  pytest -rP -m "remote_executor" --durations=20 -vvs --continue-on-collection-errors tests/cypress/integration_test.py
+  pytest -rP -m "remote_executor" --durations=20 -vvs --continue-on-collection-errors tests/
 else
   pytest -rP --durations=20 -vvs --continue-on-collection-errors --junit-xml=junit.smoke-all.xml
 fi
