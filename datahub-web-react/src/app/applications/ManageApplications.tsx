@@ -59,7 +59,6 @@ const ManageApplications = () => {
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const [showCreateApplicationModal, setShowCreateApplicationModal] = useState(false);
 
-    // TODO: Add permissions for applications
     const userContext = useUserContext();
     const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
@@ -67,7 +66,7 @@ const ManageApplications = () => {
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchQuery(searchQuery);
-        }, 300); // 300ms delay
+        }, 300);
 
         return () => clearTimeout(timer);
     }, [searchQuery]);
@@ -92,8 +91,7 @@ const ManageApplications = () => {
         networkStatus,
     } = useGetSearchResultsForMultipleQuery({
         variables: { input: searchInputs },
-        fetchPolicy: 'cache-first', // Changed from cache-and-network to prevent double loading
-        notifyOnNetworkStatusChange: false, // Changed to false to reduce unnecessary re-renders
+        fetchPolicy: 'cache-first',
     });
 
     const totalApplications = searchData?.searchAcrossEntities?.total || 0;
