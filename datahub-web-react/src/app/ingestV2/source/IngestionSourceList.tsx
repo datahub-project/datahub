@@ -367,13 +367,13 @@ export const IngestionSourceList = ({
                     message.loading({ content: 'Loading...', duration: 2 });
                     const ownersToAdd = owners?.filter((owner) => owner.ownerUrn !== me.urn);
 
-                    const newSource = {
+                    const newSource: IngestionSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
                         type: input.type,
-                        config: null,
+                        config: { executorId: '', recipe: '', version: null, debugMode: null, extraArgs: null },
                         schedule: {
-                            interval: input.schedule?.interval || null,
+                            interval: input.schedule?.interval || '',
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
@@ -399,6 +399,7 @@ export const IngestionSourceList = ({
                         });
                     }
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
+                    setFinalSources((currSources) => [newSource, ...currSources]);
                     setTimeout(() => {
                         analytics.event({
                             type: EventType.CreateIngestionSourceEvent,
