@@ -10,12 +10,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateIngestionExecutionRequestInput;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -61,99 +61,97 @@ public class CreateIngestionExecutionRequestResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (AuthorizationUtils.canManageIngestion(context)) {
+          final CreateIngestionExecutionRequestInput input =
+              bindArgument(
+                  environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
 
-            final CreateIngestionExecutionRequestInput input =
-                bindArgument(
-                    environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
+          try {
+            final ExecutionRequestKey key = new ExecutionRequestKey();
+            final UUID uuid = UUID.randomUUID();
+            final String uuidStr = uuid.toString();
+            key.setId(uuidStr);
+            final Urn executionRequestUrn =
+                EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
 
-            try {
-              final ExecutionRequestKey key = new ExecutionRequestKey();
-              final UUID uuid = UUID.randomUUID();
-              final String uuidStr = uuid.toString();
-              key.setId(uuidStr);
-              final Urn executionRequestUrn =
-                  EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
-
-              // Fetch the original ingestion source
-              final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
-              final Map<Urn, EntityResponse> response =
-                  _entityClient.batchGetV2(
-                      context.getOperationContext(),
-                      INGESTION_SOURCE_ENTITY_NAME,
-                      ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
-
-              if (!response.containsKey(ingestionSourceUrn)) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find ingestion source with urn %s",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              final EnvelopedAspect envelopedInfo =
-                  response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
-              final DataHubIngestionSourceInfo ingestionSourceInfo =
-                  new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
-
-              if (!ingestionSourceInfo.getConfig().hasRecipe()) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find valid ingestion source with urn %s. Missing recipe",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              // Build the arguments map.
-              final ExecutionRequestInput execInput = new ExecutionRequestInput();
-              execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
-              execInput.setSource(
-                  new ExecutionRequestSource()
-                      .setType(MANUAL_EXECUTION_SOURCE_NAME)
-                      .setIngestionSource(ingestionSourceUrn));
-              execInput.setExecutorId(
-                  ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
-              execInput.setRequestedAt(System.currentTimeMillis());
-              execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
-
-              Map<String, String> arguments = new HashMap<>();
-              String recipe = ingestionSourceInfo.getConfig().getRecipe();
-              recipe = injectRunId(recipe, executionRequestUrn.toString());
-              recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
-              arguments.put(RECIPE_ARG_NAME, recipe);
-              arguments.put(
-                  VERSION_ARG_NAME,
-                  ingestionSourceInfo.getConfig().hasVersion()
-                      ? ingestionSourceInfo.getConfig().getVersion()
-                      : _ingestionConfiguration.getDefaultCliVersion());
-              if (ingestionSourceInfo.getConfig().hasVersion()) {
-                arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
-              }
-              String debugMode = "false";
-              if (ingestionSourceInfo.getConfig().hasDebugMode()) {
-                debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
-              }
-              if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
-                arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
-              }
-              arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
-              execInput.setArgs(new StringMap(arguments));
-
-              final MetadataChangeProposal proposal =
-                  buildMetadataChangeProposalWithKey(
-                      key,
-                      EXECUTION_REQUEST_ENTITY_NAME,
-                      EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                      execInput);
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to create new ingestion execution request %s", input), e);
+            // Fetch the original ingestion source
+            final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
+            if (!IngestionAuthUtils.canExecuteIngestion(context, ingestionSourceUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to execute this ingestion source. Please contact your DataHub administrator.");
             }
+            final Map<Urn, EntityResponse> response =
+                _entityClient.batchGetV2(
+                    context.getOperationContext(),
+                    INGESTION_SOURCE_ENTITY_NAME,
+                    ImmutableSet.of(ingestionSourceUrn),
+                    ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
+
+            if (!response.containsKey(ingestionSourceUrn)) {
+              throw new DataHubGraphQLException(
+                  String.format(
+                      "Failed to find ingestion source with urn %s", ingestionSourceUrn.toString()),
+                  DataHubGraphQLErrorCode.BAD_REQUEST);
+            }
+
+            final EnvelopedAspect envelopedInfo =
+                response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
+            final DataHubIngestionSourceInfo ingestionSourceInfo =
+                new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+
+            if (!ingestionSourceInfo.getConfig().hasRecipe()) {
+              throw new DataHubGraphQLException(
+                  String.format(
+                      "Failed to find valid ingestion source with urn %s. Missing recipe",
+                      ingestionSourceUrn.toString()),
+                  DataHubGraphQLErrorCode.BAD_REQUEST);
+            }
+
+            // Build the arguments map.
+            final ExecutionRequestInput execInput = new ExecutionRequestInput();
+            execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
+            execInput.setSource(
+                new ExecutionRequestSource()
+                    .setType(MANUAL_EXECUTION_SOURCE_NAME)
+                    .setIngestionSource(ingestionSourceUrn));
+            execInput.setExecutorId(
+                ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+            execInput.setRequestedAt(System.currentTimeMillis());
+            execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
+
+            Map<String, String> arguments = new HashMap<>();
+            String recipe = ingestionSourceInfo.getConfig().getRecipe();
+            recipe = injectRunId(recipe, executionRequestUrn.toString());
+            recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
+            arguments.put(RECIPE_ARG_NAME, recipe);
+            arguments.put(
+                VERSION_ARG_NAME,
+                ingestionSourceInfo.getConfig().hasVersion()
+                    ? ingestionSourceInfo.getConfig().getVersion()
+                    : _ingestionConfiguration.getDefaultCliVersion());
+            if (ingestionSourceInfo.getConfig().hasVersion()) {
+              arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
+            }
+            String debugMode = "false";
+            if (ingestionSourceInfo.getConfig().hasDebugMode()) {
+              debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
+            }
+            if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
+              arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
+            }
+            arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
+            execInput.setArgs(new StringMap(arguments));
+
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithKey(
+                    key,
+                    EXECUTION_REQUEST_ENTITY_NAME,
+                    EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                    execInput);
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to create new ingestion execution request %s", input), e);
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");

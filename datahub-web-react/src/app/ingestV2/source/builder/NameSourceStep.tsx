@@ -37,6 +37,7 @@ export const NameSourceStep = ({
     const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
+    const canExecuteSource = !selectedSource || selectedSource.privileges?.canExecute;
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -319,7 +320,11 @@ export const NameSourceStep = ({
                     </Button>
                     <Tooltip showArrow={false} title="Save and start syncing data source">
                         <Button
-                            disabled={!canEditSource || !(state.name !== undefined && state.name.length > 0)}
+                            disabled={
+                                !canEditSource ||
+                                !canExecuteSource ||
+                                !(state.name !== undefined && state.name.length > 0)
+                            }
                             onClick={() => onClickCreate(true)}
                         >
                             Save & Run

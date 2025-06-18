@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
+import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
@@ -29,7 +31,6 @@ import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.Map;
@@ -58,10 +59,6 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (!AuthorizationUtils.canManageIngestion(context)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
-    }
     final Optional<String> ingestionSourceUrn = Optional.ofNullable(environment.getArgument("urn"));
     final UpdateIngestionSourceInput input =
         bindArgument(environment.getArgument("input"), UpdateIngestionSourceInput.class);
@@ -71,17 +68,18 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     final MetadataChangeProposal proposal;
     if (ingestionSourceUrn.isPresent()) {
       // Update existing ingestion source
-      try {
-        proposal =
-            buildMetadataChangeProposalWithUrn(
-                Urn.createFromString(ingestionSourceUrn.get()), INGESTION_INFO_ASPECT_NAME, info);
-      } catch (URISyntaxException e) {
-        throw new DataHubGraphQLException(
-            String.format("Malformed urn %s provided.", ingestionSourceUrn.get()),
-            DataHubGraphQLErrorCode.BAD_REQUEST);
+      Urn urn = UrnUtils.getUrn(ingestionSourceUrn.get());
+      if (!IngestionAuthUtils.canEditIngestion(context, urn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
+      proposal = buildMetadataChangeProposalWithUrn(urn, INGESTION_INFO_ASPECT_NAME, info);
     } else {
       // Create new ingestion source
+      if (!AuthorizationUtils.canManageIngestion(context)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
       // Since we are creating a new Ingestion Source, we need to generate a unique UUID.
       final UUID uuid = UUID.randomUUID();
       final String uuidStr = uuid.toString();
