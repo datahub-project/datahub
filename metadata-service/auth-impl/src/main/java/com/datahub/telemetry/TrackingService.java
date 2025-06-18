@@ -16,7 +16,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
-import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
@@ -112,11 +111,9 @@ public class TrackingService {
               PARENT_NODE_URN_FIELD));
 
   private final TopicsConfiguration topicsConfiguration;
-  private final MixpanelConfiguration mixpanelConfiguration;
   private final SecretService secretService;
   private final MessageBuilder messageBuilder;
   private final MixpanelAPI mixpanelAPI;
-  private final boolean disableObfuscation;
   private final EntityService _entityService;
   private final GitVersion _gitVersion;
   private final ObjectMapper _objectMapper = new ObjectMapper();
@@ -125,7 +122,6 @@ public class TrackingService {
   private final Producer<String, String> dataHubUsageProducer;
 
   public TrackingService(
-      final MixpanelConfiguration mixpanelConfiguration,
       final TopicsConfiguration topicsConfiguration,
       final SecretService secretService,
       final MessageBuilder messageBuilder,
@@ -133,13 +129,10 @@ public class TrackingService {
       @Nonnull EntityService<?> entityService,
       @Nonnull GitVersion gitVersion,
       @Nullable Producer<String, String> dataHubUsageProducer) {
-    this.mixpanelConfiguration = mixpanelConfiguration;
     this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;
     this.mixpanelAPI = mixpanelAPI;
-    this.disableObfuscation =
-        mixpanelConfiguration != null && mixpanelConfiguration.isDisableObfuscation();
     this._entityService = entityService;
     this._gitVersion = gitVersion;
     this.dataHubUsageProducer = dataHubUsageProducer;
@@ -160,6 +153,7 @@ public class TrackingService {
     }
   }
 
+  // TODO: No callers
   public void track(
       @Nonnull final String eventName,
       @Nonnull final OperationContext opContext,
@@ -501,17 +495,12 @@ public class TrackingService {
     while (keys.hasNext()) {
       final String key = keys.next();
       try {
-        if (disableObfuscation) {
-          // copy all the fields over
+        // we only send an allowed list of fields
+        if (ALLOWED_EVENT_FIELDS.contains(key)) {
           sanitizedEvent.put(key, event.get(key));
-        } else {
-          // we only send an allowed list of fields
-          if (ALLOWED_EVENT_FIELDS.contains(key)) {
-            sanitizedEvent.put(key, event.get(key));
-          } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(key)) {
-            // we obfuscate fields that are sensitive
-            sanitizedEvent.put(key, secretService.hashString(event.getString(key)));
-          }
+        } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(key)) {
+          // we obfuscate fields that are sensitive
+          sanitizedEvent.put(key, secretService.hashString(event.getString(key)));
         }
       } catch (JSONException e) {
         log.warn("Failed to sanitize field {}. Skipping this field.", key, e);

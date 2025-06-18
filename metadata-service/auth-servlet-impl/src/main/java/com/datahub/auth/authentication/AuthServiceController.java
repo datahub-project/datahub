@@ -445,13 +445,8 @@ public class AuthServiceController {
       log.error("Failed to parse json while attempting to track analytics event", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
-    if ((bodyJson == null) && (!bodyJson.has("event") || !bodyJson.has("type"))) {
-      if (!bodyJson.has("event")) {
-        log.warn("Invalid tracking request: missing event field");
-      }
-      if (!bodyJson.has("type")) {
-        log.warn("Invalid tracking request: missing `type` field");
-      }
+    if (bodyJson == null || !bodyJson.has("type")) {
+      log.warn("Invalid tracking request: missing `type` field");
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
@@ -463,7 +458,7 @@ public class AuthServiceController {
             // behavior to re-route traffic via backend.
             int numDestinations =
                 _trackingService.track(
-                    bodyJson.get("event").asText(),
+                    bodyJson.get("type").asText(),
                     systemOperationContext,
                     null,
                     null,

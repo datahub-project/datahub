@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
-import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
@@ -76,8 +75,6 @@ public class TrackingServiceTest {
     _secretService = mock(SecretService.class);
     _entityService = mock(EntityService.class);
     GitVersion gitVersion = new GitVersion(APP_VERSION, "", Optional.empty());
-    MixpanelConfiguration mixpanelConfiguration = mock(MixpanelConfiguration.class);
-    when(mixpanelConfiguration.isDisableObfuscation()).thenReturn(false);
 
     TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
     when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
@@ -94,20 +91,6 @@ public class TrackingServiceTest {
 
     _trackingService =
         new TrackingService(
-            mixpanelConfiguration,
-            topicsConfiguration,
-            _secretService,
-            _mixpanelMessageBuilder,
-            _mixpanelAPI,
-            _entityService,
-            gitVersion,
-            dataHubUsageProducer);
-
-    MixpanelConfiguration noObfuscationMixpanelConfiguration = mock(MixpanelConfiguration.class);
-    when(noObfuscationMixpanelConfiguration.isDisableObfuscation()).thenReturn(true);
-    _noObfuscationTrackingService =
-        new TrackingService(
-            noObfuscationMixpanelConfiguration,
             topicsConfiguration,
             _secretService,
             _mixpanelMessageBuilder,
@@ -197,59 +180,38 @@ public class TrackingServiceTest {
 
   @Test
   public void testSanitizeEventNoActorUrn() throws JsonProcessingException, JSONException {
-    for (boolean enableObfuscation : new boolean[] {true, false}) {
-      final JSONObject event = new JSONObject();
-      event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
-      event.put(NOT_ALLOWED_FIELD, NOT_ALLOWED_FIELD_VALUE);
+    final JSONObject event = new JSONObject();
+    event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
+    event.put(NOT_ALLOWED_FIELD, NOT_ALLOWED_FIELD_VALUE);
 
-      final JSONObject sanitizedEvent =
-          enableObfuscation
-              ? _trackingService.sanitizeEvent(event)
-              : _noObfuscationTrackingService.sanitizeEvent(event);
-      assertNotNull(sanitizedEvent);
-      assertTrue(sanitizedEvent.has(APP_VERSION_FIELD));
-      assertEquals(sanitizedEvent.get(APP_VERSION_FIELD), APP_VERSION);
-      assertTrue(sanitizedEvent.has(EVENT_TYPE_FIELD));
-      assertEquals(sanitizedEvent.get(EVENT_TYPE_FIELD), EVENT_TYPE);
-      assertFalse(sanitizedEvent.has(ACTOR_URN_FIELD));
-      if (enableObfuscation) {
-        assertFalse(sanitizedEvent.has(NOT_ALLOWED_FIELD));
-      } else {
-        assertTrue(sanitizedEvent.has(NOT_ALLOWED_FIELD));
-      }
-    }
+    final JSONObject sanitizedEvent = _trackingService.sanitizeEvent(event);
+    assertNotNull(sanitizedEvent);
+    assertTrue(sanitizedEvent.has(APP_VERSION_FIELD));
+    assertEquals(sanitizedEvent.get(APP_VERSION_FIELD), APP_VERSION);
+    assertTrue(sanitizedEvent.has(EVENT_TYPE_FIELD));
+    assertEquals(sanitizedEvent.get(EVENT_TYPE_FIELD), EVENT_TYPE);
+    assertFalse(sanitizedEvent.has(ACTOR_URN_FIELD));
+    assertFalse(sanitizedEvent.has(NOT_ALLOWED_FIELD));
   }
 
   @Test
   public void testSanitizeEvent() throws JsonProcessingException, JSONException {
 
-    for (boolean enableObfuscation : new boolean[] {true, false}) {
-      reset(_secretService);
-      when(_secretService.hashString(eq(ACTOR_URN_STRING))).thenReturn(HASHED_ACTOR_URN_STRING);
-      final JSONObject event = new JSONObject();
-      event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
-      event.put(ACTOR_URN_FIELD, ACTOR_URN_STRING);
-      event.put(NOT_ALLOWED_FIELD, NOT_ALLOWED_FIELD_VALUE);
+    reset(_secretService);
+    when(_secretService.hashString(eq(ACTOR_URN_STRING))).thenReturn(HASHED_ACTOR_URN_STRING);
+    final JSONObject event = new JSONObject();
+    event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
+    event.put(ACTOR_URN_FIELD, ACTOR_URN_STRING);
+    event.put(NOT_ALLOWED_FIELD, NOT_ALLOWED_FIELD_VALUE);
 
-      final JSONObject sanitizedEvent =
-          enableObfuscation
-              ? _trackingService.sanitizeEvent(event)
-              : _noObfuscationTrackingService.sanitizeEvent(event);
-      assertNotNull(sanitizedEvent);
-      assertTrue(sanitizedEvent.has(APP_VERSION_FIELD));
-      assertEquals(sanitizedEvent.get(APP_VERSION_FIELD), APP_VERSION);
-      assertTrue(sanitizedEvent.has(EVENT_TYPE_FIELD));
-      assertEquals(sanitizedEvent.get(EVENT_TYPE_FIELD), EVENT_TYPE);
-      assertTrue(sanitizedEvent.has(ACTOR_URN_FIELD));
-      if (enableObfuscation) {
-        assertEquals(sanitizedEvent.get(ACTOR_URN_FIELD), HASHED_ACTOR_URN_STRING);
-        assertFalse(sanitizedEvent.has(NOT_ALLOWED_FIELD));
-      } else {
-        assertEquals(sanitizedEvent.get(ACTOR_URN_FIELD), ACTOR_URN_STRING);
-        assertTrue(sanitizedEvent.has(NOT_ALLOWED_FIELD));
-        // Verify secretService was never called
-        verify(_secretService, never()).hashString(any());
-      }
-    }
+    final JSONObject sanitizedEvent = _trackingService.sanitizeEvent(event);
+    assertNotNull(sanitizedEvent);
+    assertTrue(sanitizedEvent.has(APP_VERSION_FIELD));
+    assertEquals(sanitizedEvent.get(APP_VERSION_FIELD), APP_VERSION);
+    assertTrue(sanitizedEvent.has(EVENT_TYPE_FIELD));
+    assertEquals(sanitizedEvent.get(EVENT_TYPE_FIELD), EVENT_TYPE);
+    assertTrue(sanitizedEvent.has(ACTOR_URN_FIELD));
+    assertEquals(sanitizedEvent.get(ACTOR_URN_FIELD), HASHED_ACTOR_URN_STRING);
+    assertFalse(sanitizedEvent.has(NOT_ALLOWED_FIELD));
   }
 }
