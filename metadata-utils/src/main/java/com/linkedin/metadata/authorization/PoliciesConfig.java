@@ -341,7 +341,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_ENTITY_PROPERTIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_ENTITY_PROPERTIES",
-          "Manage Property Proposals",
+          "Manage Structured Property Proposals",
           "The ability to manage a proposal to add a structured property to an asset.");
 
   public static final Privilege MANAGE_ENTITY_TAGS_PRIVILEGE =
@@ -389,13 +389,13 @@ public class PoliciesConfig {
   public static final Privilege PROPOSE_ENTITY_DOCS_PRIVILEGE =
       Privilege.of(
           "PROPOSE_ENTITY_DOCS",
-          "Propose Documentation",
+          "Propose Description",
           "The ability to propose updates to an asset's documentation.");
 
   public static final Privilege MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE =
       Privilege.of(
           "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
-          "Manage Documentation Proposals",
+          "Manage Description Proposals",
           "The ability to manage a proposal update an asset's documentation");
 
   public static final Privilege SHARE_ENTITY_PRIVILEGE =

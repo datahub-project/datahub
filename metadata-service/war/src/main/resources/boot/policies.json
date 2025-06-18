@@ -104,9 +104,11 @@
         "PROPOSE_ENTITY_DOCS",
         "PROPOSE_ENTITY_DOMAINS",
         "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
         "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
         "PROPOSE_DATASET_COL_TAGS",
         "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
         "PROPOSE_DATA_CONTRACT_PRIVILEGE"
       ],
       "displayName": "Root User - Edit and View All Resources",
@@ -353,9 +355,11 @@
         "PROPOSE_ENTITY_DOCS",
         "PROPOSE_ENTITY_DOMAINS",
         "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
         "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
         "PROPOSE_DATASET_COL_TAGS",
         "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
         "PROPOSE_DATA_CONTRACT_PRIVILEGE",
         "EDIT_ENTITY_MONITORS"
       ],
@@ -391,7 +395,9 @@
         "MANAGE_FEATURES",
         "MANAGE_TESTS",
         "CREATE_CONSTRAINTS",
-        "VIEW_METADATA_PROPOSALS"
+        "VIEW_METADATA_PROPOSALS",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -465,9 +471,11 @@
         "PROPOSE_ENTITY_DOCS",
         "PROPOSE_ENTITY_DOMAINS",
         "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
         "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
         "PROPOSE_DATASET_COL_TAGS",
         "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
         "PROPOSE_DATA_CONTRACT_PRIVILEGE",
         "VIEW_DOCUMENTATION_FORMS_PAGE"
       ],
@@ -534,7 +542,10 @@
         "groups": [],
         "roles": ["urn:li:dataHubRole:Reader"]
       },
-      "privileges": [],
+      "privileges": [
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
+      ],
       "displayName": "Readers - Platform Policy",
       "description": "Readers can view analytics.",
       "state": "ACTIVE",
@@ -564,8 +575,10 @@
         "PROPOSE_ENTITY_DOCS",
         "PROPOSE_ENTITY_DOMAINS",
         "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
         "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
         "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
         "PROPOSE_DATASET_COL_PROPERTIES",
         "PROPOSE_DATA_CONTRACT_PRIVILEGE",
         "SEARCH_PRIVILEGE",
