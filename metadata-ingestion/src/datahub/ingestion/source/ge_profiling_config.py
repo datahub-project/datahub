@@ -134,7 +134,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
         "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
         schema_extra={
-            "supported_sources": ["snowflake", "bigquery", "databricks", "oracle"]
+            "supported_sources": ["snowflake", "bigquery", "unity-catalog", "oracle"]
         },
     )
 
