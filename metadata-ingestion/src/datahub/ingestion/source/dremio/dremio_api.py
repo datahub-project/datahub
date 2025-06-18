@@ -710,6 +710,27 @@ class DremioAPIOperations:
 
         return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
 
+    def _could_match_pattern(self, pattern: str, path_components: List[str]) -> bool:
+        """
+        Check if a container path could potentially match a schema pattern.
+        This handles hierarchical path matching for container filtering.
+        """
+        if pattern == ".*":
+            return True
+
+        current_path = ".".join(path_components)
+
+        # Handle simple .* patterns (like "a.b.c.*")
+        if pattern.endswith(".*") and not any(c in pattern for c in "^$[](){}+?\\"):
+            # Simple dotstar pattern - check prefix matching
+            pattern_prefix = pattern[:-2]  # Remove ".*"
+            return current_path.lower().startswith(
+                pattern_prefix.lower()
+            ) or pattern_prefix.lower().startswith(current_path.lower())
+        else:
+            # Complex regex pattern - use existing regex matching logic
+            return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
+
     def should_include_container(self, path: List[str], name: str) -> bool:
         """
         Helper method to check if a container should be included based on schema patterns.
@@ -736,41 +757,8 @@ class DremioAPIOperations:
 
         # Check allow patterns
         for pattern in self.allow_schema_pattern:
-            # For patterns with wildcards, check if this path is a parent of the pattern
-            if "*" in pattern:
-                pattern_parts = pattern.split(".")
-                path_parts = path_components
-
-                # If pattern has exact same number of parts, check each component
-                if len(pattern_parts) == len(path_parts):
-                    matches = True
-                    for p_part, c_part in zip(pattern_parts, path_parts):
-                        if p_part != "*" and p_part.lower() != c_part.lower():
-                            matches = False
-                            break
-                    if matches:
-                        self.report.report_container_scanned(full_path)
-                        return True
-                # Otherwise check if current path is prefix match
-                else:
-                    # Remove the trailing wildcard if present
-                    if pattern_parts[-1] == "*":
-                        pattern_parts = pattern_parts[:-1]
-
-                    for i in range(len(path_parts)):
-                        current_path = ".".join(path_parts[: i + 1])
-                        pattern_prefix = ".".join(pattern_parts[: i + 1])
-
-                        if pattern_prefix.startswith(current_path):
-                            self.report.report_container_scanned(full_path)
-                            return True
-
-            # Direct pattern matching
-            if self._check_pattern_match(
-                pattern=pattern,
-                paths=[full_path],
-                allow_prefix=True,
-            ):
+            # Check if current path could potentially match this pattern
+            if self._could_match_pattern(pattern, path_components):
                 self.report.report_container_scanned(full_path)
                 return True
 
