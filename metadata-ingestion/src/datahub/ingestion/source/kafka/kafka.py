@@ -196,7 +196,7 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Not supported. If you use Kafa connect source that can get you some lineage.",
+    "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
     supported=False,
 )
 @capability(
