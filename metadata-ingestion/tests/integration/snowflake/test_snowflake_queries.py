@@ -36,7 +36,6 @@ def test_user_identifiers_email_as_identifier(snowflake_connect, tmp_path):
                 "username": "TST_USR",
                 "password": "TST_PWD",
             },
-            "email_as_user_identifier": True,
             "email_domain": "example.com",
         },
         PipelineContext("run-id"),
@@ -71,7 +70,6 @@ def test_user_identifiers_username_as_identifier(snowflake_connect, tmp_path):
                 "username": "TST_USR",
                 "password": "TST_PWD",
             },
-            "email_as_user_identifier": False,
         },
         PipelineContext("run-id"),
     )

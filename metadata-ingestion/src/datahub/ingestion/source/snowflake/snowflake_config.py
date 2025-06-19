@@ -157,11 +157,9 @@ class SnowflakeIdentifierConfig(
         description="Email domain of your organization so users can be displayed on UI appropriately.",
     )
 
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
+    _email_as_user_identifier = pydantic_removed_field(
+        "email_as_user_identifier",
+        print_warning="We always use email as user identifier.",
     )
 
 
