@@ -10,11 +10,12 @@ from pydantic import BaseModel, Field
 
 from datahub_integrations import __version__
 from datahub_integrations.app import graph
+from datahub_integrations.slack.utils.datahub_user import graph_as_user
 
 logger = logging.getLogger(__name__)
 
 # Note that this is different from OSS Mixpanel's token. This one
-# corresponds to the SaaS MixpaneInferDocsApiResponseEventl project.
+# corresponds to the SaaS Mixpanel project.
 MIXPANEL_TOKEN = "7cee38380de7a8469069c040a1fee320"
 
 # Environment variable to control whether to send events directly to Mixpanel
@@ -67,27 +68,32 @@ class BaseEvent(BaseModel):
 
 def _send_to_api(event: BaseEvent) -> None:
     """Send the event to the DataHub tracking API."""
+
+    event_actor = event.user_urn or "urn:li:corpuser:admin"
+    # This helps impersonate the user when sending the event to the tracking API
+    impersonated_graph = graph_as_user(event_actor)
     try:
         # Format the event data for the tracking API with a flat structure
         tracking_event = {
             "type": event.type,
             "timestamp": event.timestamp.isoformat(),
-            "actorUrn": event.user_urn or "urn:li:corpuser:admin",
+            "actorUrn": event_actor,
             "origin": _get_origin(),
             **event.model_dump(
                 exclude={"timestamp", "type", "user_urn", "origin"}
             ),  # Include all other fields from the event
         }
 
-        # TODO: TrackingService.java may use actorUrn set above as distinct_id.
         # Get the server URL from the graph client's config and append the tracking endpoint path
-        server_url = graph.config.server.rstrip("/")
+        server_url = impersonated_graph.config.server.rstrip("/")
         tracking_url = f"{server_url}/openapi/v1/tracking/track"
 
         # Use the graph client's session to post the event
-        response = graph._session.post(tracking_url, json=tracking_event)
+        response = impersonated_graph._session.post(tracking_url, json=tracking_event)
         response.raise_for_status()
-        logger.debug(f"Successfully sent {event.type} event to tracking API")
+        logger.debug(
+            f"Successfully sent {event.type} event to tracking API as {event_actor}"
+        )
     except Exception as e:
         logger.error(f"Failed to send {event.type} event to tracking API: {str(e)}")
 

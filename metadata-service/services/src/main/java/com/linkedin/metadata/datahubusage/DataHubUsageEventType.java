@@ -161,8 +161,6 @@ public enum DataHubUsageEventType {
   DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
-  CHATBOT_INTERACTION_EVENT("ChatbotInteractionEvent"),
-  CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent"),
   CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
   CREATE_ACTION_EVENT("CreateActionEvent"),
   UPDATE_ACTION_EVENT("UpdateActionEvent"),
@@ -171,7 +169,12 @@ public enum DataHubUsageEventType {
   UNDO_ANOMALY_FEEDBACK_EVENT("UndoAnomalyFeedbackEvent"),
   RETRAIN_AS_NEW_NORMAL_EVENT("RetrainAsNewNormalEvent"),
   DATASET_HEALTH_CLICK_EVENT("DatasetHealthClickEvent"),
-  DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent");
+  DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent"),
+  // Integrations service events
+  CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),
+  CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedback"),
+  INFER_DOCS_API_REQUEST_EVENT("InferDocsApiRequest"),
+  INFER_DOCS_API_RESPONSE_EVENT("InferDocsApiResponse");
 
   private final String type;
 

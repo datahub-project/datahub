@@ -85,7 +85,7 @@ public class TrackingServiceTest {
     opContext = mock(OperationContext.class);
     io.datahubproject.metadata.context.ActorContext actorContext =
         mock(io.datahubproject.metadata.context.ActorContext.class);
-    when(opContext.getActorContext()).thenReturn(actorContext);
+    when(opContext.getSessionActorContext()).thenReturn(actorContext);
     when(actorContext.getActorUrn()).thenReturn(UrnUtils.getUrn(ACTOR_URN_STRING));
 
     _trackingService =
@@ -136,7 +136,8 @@ public class TrackingServiceTest {
         OBJECT_MAPPER.readTree(testEvent.toString());
 
     // Mock the opContext behavior
-    when(opContext.getActorContext().getActorUrn()).thenReturn(UrnUtils.getUrn(ACTOR_URN_STRING));
+    when(opContext.getSessionActorContext().getActorUrn())
+        .thenReturn(UrnUtils.getUrn(ACTOR_URN_STRING));
 
     // Call the track method directly
     _trackingService.track(EVENT_TYPE, opContext, null, null, eventNode);

@@ -31,6 +31,7 @@ from datahub_integrations.telemetry.chat_events import ChatbotInteractionEvent
 # Import the telemetry module first to ensure integrations_graph is initialized
 from datahub_integrations.telemetry.telemetry import track_saas_event
 
+from datahub.ingestion.graph.client import DataHubGraph
 from tests.utils import get_kafka_broker_url
 
 # Set up logging
@@ -42,7 +43,20 @@ logger = logging.getLogger(__name__)
 def patch_integrations_graph(graph_client):
     """Monkey patch the integrations service graph client with our test graph client"""
     # Store the original graph client
-    from datahub_integrations.telemetry.telemetry import graph as original_graph
+    from datahub_integrations.telemetry.telemetry import (
+        graph as original_graph,
+        graph_as_user as original_graph_as_user,
+    )
+
+    def updated_graph_as_user(impersonation_urn: str) -> DataHubGraph:
+        return DataHubGraph(
+            graph_client.config.copy(
+                update={
+                    "extra_headers": {"X-DataHub-Impersonated-Urn": impersonation_urn}
+                },
+                deep=True,
+            )
+        )
 
     logger.info(f"Original graph client: {original_graph}")
 
@@ -51,6 +65,7 @@ def patch_integrations_graph(graph_client):
     import datahub_integrations.telemetry.telemetry
 
     datahub_integrations.telemetry.telemetry.graph = graph_client
+    datahub_integrations.telemetry.telemetry.graph_as_user = updated_graph_as_user
     logger.info(
         f"Patched graph client: {datahub_integrations.telemetry.telemetry.graph}"
     )
@@ -62,6 +77,7 @@ def patch_integrations_graph(graph_client):
     logger.info(
         f"Restored graph client: {datahub_integrations.telemetry.telemetry.graph}"
     )
+    datahub_integrations.telemetry.telemetry.graph_as_user = original_graph_as_user
 
 
 def _send_test_event(test_event, graph_client):
@@ -169,8 +185,11 @@ def test_telemetry_api_via_tracking(graph_client, auth_session):
         assert message["slack_email"] == "test@example.com"
         assert message["message_contents"] == "Test message"
         assert message["response_contents"] == "Test response"
+        assert message["actorUrn"] == "urn:li:corpuser:admin"
+
         assert "timestamp" in message
         assert "origin" in message
+
         logger.info("Event verification successful")
 
     finally:

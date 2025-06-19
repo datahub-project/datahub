@@ -317,7 +317,8 @@ public class TrackingService {
       try {
         log.debug("Mixpanel - Raw event data: {}", eventData.toPrettyString());
 
-        final String actorId = opContext.getActorContext().getActorUrn().toString();
+        final String actorId = opContext.getSessionActorContext().getActorUrn().toString();
+        log.debug("Tracking event: {} with actorId: {}", eventName, actorId);
 
         // Create a new properties object
         JSONObject properties = new JSONObject();
