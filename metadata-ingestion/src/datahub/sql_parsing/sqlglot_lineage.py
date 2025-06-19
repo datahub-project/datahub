@@ -1487,12 +1487,27 @@ def _sqlglot_lineage_nocache(
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
     except BaseException as e:
-        # Handle pyo3_runtime.PanicException from SQLGlot's Rust tokenizer.
-        # pyo3_runtime.PanicException inherits from BaseException (like SystemExit or
-        # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
-        wrapped_exception = Exception(f"BaseException during SQL parsing: {e}")
-        wrapped_exception.__cause__ = e
-        return SqlParsingResult.make_from_error(wrapped_exception)
+        # Check if this is a PanicException from SQLGlot's Rust tokenizer
+        # We use runtime type checking instead of isinstance() because pyo3_runtime
+        # is only available when sqlglot[rs] is installed and may not be importable
+        # at module load time, but the exception can still be raised at runtime
+        if (
+            e.__class__.__name__ == "PanicException"
+            and e.__class__.__module__ == "pyo3_runtime"
+        ):
+            # Handle pyo3_runtime.PanicException from SQLGlot's Rust tokenizer.
+            # pyo3_runtime.PanicException inherits from BaseException (like SystemExit or
+            # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
+            # Avoid catching BaseException, as it includes KeyboardInterrupt
+            # and would prevent Ctrl+C from working.
+            wrapped_exception = Exception(
+                f"pyo3_runtime.PanicException during SQL parsing: {e}"
+            )
+            wrapped_exception.__cause__ = e
+            return SqlParsingResult.make_from_error(wrapped_exception)
+        else:
+            # Re-raise other BaseException types (SystemExit, KeyboardInterrupt, etc.)
+            raise
 
 
 _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(
