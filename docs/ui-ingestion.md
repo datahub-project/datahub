@@ -148,16 +148,6 @@ You can configure automatic execution of your ingestion source on a regular sche
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
 </p>
 
-Choose from common scheduling options:
-
-- **Hourly** - For rapidly changing data sources
-- **Daily** - Most common for production environments
-- **Weekly** - For stable data sources
-- **Monthly** - For archival or slowly changing data
-- **Custom** - Define your own schedule using CRON expressions
-
-Make sure to select the appropriate timezone for your schedule.
-
 If you prefer to run ingestion manually or on an ad-hoc basis, you can skip the scheduling step entirely.
 
 ### Step 5: Finish Up and Run
@@ -180,8 +170,8 @@ For users who need additional control, DataHub provides advanced configuration o
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/custom-ingestion-cli-version.png"/>
 </p>
 
-**CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
-**Environment Variables:** Set custom environment variables for the ingestion process
+- **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
+- **Environment Variables:** Set custom environment variables for the ingestion process
 
 ## Running and Monitoring Ingestion
 
