@@ -796,7 +796,7 @@ def _delete_urns_streaming_recursive(
     force: bool,
     streaming_batch_size: int,
 ) -> None:
-    """Streaming recursive batch deletion that processes URNs as they're discovered."""
+    """Streaming recursive batch deletion that processes URNs in batches."""
 
     entity_type = guess_entity_type(parent_urn)
     click.echo(f"Starting recursive deletion of {entity_type} {parent_urn}")
