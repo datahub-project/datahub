@@ -31,6 +31,7 @@ const ApplicationDetailsSection: React.FC<ApplicationDetailsProps> = ({
             <FormSection>
                 <Input
                     label="Name"
+                    inputTestId="application-name-input"
                     value={applicationName}
                     setValue={setApplicationName}
                     placeholder="Enter application name"
@@ -40,6 +41,7 @@ const ApplicationDetailsSection: React.FC<ApplicationDetailsProps> = ({
 
             <FormSection>
                 <Input
+                    inputTestId="application-description-input"
                     label="Description"
                     value={applicationDescription}
                     setValue={setApplicationDescription}

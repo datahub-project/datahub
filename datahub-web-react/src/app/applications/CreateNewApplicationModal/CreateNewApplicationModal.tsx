@@ -107,7 +107,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
         },
         {
             text: 'Create',
-            id: 'createNewTagButton',
+            id: 'createNewApplicationButton',
             color: 'violet',
             variant: 'filled',
             onClick: onOk,

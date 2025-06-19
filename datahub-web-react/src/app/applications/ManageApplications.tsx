@@ -145,6 +145,7 @@ const ManageApplications = () => {
                     placeholder="Search applications..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
+                    id="application-search-input"
                     data-testid="application-search-input"
                     width="280px"
                 />
