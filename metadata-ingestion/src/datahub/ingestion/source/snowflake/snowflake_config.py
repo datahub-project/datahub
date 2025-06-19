@@ -159,7 +159,6 @@ class SnowflakeIdentifierConfig(
 
     _email_as_user_identifier = pydantic_removed_field(
         "email_as_user_identifier",
-        print_warning="We always use email as user identifier.",
     )
 
 
