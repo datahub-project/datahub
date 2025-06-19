@@ -4,7 +4,6 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -137,12 +136,11 @@ public class OpenAPIV3GeneratorTest {
     assertFalse(requiredNames.contains("name"));
     assertTrue(name.getNullable());
 
-    // Assert non-required $ref properties are replaced by nullable { anyOf: [ $ref ] } objects
+    // Assert non-required $ref properties are nullable or object
     Schema created = properties.get("created");
     assertFalse(requiredNames.contains("created"));
-    assertEquals("object", created.getType());
-    assertNull(created.get$ref());
-    assertEquals(List.of(new Schema().$ref("#/components/schemas/TimeStamp")), created.getAnyOf());
+    assertEquals(Set.of("object", "null"), created.getTypes());
+    assertEquals("#/components/schemas/TimeStamp", created.get$ref());
     assertTrue(created.getNullable());
 
     // Assert systemMetadata property on response schema is optional.
@@ -153,12 +151,8 @@ public class OpenAPIV3GeneratorTest {
             .get("DatasetPropertiesAspectResponse_v3")
             .getProperties();
     Schema systemMetadata = datasetPropertiesResponseSchemaProps.get("systemMetadata");
-    assertEquals("object", systemMetadata.getType());
-    assertNull(systemMetadata.get$ref());
-    assertEquals(
-        List.of(new Schema().$ref("#/components/schemas/SystemMetadata")),
-        systemMetadata.getAnyOf());
-    assertTrue(systemMetadata.getNullable());
+    assertEquals(Set.of("object", "null"), systemMetadata.getTypes());
+    assertEquals("#/components/schemas/SystemMetadata", systemMetadata.get$ref());
   }
 
   @Test

@@ -77,6 +77,15 @@ public class OpenAPIV3Generator {
 
   private static final Set<String> EXCLUDE_ENTITIES = Set.of("dataHubOpenAPISchema");
   private static final Set<String> EXCLUDE_ASPECTS = Set.of("dataHubOpenAPISchemaKey");
+  private static final String ASPECT_PATCH_PROPERTY = "AspectPatchProperty";
+
+  // Helper for OpenAPI 3.1.0 nullable $ref
+  private static Schema<?> nullableRef(String ref) {
+    Schema<?> schema = new Schema<>();
+    schema.set$ref(ref);
+    schema.setTypes(Set.of("object", "null"));
+    return schema;
+  }
 
   public static OpenAPI generateOpenApiSpec(
       EntityRegistry entityRegistry, ConfigurationProvider configurationProvider) {
@@ -107,6 +116,7 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
     components.addSchemas(ASPECT_PATCH, buildAspectPatchSchema());
@@ -121,8 +131,7 @@ public class OpenAPIV3Generator {
                     new Schema<>()
                         .type(TYPE_OBJECT)
                         .additionalProperties(new Schema<>().type(TYPE_STRING))
-                        .description("System headers for the operation.")
-                        .nullable(true)))
+                        .description("System headers for the operation.")))
             .nullable(true));
 
     // --> Aspect components
@@ -239,7 +248,7 @@ public class OpenAPIV3Generator {
               });
     }
 
-    return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
+    return new OpenAPI().openapi("3.1.0").info(info).paths(paths).components(components);
   }
 
   private static PathItem buildSingleEntityPath(final EntitySpec entity) {
@@ -622,7 +631,7 @@ public class OpenAPIV3Generator {
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(new Schema().type(TYPE_STRING)._default("5m").nullable(true)),
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -786,7 +795,6 @@ public class OpenAPIV3Generator {
                     properties.forEach(
                         (name, schema) -> {
                           String $ref = schema.get$ref();
-
                           boolean isNameRequired = requiredNames.contains(name);
 
                           if (definitions.has(n)) {
@@ -801,12 +809,8 @@ public class OpenAPIV3Generator {
                           }
 
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
-                            // object to allow the
-                            // property to be marked as nullable
-                            schema.setType(TYPE_OBJECT);
-                            schema.set$ref(null);
-                            schema.setAnyOf(List.of(new Schema().$ref($ref)));
+                            schema.set$ref($ref);
+                            schema.setTypes(Set.of("object", "null"));
                           }
                           schema.setNullable(!isNameRequired);
                         });
@@ -830,18 +834,11 @@ public class OpenAPIV3Generator {
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
         NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
+        nullableRef(PATH_DEFINITIONS + "SystemMetadata")
+            .description("System metadata for the aspect."));
     result.addProperty(
         NAME_AUDIT_STAMP,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
-            .description("Audit stamp for the aspect.")
-            .nullable(true));
+        nullableRef(PATH_DEFINITIONS + "AuditStamp").description("Audit stamp for the aspect."));
     return result;
   }
 
@@ -855,11 +852,8 @@ public class OpenAPIV3Generator {
                 PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + toUpperFirst(aspectName)));
     result.addProperty(
         NAME_SYSTEM_METADATA,
-        new Schema<>()
-            .type(TYPE_OBJECT)
-            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-            .description("System metadata for the aspect.")
-            .nullable(true));
+        nullableRef(PATH_DEFINITIONS + "SystemMetadata")
+            .description("System metadata for the aspect."));
 
     Schema stringTypeSchema = new Schema<>();
     stringTypeSchema.setType(TYPE_STRING);
@@ -868,8 +862,8 @@ public class OpenAPIV3Generator {
         new Schema<>()
             .type(TYPE_OBJECT)
             .additionalProperties(stringTypeSchema)
-            .description("System headers for the operation.")
-            .nullable(true));
+            .nullable(true)
+            .description("System headers for the operation."));
     return result;
   }
 
@@ -915,35 +909,7 @@ public class OpenAPIV3Generator {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
-                    a ->
-                        new Schema<>()
-                            .type(TYPE_OBJECT)
-                            .required(List.of(PROPERTY_VALUE))
-                            .addProperty(
-                                PROPERTY_VALUE,
-                                new Schema<>()
-                                    .type(TYPE_OBJECT)
-                                    .anyOf(
-                                        List.of(new Schema().$ref(PATH_DEFINITIONS + ASPECT_PATCH)))
-                                    .description("Patch to apply to the aspect.")
-                                    .nullable(false))
-                            .addProperty(
-                                NAME_SYSTEM_METADATA,
-                                new Schema<>()
-                                    .type(TYPE_OBJECT)
-                                    .anyOf(
-                                        List.of(
-                                            new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
-                                    .description("System metadata for the aspect.")
-                                    .nullable(true))
-                            .addProperty(
-                                "headers",
-                                new Schema<>()
-                                    .type(TYPE_OBJECT)
-                                    .additionalProperties(new Schema<>().type(TYPE_STRING))
-                                    .description("System headers for the operation.")
-                                    .nullable(true))
-                            .nullable(true)));
+                    a -> new Schema<>().$ref(PATH_DEFINITIONS + ASPECT_PATCH_PROPERTY)));
 
     final Map<String, Schema> properties = new LinkedHashMap<>();
     properties.put(
@@ -1029,11 +995,12 @@ public class OpenAPIV3Generator {
         .description(ENTITIES + " request object.")
         .example(
             Map.of(
-                "entities", entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
+                "entities",
+                entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
                 "aspects",
-                    aspectNames.stream()
-                        .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
-                        .toList()))
+                aspectNames.stream()
+                    .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
+                    .toList()))
         .properties(
             Map.of(
                 "entities", entitiesSchema,
@@ -1111,14 +1078,6 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
-    // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
-    // object to allow the
-    // property to be marked as nullable
-    final Schema result = new Schema<>();
-
-    result.setType(TYPE_OBJECT);
-    result.set$ref(null);
-    result.setNullable(true);
     final String internalRef;
     if (withSystemMetadata) {
       internalRef =
@@ -1127,8 +1086,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAnyOf(List.of(new Schema().$ref(internalRef)));
-    return result;
+    return nullableRef(internalRef);
   }
 
   private static Schema buildAspectPatchSchema() {
@@ -1146,28 +1104,27 @@ public class OpenAPIV3Generator {
                             .properties(
                                 Map.of(
                                     "op",
-                                        new Schema<>()
-                                            .type(TYPE_STRING)
-                                            .description("Operation type")
-                                            ._enum(
-                                                List.of(
-                                                    "add", "remove", "replace", "move", "copy",
-                                                    "test")),
+                                    new Schema<>()
+                                        .type(TYPE_STRING)
+                                        .description("Operation type")
+                                        ._enum(
+                                            List.of(
+                                                "add", "remove", "replace", "move", "copy",
+                                                "test")),
                                     "path",
-                                        new Schema<>()
-                                            .type(TYPE_STRING)
-                                            .description("JSON pointer to the target location")
-                                            .format("json-pointer"),
+                                    new Schema<>()
+                                        .type(TYPE_STRING)
+                                        .description("JSON pointer to the target location")
+                                        .format("json-pointer"),
                                     "from",
-                                        new Schema<>()
-                                            .type(TYPE_STRING)
-                                            .description(
-                                                "JSON pointer for source location (required for move/copy)"),
+                                    new Schema<>()
+                                        .type(TYPE_STRING)
+                                        .description(
+                                            "JSON pointer for source location (required for move/copy)"),
                                     "value",
-                                        new Schema<>() // No type restriction to allow any JSON
-                                            // value
-                                            .description(
-                                                "The value to use for this operation (if applicable)")))))
+                                    new Schema<>() // No type restriction to allow any JSON
+                                        .description(
+                                            "The value to use for this operation (if applicable)")))))
             .put(
                 ARRAY_PRIMARY_KEYS_FIELD,
                 new Schema<>()
@@ -1405,25 +1362,25 @@ public class OpenAPIV3Generator {
         .properties(
             Map.of(
                 "comment",
-                    new Schema<>()
-                        .type(TYPE_STRING)
-                        .description("Comment about the version")
-                        .nullable(true),
+                new Schema<>()
+                    .type(TYPE_STRING)
+                    .description("Comment about the version")
+                    .nullable(true),
                 "label",
-                    new Schema<>()
-                        .type(TYPE_STRING)
-                        .description("Label for the version")
-                        .nullable(true),
+                new Schema<>()
+                    .type(TYPE_STRING)
+                    .description("Label for the version")
+                    .nullable(true),
                 "sourceCreationTimestamp",
-                    new Schema<>()
-                        .type(TYPE_INTEGER)
-                        .description("Timestamp when version was created in source system")
-                        .nullable(true),
+                new Schema<>()
+                    .type(TYPE_INTEGER)
+                    .description("Timestamp when version was created in source system")
+                    .nullable(true),
                 "sourceCreator",
-                    new Schema<>()
-                        .type(TYPE_STRING)
-                        .description("Creator of version in source system")
-                        .nullable(true)));
+                new Schema<>()
+                    .type(TYPE_STRING)
+                    .description("Creator of version in source system")
+                    .nullable(true)));
   }
 
   private static PathItem buildVersioningRelationshipPath() {
@@ -1507,6 +1464,29 @@ public class OpenAPIV3Generator {
                         "404", new ApiResponse().description("Version Set or Entity not found")));
 
     return result.delete(deleteOperation).post(postOperation);
+  }
+
+  private static Schema<?> buildAspectPatchPropertySchema() {
+    Schema<?> schema = new Schema<>();
+    schema.type(TYPE_OBJECT);
+    schema.required(List.of(PROPERTY_VALUE));
+    schema.addProperty(
+        PROPERTY_VALUE,
+        new Schema<>()
+            .$ref(PATH_DEFINITIONS + ASPECT_PATCH)
+            .description("Patch to apply to the aspect."));
+    schema.addProperty(
+        NAME_SYSTEM_METADATA,
+        nullableRef(PATH_DEFINITIONS + "SystemMetadata")
+            .description("System metadata for the aspect."));
+    schema.addProperty(
+        "headers",
+        new Schema<>()
+            .types(Set.of(TYPE_OBJECT, "nullable"))
+            .nullable(true)
+            .additionalProperties(new Schema<>().type(TYPE_STRING))
+            .description("System headers for the operation."));
+    return schema;
   }
 
   private static Map<String, EntitySpec> getEntitySpecs(@Nonnull EntityRegistry entityRegistry) {
