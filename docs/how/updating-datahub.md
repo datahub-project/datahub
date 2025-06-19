@@ -28,7 +28,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #13825 For `bigquery`, `snowflake` and `redshift` connector `match_fully_qualified_names` has been removed.
-  - This means the field `match_fully_qualified_names` if set in the recipes should be removed and your schema allow/deny patterns should be fully qualified as `{database}.{schema}` instead of just `{schema}` which was earlier behavior. This removal is required to make the allow deny patterns consistent across the board.
+  - This removal is required to make the allow deny patterns consistent across the board.
   - The PR was created when `1.1.1rc4` was latest on pypi. So any CLI after that might have this change. This doc can be changed after this change has been merged in and is present in a CLI release.
   - The migration strategy can be
     - before the upgrade of the CLI add `match_fully_qualified_names: true` in your recipes if not already set as `true` and change the schema patterns to be fully qualified. That way your allow/deny continue to work as before.
