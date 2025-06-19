@@ -7,6 +7,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.stats_collections import (
     TopKDict,
@@ -17,7 +18,10 @@ from datahub.utilities.stats_collections import (
 
 @dataclass
 class DremioSourceReport(
-    SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport
+    SQLSourceReport,
+    StaleEntityRemovalSourceReport,
+    IngestionStageReport,
+    BaseTimeWindowReport,
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0

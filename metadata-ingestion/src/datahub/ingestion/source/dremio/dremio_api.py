@@ -55,6 +55,8 @@ class DremioAPIOperations:
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
+        self.start_time = connection_args.start_time
+        self.end_time = connection_args.end_time
         self.report = report
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
@@ -628,10 +630,25 @@ class DremioAPIOperations:
         return parents_list
 
     def extract_all_queries(self) -> List[Dict[str, Any]]:
+        # Convert datetime objects to string format for SQL queries
+        start_timestamp_str = None
+        end_timestamp_str = None
+
+        if self.start_time:
+            start_timestamp_str = self.start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        if self.end_time:
+            end_timestamp_str = self.end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
         if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud()
+            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
         else:
-            jobs_query = DremioSQLQueries.get_query_all_jobs()
+            jobs_query = DremioSQLQueries.get_query_all_jobs(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
 
         return self.execute_query(query=jobs_query)
 

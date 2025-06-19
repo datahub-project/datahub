@@ -130,6 +130,13 @@ class DremioSource(StatefulIngestionSourceBase):
         self.default_db = "dremio"
         self.config = config
         self.report = DremioSourceReport()
+
+        # Set time window for query lineage extraction
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
+        )
+
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         # Initialize API operations

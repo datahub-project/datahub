@@ -293,28 +293,6 @@ class DremioSQLQueries:
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
         """
 
-    # Dremio Documentation: https://docs.dremio.com/current/reference/sql/system-tables/jobs_recent/
-    # SYS.JOBS_RECENT contains recent job history limited by jobs.max.age_in_days config [default 30 days]
-    # Used for on-premise Dremio (Community/Enterprise editions)
-    # queried_datasets incorrectly documented as [varchar]. Observed as varchar.
-    # LENGTH used as opposed to ARRAY_SIZE
-    # DEPRECATED: Use get_query_all_jobs() instead for time filtering support
-    QUERY_ALL_JOBS = """
-    SELECT
-        job_id,
-        user_name,
-        submitted_ts,
-        query,
-        queried_datasets
-    FROM
-        SYS.JOBS_RECENT
-    WHERE
-        STATUS = 'COMPLETED'
-        AND LENGTH(queried_datasets)>0
-        AND user_name != '$dremio$'
-        AND query_type not like '%INTERNAL%'
-    """
-
     @staticmethod
     def get_query_all_jobs_cloud(
         start_timestamp_millis: Optional[str] = None,
@@ -353,27 +331,6 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
-        """
-
-    # Dremio Documentation: https://docs.dremio.com/cloud/reference/sql/system-tables/jobs-historical
-    # sys.project.history.jobs contains complete historical job metadata for the project
-    # Used for Dremio Cloud - refreshes data once per hour, so new jobs may take ~1 hour to appear
-    # queried_datasets correctly documented as [varchar]
-    # DEPRECATED: Use get_query_all_jobs_cloud() instead for time filtering support
-    QUERY_ALL_JOBS_CLOUD = """
-        SELECT
-            job_id,
-            user_name,
-            submitted_ts,
-            query,
-            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
-        FROM
-            sys.project.history.jobs
-        WHERE
-            STATUS = 'COMPLETED'
-            AND ARRAY_SIZE(queried_datasets)>0
-            AND user_name != '$dremio$'
-            AND query_type not like '%INTERNAL%'
         """
 
     QUERY_TYPES = [
