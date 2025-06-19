@@ -452,9 +452,8 @@ def by_filter(
                 )
                 return
             else:
-                # Use the old approach: collect all URNs first
+                # Use non streaming approach in case you wish to know exact time ETA
                 urns = [urn]
-                # Add children urns to the list.
                 if guess_entity_type(urn) == "dataPlatformInstance":
                     urns.extend(
                         graph.get_urns_by_filter(
