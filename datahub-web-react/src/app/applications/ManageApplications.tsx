@@ -2,16 +2,15 @@ import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@co
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import ApplicationsTable from '@app/applications/ApplicationsTable';
+import CreateNewApplicationModal from '@app/applications/CreateNewApplicationModal/CreateNewApplicationModal';
+import EmptyApplications from '@app/applications/EmptyApplications';
 import { useUserContext } from '@app/context/useUserContext';
 import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
 import { Message } from '@src/app/shared/Message';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
-
-import ApplicationsTable from './ApplicationsTable';
-import CreateNewApplicationModal from './CreateNewApplicationModal/CreateNewApplicationModal';
-import EmptyApplications from './EmptyApplications';
 
 const HeaderContainer = styled.div`
     display: flex;
