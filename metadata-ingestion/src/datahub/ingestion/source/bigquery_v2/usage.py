@@ -346,7 +346,6 @@ class BigQueryUsageExtractor:
                 self.config.dataset_pattern,
                 table_ref.table_identifier.dataset,
                 table_ref.table_identifier.project_id,
-                self.config.match_fully_qualified_names,
             )
             and self.config.table_pattern.allowed(str(table_ref.table_identifier))
         )

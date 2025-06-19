@@ -433,7 +433,6 @@ class BigQuerySchemaGenerator:
                 self.config.dataset_pattern,
                 bigquery_dataset.name,
                 project_id,
-                self.config.match_fully_qualified_names,
             ):
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 return

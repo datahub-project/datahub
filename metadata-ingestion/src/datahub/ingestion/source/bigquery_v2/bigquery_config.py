@@ -168,11 +168,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
         "e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
 
-    match_fully_qualified_names: bool = Field(
-        default=True,
-        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name "
-        "`<project_id>.<dataset_name>`.",
-    )
+    _match_fully_qualified_names = pydantic_removed_field("match_fully_qualified_names")
 
     table_snapshot_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -209,36 +205,6 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated,"
                 " please use dataset_pattern only."
             )
-
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        if (
-            dataset_pattern is not None
-            and dataset_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
-        ):
-            logger.warning(
-                "Please update `dataset_pattern` to match against fully qualified schema name "
-                "`<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
-                "The config option `match_fully_qualified_names` is deprecated and will be "
-                "removed in a future release."
-            )
-        elif match_fully_qualified_names and dataset_pattern is not None:
-            adjusted = False
-            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
-                for i, pattern in enumerate(lst):
-                    if "." not in pattern:
-                        if pattern.startswith("^"):
-                            lst[i] = r"^.*\." + pattern[1:]
-                        else:
-                            lst[i] = r".*\." + pattern
-                        adjusted = True
-            if adjusted:
-                logger.warning(
-                    "`dataset_pattern` was adjusted to match against fully qualified schema names,"
-                    " of the form `<project_id>.<dataset_name>`."
-                )
 
         return values
 

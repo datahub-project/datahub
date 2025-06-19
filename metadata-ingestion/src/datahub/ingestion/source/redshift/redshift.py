@@ -453,7 +453,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.schema_pattern,
                 schema.name,
                 database,
-                self.config.match_fully_qualified_names,
             ):
                 self.report.report_dropped(f"{database}.{schema.name}")
                 continue
@@ -844,7 +843,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.schema_pattern,
                 schema,
                 database,
-                self.config.match_fully_qualified_names,
             ):
                 logger.debug(
                     f"Not caching table for schema {database}.{schema} which is not allowed by schema_pattern"
@@ -873,7 +871,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.schema_pattern,
                 schema,
                 database,
-                self.config.match_fully_qualified_names,
             ):
                 logger.debug(
                     f"Not caching views for schema {database}.{schema} which is not allowed by schema_pattern"

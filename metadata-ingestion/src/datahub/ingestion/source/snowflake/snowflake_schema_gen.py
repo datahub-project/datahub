@@ -392,7 +392,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.filters.filter_config.schema_pattern,
                     schema.name,
                     db_name,
-                    self.filters.filter_config.match_fully_qualified_names,
                 ):
                     self.report.report_dropped(f"{db_name}.{schema.name}.*")
                 else:

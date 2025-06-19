@@ -6,7 +6,6 @@ from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -153,10 +152,7 @@ class RedshiftConfig(
     )
     extra_client_options: Dict[str, Any] = {}
 
-    match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
-    )
+    _match_fully_qualified_names = pydantic_removed_field("match_fully_qualified_names")
 
     extract_column_level_lineage: bool = Field(
         default=True,
@@ -190,25 +186,6 @@ class RedshiftConfig(
     @root_validator(skip_on_failure=True)
     def check_database_is_set(cls, values):
         assert values.get("database"), "database must be set"
-        return values
-
-    @root_validator(skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-
-        if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
-        ):
-            logger.warning(
-                "Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
-            )
         return values
 
     @root_validator(skip_on_failure=True)

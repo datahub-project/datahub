@@ -113,7 +113,6 @@ def test_bigquery_dataset_pattern():
                     "project\\.second_dataset",
                 ],
             },
-            "match_fully_qualified_names": False,
         }
     )
     assert config.dataset_pattern.allow == [
