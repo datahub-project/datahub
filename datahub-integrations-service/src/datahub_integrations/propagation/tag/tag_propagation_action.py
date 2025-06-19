@@ -35,6 +35,7 @@ from ratelimit import limits, sleep_and_retry
 from datahub_integrations.propagation.propagation_utils import (
     RelationshipType,
     SelectedAsset,
+    filter_downstreams_by_entity_type,
     get_unique_siblings,
 )
 
@@ -263,8 +264,12 @@ class TagPropagationAction(Action):
                 downstreams_set = set()
                 if self.config.include_downstreams:
                     downstreams = self.ctx.graph.get_downstreams(entity_urn)
+                    # ensure entity types are aligned for propagation.
+                    filtered_downstreams = filter_downstreams_by_entity_type(
+                        entity_urn, downstreams
+                    )
                     # only propagate to a max of max_propagation_fanout
-                    truncated_downstreams = downstreams[
+                    truncated_downstreams = filtered_downstreams[
                         : self.config.max_propagation_fanout
                     ]
                     downstreams_set.update(truncated_downstreams)

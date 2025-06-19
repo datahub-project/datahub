@@ -179,3 +179,28 @@ def get_unique_siblings(graph: AcrylDataHubGraph, entity_urn: str) -> list[str]:
             return sibling_urns
 
     return []
+
+
+def filter_downstreams_by_entity_type(
+    entity_urn: str, downstreams: list[str]
+) -> list[str]:
+    """
+    Filters downstreams based on the entity type of the provided entity_urn.
+    If the entity_urn is a schemaField, it filters downstreams to only include
+    schemaFields. If the entity_urn is not a schemaField, it filters downstreams
+    to exclude schemaFields. If the entity_urn is neither, it returns all downstreams.
+    """
+    if entity_urn.startswith("urn:li:schemaField"):
+        return [
+            downstream
+            for downstream in downstreams
+            if downstream.startswith("urn:li:schemaField")
+        ]
+    elif not entity_urn.startswith("urn:li:schemaField"):
+        return [
+            downstream
+            for downstream in downstreams
+            if not downstream.startswith("urn:li:schemaField")
+        ]
+    else:
+        return downstreams  # If it's neither case (other asset-asset propagation), return all downstreams.
