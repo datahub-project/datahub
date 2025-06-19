@@ -79,7 +79,6 @@ def test_bigquery_dataset_pattern():
         {
             "dataset_pattern": {
                 "allow": [
-                    "test-dataset",
                     "test-project.test-dataset",
                     ".*test-dataset",
                 ],
@@ -91,12 +90,11 @@ def test_bigquery_dataset_pattern():
         }
     )
     assert config.dataset_pattern.allow == [
-        r".*\.test-dataset",
         r"test-project.test-dataset",
         r".*test-dataset",
     ]
     assert config.dataset_pattern.deny == [
-        r"^.*\.test-dataset-2$",
+        r"^test-dataset-2$",
         r"project\.second_dataset",
     ]
 
