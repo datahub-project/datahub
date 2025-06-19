@@ -241,9 +241,9 @@ class DremioSQLQueries:
 
     @staticmethod
     def _get_default_start_timestamp_millis() -> str:
-        """Get default start timestamp (7 days ago) in milliseconds precision format"""
-        seven_days_ago = datetime.now() - timedelta(days=7)
-        return seven_days_ago.strftime("%Y-%m-%d %H:%M:%S.%f")[
+        """Get default start timestamp (1 day ago) in milliseconds precision format"""
+        one_day_ago = datetime.now() - timedelta(days=1)
+        return one_day_ago.strftime("%Y-%m-%d %H:%M:%S.%f")[
             :-3
         ]  # Truncate to milliseconds
 
@@ -262,7 +262,7 @@ class DremioSQLQueries:
         Get query for all jobs with optional time filtering.
 
         Args:
-            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 7 days ago)
+            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 1 day ago)
             end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
 
         Returns:
