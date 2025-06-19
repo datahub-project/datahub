@@ -38,7 +38,7 @@ The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. F
 
 :::note
 
-There are two [transports types](https://modelcontextprotocol.io/docs/concepts/transports) for remote MCP servers: streamable HTTP and server-sent events (SSE). DataHub only supports the streamable HTTP transport. The SSE transport has been deprecated in favor of streamable HTTP, but some older MCP clients may still only support SSE. For those cases, you may need to use something like [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
+There are two [transports types](https://modelcontextprotocol.io/docs/concepts/transports) for remote MCP servers: streamable HTTP and server-sent events (SSE). DataHub only supports the newer streamable HTTP transport. SSE has been deprecated in favor of streamable HTTP, but some older MCP clients may still only support SSE. For those cases, you'll need to use something like [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
 
 :::
 
