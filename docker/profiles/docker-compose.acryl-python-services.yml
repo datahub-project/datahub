@@ -6,12 +6,12 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
 
 x-executor-worker-env: &executor-worker-env
   DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
-  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID}
+  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID:-}
 
 x-datahub-executor-coordinator-env: &datahub-executor-coordinator-env
   AWS_REGION: ${AWS_REGION:-us-west-2}
-  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
 
 #################################
 # Integrations Service
