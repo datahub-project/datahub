@@ -41,8 +41,9 @@ export default function BrowsePaths(props: Props) {
     return (
         <Popover
             zIndex={1051} // .ant-select-dropdown is 1050
-            content={showPopover ? <BrowsePaths {...props} hidePopover numVisible={undefined} /> : null}
-            overlayStyle={linksDisabled ? { pointerEvents: 'none' } : {}}
+            content={
+                showPopover ? <BrowsePaths {...props} hidePopover numVisible={undefined} linksDisabled={false} /> : null
+            }
         >
             <ParentNodesWrapper>
                 {showEllipsis && (

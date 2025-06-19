@@ -14,6 +14,7 @@ import {
     DataJobInputOutput,
     DataPlatform,
     DataPlatformInstance,
+    DataProcessInstance,
     DataProcessRunEvent,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
@@ -145,7 +146,8 @@ export type GenericEntityProperties = {
     notes?: Maybe<EntityRelationshipsResult>;
     versionProperties?: Maybe<VersionProperties>;
 
-    // Data process instance
+    // Data job / data process instance
+    lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
 
     // Saas only below

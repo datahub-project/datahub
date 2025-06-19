@@ -6,16 +6,19 @@ import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import { CUSTOM_SMOOTH_STEP_EDGE_NAME } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
+import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import {
     GraphStoreFields,
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
+    LineageEdgeData,
     LineageTableEdgeData,
     LineageToggles,
     NodeContext,
     VERTICAL_HANDLE,
 } from '@app/lineageV3/common';
-import NodeBuilder, { LineageVisualizationNode, MAIN_X_SEP_RATIO } from '@app/lineageV3/useComputeGraph/NodeBuilder';
+import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
@@ -23,7 +26,6 @@ import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filte
 import { EntityType, LineageDirection } from '@types';
 
 const ROOT_SEPARATION = 50 + LINEAGE_NODE_HEIGHT;
-const INPUT_OUTPUT_SEPARATION = 80;
 
 /**
  * Computes the data flow graph, in three sections:
@@ -73,7 +75,7 @@ export default function computeDataFlowGraph(
         [LineageDirection.Downstream]: isOnRightSideOfBox,
     };
 
-    console.debug({ displayedNodesByRoots });
+    console.debug({ isOnEdgeOfBox, displayedNodesByRoots });
     displayedNodesByRoots
         .sort(([_rootsA, componentA], [_rootsB, componentB]) => componentB.length - componentA.length)
         .forEach(([roots, displayedNodes]) => {
@@ -83,7 +85,9 @@ export default function computeDataFlowGraph(
             const nodeBuilder = new NodeBuilder(urn, type, roots, displayedNodes, parents, false);
             const newFlowNodes = nodeBuilder.createNodes(newGraphStore, ignoreSchemaFieldStatus, offsets, urn);
             flowNodes.push(...newFlowNodes);
-            flowEdges.push(...nodeBuilder.createEdges(newGraphStore.edges, offsets, VERTICAL_HANDLE));
+            flowEdges.push(
+                ...nodeBuilder.createEdges(newGraphStore.edges, VERTICAL_HANDLE, CUSTOM_SMOOTH_STEP_EDGE_NAME),
+            );
 
             newFlowNodes.forEach((node) => {
                 dataJobPositions.set(node.id, node.position);
@@ -106,6 +110,7 @@ export default function computeDataFlowGraph(
             });
         });
 
+    const isInDataFlowGraphInterior: Map<string, Map<LineageDirection, boolean>> = new Map();
     if (flowNodes.length) {
         const boundingBox = addBoundingBoxDataFlow(flowNodes, { urn, type, entity: nodes.get(urn)?.entity });
         newGraphStore.nodes.forEach((node) => {
@@ -120,25 +125,104 @@ export default function computeDataFlowGraph(
                     ),
                 ]),
             );
-
-            const { flowNodes: newFlowNodes, flowEdges: newFlowEdges } = computeImpactAnalysisGraph(
+            isInDataFlowGraphInterior.set(
                 node.urn,
-                node.type,
-                context,
-                ignoreSchemaFieldStatus,
-                undefined,
-                offsets,
-                true,
-            );
-            flowNodes.push(...newFlowNodes.filter((n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn));
-            flowEdges.push(
-                ...newFlowEdges.filter(
-                    (e) =>
-                        !nodes.get(e.source)?.parentDataJob ||
-                        nodes.get(e.source)?.parentDataJob !== nodes.get(e.target)?.parentDataJob,
+                new Map(
+                    Object.values(LineageDirection).map((direction) => [
+                        direction,
+                        !isOnEdgeOfBox[direction].get(node.urn),
+                    ]),
                 ),
             );
+
+            if (node.isExpanded.UPSTREAM || node.isExpanded.DOWNSTREAM) {
+                const { flowNodes: newFlowNodes, flowEdges: newFlowEdges } = computeImpactAnalysisGraph(
+                    node.urn,
+                    node.type,
+                    context,
+                    ignoreSchemaFieldStatus,
+                    undefined,
+                    offsets,
+                    (n) => n.urn === node.urn || n.parentDataJob !== urn,
+                );
+                flowNodes.push(
+                    ...newFlowNodes.filter((n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn),
+                );
+                flowEdges.push(
+                    ...newFlowEdges.filter(
+                        (e) => !nodes.get(e.source)?.parentDataJob && !nodes.get(e.target)?.parentDataJob,
+                    ),
+                );
+            }
         });
+
+        const extraEdgeData = (source: string, target: string): Partial<LineageEdgeData> => {
+            const upstream = nodes.get(source);
+            const downstream = nodes.get(target);
+
+            if (
+                !upstream ||
+                !downstream ||
+                (!upstream.parentDataJob && !downstream.parentDataJob) ||
+                (upstream.parentDataJob && downstream.parentDataJob)
+            ) {
+                return { hide: true };
+            }
+            if (
+                downstream.parentDataJob &&
+                upstream.direction === LineageDirection.Upstream &&
+                downstream.isExpanded[LineageDirection.Upstream]
+            ) {
+                // External upstream -> data flow
+                return {
+                    isInInterior: isInDataFlowGraphInterior.get(downstream.urn)?.get(LineageDirection.Upstream),
+                    direction: LineageDirection.Upstream,
+                };
+            }
+            if (
+                upstream.parentDataJob &&
+                downstream.direction === LineageDirection.Downstream &&
+                upstream.isExpanded[LineageDirection.Downstream]
+            ) {
+                // Data flow -> external downstream
+                return {
+                    isInInterior: isInDataFlowGraphInterior.get(upstream.urn)?.get(LineageDirection.Downstream),
+                    direction: LineageDirection.Downstream,
+                };
+            }
+            if (
+                downstream.parentDataJob &&
+                upstream.direction === LineageDirection.Downstream &&
+                (upstream.isExpanded[LineageDirection.Downstream] || downstream.isExpanded[LineageDirection.Upstream])
+            ) {
+                // External downstream -> data flow (cycle)
+                return {
+                    direction: LineageDirection.Downstream,
+                    isToDataFlow: true,
+                };
+            }
+            if (
+                upstream.parentDataJob &&
+                downstream.direction === LineageDirection.Upstream &&
+                (upstream.isExpanded[LineageDirection.Downstream] || downstream.isExpanded[LineageDirection.Upstream])
+            ) {
+                // Data flow -> external upstream (cycle)
+                return {
+                    direction: LineageDirection.Upstream,
+                    isToDataFlow: true,
+                };
+            }
+            return { hide: true };
+        };
+
+        // Add edges between external upstream / downstream entities and data jobs in data flow
+        // Do not add any nodes from this step
+        const nodeBuilder = new NodeBuilder(urn, type, [], Array.from(nodes.values()), new Map(), false);
+        flowEdges.push(
+            ...nodeBuilder
+                .createEdges(edges, undefined, DATA_JOB_INPUT_OUTPUT_EDGE_NAME, extraEdgeData)
+                .filter((e) => !e.data?.hide),
+        );
     }
     return { flowNodes, flowEdges, resetPositions: false };
 }
@@ -183,13 +267,7 @@ function computeInputOutputOffset(
     boundingBox: Node,
     isOnEdge: boolean,
 ): [number, number] {
-    const xOffset =
-        direction === LineageDirection.Upstream
-            ? LINEAGE_NODE_WIDTH * MAIN_X_SEP_RATIO - INPUT_OUTPUT_SEPARATION
-            : (boundingBox?.width || 0) -
-              LINEAGE_NODE_WIDTH -
-              LINEAGE_NODE_WIDTH * MAIN_X_SEP_RATIO +
-              INPUT_OUTPUT_SEPARATION;
+    const xOffset = direction === LineageDirection.Upstream ? 0 : (boundingBox?.width || 0) - LINEAGE_NODE_WIDTH;
     const yOffset = (ROOT_SEPARATION / 3) * (direction === LineageDirection.Upstream ? -1 : 1);
 
     return [xOffset, (position?.y || 0) + (isOnEdge ? 0 : yOffset)];

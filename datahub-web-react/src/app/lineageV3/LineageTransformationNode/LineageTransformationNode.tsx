@@ -6,7 +6,9 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
+import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
 import { LoadingWrapper, StyledVersioningBadge } from '@app/lineageV3/LineageEntityNode/NodeContents';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
@@ -19,7 +21,9 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
+import HealthIcon from '@app/previewV2/HealthIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
@@ -34,7 +38,7 @@ const HomeIndicatorWrapper = styled.div`
     justify-content: center;
 
     position: absolute;
-    top: -18px;
+    top: -17px;
 `;
 
 const TransformationalNodeWrapper = styled(NodeWrapper)<{
@@ -82,12 +86,14 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistryV2();
+    const refetch = useRefetchLineage(urn, type);
 
     const isQuery = type === EntityType.Query;
     const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
     const { rootUrn } = useContext(LineageNodesContext);
-    const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
+    const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode } =
+        useContext(LineageDisplayContext);
     const { searchedEntity } = useContext(LineageVisualizationContext);
 
     // TODO: Support ghost queries and schema fields, once they are supported in the backend
@@ -146,6 +152,23 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
         return contents;
     }
 
+    const menuActions = [
+        entity?.deprecation?.deprecated && (
+            <DeprecationIcon urn={urn} deprecation={entity?.deprecation} showText={false} showUndeprecate={false} />
+        ),
+        entity?.health && (
+            <HealthIcon urn={urn} health={entity.health} baseUrl={entityRegistry.getEntityUrl(type, urn)} />
+        ),
+        <ManageLineageMenu
+            node={data}
+            refetch={refetch}
+            isRootUrn={urn === rootUrn}
+            isGhost={isGhost}
+            isOpen={displayedMenuNode === urn}
+            setDisplayedMenuNode={setDisplayedMenuNode}
+        />,
+    ];
+
     const popoverContent = (
         <PopoverWrapper
             urn={urn}
@@ -171,6 +194,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                 properties={entity?.genericEntityProperties}
                 platformIcons={icon ? [icon] : []}
                 childrenOpen={false}
+                menuActions={menuActions}
             />
         </PopoverWrapper>
     );

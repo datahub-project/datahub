@@ -25,8 +25,8 @@ export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handle
 
 export const VERTICAL_HANDLE = 'vertical';
 
-export const HOVER_COLOR = colors.violet[200];
-export const SELECT_COLOR = colors.violet[600];
+export const HOVER_COLOR = colors.violet[300];
+export const SELECT_COLOR = colors.violet[500];
 
 type Urn = string;
 
@@ -222,12 +222,16 @@ export interface LineageEdge {
 
 export interface LineageTableEdgeData extends LineageEdge {
     originalId: string; // For edges to via nodes, stores table->table edge id. Otherwise, identical to edge id.
+    hide?: boolean;
 }
 
 export interface DataJobInputOutputEdgeData extends LineageTableEdgeData {
-    direction: LineageDirection;
-    yOffset: number;
+    direction?: LineageDirection;
+    isInInterior?: boolean;
+    isToDataFlow?: boolean;
 }
+
+export type LineageEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export type EdgeId = string;
 

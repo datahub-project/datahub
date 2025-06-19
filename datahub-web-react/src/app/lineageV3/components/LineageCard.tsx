@@ -1,6 +1,6 @@
 import { Icon, colors } from '@components';
 import { Skeleton } from 'antd';
-import React, { HTMLAttributes } from 'react';
+import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -160,30 +160,35 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     childrenText?: React.ReactNode;
 }
 
-export default function LineageCard({
-    urn,
-    type,
-    loading,
-    properties,
-    name,
-    nameExtra,
-    nameHighlight,
-    platformIcons,
-    menuActions,
-    extraDetails,
-    sideElements,
-    verticalElements,
-    childrenOpen,
-    toggleChildren,
-    childrenText,
-    ...props
-}: Props) {
+export default forwardRef<HTMLDivElement, Props>(LineageCard);
+
+function LineageCard(
+    {
+        urn,
+        type,
+        loading,
+        properties,
+        name,
+        nameExtra,
+        nameHighlight,
+        platformIcons,
+        menuActions,
+        extraDetails,
+        sideElements,
+        verticalElements,
+        childrenOpen,
+        toggleChildren,
+        childrenText,
+        ...props
+    }: Props,
+    ref: React.Ref<HTMLDivElement>,
+) {
     return (
         <UnexpandedCardWrapper data-testid={`unexpanded-lineage-card-${urn}`}>
             {loading || !name ? (
                 <CardSkeleton extraDetails={extraDetails} />
             ) : (
-                <CardWrapper {...props}>
+                <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
                         {platformIcons.map((icon) => (
                             <PlatformIcon key={icon} src={icon} />

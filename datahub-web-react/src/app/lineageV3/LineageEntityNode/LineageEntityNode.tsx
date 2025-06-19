@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { NodeProps } from 'reactflow';
 
 import NodeContents from '@app/lineageV3/LineageEntityNode/NodeContents';
@@ -12,9 +12,9 @@ import {
     parseColumnRef,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
-import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
+import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
 
-import { EntityType, LineageDirection } from '@types';
+import { LineageDirection } from '@types';
 
 export const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
 const MAX_NODES_FOR_TRANSITION = 50;
@@ -115,42 +115,5 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 ).length
             }
         />
-    );
-}
-
-function useRefetchLineage(urn: string, type: EntityType) {
-    const nodeContext = useContext(LineageNodesContext);
-
-    const { fetchLineage: fetchLineageUpstream } = useSearchAcrossLineage(
-        urn,
-        type,
-        nodeContext,
-        LineageDirection.Upstream,
-        true,
-        false,
-        true,
-    );
-    const { fetchLineage: fetchLineageDownstream } = useSearchAcrossLineage(
-        urn,
-        type,
-        nodeContext,
-        LineageDirection.Downstream,
-        true,
-        false,
-        true,
-    );
-
-    return useMemo(
-        () => ({
-            [LineageDirection.Upstream]: () => {
-                const timeout = setTimeout(fetchLineageUpstream, 7000);
-                return () => clearTimeout(timeout);
-            },
-            [LineageDirection.Downstream]: () => {
-                const timeout = setTimeout(fetchLineageDownstream, 7000);
-                return () => clearTimeout(timeout);
-            },
-        }),
-        [fetchLineageUpstream, fetchLineageDownstream],
     );
 }

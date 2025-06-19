@@ -1,4 +1,4 @@
-import { GraphStoreFields, LineageToggles, NodeContext } from '@app/lineageV3/common';
+import { GraphStoreFields, LineageEntity, LineageToggles, NodeContext } from '@app/lineageV3/common';
 import NodeBuilder from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV3/useComputeGraph/getDisplayedNodes';
@@ -22,8 +22,7 @@ import { EntityType, LineageDirection } from '@types';
  * @param ignoreSchemaFieldStatus Whether to ignore schema field status when computing the graph
  * @param prevHideTransformations Previous value of `hideTransformations` to determine if the graph should be reset
  * @param offsets Map of offsets for each direction, used to position nodes in the graph when called to render a subgraph
- * @param isDataJobInputOutput Whether the graph is being computed for a data job's input/output.
- *        This determines the type of edges created when attached to the home node.
+ * @param nodeFilter Optional filter function to apply to nodes before processing them.
  * @returns An object containing:
  *   flowNodes: Nodes for React Flow to render
  *   flowEdges: Edges for React Flow to render
@@ -36,7 +35,7 @@ export default function computeImpactAnalysisGraph(
     ignoreSchemaFieldStatus: boolean,
     prevHideTransformations?: boolean,
     offsets: Map<LineageDirection, [number, number]> = new Map(),
-    isDataJobInputOutput = false,
+    nodeFilter?: (node: LineageEntity) => boolean,
 ) {
     const { nodes, edges, adjacencyList, rootType, hideTransformations, showDataProcessInstances, showGhostEntities } =
         context;
@@ -56,7 +55,7 @@ export default function computeImpactAnalysisGraph(
         hideGhostEntities: !showGhostEntities,
         ignoreSchemaFieldStatus,
     };
-    const newGraphStore = { ...hideNodes(urn, rootType, config, graphStore), rootType };
+    const newGraphStore = { ...hideNodes(urn, rootType, config, graphStore, nodeFilter), rootType };
     console.debug(newGraphStore);
 
     const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newGraphStore);
@@ -72,7 +71,7 @@ export default function computeImpactAnalysisGraph(
         flowNodes: nodeBuilder
             .createNodes(newGraphStore, ignoreSchemaFieldStatus, offsets)
             .sort((a, b) => (orderIndices[a.id] || 0) - (orderIndices[b.id] || 0)),
-        flowEdges: nodeBuilder.createEdges(newGraphStore.edges, offsets, undefined, isDataJobInputOutput),
+        flowEdges: nodeBuilder.createEdges(newGraphStore.edges),
         resetPositions: prevHideTransformations !== undefined && prevHideTransformations !== hideTransformations,
     };
 }

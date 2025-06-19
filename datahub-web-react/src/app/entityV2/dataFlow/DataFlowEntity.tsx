@@ -101,7 +101,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     icon: FileText,
                 },
                 {
-                    name: 'DAG',
+                    name: 'Lineage',
                     component: DAGTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
