@@ -906,6 +906,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
+        skip_cache: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -924,6 +925,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+        :param skip_cache: Whether to bypass caching. Defaults to False.
 
         :return: An iterable of urns that match the filters.
         """
@@ -951,7 +953,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $query: String!,
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
-                $scrollId: String) {
+                $scrollId: String,
+                $skipCache: Boolean!) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -962,6 +965,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
+                        skipCache: $skipCache
                     }
                 }) {
                     nextScrollId
@@ -980,6 +984,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": orFilters,
             "batchSize": batch_size,
+            "skipCache": skip_cache,
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
@@ -1085,7 +1090,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": or_filters_final,
             "batchSize": batch_size,
-            "skipCache": "true" if skip_cache else "false",
+            "skipCache": skip_cache,
             "fetchExtraFields": extra_source_fields,
         }
 
