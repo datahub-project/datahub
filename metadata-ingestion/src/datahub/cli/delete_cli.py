@@ -1,5 +1,6 @@
 import logging
 import random
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
@@ -434,42 +435,24 @@ def by_filter(
     delete_by_urn = bool(urn) and not recursive
     if urn:
         if recursive:
-            if streaming_batch:
-                # For recursive deletion, use streaming approach to avoid loading all URNs into memory
-                _delete_urns_streaming_recursive(
-                    graph=graph,
-                    parent_urn=urn,
-                    aspect_name=aspect,
-                    soft=soft,
-                    dry_run=dry_run,
-                    start_time=start_time,
-                    end_time=end_time,
-                    workers=workers,
-                    soft_delete_filter=soft_delete_filter,
-                    batch_size=batch_size,
-                    force=force,
-                    streaming_batch_size=streaming_batch_size,
-                )
-                return
-            else:
-                # Use non streaming approach in case you wish to know exact time ETA
-                urns = [urn]
-                if guess_entity_type(urn) == "dataPlatformInstance":
-                    urns.extend(
-                        graph.get_urns_by_filter(
-                            platform_instance=urn,
-                            status=soft_delete_filter,
-                            batch_size=batch_size,
-                        )
-                    )
-                else:
-                    urns.extend(
-                        graph.get_urns_by_filter(
-                            container=urn,
-                            status=soft_delete_filter,
-                            batch_size=batch_size,
-                        )
-                    )
+            _delete_urns_streaming_recursive(
+                graph=graph,
+                parent_urn=urn,
+                aspect_name=aspect,
+                soft=soft,
+                dry_run=dry_run,
+                start_time=start_time,
+                end_time=end_time,
+                workers=workers,
+                soft_delete_filter=soft_delete_filter,
+                batch_size=batch_size,
+                force=force,
+                streaming_batch_size=streaming_batch_size
+                if streaming_batch
+                else sys.maxsize,
+            )
+            return
+
         else:
             urns = [urn]
     elif urn_file:
