@@ -1,4 +1,5 @@
 import datetime
+from typing import Any, Iterator
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -95,6 +96,31 @@ class MockLogginEntry:
         self.timestamp = timestamp
 
 
+class MockRowIterator:
+    """Mock RowIterator that behaves like the real BigQuery RowIterator"""
+
+    def __init__(self, rows_data: list[Any]) -> None:
+        self.rows_data = rows_data
+        self.total_rows = len(rows_data)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.rows_data)
+
+
+class MockQueryJob:
+    """Mock QueryJob that behaves like the real BigQuery QueryJob"""
+
+    def __init__(self, rows_data: list[Any]) -> None:
+        self.rows_data = rows_data
+        self._result = MockRowIterator(rows_data)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.rows_data)
+
+    def result(self) -> MockRowIterator:
+        return self._result
+
+
 class TestBigQuerySource:
     def setup_method(self) -> None:
         self.bigquery_connection_mock = Mock(spec=BigQueryConnection)
@@ -132,6 +158,7 @@ class TestBigQuerySource:
     def test_get_entity_events_information_schema_update(
         self, execute_query_mock: Mock, build_mock: Mock
     ) -> None:
+        execute_query_mock.return_value = MockQueryJob([[JAN_1_TIMESTAMP]])
         self.bigquery_source.get_entity_events(
             TEST_ENTITY_URN,
             EntityEventType.INFORMATION_SCHEMA_UPDATE,
@@ -148,6 +175,7 @@ class TestBigQuerySource:
     def test_get_entity_events_field_update(
         self, execute_query_mock: Mock, build_mock: Mock
     ) -> None:
+        execute_query_mock.return_value = MockQueryJob([[JAN_1_TIMESTAMP]])
         self.bigquery_source.get_entity_events(
             TEST_ENTITY_URN,
             EntityEventType.FIELD_UPDATE,
@@ -167,7 +195,10 @@ class TestBigQuerySource:
     def test_get_current_high_watermark_for_column(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = [[TEST_END]]
+        execute_query_mock.side_effect = [
+            MockQueryJob([[TEST_END]]),
+            MockQueryJob([[TEST_END]]),
+        ]
         (
             field_value,
             row_count,
@@ -194,7 +225,10 @@ class TestBigQuerySource:
     def test_get_current_high_watermark_for_column_no_previous_value(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = [[TEST_END]]
+        execute_query_mock.side_effect = [
+            MockQueryJob([[TEST_END]]),
+            MockQueryJob([[TEST_END]]),
+        ]
         (
             field_value,
             row_count,
@@ -224,7 +258,7 @@ class TestBigQuerySource:
     def test_get_current_high_watermark_for_column_no_previous_state(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = []
+        execute_query_mock.return_value = MockQueryJob([])
         (
             field_value,
             row_count,
@@ -323,7 +357,7 @@ class TestBigQuerySource:
 
     def test_build_information_schema_results(self) -> None:
         results = self.bigquery_source._build_information_schema_results(
-            [[JAN_1_TIMESTAMP]]
+            MockQueryJob([[JAN_1_TIMESTAMP]])  # type: ignore[arg-type]  # Mocked for tests
         )
         assert len(results) == 1
         assert results[0].event_time == JAN_1_TIMESTAMP
@@ -368,7 +402,7 @@ class TestBigQuerySource:
 
     @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_stats_table(self, execute_query_mock: Mock) -> None:
-        execute_query_mock.return_value = [["10"]]
+        execute_query_mock.return_value = MockQueryJob([["10"]])
         db_params = DatabaseParams(
             dataset_part_0="test_db",
             dataset_part_1="public",
@@ -384,7 +418,7 @@ class TestBigQuerySource:
     def test_get_num_rows_via_stats_table_no_rows(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = []
+        execute_query_mock.return_value = MockQueryJob([])
         db_params = DatabaseParams(
             dataset_part_0="test_db",
             dataset_part_1="public",
@@ -398,7 +432,7 @@ class TestBigQuerySource:
 
     @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
-        execute_query_mock.return_value = [["10"]]
+        execute_query_mock.return_value = MockQueryJob([["10"]])
         db_params = DatabaseParams(
             dataset_part_0="test_db",
             dataset_part_1="public",
@@ -412,7 +446,7 @@ class TestBigQuerySource:
 
     @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_num_rows_via_count_with_filter(self, execute_query_mock: Mock) -> None:
-        execute_query_mock.return_value = [["10"]]
+        execute_query_mock.return_value = MockQueryJob([["10"]])
         db_params = DatabaseParams(
             dataset_part_0="test_db",
             dataset_part_1="public",
@@ -428,7 +462,7 @@ class TestBigQuerySource:
     def test_get_single_value_failure_multiple_values(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = [[10, 11]]
+        execute_query_mock.return_value = MockQueryJob([[10, 11]])
 
         with pytest.raises(CustomSQLErrorException):
             self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
@@ -437,14 +471,14 @@ class TestBigQuerySource:
     def test_get_single_value_failure_invalid_value(
         self, execute_query_mock: Mock
     ) -> None:
-        execute_query_mock.return_value = [["not a float"]]
+        execute_query_mock.return_value = MockQueryJob([["not a float"]])
 
         with pytest.raises(CustomSQLErrorException):
             self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
 
     @patch.object(BigQuerySource, "_execute_fetchall_query")
     def test_get_single_value_success(self, execute_query_mock: Mock) -> None:
-        execute_query_mock.return_value = [["100"]]
+        execute_query_mock.return_value = MockQueryJob([["100"]])
 
         value = self.bigquery_source._execute_custom_sql(TEST_CUSTOM_SQL_STATEMENT)
         assert value == 100.0

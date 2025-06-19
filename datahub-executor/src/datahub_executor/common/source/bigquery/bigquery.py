@@ -11,6 +11,7 @@ from google.api_core.exceptions import (
     NotFound,
     ServiceUnavailable,
 )
+from google.cloud.bigquery import QueryJob
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
@@ -177,7 +178,7 @@ class BigQuerySource(Source):
         for entry in enumerate(entries):
             yield entry
 
-    def _execute_fetchall_query(self, query: str) -> List[Any]:
+    def _execute_fetchall_query(self, query: str) -> QueryJob:  # type: ignore[override]  # TODO: Sync with parent class
         try:
             return self.connection.get_client().query(query)
         except (
@@ -191,6 +192,15 @@ class BigQuerySource(Source):
                 message=f"Source query (BigQuery) failed with error: {e.message}",
                 query=query,
             )
+
+    def _get_length_of_query_job(self, query_job: QueryJob) -> int:
+        # QueryJob.result() is a generator so we need to use total_rows to get the length
+        # Other usages take advantage of the RowIterator nature of QueryJob.result() which is accessed via the __iter__ method of the QueryJob object
+        # i.e. you can do for row in query_job: ... and row will be the next row in the result set.
+        # To check the length, use this method.
+        # https://cloud.google.com/python/docs/reference/bigquery/2.34.3/google.cloud.bigquery.job.QueryJob?hl=en#google_cloud_bigquery_job_QueryJob_result
+        # https://cloud.google.com/python/docs/reference/bigquery/2.34.3/google.cloud.bigquery.table.RowIterator?hl=en
+        return query_job.result().total_rows
 
     def _build_audit_log_results(self, entries: Iterable[Any]) -> List[EntityEvent]:
         results = []
@@ -210,7 +220,7 @@ class BigQuerySource(Source):
 
         return results
 
-    def _build_information_schema_results(self, rows: List[Any]) -> List[EntityEvent]:
+    def _build_information_schema_results(self, rows: QueryJob) -> List[EntityEvent]:
         return [
             EntityEvent(EntityEventType.INFORMATION_SCHEMA_UPDATE, row[0])
             for row in rows
@@ -393,7 +403,7 @@ class BigQuerySource(Source):
         try:
             # This should be a single row since it is a count * query
             rows = self._execute_fetchall_query(get_count_query)
-            if len(rows) == 0:
+            if self._get_length_of_query_job(rows) == 0:
                 return None
             current_row_count = 0
             for row in rows:
@@ -424,7 +434,7 @@ class BigQuerySource(Source):
 
         try:
             rows = self._execute_fetchall_query(query)
-            if len(rows) == 0:
+            if self._get_length_of_query_job(rows) == 0:
                 return None
             current_row_count = 0
             for row in rows:
@@ -455,7 +465,7 @@ class BigQuerySource(Source):
 
         try:
             rows = self._execute_fetchall_query(query)
-            if len(rows) == 0:
+            if self._get_length_of_query_job(rows) == 0:
                 return None
             current_row_count = 0
             for row in rows:
