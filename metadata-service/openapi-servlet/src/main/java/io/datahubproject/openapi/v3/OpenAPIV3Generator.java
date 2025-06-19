@@ -815,6 +815,10 @@ public class OpenAPIV3Generator {
                           schema.setNullable(!isNameRequired);
                         });
                   }
+
+                  if (s.getRequired() != null && s.getRequired().isEmpty()) {
+                    s.setRequired(null);
+                  }
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);

@@ -2,8 +2,7 @@ package io.datahubproject.openapi.v3;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -126,19 +125,17 @@ public class OpenAPIV3GeneratorTest {
 
     // Assert required properties are non-nullable
     Schema customProperties = properties.get("customProperties");
-    assertFalse(requiredNames.contains("customProperties")); // not required due to default
+    assertNull(requiredNames);
     assertFalse(
         customProperties
             .getNullable()); // it is however still not optional, therefore null is not allowed
 
     // Assert non-required properties are nullable
     Schema name = properties.get("name");
-    assertFalse(requiredNames.contains("name"));
     assertTrue(name.getNullable());
 
     // Assert non-required $ref properties are nullable or object
     Schema created = properties.get("created");
-    assertFalse(requiredNames.contains("created"));
     assertEquals(Set.of("object", "null"), created.getTypes());
     assertEquals("#/components/schemas/TimeStamp", created.get$ref());
     assertTrue(created.getNullable());
