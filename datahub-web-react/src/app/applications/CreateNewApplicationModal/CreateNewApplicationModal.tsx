@@ -2,13 +2,12 @@ import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 
+import ApplicationDetailsSection from '@app/applications/CreateNewApplicationModal/ApplicationDetailsSection';
 import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
 import { useCreateApplicationMutation } from '@graphql/application.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-
-import ApplicationDetailsSection from './ApplicationDetailsSection';
 
 type CreateNewApplicationModalProps = {
     open: boolean;

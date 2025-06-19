@@ -9,7 +9,6 @@ import {
     ApplicationNameColumn,
     ApplicationOwnersColumn,
 } from '@app/applications/ApplicationsTableColumns';
-import { useUserContext } from '@app/context/useUserContext';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
