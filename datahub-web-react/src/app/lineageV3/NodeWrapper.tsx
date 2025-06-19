@@ -12,7 +12,7 @@ const Wrapper = styled.div<{
 }>`
     width: ${LINEAGE_NODE_WIDTH}px;
 
-    background-color: white;
+    background-color: ${colors.white};
     border-radius: 12px;
     border: 1px solid ${({ selected }) => (selected ? colors.violet[600] : colors.gray[100])};
     box-shadow: ${({ isSearchedEntity }) =>

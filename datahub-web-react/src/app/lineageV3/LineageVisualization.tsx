@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import { CUSTOM_SMOOTH_STEP_EDGE_NAME, CustomSmoothStepEdge } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
 import {
     DATA_JOB_INPUT_OUTPUT_EDGE_NAME,
     DataJobInputOutputEdge,
@@ -33,14 +34,15 @@ const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edg
         `.react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
         }`}
-
-    // On node hover, bring edges to the top
-    ${({ $edgesOnTop }) =>
-        $edgesOnTop &&
-        `.react-flow__node-lineage-entity:not(.selected) {
-            z-index: -1 !important;
-        }`}
 `;
+
+// TODO: Bring back after figuring out how to no overlap expand / contract actions
+// On node hover, bring edges to the top
+// ${({ $edgesOnTop }) =>
+//     $edgesOnTop &&
+//     `.react-flow__node-lineage-entity:not(.selected) {
+//         z-index: -1 !important;
+//     }`}
 
 const nodeTypes: NodeTypes = {
     [LINEAGE_ENTITY_NODE_NAME]: LineageEntityNode,
@@ -53,6 +55,7 @@ const edgeTypes: EdgeTypes = {
     [LINEAGE_TABLE_EDGE_NAME]: LineageTableEdge,
     [TENTATIVE_EDGE_NAME]: TentativeEdge,
     [DATA_JOB_INPUT_OUTPUT_EDGE_NAME]: DataJobInputOutputEdge,
+    [CUSTOM_SMOOTH_STEP_EDGE_NAME]: CustomSmoothStepEdge,
 };
 
 interface Props {

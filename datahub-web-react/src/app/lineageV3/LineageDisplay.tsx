@@ -101,7 +101,7 @@ function useFitView(loaded: boolean) {
 
     useEffect(() => {
         if (!loaded) return () => {};
-        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2 }), 1000);
+        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2, padding: 0.5 }), 1000);
         return () => {
             clearTimeout(timeout);
         };
@@ -115,6 +115,7 @@ function useFitView(loaded: boolean) {
                     duration: 1000,
                     nodes: displayVersionNodes.map((urn) => ({ id: urn })),
                     maxZoom: 1,
+                    padding: 0.2,
                 }),
             100,
         );

@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
@@ -32,11 +33,12 @@ import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
-import { EntityType, LineageDirection } from '@types';
+import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 
 import LinkOut from '@images/link-out.svg?react';
 
@@ -110,7 +112,7 @@ const LinkOutWrapper = styled(Link)`
     }
 `;
 
-const SchemaFieldParentWrapper = styled.div`
+const ExtraDetailsWrapper = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
@@ -120,6 +122,10 @@ const SchemaFieldParentWrapper = styled.div`
     font-weight: 400;
     line-height: normal;
     margin-top: 2px;
+`;
+
+const DataJobLastRunWrapper = styled(ExtraDetailsWrapper)`
+    align-items: end;
 `;
 
 interface Props {
@@ -268,7 +274,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             const { parent } = entity;
             properties = parent;
             extraDetails = (
-                <SchemaFieldParentWrapper>
+                <ExtraDetailsWrapper>
                     <OverflowTitle title={parent.name || parent.urn} />
                     {!!parent.urn && !!parent.type && (
                         <LinkOutWrapper
@@ -282,7 +288,32 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </Tooltip>
                         </LinkOutWrapper>
                     )}
-                </SchemaFieldParentWrapper>
+                </ExtraDetailsWrapper>
+            );
+        } else {
+            extraDetails = <></>; // Tells LineageCard to display a skeleton
+        }
+    } else if (type === EntityType.DataJob) {
+        const lastRun = entity?.genericEntityProperties?.lastRun;
+        const lastRunEvent = entity?.genericEntityProperties?.lastRunEvent;
+
+        const time = lastRun?.properties?.created.time || lastRun?.created?.time;
+        if (time) {
+            extraDetails = (
+                <DataJobLastRunWrapper>
+                    {lastRunEvent?.status === DataProcessRunStatus.Started ? (
+                        <>Running</>
+                    ) : (
+                        <>Last run {toRelativeTimeString(time)}</>
+                    )}
+                    {!!lastRunEvent?.status && (
+                        <LastRunIcon
+                            status={lastRunEvent.status}
+                            resultType={lastRunEvent.result?.resultType ?? undefined}
+                            showTooltip
+                        />
+                    )}
+                </DataJobLastRunWrapper>
             );
         } else {
             extraDetails = <></>; // Tells LineageCard to display a skeleton

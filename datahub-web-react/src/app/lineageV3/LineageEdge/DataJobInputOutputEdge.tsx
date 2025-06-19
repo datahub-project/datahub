@@ -4,16 +4,17 @@ import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import styled from 'styled-components';
 
-import { DataJobInputOutputEdgeData, LINEAGE_HANDLE_OFFSET, LineageDisplayContext } from '@app/lineageV3/common';
+import { DataJobInputOutputEdgeData, LINEAGE_NODE_HEIGHT, LineageDisplayContext } from '@app/lineageV3/common';
 
 import { LineageDirection } from '@types';
 
 export const DATA_JOB_INPUT_OUTPUT_EDGE_NAME = 'datajob-input-output';
 
-const CENTER_X_OFFSET = 50;
+const CENTER_X_OFFSET = 20;
+const CENTER_Y_OFFSET = LINEAGE_NODE_HEIGHT;
 
 const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted }) => (isHighlighted ? `stroke: ${colors.gray[900]};` : '')};
+    ${({ isHighlighted }) => (isHighlighted ? `stroke: ${colors.violet[300]}; stroke-width: 2px;` : '')};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;
@@ -41,7 +42,12 @@ export function DataJobInputOutputEdge({
     markerStart,
     markerEnd,
 }: EdgeProps<DataJobInputOutputEdgeData>) {
-    const { yOffset, direction, isManual, originalId } = data || { isManual: false, originalId: '' };
+    const { isInInterior, isToDataFlow, direction, isManual, originalId } = data || {
+        isInInterior: false,
+        isToDataFlow: false,
+        isManual: false,
+        originalId: '',
+    };
 
     const { selectedColumn, highlightedEdges } = useContext(LineageDisplayContext);
 
@@ -51,7 +57,8 @@ export function DataJobInputOutputEdge({
     );
 
     const intermediateX = direction === LineageDirection.Upstream ? targetX - 100 : sourceX + 100;
-    const intermediateY = yOffset === undefined ? targetY : yOffset + LINEAGE_HANDLE_OFFSET;
+    const intermediateY = direction === LineageDirection.Upstream ? sourceY : targetY;
+
     const [edgePathA] = getSmoothStepPath({
         sourceX,
         sourceY,
@@ -62,30 +69,35 @@ export function DataJobInputOutputEdge({
         centerX: direction === LineageDirection.Upstream ? sourceX + CENTER_X_OFFSET : undefined,
     });
     const [edgePathB, labelX, labelY] = getSmoothStepPath({
-        sourceX: intermediateX,
-        sourceY: intermediateY,
+        sourceX: isInInterior ? intermediateX : sourceX,
+        sourceY: isInInterior ? intermediateY : sourceY,
         sourcePosition,
         targetX,
         targetY,
         targetPosition,
-        centerX: direction === LineageDirection.Downstream ? targetX - CENTER_X_OFFSET : undefined,
+        centerX: direction === LineageDirection.Downstream ? targetX - 100 : undefined,
+        centerY: isToDataFlow ? sourceY + CENTER_Y_OFFSET : undefined,
     });
 
     const [debouncedLabelPosition, setDebouncedLabelPosition] = useState({ labelX, labelY });
     useDebounce(() => setDebouncedLabelPosition({ labelX, labelY }), 10, [labelX, labelY]);
 
+    const opacity = highlightedEdges.size && !isHighlighted ? 0.5 : 1;
     return (
         <>
-            <StyledPath
-                id={id}
-                d={edgePathA}
-                fill="none"
-                className="react-flow__edge-path"
-                markerStart={markerStart}
-                isHighlighted={isHighlighted}
-                isColumnSelected={!!selectedColumn}
-                isManual={isManual}
-            />
+            {isInInterior && (
+                <StyledPath
+                    id={id}
+                    d={edgePathA}
+                    fill="none"
+                    className="react-flow__edge-path"
+                    markerStart={markerStart}
+                    isHighlighted={isHighlighted}
+                    isColumnSelected={!!selectedColumn}
+                    isManual={isManual}
+                    opacity={opacity}
+                />
+            )}
             <StyledPath
                 id={id}
                 d={edgePathB}
@@ -95,6 +107,7 @@ export function DataJobInputOutputEdge({
                 isHighlighted={isHighlighted}
                 isColumnSelected={!!selectedColumn}
                 isManual={isManual}
+                opacity={opacity}
             />
             <InteractionPath d={edgePathB} fill="none" className="react-flow__edge-interaction" />
             <EdgeLabelRenderer>

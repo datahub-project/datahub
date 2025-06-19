@@ -1,12 +1,12 @@
 import { colors } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { EdgeLabelRenderer, EdgeProps, getBezierPath } from 'reactflow';
+import { EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import styled from 'styled-components';
 
 import { LineageDisplayContext, LineageTableEdgeData } from '@app/lineageV3/common';
 
-export const LINEAGE_TABLE_EDGE_NAME = 'table-table';
+export const CUSTOM_SMOOTH_STEP_EDGE_NAME = 'custom-smooth-step';
 
 const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
     ${({ isHighlighted }) => (isHighlighted ? `stroke: ${colors.violet[300]}; stroke-width: 2px;` : '')};
@@ -25,7 +25,7 @@ const EdgeDetails = styled.div<{ labelX: number; labelY: number }>`
     pointer-events: all;
 `;
 
-export function LineageTableEdge({
+export function CustomSmoothStepEdge({
     id,
     data,
     sourceX,
@@ -46,7 +46,7 @@ export function LineageTableEdge({
         [id, originalId, selectedColumn, highlightedEdges],
     );
 
-    const [edgePath, labelX, labelY] = getBezierPath({
+    const [edgePathB, labelX, labelY] = getSmoothStepPath({
         sourceX,
         sourceY,
         sourcePosition,
@@ -58,22 +58,22 @@ export function LineageTableEdge({
     const [debouncedLabelPosition, setDebouncedLabelPosition] = useState({ labelX, labelY });
     useDebounce(() => setDebouncedLabelPosition({ labelX, labelY }), 10, [labelX, labelY]);
 
-    const opacity = highlightedEdges.size && !isHighlighted ? 0.5 : 1;
+    const opacity = highlightedEdges.size && !isHighlighted ? 0.3 : 1;
     return (
         <>
             <StyledPath
                 id={id}
-                d={edgePath}
+                d={edgePathB}
                 fill="none"
                 className="react-flow__edge-path"
-                markerEnd={markerEnd}
                 markerStart={markerStart}
+                markerEnd={markerEnd}
                 isHighlighted={isHighlighted}
                 isColumnSelected={!!selectedColumn}
                 isManual={isManual}
                 opacity={opacity}
             />
-            <InteractionPath d={edgePath} fill="none" className="react-flow__edge-interaction" />
+            <InteractionPath d={edgePathB} fill="none" className="react-flow__edge-interaction" />
             <EdgeLabelRenderer>
                 {/* TODO: Add edge details to show edge information (on hover) */}
                 <EdgeDetails labelX={debouncedLabelPosition.labelX} labelY={debouncedLabelPosition.labelY} />

@@ -158,6 +158,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
+                zIndex={2000} // Over node tooltips
                 buttons={[
                     {
                         text: 'Cancel',

@@ -152,7 +152,7 @@ describe('NodeBuilder', () => {
         ]);
 
         const builder = new NodeBuilder(rootUrn, rootType, roots, nodes, parents);
-        const createdEdges = builder.createEdges(edges, new Map([[LineageDirection.Downstream, [0, 0]]]));
+        const createdEdges = builder.createEdges(edges);
 
         expect(createdEdges).toHaveLength(2);
         expect(createdEdges[0].source).toBe('root');

@@ -2,7 +2,6 @@ import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, Node } from 'reactflow';
 
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
-import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
@@ -18,6 +17,7 @@ import {
     LINEAGE_NODE_HEIGHT,
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
+    LineageEdgeData,
     LineageEntity,
     LineageFilter,
     LineageNode,
@@ -35,7 +35,7 @@ import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 
 import { EntityType, LineageDirection } from '@types';
 
-export const MAIN_X_SEP_RATIO = 0.75;
+const MAIN_X_SEP_RATIO = 0.5;
 const MAIN_TO_MINI_X_SEP_RATIO = 0.25;
 const MINI_X_SEP_RATIO = 0.125;
 const MAIN_Y_SEP_RATIO = 0.5;
@@ -254,10 +254,11 @@ export default class NodeBuilder {
 
     createEdges(
         edges: NodeContext['edges'],
-        offsets: Map<LineageDirection | undefined, [number, number]>,
         handle?: string,
-        isDataJobInputOutput = false,
-    ): Edge<LineageTableEdgeData>[] {
+        edgeTypeOverride?: string,
+        extraDataFn?: (source: string, target: string) => Partial<LineageEdgeData>,
+    ): Edge<LineageEdgeData>[] {
+        const defaultEdgeType = edgeTypeOverride ?? LINEAGE_TABLE_EDGE_NAME;
         const baseEdges = new Map<EdgeId, BaseEdge<LineageVisualizationEdgeData>>();
         edges.forEach((edge, edgeId) => {
             const [upstream, downstream] = parseEdgeId(edgeId);
@@ -293,19 +294,8 @@ export default class NodeBuilder {
             }
         });
         return Array.from(baseEdges.values()).map((v) => {
-            if (isDataJobInputOutput) {
-                const isUpstreamOfHome = v.target === this.homeUrn;
-                const isDownstreamOfHome = v.source === this.homeUrn;
-                const direction = isUpstreamOfHome ? LineageDirection.Upstream : LineageDirection.Downstream;
-                if (isUpstreamOfHome || isDownstreamOfHome) {
-                    return this.createEdge(
-                        { ...v, data: { ...v.data, direction, yOffset: offsets.get(direction)?.[1] } },
-                        handle,
-                        DATA_JOB_INPUT_OUTPUT_EDGE_NAME,
-                    );
-                }
-            }
-            return this.createEdge(v, handle, LINEAGE_TABLE_EDGE_NAME);
+            const extraData = extraDataFn?.(v.source, v.target) || {};
+            return this.createEdge({ ...v, data: { ...v.data, ...extraData } }, handle, defaultEdgeType);
         });
     }
 
