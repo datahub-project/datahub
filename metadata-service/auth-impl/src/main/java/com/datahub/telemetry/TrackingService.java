@@ -154,6 +154,7 @@ public class TrackingService {
   }
 
   // TODO: No callers
+  /*
   public void track(
       @Nonnull final String eventName,
       @Nonnull final OperationContext opContext,
@@ -199,6 +200,8 @@ public class TrackingService {
       log.warn("Failed to track event: {}", eventName, e);
     }
   }
+
+   */
 
   /**
    * Parse a timestamp from various formats (numeric or string) and convert it to epoch milliseconds
