@@ -225,11 +225,16 @@ module.exports = {
           type: "category",
           link: {
             type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
+            id: "docs/features/feature-guides/lineage",
           },
           items: [
             {
-              label: "Lineage Impact analysis",
+              label: "Automatic Lineage Extraction",
+              type: "doc",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
+            },
+            {
+              label: "Lineage Impact Analysis",
               type: "doc",
               id: "docs/act-on-metadata/impact-analysis",
             },
@@ -237,6 +242,11 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+            {
+              label: "Data Pipeline Lineage",
+              type: "doc",
+              id: "docs/features/feature-guides/dataflow-lineage",
             },
           ],
         },
