@@ -186,7 +186,7 @@ Once you've created your Ingestion Source, you can run it by clicking the 'Play'
 When ingestion completes successfully, the status will show as `Success` in green.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/success-run.png""/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/success-run.png"/>
 </p>
 
 ### Viewing Run History
