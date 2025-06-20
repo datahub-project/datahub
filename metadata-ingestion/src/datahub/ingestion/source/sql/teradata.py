@@ -904,7 +904,7 @@ ORDER by DataBaseName, TableName;
             engine = self.get_metadata_engine()
 
             with engine.connect() as conn:
-                result = conn.execute(f"""
+                result = conn.execute("""
                        SELECT TableName
                        FROM DBC.TablesV
                        WHERE DatabaseName = 'DBC'
