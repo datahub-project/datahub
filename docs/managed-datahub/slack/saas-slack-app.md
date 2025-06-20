@@ -98,7 +98,3 @@ As of DataHub Cloud v0.3.12, the DataHub Slack bot is in private beta. Reach out
 <p align="center">
     <img width="60%" alt="Chat experience in Slack with the @DataHub bot." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_1.png" />
 </p>
-
-## Coming Soon
-
-We're constantly working on rolling out new features for the Slack app, stay tuned!
