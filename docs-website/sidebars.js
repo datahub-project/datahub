@@ -231,6 +231,11 @@ module.exports = {
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
             },
+            {
+              label: "Data Pipeline Lineage",
+              type: "doc",
+              id: "docs/features/feature-guides/dataflow-lineage",
+            }
           ],
         },
         {

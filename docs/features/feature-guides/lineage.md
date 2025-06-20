@@ -4,19 +4,19 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability />
 
-Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
+Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up.
 This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
 
 With data lineage, you can
+
 - Maintain data integrity
 - Simplify and refine complex relationships
 - Perform [lineage impact analysis](../../act-on-metadata/impact-analysis.md)
 - Propagate metadata (e.g. [documentation](../../automations/docs-propagation.md)) across lineage
 
-
 ## Viewing Lineage
 
-You can view lineage under the **Lineage** tab, in an *Explorer* visualization or the *Impact Analysis* tool.
+You can view lineage under the **Lineage** tab, in an _Explorer_ visualization or the _Impact Analysis_ tool.
 You can also survey an asset's impact analysis in a snap on the entity sidebar.
 
 <p align="center">
