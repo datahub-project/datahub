@@ -217,7 +217,7 @@ module.exports = {
           },
           items: [
             {
-            label: "Automatic Lineage Extraction",
+              label: "Automatic Lineage Extraction",
               type: "doc",
               id: "docs/generated/lineage/automatic-lineage-extraction",
             },
@@ -235,7 +235,7 @@ module.exports = {
               label: "Data Pipeline Lineage",
               type: "doc",
               id: "docs/features/feature-guides/dataflow-lineage",
-            }
+            },
           ],
         },
         {
