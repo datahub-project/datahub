@@ -62,7 +62,7 @@ def test_user_identifiers_email_as_identifier(snowflake_connect, tmp_path):
 
 
 @patch("snowflake.connector.connect")
-def test_user_identifiers_username_as_identifier(snowflake_connect, tmp_path):
+def test_user_identifiers_user_email_as_identifier(snowflake_connect, tmp_path):
     source = SnowflakeQueriesSource.create(
         {
             "connection": {
@@ -75,7 +75,7 @@ def test_user_identifiers_username_as_identifier(snowflake_connect, tmp_path):
     )
     assert (
         source.identifiers.get_user_identifier("username", "username@example.com")
-        == "username"
+        == "username@example.com"
     )
     assert source.identifiers.get_user_identifier("username", None) == "username"
 
