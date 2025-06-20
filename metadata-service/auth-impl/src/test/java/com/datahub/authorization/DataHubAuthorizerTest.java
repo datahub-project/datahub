@@ -561,7 +561,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID).toUrnStr(),
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -573,7 +574,10 @@ public class DataHubAuthorizerTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:test", "EDIT_ENTITY_TAGS", Optional.of(resourceSpec));
+            "urn:li:corpuser:test",
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -586,7 +590,10 @@ public class DataHubAuthorizerTest {
     // Policy for this privilege is inactive.
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:test", "EDIT_ENTITY_OWNERS", Optional.of(resourceSpec));
+            "urn:li:corpuser:test",
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
@@ -601,7 +608,10 @@ public class DataHubAuthorizerTest {
     // Policy for this privilege is inactive.
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:test", "EDIT_ENTITY_OWNERS", Optional.of(resourceSpec));
+            "urn:li:corpuser:test",
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -614,7 +624,10 @@ public class DataHubAuthorizerTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:test", "EDIT_ENTITY_TAGS", Optional.of(resourceSpec));
+            "urn:li:corpuser:test",
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
@@ -698,7 +711,10 @@ public class DataHubAuthorizerTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_ADMIN_ROLE.toString(), "EDIT_USER_PROFILE", Optional.of(resourceSpec));
+            USER_WITH_ADMIN_ROLE.toString(),
+            "EDIT_USER_PROFILE",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -711,7 +727,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_ACCESS.toString(),
             "CHILD_DOMAIN_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
     verify(_entityClient, times(1))
@@ -731,7 +748,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_ACCESS.toString(),
             "PARENT_DOMAIN_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
     verify(_entityClient, times(1))
@@ -749,7 +767,10 @@ public class DataHubAuthorizerTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_DOMAIN_ACCESS.toString(), "RANDOM_PRIVILEGE", Optional.of(resourceSpec));
+            USER_WITH_DOMAIN_ACCESS.toString(),
+            "RANDOM_PRIVILEGE",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -770,7 +791,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             "urn:li:corpuser:unauthorizedUser",
             "PARENT_DOMAIN_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -792,7 +814,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_CONTAINER_ACCESS.toString(),
             "CHILD_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
@@ -825,7 +848,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_CONTAINER_ACCESS.toString(),
             "PARENT_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
@@ -856,7 +880,10 @@ public class DataHubAuthorizerTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_CONTAINER_ACCESS.toString(), "RANDOM_PRIVILEGE", Optional.of(resourceSpec));
+            USER_WITH_CONTAINER_ACCESS.toString(),
+            "RANDOM_PRIVILEGE",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -877,7 +904,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             "urn:li:corpuser:unauthorizedUser",
             "PARENT_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -912,7 +940,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_CONTAINER_ACCESS.toString(),
             "CHILD_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -926,7 +955,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_ACCESS.toString(),
             "CHILD_DOMAIN_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -940,7 +970,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
             "DOMAIN_AND_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
@@ -953,7 +984,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
             "DOMAIN_AND_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
@@ -966,7 +998,8 @@ public class DataHubAuthorizerTest {
         new AuthorizationRequest(
             USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
             "DOMAIN_AND_CONTAINER_PRIVILEGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
@@ -1009,7 +1042,10 @@ public class DataHubAuthorizerTest {
     // Which the urn:li:corpuser:userWithoutRole does not have
     AuthorizationRequest request =
         new AuthorizationRequest(
-            userUrnWithoutPermissions.toString(), "EDIT_USER_PROFILE", Optional.of(resourceSpec));
+            userUrnWithoutPermissions.toString(),
+            "EDIT_USER_PROFILE",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }

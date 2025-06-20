@@ -90,7 +90,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -112,7 +113,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -133,7 +135,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -155,7 +158,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -176,7 +180,8 @@ public class FieldPathValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validateProposed(Set.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validateProposed(Set.of(testItem), mockRetrieverContext, null)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,

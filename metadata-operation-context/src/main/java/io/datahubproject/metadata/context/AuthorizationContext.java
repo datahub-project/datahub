@@ -4,6 +4,8 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
@@ -38,7 +40,31 @@ public class AuthorizationContext implements ContextInterface {
       @Nullable final EntitySpec resourceSpec) {
     final AuthorizationRequest request =
         new AuthorizationRequest(
-            actorContext.getActorUrn().toString(), privilege, Optional.ofNullable(resourceSpec));
+            actorContext.getActorUrn().toString(),
+            privilege,
+            Optional.ofNullable(resourceSpec),
+            Collections.emptyList());
+    // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
+    // outside a blocking function
+    AuthorizationResult result = sessionAuthorizationCache.get(request);
+    if (result == null) {
+      result = authorizer.authorize(request);
+      sessionAuthorizationCache.putIfAbsent(request, result);
+    }
+    return result;
+  }
+
+  public AuthorizationResult authorize(
+      @Nonnull ActorContext actorContext,
+      @Nonnull final String privilege,
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
+    final AuthorizationRequest request =
+        new AuthorizationRequest(
+            actorContext.getActorUrn().toString(),
+            privilege,
+            Optional.ofNullable(resourceSpec),
+            subResources);
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
     // outside a blocking function
     AuthorizationResult result = sessionAuthorizationCache.get(request);

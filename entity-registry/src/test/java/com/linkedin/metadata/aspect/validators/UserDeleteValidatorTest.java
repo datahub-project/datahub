@@ -82,7 +82,8 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected deletes on a corpUser that are implicitly non-system to be allowed");
@@ -106,7 +107,8 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected deletes on a corpUser that are explicitly non-system to be allowed");
@@ -135,7 +137,8 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1,
         "Expected deletes on a system corpUser to be rejected");

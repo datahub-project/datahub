@@ -51,6 +51,10 @@ public class ValidationExceptionCollection
     addException(AspectValidationException.forItem(item, message, ex));
   }
 
+  public void addAuthException(BatchItem item, String message) {
+    addException(AspectValidationException.forAuth(item, message));
+  }
+
   public Stream<AspectValidationException> streamAllExceptions() {
     return values().stream().flatMap(Collection::stream);
   }

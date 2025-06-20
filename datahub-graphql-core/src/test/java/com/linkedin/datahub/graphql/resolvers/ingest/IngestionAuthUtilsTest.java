@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -11,7 +13,9 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -19,6 +23,7 @@ public class IngestionAuthUtilsTest {
 
   @Test
   public void testCanManageIngestionAuthorized() throws Exception {
+    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY", "DELETE_ENTITY");
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
@@ -28,7 +33,7 @@ public class IngestionAuthUtilsTest {
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_INGESTION"),
+                    argThat(allowedPrivileges::contains),
                     eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, ""))))
         .thenReturn(result);
 
@@ -39,6 +44,7 @@ public class IngestionAuthUtilsTest {
 
   @Test
   public void testCanManageIngestionUnauthorized() throws Exception {
+    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY", "DELETE_ENTITY");
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
@@ -48,7 +54,7 @@ public class IngestionAuthUtilsTest {
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_INGESTION"),
+                    argThat(allowedPrivileges::contains),
                     eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, ""))))
         .thenReturn(result);
 
@@ -68,7 +74,9 @@ public class IngestionAuthUtilsTest {
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_SECRETS"), eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, ""))))
+                    eq("MANAGE_SECRETS"),
+                    eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
+                    any()))
         .thenReturn(result);
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
@@ -85,7 +93,8 @@ public class IngestionAuthUtilsTest {
         new AuthorizationRequest(
             "urn:li:corpuser:unauthorized",
             "MANAGE_SECRETS",
-            Optional.of(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")));
+            Optional.of(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
+            Collections.emptyList());
 
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
@@ -93,7 +102,9 @@ public class IngestionAuthUtilsTest {
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_SECRETS"), eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, ""))))
+                    eq("MANAGE_SECRETS"),
+                    eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
+                    any()))
         .thenReturn(result);
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");

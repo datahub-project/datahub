@@ -119,7 +119,7 @@ public class AspectsBatchImplTest {
                 .build(mockAspectRetriever));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -176,7 +176,7 @@ public class AspectsBatchImplTest {
                 .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -264,7 +264,7 @@ public class AspectsBatchImplTest {
                     testRegistry));
 
     AspectsBatchImpl testBatch =
-        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build();
+        AspectsBatchImpl.builder().items(testItems).retrieverContext(retrieverContext).build(null);
 
     assertEquals(
         testBatch.toUpsertBatchItems(
@@ -350,7 +350,7 @@ public class AspectsBatchImplTest {
                 AuditStampUtils.createDefaultAuditStamp(),
                 retrieverContext)
             .retrieverContext(retrieverContext)
-            .build();
+            .build(null);
 
     assertEquals(
         testBatch
