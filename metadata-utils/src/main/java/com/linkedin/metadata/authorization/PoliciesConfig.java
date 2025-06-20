@@ -859,7 +859,6 @@ public class PoliciesConfig {
           "Ingestion Source",
           "Privileges for Ingestion sources",
           ImmutableList.of(
-              VIEW_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EXECUTE_ENTITY_PRIVILEGE));
