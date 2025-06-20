@@ -6,6 +6,7 @@ import yaml
 from datahub.api.entities.structuredproperties.structuredproperties import (
     AllowedValue,
     StructuredProperties,
+    StructuredPropertySettings,  # <-- import the settings model
     TypeQualifierAllowedTypes,
 )
 from datahub.ingestion.graph.client import DataHubGraph
@@ -250,3 +251,48 @@ def test_structured_properties_list(mock_graph):
 
     assert len(props) == 2
     assert all(isinstance(prop, StructuredProperties) for prop in props)
+
+
+def test_structured_property_settings_valid():
+    settings = StructuredPropertySettings(
+        isHidden=True,
+        showAsAssetBadge=False,
+        showInAssetSummary=False,
+        showInColumnsTable=False,
+        showInSearchFilters=False,
+    )
+    props = StructuredProperties(
+        id="test_prop_settings",
+        type="string",
+        structured_property_settings=settings,
+    )
+    assert props.structured_property_settings is not None
+    assert props.structured_property_settings.isHidden is True
+    assert props.structured_property_settings.showAsAssetBadge is False
+    assert props.structured_property_settings.showInAssetSummary is False
+    assert props.structured_property_settings.showInColumnsTable is False
+    assert props.structured_property_settings.showInSearchFilters is False
+
+
+def test_structured_property_settings_generate_mcps():
+    settings = StructuredPropertySettings(
+        isHidden=False,
+        showAsAssetBadge=True,
+        showInAssetSummary=False,
+        showInColumnsTable=False,
+        showInSearchFilters=False,
+    )
+    props = StructuredProperties(
+        id="test_prop_settings_mcp",
+        type="string",
+        structured_property_settings=settings,
+    )
+    mcps = props.generate_mcps()
+    assert len(mcps) == 2  # One for definition, one for settings
+    aspect = mcps[1].aspect
+    assert aspect is not None
+    assert getattr(aspect, "isHidden", None) is False
+    assert getattr(aspect, "showAsAssetBadge", None) is True
+    assert getattr(aspect, "showInAssetSummary", None) is False
+    assert getattr(aspect, "showInColumnsTable", None) is False
+    assert getattr(aspect, "showInSearchFilters", None) is False
