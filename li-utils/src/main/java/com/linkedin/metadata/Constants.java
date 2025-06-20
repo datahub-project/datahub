@@ -343,6 +343,11 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
   public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
+  public static final String EXECUTION_REQUEST_SOURCE_MANUAL_INGESTION_SOURCE =
+      "MANUAL_INGESTION_SOURCE";
+  public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
+      "SCHEDULED_INGESTION_SOURCE";
+  public static final String EXECUTION_REQUEST_SOURCE_CLI_INGESTION_SOURCE = "CLI_INGESTION_SOURCE";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";

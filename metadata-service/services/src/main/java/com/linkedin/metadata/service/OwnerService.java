@@ -1,8 +1,10 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -10,16 +12,21 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,6 +36,44 @@ public class OwnerService extends BaseService {
 
   public OwnerService(@Nonnull SystemEntityClient entityClient) {
     super(entityClient);
+  }
+
+  /**
+   * Adds owners for a particular entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the entity
+   * @param owners the owners to add
+   */
+  public void addOwners(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Owner> owners)
+      throws Exception {
+
+    // First, group by ownership type + ownership type urn
+    final Map<String, List<Owner>> ownersByTypeAndUrn =
+        owners.stream()
+            .collect(
+                Collectors.groupingBy(
+                    owner ->
+                        owner.getType().toString()
+                            + (owner.hasTypeUrn() ? owner.getTypeUrn().toString() : ""),
+                    Collectors.toList()));
+
+    // Then, for each group, add owners to resources
+    for (Map.Entry<String, List<Owner>> entry : ownersByTypeAndUrn.entrySet()) {
+      final List<Owner> ownerGroup = entry.getValue();
+      final OwnershipType ownershipType = ownerGroup.get(0).getType();
+      final Urn ownershipTypeUrn =
+          ownerGroup.get(0).hasTypeUrn() ? ownerGroup.get(0).getTypeUrn() : null;
+      final List<Urn> ownerUrns =
+          ownerGroup.stream().map(Owner::getOwner).collect(Collectors.toList());
+
+      final List<ResourceReference> resources =
+          Collections.singletonList(new ResourceReference(entityUrn, null, null));
+      addOwnersToResources(opContext, ownerUrns, resources, ownershipType);
+    }
   }
 
   /**
@@ -206,5 +251,39 @@ public class OwnerService extends BaseService {
       ownerAssociationArray.removeIf(association -> association.getOwner().equals(ownerUrn));
     }
     return ownerAssociationArray;
+  }
+
+  /**
+   * Fetches the owners for an entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the entity
+   */
+  public List<Owner> getEntityOwners(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn)
+      throws RemoteInvocationException, URISyntaxException {
+    final Ownership maybeOwnership = getOwnership(opContext, entityUrn);
+    if (maybeOwnership != null) {
+      return maybeOwnership.getOwners();
+    }
+    return Collections.emptyList();
+  }
+
+  @Nullable
+  private Ownership getOwnership(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn)
+      throws RemoteInvocationException, URISyntaxException {
+    final EntityResponse response = getOwnershipEntityResponse(opContext, entityUrn);
+    if (response != null && response.getAspects().containsKey(OWNERSHIP_ASPECT_NAME)) {
+      return new Ownership(response.getAspects().get(OWNERSHIP_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
+
+  @Nullable
+  private EntityResponse getOwnershipEntityResponse(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)
+      throws RemoteInvocationException, URISyntaxException {
+    return this.entityClient.getV2(
+        opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(OWNERSHIP_ASPECT_NAME));
   }
 }
