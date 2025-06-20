@@ -63,6 +63,7 @@ M_QUERIES = [
     'let Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]), DB_Source = Source{[Name="DATABASE_NAME",Kind="Database"]}[Data], SCHEMA_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data], TABLE_Source = SCHEMA_Source{[Name="TABLE_NAME",Kind="View"]}[Data], #"Split Column by Time" = Table.SplitColumn(Table.TransformColumnTypes(TABLE_Source, {{"TIMESTAMP_COLUMN", type text}}, "en-GB"), "TIMESTAMP_COLUMN", Splitter.SplitTextByDelimiter(" ", QuoteStyle.Csv), {"TIMESTAMP_COLUMN.1", "TIMESTAMP_COLUMN.2"}), #"Added Custom" = Table.AddColumn(#"Split Column by Time", "SOB", each ([ENDTIME] - [STARTTIME]) * 60 * 60 * 24) in #"Added Custom"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="DROP TABLE IF EXISTS #KKR;#(lf)Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
     "LOAD_DATA(SOURCE)",
+    'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
 ]
 
 
@@ -1208,4 +1209,34 @@ def test_comments_in_m_query():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpcds_sf100tcl.item,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_regular_case():
+    q: str = M_QUERIES[35]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="employees.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
     )

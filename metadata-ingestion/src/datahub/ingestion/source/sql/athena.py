@@ -35,13 +35,14 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
@@ -322,6 +323,7 @@ class Partitionitem:
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
+@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
@@ -540,19 +542,13 @@ class AthenaSource(SQLAlchemySource):
             inspector=inspector,
             description=column.get("comment"),
             nullable=column.get("nullable", True),
-            is_part_of_key=(
-                True
-                if (
-                    pk_constraints is not None
-                    and isinstance(pk_constraints, dict)
-                    and column["name"] in pk_constraints.get("constrained_columns", [])
-                )
-                else False
+            is_part_of_key=bool(
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
             ),
-            is_partitioning_key=(
-                True
-                if (partition_keys is not None and column["name"] in partition_keys)
-                else False
+            is_partitioning_key=bool(
+                partition_keys is not None and column["name"] in partition_keys
             ),
         )
 

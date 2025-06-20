@@ -14,6 +14,7 @@ from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
 
 import datahub.emitter.mce_builder as builder
+from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin._airflow_shims import (
     AIRFLOW_PATCHED,
@@ -106,7 +107,12 @@ def test_datahub_rest_hook(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None)
+        mock_emitter.assert_called_once_with(
+            config.host,
+            None,
+            client_mode=ClientMode.INGESTION,
+            datahub_component="airflow-plugin",
+        )
         instance = mock_emitter.return_value
         instance.emit.assert_called_with(lineage_mce)
 
@@ -120,7 +126,13 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None, timeout_sec=5)
+        mock_emitter.assert_called_once_with(
+            config.host,
+            None,
+            timeout_sec=5,
+            client_mode=ClientMode.INGESTION,
+            datahub_component="airflow-plugin",
+        )
         instance = mock_emitter.return_value
         instance.emit.assert_called_with(lineage_mce)
 
@@ -191,6 +203,13 @@ def test_entities():
     assert (
         Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)").urn
         == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
+    )
+
+    assert (
+        Urn(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,platform.testDag,PROD),testTask)"
+        ).urn
+        == "urn:li:dataJob:(urn:li:dataFlow:(airflow,platform.testDag,PROD),testTask)"
     )
 
     with pytest.raises(ValueError, match="invalid"):

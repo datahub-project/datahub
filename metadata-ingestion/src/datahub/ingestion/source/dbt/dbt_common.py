@@ -4,7 +4,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 import pydantic
@@ -125,11 +125,18 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_skipped_non_sql_model: LossyList[str] = field(default_factory=LossyList)
     sql_parser_parse_failures: int = 0
     sql_parser_detach_ctes_failures: int = 0
     sql_parser_table_errors: int = 0
     sql_parser_column_errors: int = 0
     sql_parser_successes: int = 0
+
+    # Details on where column info comes from.
+    nodes_with_catalog_columns: int = 0
+    nodes_with_inferred_columns: int = 0
+    nodes_with_graph_columns: int = 0
+    nodes_with_no_columns: int = 0
 
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
@@ -618,14 +625,8 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
-        """
-        Update the column list if they are not already set.
-        """
-
-        if self.columns:
-            # If we already have columns, don't overwrite them.
-            return
+    def set_columns(self, schema_fields: List[SchemaField]) -> None:
+        """Update the column list."""
 
         self.columns = [
             DBTColumn(
@@ -829,11 +830,13 @@ def get_column_type(
     "Enabled by default, configure using `include_column_lineage`",
 )
 class DBTSourceBase(StatefulIngestionSourceBase):
-    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
+    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
+        self.platform: str = "dbt"
+
         self.config = config
-        self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
+
         self.compiled_owner_extraction_pattern: Optional[Any] = None
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(
@@ -849,7 +852,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes: List[DBTNode],
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             upstreams = get_upstreams_for_test(
                 test_node=node,
@@ -902,7 +905,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
-                    ).as_workunit()
+                    )
 
                     yield make_assertion_from_test(
                         custom_props,
@@ -949,7 +952,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         )
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
@@ -1175,6 +1180,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Not generating CLL for {node.dbt_name} because we don't need it."
                 )
+            elif node.language != "sql":
+                logger.debug(
+                    f"Not generating CLL for {node.dbt_name} because it is not a SQL model."
+                )
+                self.report.sql_parser_skipped_non_sql_model.append(node.dbt_name)
             elif node.compiled_code:
                 # Add CTE stops based on the upstreams list.
                 cte_mapping = {
@@ -1238,9 +1248,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn, self._to_schema_info(inferred_schema_fields)
                 )
 
-            # Save the inferred schema fields into the dbt node.
-            if inferred_schema_fields:
-                node.columns_setdefault(inferred_schema_fields)
+            # When updating the node's columns, our order of preference is:
+            # 1. Schema from the dbt catalog
+            # 2. Inferred schema
+            # 3. Schema fetched from the graph
+            if node.columns:
+                self.report.nodes_with_catalog_columns += 1
+                pass  # we already have columns from the dbt catalog
+            elif inferred_schema_fields:
+                logger.debug(
+                    f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_inferred_columns += 1
+                node.set_columns(inferred_schema_fields)
+            elif schema_fields:
+                logger.debug(
+                    f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_graph_columns += 1
+                node.set_columns(schema_fields)
+            else:
+                logger.debug(f"No columns found for {node.dbt_name}")
+                self.report.nodes_with_no_columns += 1
 
     def _parse_cll(
         self,
@@ -1774,10 +1803,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
                     )
-            if isinstance(owner, list):
-                owners = owner
-            else:
-                owners = [owner]
+            owners = owner if isinstance(owner, list) else [owner]
+
             for owner in owners:
                 if self.config.strip_user_ids_from_email:
                     owner = owner.split("@")[0]

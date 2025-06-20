@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in closed beta. Reach out to your Acryl representative to get access.
+This feature is currently in closed beta. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
@@ -18,7 +18,9 @@ With AI-powered documentation, you can automatically generate documentation for 
 
 ## Configuring
 
-No configuration is required - just hit "Generate" on any table or column in the UI.
+Ensure you have edit dataset description privileges.
+
+Once permissions are obtained, no configuration is required - just hit "Generate" on any table or column in the UI.
 
 ## How it works
 
@@ -29,7 +31,7 @@ Generating good documentation requires a holistic understanding of the data. Inf
 - Lineage relationships to upstream and downstream assets
 - Metadata about other related assets
 
-Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the Acryl AWS account. We do not fine-tune on customer data.
+Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the DataHub Cloud AWS account. We do not fine-tune on customer data.
 
 ## Limitations
 

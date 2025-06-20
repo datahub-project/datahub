@@ -1,7 +1,9 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { EntityType, Exact, SearchResult } from '../../types.generated';
-import { FetchedEntity } from '../lineage/types';
-import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
+
+import { EntitySidebarSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { FetchedEntity } from '@app/lineage/types';
+
+import { EntityType, Exact, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -98,6 +100,10 @@ export enum EntityCapabilityType {
      * Assigning Business Attribute to a entity
      */
     BUSINESS_ATTRIBUTES,
+    /**
+     * Assigning an application to a entity
+     */
+    APPLICATIONS,
 }
 
 /**

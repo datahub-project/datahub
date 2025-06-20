@@ -13,33 +13,71 @@
             "downstream": {
                 "table": null,
                 "column": "col1",
-                "column_type": null,
-                "native_column_type": null
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE1\".\"COL1\" AS \"COL1\""
+            }
         },
         {
             "downstream": {
                 "table": null,
                 "column": "col6",
-                "column_type": null,
-                "native_column_type": null
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)",
                     "column": "col6"
                 }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE3\".\"COL6\" AS \"COL6\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"
+            ],
+            "on_clause": "\"TABLE3\".\"COL5\" = \"CTE1\".\"COL2\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+                    "column": "COL2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)",
+                    "column": "COL5"
+                }
             ]
         }
     ],
     "debug_info": {
-        "confidence": 0.2,
+        "confidence": 0.9,
         "generalized_statement": "WITH cte1 AS (SELECT col1, col2 FROM table1 WHERE col1 = ?), cte2 AS (SELECT col3, col4 FROM table2 WHERE col2 = ?) SELECT cte1.col1, table3.col6 FROM cte1 JOIN table3 ON table3.col5 = cte1.col2"
     }
 }

@@ -6,6 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.specific.dataset_cli import dataset
+from datahub.testing.mce_helpers import check_goldens_stream
 
 TEST_RESOURCES_DIR = Path(__file__).parent / "test_resources"
 
@@ -19,6 +20,32 @@ def test_yaml_file():
     # Create a temporary copy to work with
     temp_file = Path(f"{test_file}.tmp")
     shutil.copyfile(test_file, temp_file)
+
+    yield temp_file
+
+    # Clean up
+    if temp_file.exists():
+        temp_file.unlink()
+
+
+@pytest.fixture
+def invalid_value_yaml_file():
+    """Creates a temporary  yaml file - correctly formatted but bad datatype for testing."""
+    invalid_content = """
+## This file is intentionally malformed
+- id: user.badformat
+  platform: hive
+  schema:
+    fields:
+    - id: ip
+      type: bad_type
+      description: The IP address
+    """
+
+    # Create a temporary file
+    temp_file = TEST_RESOURCES_DIR / "invalid_dataset.yaml.tmp"
+    with open(temp_file, "w") as f:
+        f.write(invalid_content)
 
     yield temp_file
 
@@ -186,9 +213,10 @@ class TestDatasetCli:
         files_before = len(list(TEST_RESOURCES_DIR.glob("*.tmp")))
 
         runner = CliRunner()
-        with patch("datahub.cli.specific.dataset_cli.Dataset"):
-            with patch("filecmp.cmp", return_value=True):
-                runner.invoke(dataset, ["file", "--lintCheck", str(test_yaml_file)])
+        with patch("datahub.cli.specific.dataset_cli.Dataset"), patch(
+            "filecmp.cmp", return_value=True
+        ):
+            runner.invoke(dataset, ["file", "--lintCheck", str(test_yaml_file)])
 
         # Count files after
         files_after = len(list(TEST_RESOURCES_DIR.glob("*.tmp")))
@@ -217,3 +245,126 @@ class TestDatasetCli:
             # Verify both dataset instances had to_yaml called
             mock_dataset1.to_yaml.assert_called_once()
             mock_dataset2.to_yaml.assert_called_once()
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_dry_run_sync(self, mock_get_default_graph, test_yaml_file):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--to-datahub", "-f", str(test_yaml_file)]
+        )
+
+        # Verify
+        assert result.exit_code == 0
+        assert not mock_get_default_graph.emit.called
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_dry_run_sync_fail_bad_type(
+        self, mock_get_default_graph, invalid_value_yaml_file
+    ):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset,
+            ["sync", "--dry-run", "--to-datahub", "-f", str(invalid_value_yaml_file)],
+        )
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "Type bad_type is not a valid primitive type" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_dry_run_sync_fail_missing_ref(
+        self, mock_get_default_graph, test_yaml_file
+    ):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = False
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--to-datahub", "-f", str(test_yaml_file)]
+        )
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "missing entity reference" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_run_sync(self, mock_get_default_graph, test_yaml_file):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        emitted_items = []
+
+        def capture_emit(item, *args, **kwargs):
+            emitted_items.append(item)
+            return None
+
+        mock_graph.emit.side_effect = capture_emit
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--to-datahub", "-f", str(test_yaml_file)]
+        )
+
+        # Verify
+        assert result.exit_code == 0
+        assert mock_graph.emit.called
+
+        golden_file = Path(TEST_RESOURCES_DIR / "golden_test_dataset_sync_mpcs.json")
+        check_goldens_stream(emitted_items, golden_file)
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_run_sync_fail(self, mock_get_default_graph, invalid_value_yaml_file):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--to-datahub", "-f", str(invalid_value_yaml_file)]
+        )
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "is not a valid primitive type" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_run_upsert_fail(self, mock_get_default_graph, invalid_value_yaml_file):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(dataset, ["upsert", "-f", str(invalid_value_yaml_file)])
+
+        # Verify
+        assert result.exit_code != 0
+        assert not mock_get_default_graph.emit.called
+        assert "is not a valid primitive type" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_sync_from_datahub_fail(self, mock_get_default_graph, test_yaml_file):
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = False
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(
+            dataset, ["sync", "--dry-run", "--from-datahub", "-f", str(test_yaml_file)]
+        )
+
+        # Verify
+        assert result.exit_code != 0
+        assert "does not exist" in result.output

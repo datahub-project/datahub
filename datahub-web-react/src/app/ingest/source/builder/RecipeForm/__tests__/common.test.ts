@@ -1,4 +1,4 @@
-import { setFieldValueOnRecipe, setListValuesOnRecipe } from '../common';
+import { setFieldValueOnRecipe, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 describe('setFieldValueOnRecipe', () => {
     const accountIdFieldPath = 'source.config.account_id';

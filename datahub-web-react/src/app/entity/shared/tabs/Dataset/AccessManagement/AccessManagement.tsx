@@ -1,12 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Table } from 'antd';
 import { SpinProps } from 'antd/es/spin';
-import { LoadingOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
-import { useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
-import { handleAccessRoles } from './utils';
-import AccessManagerDescription from './AccessManagerDescription';
+import React from 'react';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import AccessManagerDescription from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
+import { handleAccessRoles } from '@app/entity/shared/tabs/Dataset/AccessManagement/utils';
+
+import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;

@@ -106,7 +106,10 @@
                 "type" : "string",
                 "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
                 "optional" : true
-              } ]
+              } ],
+              "Aspect" : {
+                "name" : "systemMetadata"
+              }
             }
           } ]
         }
@@ -361,6 +364,7 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM"
@@ -667,11 +671,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -2519,6 +2523,14 @@
       "type" : "string",
       "doc" : "Email address to contact the user",
       "optional" : true
+    }, {
+      "name" : "informationSources",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Information sources that have been used to populate this CorpUserEditableInfo.\nThese include platform resources, such as Slack members or Looker users.\nThey can also refer to other semantic urns in the future.",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -4351,7 +4363,7 @@
         }, {
           "name" : "limit",
           "type" : "int",
-          "default" : "10000"
+          "default" : "5000"
         }, {
           "name" : "latestValue",
           "type" : "boolean",
@@ -4424,6 +4436,10 @@
         }, {
           "name" : "lePitEpochMs",
           "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "createDefaultAspects",
+          "type" : "boolean",
           "optional" : true
         } ],
         "returns" : "string"

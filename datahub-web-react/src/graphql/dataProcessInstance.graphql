@@ -90,6 +90,7 @@ fragment dataProcessInstanceFields on DataProcessInstance {
             key
             value
         }
+        externalUrl
     }
     mlTrainingRunProperties {
         id

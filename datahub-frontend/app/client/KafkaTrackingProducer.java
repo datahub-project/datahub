@@ -70,7 +70,7 @@ public class KafkaTrackingProducer {
     producer.send(record);
   }
 
-  private static KafkaProducer createKafkaProducer(
+  private static KafkaProducer<String, String> createKafkaProducer(
       Config config, KafkaConfiguration kafkaConfiguration) {
     final ProducerConfiguration producerConfiguration = kafkaConfiguration.getProducer();
     final Properties props = new Properties();
@@ -78,6 +78,9 @@ public class KafkaTrackingProducer {
     props.put(
         ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
         config.getString("analytics.kafka.delivery.timeout.ms"));
+    props.put(
+        ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
+        config.getString("analytics.kafka.request.timeout.ms"));
     props.put(
         ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
         config.getString("analytics.kafka.bootstrap.server"));
@@ -151,10 +154,15 @@ public class KafkaTrackingProducer {
             props,
             SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS,
             "analytics.kafka.sasl.client.callback.handler.class");
+        setConfig(
+            config,
+            props,
+            "sasl.oauthbearer.token.endpoint.url",
+            "analytics.kafka.sasl.oauthbearer.token.endpoint.url");
       }
     }
 
-    return new org.apache.kafka.clients.producer.KafkaProducer<String, String>(props);
+    return new org.apache.kafka.clients.producer.KafkaProducer<>(props);
   }
 
   private static void setConfig(Config config, Properties props, String key, String configKey) {

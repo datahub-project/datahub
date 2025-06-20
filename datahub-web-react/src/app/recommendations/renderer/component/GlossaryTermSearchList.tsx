@@ -1,12 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
 import { BookOutlined } from '@ant-design/icons';
 import { Button, Tag } from 'antd';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { RecommendationContent, GlossaryTerm } from '../../../../types.generated';
-import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { UnionType } from '../../../search/utils/constants';
+import styled from 'styled-components';
+
+import { UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GlossaryTerm, RecommendationContent } from '@types';
 
 const TermSearchListContainer = styled.div`
     display: flex;

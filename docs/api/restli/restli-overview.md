@@ -1,11 +1,12 @@
 # Rest.li API
 
 You can access basic documentation on the API endpoints by opening the `/restli/docs` endpoint in the browser.
+
 ```
 python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs', new=2)"
 ```
 
-*Please note that because DataHub is in a period of rapid development, the APIs below are subject to change. 
+\*Please note that because DataHub is in a period of rapid development, the APIs below are subject to change.
 
 #### Sample API Calls
 
@@ -41,7 +42,7 @@ For more examples of serialized aspect payloads, see [bootstrap_mce.json](https:
 > Note - we are deprecating support for ingesting Entities via Snapshots. Please see **Ingesting Aspects** above for the latest
 > guidance around ingesting metadata into DataHub without defining or changing the legacy snapshot models. (e.g. using ConfigEntityRegistry)
 
-The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
+The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time.
 
 ##### Create a user
 
@@ -87,7 +88,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                         "urn:li:corpUser:jdoe"
                      ],
                      "groups":[
-                        
+
                      ]
                   }
                }
@@ -99,6 +100,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 ```
 
 ##### Create a dataset
+
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -161,7 +163,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                            "type":{
                               "type":{
                                  "com.linkedin.schema.StringType":{
-                                    
+
                                  }
                               }
                            }
@@ -177,6 +179,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 ```
 
 ##### Create a chart
+
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -213,6 +216,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 ```
 
 ##### Create a dashboard
+
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
@@ -247,9 +251,9 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-##### Create Tags 
+##### Create Tags
 
-To create a new tag called "Engineering", we can use the following curl. 
+To create a new tag called "Engineering", we can use the following curl.
 
 ```
 curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
@@ -307,7 +311,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
             "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
             "aspects":[
                {
-                  "com.linkedin.schema.EditableSchemaMetadata": { 
+                  "com.linkedin.schema.EditableSchemaMetadata": {
                      "editableSchemaFieldInfo":[
                         {
                            "fieldPath":"myFieldName",
@@ -328,7 +332,6 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    }
 }'
 ```
-
 
 ##### Soft Deleting an Entity
 
@@ -378,8 +381,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-To issue a hard delete or soft-delete, or undo a particular ingestion run, you can use the [DataHub CLI](docs/how/delete-metadata.md). 
-
+To issue a hard delete or soft-delete, or undo a particular ingestion run, you can use the [DataHub CLI](docs/how/delete-metadata.md).
 
 #### Retrieving Entity Aspects
 
@@ -389,7 +391,7 @@ Simply curl the `entitiesV2` endpoint of GMS:
 curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>'
 ```
 
-For example, to retrieve the latest aspects associated with the "SampleHdfsDataset" `Dataset`: 
+For example, to retrieve the latest aspects associated with the "SampleHdfsDataset" `Dataset`:
 
 ```
 curl --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/entitiesV2/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahdfs%2CSampleHdfsDataset%2CPROD%29'
@@ -399,275 +401,259 @@ curl --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/entities
 
 ```json
 {
-   "urn":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
-   "aspects":{
-      "editableSchemaMetadata":{
-         "name":"editableSchemaMetadata",
-         "version":0,
-         "value":{
-            "created":{
-               "actor":"urn:li:corpuser:jdoe",
-               "time":1581407189000
-            },
-            "editableSchemaFieldInfo":[
-               {
-                  "fieldPath":"shipment_info",
-                  "globalTags":{
-                     "tags":[
-                        {
-                           "tag":"urn:li:tag:Legacy"
-                        }
-                     ]
-                  }
-               }
-            ],
-            "lastModified":{
-               "actor":"urn:li:corpuser:jdoe",
-               "time":1581407189000
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+  "aspects": {
+    "editableSchemaMetadata": {
+      "name": "editableSchemaMetadata",
+      "version": 0,
+      "value": {
+        "created": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        },
+        "editableSchemaFieldInfo": [
+          {
+            "fieldPath": "shipment_info",
+            "globalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Legacy"
+                }
+              ]
             }
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
       },
-      "browsePaths":{
-         "name":"browsePaths",
-         "version":0,
-         "value":{
-            "paths":[
-               "/prod/hdfs/SampleHdfsDataset"
-            ]
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "datasetKey":{
-         "name":"datasetKey",
-         "version":0,
-         "value":{
-            "name":"SampleHdfsDataset",
-            "platform":"urn:li:dataPlatform:hdfs",
-            "origin":"PROD"
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "ownership":{
-         "name":"ownership",
-         "version":0,
-         "value":{
-            "owners":[
-               {
-                  "owner":"urn:li:corpuser:jdoe",
-                  "type":"DATAOWNER"
-               },
-               {
-                  "owner":"urn:li:corpuser:datahub",
-                  "type":"DATAOWNER"
-               }
-            ],
-            "lastModified":{
-               "actor":"urn:li:corpuser:jdoe",
-               "time":1581407189000
-            }
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "dataPlatformInstance":{
-         "name":"dataPlatformInstance",
-         "version":0,
-         "value":{
-            "platform":"urn:li:dataPlatform:hdfs"
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "institutionalMemory":{
-         "name":"institutionalMemory",
-         "version":0,
-         "value":{
-            "elements":[
-               {
-                  "createStamp":{
-                     "actor":"urn:li:corpuser:jdoe",
-                     "time":1581407189000
-                  },
-                  "description":"Sample doc",
-                  "url":"https://www.linkedin.com"
-               }
-            ]
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "schemaMetadata":{
-         "name":"schemaMetadata",
-         "version":0,
-         "value":{
-            "created":{
-               "actor":"urn:li:corpuser:jdoe",
-               "time":1581407189000
-            },
-            "platformSchema":{
-               "com.linkedin.schema.KafkaSchema":{
-                  "documentSchema":"{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-               }
-            },
-            "lastModified":{
-               "actor":"urn:li:corpuser:jdoe",
-               "time":1581407189000
-            },
-            "schemaName":"SampleHdfsSchema",
-            "fields":[
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info",
-                  "description":"Shipment info description",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.RecordType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"varchar(100)",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.date",
-                  "description":"Shipment info date description",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.DateType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"Date",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.target",
-                  "description":"Shipment info target description",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.StringType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"text",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.destination",
-                  "description":"Shipment info destination description",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.StringType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"varchar(100)",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.geo_info",
-                  "description":"Shipment info geo_info description",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.RecordType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"varchar(100)",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.geo_info.lat",
-                  "description":"Shipment info geo_info lat",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.NumberType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"float",
-                  "recursive":false
-               },
-               {
-                  "nullable":false,
-                  "fieldPath":"shipment_info.geo_info.lng",
-                  "description":"Shipment info geo_info lng",
-                  "isPartOfKey":false,
-                  "type":{
-                     "type":{
-                        "com.linkedin.schema.NumberType":{
-                           
-                        }
-                     }
-                  },
-                  "nativeDataType":"float",
-                  "recursive":false
-               }
-            ],
-            "version":0,
-            "hash":"",
-            "platform":"urn:li:dataPlatform:hdfs"
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
-      },
-      "upstreamLineage":{
-         "name":"upstreamLineage",
-         "version":0,
-         "value":{
-            "upstreams":[
-               {
-                  "auditStamp":{
-                     "actor":"urn:li:corpuser:jdoe",
-                     "time":1581407189000
-                  },
-                  "type":"TRANSFORMED",
-                  "dataset":"urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
-               }
-            ]
-         },
-         "created":{
-            "actor":"urn:li:corpuser:UNKNOWN",
-            "time":1646245614843
-         }
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
       }
-   },
-   "entityName":"dataset"
+    },
+    "browsePaths": {
+      "name": "browsePaths",
+      "version": 0,
+      "value": {
+        "paths": ["/prod/hdfs/SampleHdfsDataset"]
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "datasetKey": {
+      "name": "datasetKey",
+      "version": 0,
+      "value": {
+        "name": "SampleHdfsDataset",
+        "platform": "urn:li:dataPlatform:hdfs",
+        "origin": "PROD"
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "ownership": {
+      "name": "ownership",
+      "version": 0,
+      "value": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          },
+          {
+            "owner": "urn:li:corpuser:datahub",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "dataPlatformInstance": {
+      "name": "dataPlatformInstance",
+      "version": 0,
+      "value": {
+        "platform": "urn:li:dataPlatform:hdfs"
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "institutionalMemory": {
+      "name": "institutionalMemory",
+      "version": 0,
+      "value": {
+        "elements": [
+          {
+            "createStamp": {
+              "actor": "urn:li:corpuser:jdoe",
+              "time": 1581407189000
+            },
+            "description": "Sample doc",
+            "url": "https://www.linkedin.com"
+          }
+        ]
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "schemaMetadata": {
+      "name": "schemaMetadata",
+      "version": 0,
+      "value": {
+        "created": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        },
+        "platformSchema": {
+          "com.linkedin.schema.KafkaSchema": {
+            "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+          }
+        },
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        },
+        "schemaName": "SampleHdfsSchema",
+        "fields": [
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info",
+            "description": "Shipment info description",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "varchar(100)",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.date",
+            "description": "Shipment info date description",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.DateType": {}
+              }
+            },
+            "nativeDataType": "Date",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.target",
+            "description": "Shipment info target description",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "text",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.destination",
+            "description": "Shipment info destination description",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar(100)",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.geo_info",
+            "description": "Shipment info geo_info description",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "varchar(100)",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.geo_info.lat",
+            "description": "Shipment info geo_info lat",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "float",
+            "recursive": false
+          },
+          {
+            "nullable": false,
+            "fieldPath": "shipment_info.geo_info.lng",
+            "description": "Shipment info geo_info lng",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "float",
+            "recursive": false
+          }
+        ],
+        "version": 0,
+        "hash": "",
+        "platform": "urn:li:dataPlatform:hdfs"
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    },
+    "upstreamLineage": {
+      "name": "upstreamLineage",
+      "version": 0,
+      "value": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "actor": "urn:li:corpuser:jdoe",
+              "time": 1581407189000
+            },
+            "type": "TRANSFORMED",
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+          }
+        ]
+      },
+      "created": {
+        "actor": "urn:li:corpuser:UNKNOWN",
+        "time": 1646245614843
+      }
+    }
+  },
+  "entityName": "dataset"
 }
 ```
 
@@ -680,9 +666,9 @@ curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>?aspects=List(up
 #### Retrieving Entities (Legacy)
 
 > Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retriving Entity Aspects** section above for the
-> latest guidance. 
+> latest guidance.
 
-The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
+The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity.
 
 In general, when reading entities by primary key (urn), you will use the general-purpose `entities` endpoints. To fetch by primary key (urn), you'll
 issue a query of the following form:
@@ -716,7 +702,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Acorpuser%3Afbar'
             },
             {
                "com.linkedin.identity.CorpUserEditableInfo":{
-                  
+
                }
             }
          ]
@@ -724,7 +710,6 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Acorpuser%3Afbar'
    }
 }
 ```
-
 
 ##### Get a CorpGroup
 
@@ -744,7 +729,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3AcorpGroup%3Adev'
             {
                "com.linkedin.identity.CorpGroupInfo":{
                   "groups":[
-                     
+
                   ],
                   "email":"dev@linkedin.com",
                   "admins":[
@@ -763,6 +748,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3AcorpGroup%3Adev'
 ```
 
 ##### Get a Dataset
+
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo,bar,PROD)'
 
@@ -829,7 +815,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatfo
                         "type":{
                            "type":{
                               "com.linkedin.schema.StringType":{
-                                 
+
                               }
                            }
                         },
@@ -869,6 +855,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatfo
 ```
 
 ##### Get a Chart
+
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Achart%3A(looker,baz1)'
 
@@ -918,6 +905,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Achart%3A(looker,baz1)'
 ```
 
 ##### Get a Dashboard
+
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Adashboard%3A(looker,foo)'
 
@@ -939,6 +927,7 @@ curl 'http://localhost:8080/entities/urn%3Ali%3Adashboard%3A(looker,foo)'
 ```
 
 ##### Get a GlossaryTerm
+
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3AglossaryTerm%3A(instruments,instruments.FinancialInstrument_v1)'
 {
@@ -985,7 +974,7 @@ curl -X POST 'http://localhost:8080/entities?action=browse' \
 }'
 ```
 
-For example, to browse the "charts" entity, you could use the following query: 
+For example, to browse the "charts" entity, you could use the following query:
 
 ```
 curl -X POST 'http://localhost:8080/entities?action=browse' \
@@ -1003,7 +992,7 @@ curl -X POST 'http://localhost:8080/entities?action=browse' \
       "metadata":{
          "totalNumEntities":1,
          "groups":[
-            
+
          ],
          "path":"/looker"
       },
@@ -1020,7 +1009,7 @@ curl -X POST 'http://localhost:8080/entities?action=browse' \
 
 ##### Search an Entity
 
-To search for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format: 
+To search for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format:
 
 ```
 curl -X POST 'http://localhost:8080/entities?action=search' \
@@ -1082,9 +1071,9 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
 
 ###### Exact Match Search
 
-You can use colon search for exact match searching on particular @Searchable fields of an Entity. 
+You can use colon search for exact match searching on particular @Searchable fields of an Entity.
 
-###### Example: Find assets by Tag 
+###### Example: Find assets by Tag
 
 For example, to fetch all Datasets having a particular tag (Engineering), we can use the following query:
 
@@ -1159,7 +1148,7 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
                   "values": ["Baz Chart 1"],
                   "condition": "EQUAL"
                }
-            ]   
+            ]
         }]
     }
 }'
@@ -1199,23 +1188,13 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
 }
 ```
 
-where valid conditions include 
-    - CONTAIN
-    - END_WITH
-    - EQUAL
-    - IEQUAL (Supports case insensitive equals)
-    - GREATER_THAN
-    - GREATER_THAN_OR_EQUAL_TO
-    - LESS_THAN
-    - LESS_THAN_OR_EQUAL_TO
-    - START_WITH
+where valid conditions include - CONTAIN - END_WITH - EQUAL - IEQUAL (Supports case insensitive equals) - GREATER_THAN - GREATER_THAN_OR_EQUAL_TO - LESS_THAN - LESS_THAN_OR_EQUAL_TO - START_WITH
 
-*Note that the search API only includes data corresponding to the latest snapshots of a particular Entity.
+\*Note that the search API only includes data corresponding to the latest snapshots of a particular Entity.
 
+##### Autocomplete against fields of an entity
 
-##### Autocomplete against fields of an entity 
-
-To autocomplete a query for a particular entity type, you can use a query of the following form: 
+To autocomplete a query for a particular entity type, you can use a query of the following form:
 
 ```
 curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
@@ -1247,7 +1226,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
 }
 ```
 
-Note that you can also provide a `Filter` to the autocomplete endpoint: 
+Note that you can also provide a `Filter` to the autocomplete endpoint:
 
 ```
 curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
@@ -1264,7 +1243,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
                 "values": ["looker"],
                 "condition": "EQUAL"
                }
-            ]   
+            ]
         }]
     }
 }'
@@ -1279,8 +1258,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
 }
 ```
 
-*Note that the autocomplete API only includes data corresponding to the latest snapshots of a particular Entity.
-
+\*Note that the autocomplete API only includes data corresponding to the latest snapshots of a particular Entity.
 
 ##### Get a Versioned Aspect
 
@@ -1325,7 +1303,7 @@ curl 'http://localhost:8080/aspects/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatfor
                "type":{
                   "type":{
                      "com.linkedin.schema.StringType":{
-                        
+
                      }
                   }
                },
@@ -1340,22 +1318,22 @@ curl 'http://localhost:8080/aspects/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatfor
 }
 ```
 
-Keep in mind that versions increase monotonically *after* version 0, which represents the latest. 
+Keep in mind that versions increase monotonically _after_ version 0, which represents the latest.
 
-Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
+Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below.
 
 ##### Get a range of Versioned Aspects
 
-*Coming Soon*! 
+_Coming Soon_!
 
-##### Get a range of Timeseries Aspects 
+##### Get a range of Timeseries Aspects
 
 With the introduction of Timeseries Aspects, we've introduced a new API for fetching a series of aspects falling into a particular time range. For this, you'll
 use the `/aspects` endpoint. The V2 APIs are unique in that they return a new type of payload: an "Enveloped Aspect". This is essentially a serialized aspect along with
-some system metadata. The serialized aspect can be in any form, though we currently default to escaped Rest.li-compatible JSON. 
+some system metadata. The serialized aspect can be in any form, though we currently default to escaped Rest.li-compatible JSON.
 
 Callers of the V2 Aspect APIs will be expected to deserialize the aspect payload in the way they see fit. For example, they may bind the deserialized JSON object
-into a strongly typed Rest.li RecordTemplate class (which is what datahub-frontend does). The benefit of doing it this way is thaet we remove the necessity to 
+into a strongly typed Rest.li RecordTemplate class (which is what datahub-frontend does). The benefit of doing it this way is thaet we remove the necessity to
 use Rest.li Unions to represent an object which can take on multiple payload forms. It also makes adding and removing aspects from the model easier, a process
 which could theoretically be done at runtime as opposed to at deploy time.
 
@@ -1387,7 +1365,7 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 
 {
    "value":{
-      "limit":10000,
+      "limit":2000,
       "aspectName":"datasetProfile",
       "endTimeMillis":1627455600000,
       "startTimeMillis":1625122800000,
@@ -1406,23 +1384,23 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 
 You'll notice that in this API (V2), we return a generic serialized aspect string as opposed to an inlined Rest.li-serialized Snapshot Model.
 
-This is part of an initiative to move from MCE + MAE to MetadataChangeProposal and MetadataChangeLog. For more information, see [this doc](docs/advanced/mcp-mcl.md). 
+This is part of an initiative to move from MCE + MAE to MetadataChangeProposal and MetadataChangeLog. For more information, see [this doc](docs/advanced/mcp-mcl.md).
 
 ##### Get Relationships (Edges)
 
 To get relationships between entities, you can use the `/relationships` API. Do do so, you must provide the following inputs:
 
-1. Urn of the source node 
+1. Urn of the source node
 2. Direction of the edge (INCOMING, OUTGOING)
 3. The name of the Relationship (This can be found in Aspect PDLs within the @Relationship annotation)
 
-For example, to get all entities owned by `urn:li:corpuser:fbar`, we could issue the following query: 
+For example, to get all entities owned by `urn:li:corpuser:fbar`, we could issue the following query:
 
 ```
 curl 'http://localhost:8080/relationships?direction=INCOMING&urn=urn%3Ali%3Acorpuser%3Auser1&types=OwnedBy'
 ```
 
-which will return a list of urns, representing entities on the other side of the relationship: 
+which will return a list of urns, representing entities on the other side of the relationship:
 
 ```
 {
@@ -1434,14 +1412,14 @@ which will return a list of urns, representing entities on the other side of the
 
 ## FAQ
 
-*1. How do I find the valid set of Entity names?*
+_1. How do I find the valid set of Entity names?_
 
-Entities are named inside of PDL schemas. Each entity will be annotated with the @Entity annotation, which will include a "name" field inside. 
+Entities are named inside of PDL schemas. Each entity will be annotated with the @Entity annotation, which will include a "name" field inside.
 This represents the "common name" for the entity which can be used in browsing, searching, and more. By default, DataHub ships with the following entities:
 
 By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot`
 
-*2. How do I find the valid set of Aspect names?*
+_2. How do I find the valid set of Aspect names?_
 
 Aspects are named inside of PDL schemas. Each aspect will be annotated with the @Aspect annotation, which will include a "name" field inside.
 This represents the "common name" for the entity which can be used in browsing, searching, and more.
@@ -1449,11 +1427,10 @@ This represents the "common name" for the entity which can be used in browsing, 
 By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/common` or `metadata-models/src/main/pegasus/com/linkedin/metadata/<entity-name>`. For example,
 the dataset-specific aspects are located under `metadata-models/src/main/pegasus/com/linkedin/metadata/dataset`.
 
-*3. How do I find the valid set of Relationship names?*
+_3. How do I find the valid set of Relationship names?_
 
 All relationships are defined on foreign-key fields inside Aspect PDLs. They are reflected by fields bearing the @Relationship annotation. Inside this annotation
-is a "name" field that defines the standardized name of the Relationship to be used when querying. 
+is a "name" field that defines the standardized name of the Relationship to be used when querying.
 
 By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/common` or `metadata-models/src/main/pegasus/com/linkedin/metadata/<entity-name>`. For example,
 the dataset-specific aspects are located under `metadata-models/src/main/pegasus/com/linkedin/metadata/dataset`.
-

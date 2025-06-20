@@ -27,8 +27,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     RecordTypeClass,
     StringTypeClass,
 )
+from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -83,6 +83,7 @@ def glue_source(
     emit_s3_lineage: bool = False,
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
+    extract_lakeformation_tags: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
     if mock_datahub_graph_instance:
@@ -98,6 +99,7 @@ def glue_source(
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
             emit_s3_lineage=emit_s3_lineage,
             include_column_lineage=include_column_lineage,
+            extract_lakeformation_tags=extract_lakeformation_tags,
         ),
     )
 
@@ -198,6 +200,7 @@ def test_glue_ingest(
             {"TableList": []},
             {"DatabaseName": "empty-database"},
         )
+
         glue_stubber.add_response("get_jobs", get_jobs_response, {})
         glue_stubber.add_response(
             "get_dataflow_graph",
@@ -745,6 +748,195 @@ def test_glue_ingest_with_profiling(
         write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_file,
+        golden_path=test_resources_dir / mce_golden_file,
+    )
+
+
+@pytest.mark.parametrize(
+    "platform_instance, mce_file, mce_golden_file",
+    [
+        (
+            None,
+            "glue_mces_lake_formation_tags.json",
+            "glue_mces_lake_formation_tags_golden.json",
+        ),
+    ],
+)
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_with_lake_formation_tag_extraction(
+    tmp_path: Path,
+    pytestconfig: pytest.Config,
+    platform_instance: str,
+    mock_datahub_graph_instance: DataHubGraph,
+    mce_file: str,
+    mce_golden_file: str,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance=platform_instance,
+        extract_lakeformation_tags=True,
+        mock_datahub_graph_instance=mock_datahub_graph_instance,
+    )
+
+    # Mock the Lake Formation client responses
+    def mock_get_resource_lf_tags(*args, **kwargs):
+        resource = kwargs.get("Resource", {})
+        if "Database" in resource:
+            # Mock database LF tags
+            return {
+                "LFTagOnDatabase": [
+                    {
+                        "CatalogId": "123412341234",
+                        "TagKey": "Environment",
+                        "TagValues": ["Production", "Test"],
+                    },
+                    {
+                        "CatalogId": "123412341234",
+                        "TagKey": "Owner",
+                        "TagValues": ["DataTeam"],
+                    },
+                ]
+            }
+        elif "Table" in resource:
+            # Mock table LF tags - different tags per table for more realistic testing
+            table_name = resource["Table"]["Name"]
+            if table_name == "avro":
+                return {
+                    "LFTagsOnTable": [
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "DataClassification",
+                            "TagValues": ["Sensitive"],
+                        },
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "BusinessUnit",
+                            "TagValues": ["Finance"],
+                        },
+                    ]
+                }
+            elif table_name == "json":
+                return {
+                    "LFTagsOnTable": [
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "DataClassification",
+                            "TagValues": ["Public"],
+                        },
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "BusinessUnit",
+                            "TagValues": ["Marketing"],
+                        },
+                    ]
+                }
+            else:
+                return {"LFTagsOnTable": []}
+        return {}
+
+    # Mock list_lf_tags for getting all LF tags
+    def mock_list_lf_tags(*args, **kwargs):
+        return {
+            "LFTags": [
+                {"TagKey": "Environment", "TagValues": ["Production", "Test", "Dev"]},
+                {"TagKey": "Owner", "TagValues": ["DataTeam", "Analytics"]},
+                {
+                    "TagKey": "DataClassification",
+                    "TagValues": ["Public", "Internal", "Sensitive"],
+                },
+                {
+                    "TagKey": "BusinessUnit",
+                    "TagValues": ["Finance", "Marketing", "Sales"],
+                },
+            ]
+        }
+
+    # Mock PlatformResourceRepository.search_by_filter to return empty list
+    def mock_search_by_filter(*args, **kwargs):
+        return []
+
+    with patch(
+        "datahub.api.entities.external.external_entities.PlatformResourceRepository.search_by_filter",
+        side_effect=mock_search_by_filter,
+    ), patch.object(
+        glue_source_instance.lf_client,
+        "get_resource_lf_tags",
+        side_effect=mock_get_resource_lf_tags,
+    ), patch.object(
+        glue_source_instance.lf_client, "list_lf_tags", side_effect=mock_list_lf_tags
+    ), Stubber(glue_source_instance.glue_client) as glue_stubber:
+        # Set up Glue client stubs
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_1,
+            {"DatabaseName": "flights-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_2,
+            {"DatabaseName": "test-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
+
+        glue_stubber.add_response("get_jobs", get_jobs_response, {})
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_1,
+            {"PythonScript": get_object_body_1},
+        )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_2,
+            {"PythonScript": get_object_body_2},
+        )
+
+        with Stubber(glue_source_instance.s3_client) as s3_stubber:
+            for _ in range(
+                len(get_tables_response_1["TableList"])
+                + len(get_tables_response_2["TableList"])
+            ):
+                s3_stubber.add_response(
+                    "get_bucket_tagging",
+                    get_bucket_tagging(),
+                )
+                s3_stubber.add_response(
+                    "get_object_tagging",
+                    get_object_tagging(),
+                )
+
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_1(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-1.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_2(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-2.py",
+                },
+            )
+
+            # Execute the source and collect work units
+            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
+            glue_stubber.assert_no_pending_responses()
+            s3_stubber.assert_no_pending_responses()
+
+            write_metadata_file(tmp_path / mce_file, mce_objects)
+
+    # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,

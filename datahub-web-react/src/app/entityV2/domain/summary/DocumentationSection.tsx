@@ -2,13 +2,14 @@ import { EditOutlined, ExpandAltOutlined, FileOutlined } from '@ant-design/icons
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
-import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
-import { AddLinkModal } from '../../shared/components/styled/AddLinkModal';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import { ANTD_GRAY } from '../../shared/constants';
-import { LinkList } from '../../shared/tabs/Documentation/components/LinkList';
-import { Editor } from '../../shared/tabs/Documentation/components/editor/Editor';
 
 const Header = styled.div`
     display: flex;

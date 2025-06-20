@@ -1,12 +1,15 @@
+import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
-import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { FetchStatus, onClickPreventSelect } from '../common';
-import { ANTD_GRAY } from '../../entityV2/shared/constants';
-import { UpstreamWrapper, DownstreamWrapper, Button } from './components';
-import { useOnClickExpandLineage } from './useOnClickExpandLineage';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV2/LineageEntityNode/components';
+import { useOnClickExpandLineage } from '@app/lineageV2/LineageEntityNode/useOnClickExpandLineage';
+import { FetchStatus, onClickPreventSelect } from '@app/lineageV2/common';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { EntityType, LineageDirection } from '@types';
 
 const VerticalDivider = styled.hr<{ margin: number }>`
     align-self: stretch;
@@ -26,10 +29,14 @@ interface Props {
 }
 
 export function ExpandLineageButton({ urn, type, direction, display, fetchStatus, ignoreSchemaFieldStatus }: Props) {
+    const { config } = useAppConfig();
     const expandOneLevel = useOnClickExpandLineage(urn, type, direction, false);
     const expandAll = useOnClickExpandLineage(urn, type, direction, true);
     const isFetchComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
-    const showExpandAll = !isFetchComplete && (type === EntityType.SchemaField ? !ignoreSchemaFieldStatus : true);
+    const showExpandAll =
+        config.featureFlags.showLineageExpandMore &&
+        !isFetchComplete &&
+        (type === EntityType.SchemaField ? !ignoreSchemaFieldStatus : true);
 
     const handleExpandOneLevel = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
         expandOneLevel(e);

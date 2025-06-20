@@ -68,6 +68,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
@@ -136,6 +137,10 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+    AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
@@ -248,12 +253,13 @@ services:
         condition: service_completed_successfully
       kafka-setup:
         condition: service_completed_successfully
-  system-update-debug:
+  system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
     profiles:
       - debug
+      - debug-min
       - debug-backend
-      - debug-consumers
+      - debug-backend-aws
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -261,6 +267,10 @@ services:
         condition: service_completed_successfully
       kafka-setup-dev:
         condition: service_completed_successfully
+  system-update-debug-consumers: # for consistent naming based on profile
+    <<: *system-update-debug
+    profiles:
+      - debug-consumers
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -356,6 +366,15 @@ services:
     profiles:
       - debug
       - debug-backend
+      - debug-backend-aws
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-min:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-min
+      - debug-backend
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
@@ -386,7 +405,7 @@ services:
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
-      system-update-debug:
+      system-update-debug-consumers:
         condition: service_completed_successfully
   datahub-gms-debug-neo4j:
     <<: *datahub-gms-service-dev
@@ -414,7 +433,7 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mae-consumer-quickstart-consumers-dev:
+  datahub-mae-consumer-debug-consumers:
     <<: *datahub-mae-consumer-service-dev
     profiles:
       - debug-consumers
@@ -431,7 +450,7 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-mce-consumer-quickstart-consumers-dev:
+  datahub-mce-consumer-debug-consumers:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers

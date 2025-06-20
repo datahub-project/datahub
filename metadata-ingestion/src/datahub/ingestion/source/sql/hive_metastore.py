@@ -36,7 +36,6 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
-    make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -46,6 +45,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -67,10 +67,10 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class HiveMetastoreConfigMode(StrEnum):
-    hive: str = "hive"
-    presto: str = "presto"
-    presto_on_hive: str = "presto-on-hive"
-    trino: str = "trino"
+    hive = "hive"
+    presto = "presto"
+    presto_on_hive = "presto-on-hive"
+    trino = "trino"
 
 
 @dataclass
@@ -893,8 +893,9 @@ class HiveMetastoreSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
+            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
             description=(
-                column["col_description"] if "col_description" in column else ""
+                column["col_description"] if "col_description" in column else ""  # noqa: SIM401
             ),
             default_nullable=True,
         )

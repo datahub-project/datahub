@@ -366,7 +366,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         self.db = self.data_dictionary.get_database_details(connection, database)
         self.report.is_shared_database = (
-            self.db is not None and self.db.is_shared_database
+            self.db is not None and self.db.is_shared_database()
         )
         with self.report.new_stage(METADATA_EXTRACTION):
             self.db_tables[database] = defaultdict()
@@ -508,6 +508,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
                 conn=connection,
+                database=database,
                 schema=schema,
                 is_shared_database=self.report.is_shared_database,
             )
@@ -829,9 +830,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
             )
 
-    def cache_tables_and_views(self, connection, database):
+    def cache_tables_and_views(
+        self, connection: redshift_connector.Connection, database: str
+    ) -> None:
         tables, views = self.data_dictionary.get_tables_and_views(
             conn=connection,
+            database=database,
             skip_external_tables=self.config.skip_external_tables,
             is_shared_database=self.report.is_shared_database,
         )
@@ -982,7 +986,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.datashares_helper.to_platform_resource(list(outbound_shares))
             )
 
-            if self.db and self.db.is_shared_database:
+            if self.db and self.db.is_shared_database():
                 inbound_share = self.db.get_inbound_share()
                 if inbound_share is None:
                     self.report.warning(
@@ -996,8 +1000,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     ):
                         lineage_extractor.aggregator.add(known_lineage)
 
-        # TODO: distinguish between definition level lineage and audit log based lineage
-        # definition level lineage should never be skipped
+        # TODO: distinguish between definition level lineage and audit log based lineage.
+        # Definition level lineage should never be skipped
         if not self._should_ingest_lineage():
             return
 

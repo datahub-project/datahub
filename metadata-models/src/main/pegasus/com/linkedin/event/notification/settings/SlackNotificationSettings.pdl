@@ -1,0 +1,16 @@
+namespace com.linkedin.event.notification.settings
+
+/**
+ * Slack Notification settings for an actor.
+ */
+record SlackNotificationSettings {
+    /**
+    * Optional user handle
+    */
+    userHandle: optional string
+
+    /**
+     * Optional list of channels to send notifications to
+     */
+    channels: optional array[string]
+}

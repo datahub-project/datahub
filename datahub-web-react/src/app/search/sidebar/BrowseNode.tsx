@@ -1,28 +1,30 @@
+import { FolderOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { FolderOutlined } from '@ant-design/icons';
-import { formatNumber } from '../../shared/formatNumber';
-import ExpandableNode from './ExpandableNode';
-import useBrowsePagination from './useBrowsePagination';
-import SidebarLoadingError from './SidebarLoadingError';
-import useToggle from '../../shared/useToggle';
+
 import {
     BrowseProvider,
+    useBrowseDisplayName,
+    useBrowsePathLength,
     useBrowseResultGroup,
+    useEntityAggregation,
+    useIsBrowsePathPrefix,
+    useIsBrowsePathSelected,
     useMaybeEnvironmentAggregation,
     useOnSelectBrowsePath,
     usePlatformAggregation,
-    useEntityAggregation,
-    useIsBrowsePathSelected,
-    useIsBrowsePathPrefix,
-    useBrowsePathLength,
-    useBrowseDisplayName,
-} from './BrowseContext';
-import useSidebarAnalytics from './useSidebarAnalytics';
-import EntityLink from './EntityLink';
-import { EntityType } from '../../../types.generated';
-import { SortBy, useSort } from './useSort';
+} from '@app/search/sidebar/BrowseContext';
+import EntityLink from '@app/search/sidebar/EntityLink';
+import ExpandableNode from '@app/search/sidebar/ExpandableNode';
+import SidebarLoadingError from '@app/search/sidebar/SidebarLoadingError';
+import useBrowsePagination from '@app/search/sidebar/useBrowsePagination';
+import useSidebarAnalytics from '@app/search/sidebar/useSidebarAnalytics';
+import { SortBy, useSort } from '@app/search/sidebar/useSort';
+import { formatNumber } from '@app/shared/formatNumber';
+import useToggle from '@app/shared/useToggle';
+
+import { EntityType } from '@types';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;

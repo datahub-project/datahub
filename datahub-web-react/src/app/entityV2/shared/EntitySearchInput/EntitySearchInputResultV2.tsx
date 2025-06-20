@@ -1,12 +1,13 @@
+import { Icon, Text } from '@components';
+import React from 'react';
+import styled from 'styled-components';
+
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import useContentTruncation from '@app/shared/useContentTruncation';
-import { Skeleton } from 'antd';
-import React from 'react';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Text } from '@components';
+
 import { Entity } from '@types';
-import styled from 'styled-components';
 
 const Wrapper = styled.div`
     display: flex;
@@ -17,6 +18,7 @@ const Wrapper = styled.div`
 const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: 600px;
 `;
 
 const IconContainer = styled.img`
@@ -38,7 +40,7 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
 
     return (
         <Wrapper>
-            {!platformIcon && <Skeleton.Avatar size={24} active />}
+            {!platformIcon && <Icon size="4xl" source="phosphor" icon="Placeholder" />}
             {platformIcon && <IconContainer src={platformIcon} />}
             <TextWrapper>
                 <Text size="lg">{entityRegistry.getDisplayName(entity.type, entity)}</Text>

@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { message, Input, Modal, Typography, Form, Select } from 'antd';
-import styled from 'styled-components';
 import { red } from '@ant-design/colors';
+import { Form, Input, Modal, Select, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
+import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button } from '@src/alchemy-components';
 
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
-import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
-import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
-import { AccessTokenModal } from './AccessTokenModal';
-import analytics, { EventType } from '../analytics';
-import { ModalButtonContainer } from '../shared/button/styledComponents';
+import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
+import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
 
 type Props = {
     currentUserUrn: string;

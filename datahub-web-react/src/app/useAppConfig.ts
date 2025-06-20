@@ -1,5 +1,6 @@
 import { useContext } from 'react';
-import { AppConfigContext } from '../appConfigContext';
+
+import { AppConfigContext } from '@src/appConfigContext';
 
 /**
  * Fetch an instance of AppConfig from the React context.
@@ -36,4 +37,9 @@ export function useIsEditableDatasetNameEnabled() {
 export function useIsShowSeparateSiblingsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showSeparateSiblings;
+}
+
+export function useShowIntroducePage() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showIntroducePage;
 }

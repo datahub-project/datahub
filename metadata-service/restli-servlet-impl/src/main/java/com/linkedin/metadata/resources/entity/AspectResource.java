@@ -181,7 +181,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
-      @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
+      @ActionParam(PARAM_LIMIT) @Optional @Nullable Integer limit,
       @ActionParam(PARAM_LATEST_VALUE) @Optional("false")
           boolean latestValue, // This field is deprecated.
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
@@ -373,7 +373,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
-      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
+      @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
     return RestliUtils.toTask(systemOperationContext,
         () -> {
 
@@ -390,7 +391,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             }
 
             return Utils.restoreIndices(systemOperationContext, getContext(),
-              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
+              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }

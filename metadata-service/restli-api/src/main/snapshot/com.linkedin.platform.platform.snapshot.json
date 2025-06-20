@@ -94,6 +94,7 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM"
@@ -490,11 +491,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -802,7 +803,9 @@
       "type" : "boolean",
       "doc" : "Whether the entity is deprecated.",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldType" : "BOOLEAN",
+        "filterNameOverride" : "Deprecated",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }
@@ -2940,6 +2943,14 @@
                     "type" : "string",
                     "doc" : "Email address to contact the user",
                     "optional" : true
+                  }, {
+                    "name" : "informationSources",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Information sources that have been used to populate this CorpUserEditableInfo.\nThese include platform resources, such as Slack members or Looker users.\nThey can also refer to other semantic urns in the future.",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -4959,7 +4970,10 @@
                       }
                     },
                     "doc" : "Status of the deployment",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "deploymentStatus"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelDeploymentProperties"
@@ -5025,7 +5039,7 @@
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with an ML Model Group",
-                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo" ],
+                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",

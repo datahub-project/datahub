@@ -12,10 +12,12 @@ dependencies {
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
   implementation project (':metadata-service:openapi-servlet:models')
+  implementation project(':metadata-service:events-service')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
+  implementation externalDependency.springBootAutoconfigure
   implementation(externalDependency.springDocUI) {
     exclude group: 'org.springframework.boot'
   }
@@ -39,9 +41,11 @@ dependencies {
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdk
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')
+  testImplementation testFixtures(project(':metadata-io'))
   testImplementation externalDependency.springBoot
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.springKafka
@@ -51,6 +55,7 @@ dependencies {
   testImplementation externalDependency.jacksonCore
   testImplementation externalDependency.jacksonDataBind
   testImplementation externalDependency.springBootStarterWeb
+  testImplementation externalDependency.swaggerParser
 
   // Openlineage Specific Dependencies
   implementation "io.openlineage:openlineage-java:$openLineageVersion"

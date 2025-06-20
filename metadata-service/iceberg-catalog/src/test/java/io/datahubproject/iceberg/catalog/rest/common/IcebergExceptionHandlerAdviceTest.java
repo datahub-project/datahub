@@ -3,7 +3,14 @@ package io.datahubproject.iceberg.catalog.rest.common;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-import org.apache.iceberg.exceptions.*;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
+import org.apache.iceberg.exceptions.BadRequestException;
+import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.ForbiddenException;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -128,13 +135,37 @@ public class IcebergExceptionHandlerAdviceTest {
         errorResponse, HttpStatus.BAD_REQUEST.value(), TEST_ERROR_MESSAGE, "BadRequestException");
   }
 
-  @Test(expectedExceptions = RuntimeException.class)
+  @Test
+  public void testHandleCommitFailedException() {
+    // Arrange
+    CommitFailedException exception = new CommitFailedException(TEST_ERROR_MESSAGE);
+
+    // Act
+    ResponseEntity<?> response = exceptionHandler.handle(exception);
+    ErrorResponse errorResponse = (ErrorResponse) response.getBody();
+
+    // Assert
+    assertEquals(response.getStatusCode(), HttpStatus.CONFLICT);
+    assertErrorResponse(
+        errorResponse, HttpStatus.CONFLICT.value(), TEST_ERROR_MESSAGE, "CommitFailedException");
+  }
+
+  @Test
   public void testHandleGenericException() throws Exception {
     // Arrange
     RuntimeException exception = new RuntimeException(TEST_ERROR_MESSAGE);
 
-    // Act & Assert
-    exceptionHandler.handle(exception);
+    // Act
+    ResponseEntity<?> response = exceptionHandler.handle(exception);
+    ErrorResponse errorResponse = (ErrorResponse) response.getBody();
+
+    // Assert
+    assertEquals(response.getStatusCode(), HttpStatus.INTERNAL_SERVER_ERROR);
+    assertErrorResponse(
+        errorResponse,
+        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+        TEST_ERROR_MESSAGE,
+        "RuntimeException");
   }
 
   private void assertErrorResponse(

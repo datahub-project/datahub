@@ -62,6 +62,9 @@ fragment dataFlowFields on DataFlow {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    subTypes {
+        typeNames
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -127,6 +130,9 @@ query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
                         }
                         deprecation {
                             ...deprecationFields
+                        }
+                        subTypes {
+                            typeNames
                         }
                     }
                 }

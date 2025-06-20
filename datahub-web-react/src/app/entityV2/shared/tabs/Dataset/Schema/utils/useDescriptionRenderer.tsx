@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
 
-import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
-import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
-import { pathMatchesExact } from '../../../../../dataset/profile/schema/utils/utils';
-import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
-import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
-import { useSchemaRefetch } from '../SchemaContext';
-import { sanitizeRichText } from '../../../Documentation/components/editor/utils';
-import CompactMarkdownViewer from '../../../Documentation/components/CompactMarkdownViewer';
-import useExtractFieldDescriptionInfo from './useExtractFieldDescriptionInfo';
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import DescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
-    options?: {
-        handleShowMore?: (_: string) => void;
-    },
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -33,7 +31,6 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { schemaFieldEntity } = record;
         const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
             record,
             description,
@@ -50,7 +47,6 @@ export default function useDescriptionRenderer(
             <DescriptionField
                 onExpanded={handleExpandedRows}
                 expanded={!!expandedRows[index]}
-                fieldPath={schemaFieldEntity?.fieldPath}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!editableFieldInfo?.description}
@@ -66,7 +62,6 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
-                handleShowMore={options?.handleShowMore}
                 isReadOnly
                 isPropagated={isPropagated}
                 sourceDetail={sourceDetail}

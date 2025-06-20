@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"
@@ -34,21 +35,24 @@ jobs:
         include:
           # Note: this should be kept in sync with tox.ini.
           - python-version: "3.8"
-            extra_pip_requirements: "apache-airflow~=2.3.4"
-            extra_pip_extras: test-airflow23
+            extra_pip_extras: test-airflow25
+            extra_pip_requirements: "apache-airflow~=2.5.3"
+            # extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.5.3/constraints-3.8.txt"
           - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.4.3"
-            extra_pip_extras: test-airflow24
+            extra_pip_requirements: "apache-airflow~=2.6.3"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.6.3/constraints-3.10.txt"
           - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.6.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.6.3/constraints-3.10.txt"
+            extra_pip_requirements: "apache-airflow~=2.7.3"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"
           - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.7.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"
-          - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.8.1 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.8.1/constraints-3.10.txt"
+            extra_pip_requirements: "apache-airflow~=2.8.1"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.8.1/constraints-3.10.txt"
           - python-version: "3.11"
-            extra_pip_requirements: "apache-airflow~=2.9.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+            extra_pip_requirements: "apache-airflow~=2.9.3"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
           - python-version: "3.11"
-            extra_pip_requirements: "apache-airflow~=2.10.3 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+            extra_pip_requirements: "apache-airflow~=2.10.3"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
       fail-fast: false
     steps:
       - name: Set up JDK 17
@@ -65,7 +69,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install airflow package and test (extras ${{ matrix.extra_pip_requirements }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' -Pextra_pip_extras='${{ matrix.extra_pip_extras }}' :metadata-ingestion-modules:airflow-plugin:build
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extra_pip_requirements }}' -Pextra_pip_constraints='${{ matrix.extra_pip_constraints }}' -Pextra_pip_extras='${{ matrix.extra_pip_extras }}' :metadata-ingestion-modules:airflow-plugin:build
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && uv pip freeze
@@ -88,11 +92,13 @@ jobs:
           flags: ingestion-airflow
           name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest

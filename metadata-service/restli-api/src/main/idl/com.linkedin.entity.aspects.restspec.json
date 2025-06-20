@@ -60,7 +60,7 @@
       }, {
         "name" : "limit",
         "type" : "int",
-        "default" : "10000"
+        "default" : "5000"
       }, {
         "name" : "latestValue",
         "type" : "boolean",
@@ -133,6 +133,10 @@
       }, {
         "name" : "lePitEpochMs",
         "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "createDefaultAspects",
+        "type" : "boolean",
         "optional" : true
       } ],
       "returns" : "string"

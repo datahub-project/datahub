@@ -99,11 +99,9 @@ Expected Response:
 
 You can now see the new tag `Deprecated` has been created.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/tag-created.png"/>
 </p>
-
 
 We can also verify this operation by programmatically searching `Deprecated` tag after running this code using the `datahub` cli.
 
@@ -321,17 +319,14 @@ Expected Response:
 
 You can now see `Deprecated` tag has been added to `user_name` column.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/tag-added.png"/>
 </p>
-
 
 We can also verify this operation programmatically by checking the `globalTags` aspect using the `datahub` cli.
 
 ```shell
 datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)" --aspect globalTags
-
 ```
 
 ## Remove Tags
@@ -377,11 +372,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `Deprecated` tag has been removed to `user_name` column.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/tag-removed.png"/>
 </p>
-
 
 We can also verify this operation programmatically by checking the `gloablTags` aspect using the `datahub` cli.
 

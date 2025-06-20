@@ -1,10 +1,11 @@
-import React, { MouseEventHandler, ReactNode } from 'react';
-import styled from 'styled-components';
-import { VscTriangleRight } from 'react-icons/vsc';
-import { Typography } from 'antd';
 import { UpCircleOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '../../shared/components';
+import { Typography } from 'antd';
+import React, { MouseEventHandler, ReactNode } from 'react';
+import { VscTriangleRight } from 'react-icons/vsc';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
     margin-left: 8px;

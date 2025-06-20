@@ -135,12 +135,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> "DatahubGEProfiler":
         assert db_name
 
-        url = self.config.get_sql_alchemy_url(
-            database=db_name,
-            username=self.config.username,
-            password=self.config.password,
-            role=self.config.role,
-        )
+        url = self.config.get_sql_alchemy_url(database=db_name)
 
         logger.debug(f"sql_alchemy_url={url}")
 

@@ -1,37 +1,38 @@
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
-import { PageRoutes } from '../conf/Global';
-import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
-import { BrowseResultsPage } from './browse/BrowseResultsPage';
-import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
-import { useUserContext } from './context/useUserContext';
-import DomainRoutes from './domain/DomainRoutes';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
+
+import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
+import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
+import { useUserContext } from '@app/context/useUserContext';
+import DomainRoutes from '@app/domain/DomainRoutes';
+import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
+import DomainRoutesV2 from '@app/domainV2/DomainRoutes';
+import { ManageDomainsPage as ManageDomainsPageV2 } from '@app/domainV2/ManageDomainsPage';
+import { EntityPage } from '@app/entity/EntityPage';
+import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
+import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
+import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
+import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
+import { SearchPage } from '@app/search/SearchPage';
+import { SearchablePage } from '@app/search/SearchablePage';
+import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
+import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
+import { SettingsPage } from '@app/settings/SettingsPage';
+import { SettingsPage as SettingsPageV2 } from '@app/settingsV2/SettingsPage';
+import { NoPageFound } from '@app/shared/NoPageFound';
+import { ManageTags } from '@app/tags/ManageTags';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
     useIsNestedDomainsEnabled,
-} from './useAppConfig';
-
-import { EntityPage } from './entity/EntityPage';
-import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
-import GlossaryRoutes from './glossary/GlossaryRoutes';
-import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
-import { ManageIngestionPage } from './ingest/ManageIngestionPage';
-import { SearchPage } from './search/SearchPage';
-import { SearchablePage } from './search/SearchablePage';
-import { SearchPage as SearchPageV2 } from './searchV2/SearchPage';
-import { SearchablePage as SearchablePageV2 } from './searchV2/SearchablePage';
-import { SettingsPage } from './settings/SettingsPage';
-import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
-import { NoPageFound } from './shared/NoPageFound';
-import { useEntityRegistry } from './useEntityRegistry';
-
-import DomainRoutesV2 from './domainV2/DomainRoutes';
-import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
-import { useIsThemeV2 } from './useIsThemeV2';
+} from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { PageRoutes } from '@conf/Global';
 
 /**
  * Container for all searchable page routes
@@ -43,7 +44,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
 
@@ -53,6 +54,12 @@ export const SearchRoutes = (): JSX.Element => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+
+    const showTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+
+    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
 
     return (
         <FinalSearchablePage>
@@ -75,6 +82,7 @@ export const SearchRoutes = (): JSX.Element => {
                     render={() => (isThemeV2 ? <SearchPageV2 /> : <SearchPage />)}
                 />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
+                {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
@@ -96,7 +104,9 @@ export const SearchRoutes = (): JSX.Element => {
                     />
                 )}
 
-                <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
+                {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
                     path={`${PageRoutes.GLOSSARY}*`}
@@ -117,7 +127,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                <Route component={NoPageFound} />
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>
     );

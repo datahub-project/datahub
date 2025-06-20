@@ -66,12 +66,7 @@ public class AutoCompleteForMultipleResolver
             : null;
 
     List<EntityType> types = getEntityTypes(input.getTypes(), maybeResolvedView);
-    types =
-        types != null
-            ? types.stream()
-                .filter(AUTO_COMPLETE_ENTITY_TYPES::contains)
-                .collect(Collectors.toList())
-            : null;
+    types = types != null ? new ArrayList<>(types) : null;
     if (types != null && types.size() > 0) {
       return AutocompleteUtils.batchGetAutocompleteResults(
           types.stream()
