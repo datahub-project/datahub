@@ -154,7 +154,6 @@ class SnowflakeFilter:
                 self.filter_config.schema_pattern,
                 dataset_params[1].strip('"'),
                 dataset_params[0].strip('"'),
-                self.filter_config.match_fully_qualified_names,
             )
         ):
             return False

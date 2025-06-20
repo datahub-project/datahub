@@ -23,7 +23,6 @@ def test_snowflake_tag_pattern():
             account_id="ABC12345.ap-south-1.aws",
             username="TST_USR",
             password="TST_PWD",
-            match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             tag_pattern=AllowDenyPattern(
                 allow=["TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"]
@@ -66,7 +65,6 @@ def test_snowflake_tag_pattern_deny():
             account_id="ABC12345.ap-south-1.aws",
             username="TST_USR",
             password="TST_PWD",
-            match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             tag_pattern=AllowDenyPattern(
                 deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"]
@@ -112,7 +110,6 @@ def test_snowflake_structured_property_pattern_deny():
             account_id="ABC12345.ap-south-1.aws",
             username="TST_USR",
             password="TST_PWD",
-            match_fully_qualified_names=True,
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             extract_tags_as_structured_properties=True,
             structured_properties_template_cache_invalidation_interval=0,

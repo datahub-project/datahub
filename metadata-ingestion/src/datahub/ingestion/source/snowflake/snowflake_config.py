@@ -95,7 +95,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name if `match_fully_qualified_names` is enabled.",
+        description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name.",
     )
     # table_pattern and view_pattern are inherited from SQLFilterConfig
 
@@ -112,27 +112,11 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Customer.public.customer.*'",
     )
 
-    match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
-    )
+    _match_fully_qualified_names = pydantic_removed_field("match_fully_qualified_names")
 
     @root_validator(pre=False, skip_on_failure=True)
     def validate_legacy_schema_pattern(cls, values: Dict) -> Dict:
         schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
-        ):
-            logger.warning(
-                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
-            )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
         if schema_pattern:

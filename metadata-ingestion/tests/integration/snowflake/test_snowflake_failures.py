@@ -56,7 +56,6 @@ def snowflake_pipeline_config(tmp_path):
                 role="TEST_ROLE",
                 warehouse="TEST_WAREHOUSE",
                 include_technical_schema=True,
-                match_fully_qualified_names=True,
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_usage_stats=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(

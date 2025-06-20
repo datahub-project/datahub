@@ -62,7 +62,6 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
                         account_id="ABC12345.ap-south-1.aws",
                         username="TST_USR",
                         password="TST_PWD",
-                        match_fully_qualified_names=True,
                         schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=False,

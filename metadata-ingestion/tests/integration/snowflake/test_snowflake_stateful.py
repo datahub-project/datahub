@@ -28,7 +28,6 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
                 account_id="ABC12345.ap-south-1.aws",
                 username="TST_USR",
                 password="TST_PWD",
-                match_fully_qualified_names=True,
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_tables=include_tables,
                 incremental_lineage=False,

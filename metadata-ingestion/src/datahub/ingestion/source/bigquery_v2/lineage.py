@@ -471,7 +471,6 @@ class BigqueryLineageExtractor:
                 self.config.dataset_pattern,
                 schema_name=project_table.dataset_id,
                 db_name=project_table.project,
-                match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
             ) or not self.config.table_pattern.allowed(table):
                 self.report.num_skipped_lineage_entries_not_allowed[
                     project_table.project
@@ -669,7 +668,6 @@ class BigqueryLineageExtractor:
                 self.config.dataset_pattern,
                 destination_table.table_identifier.dataset,
                 destination_table.table_identifier.project_id,
-                self.config.match_fully_qualified_names,
             ) or not self.config.table_pattern.allowed(
                 destination_table.table_identifier.get_table_name()
             ):

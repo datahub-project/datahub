@@ -99,7 +99,6 @@ class BigQueryFilter:
                 self.filter_config.dataset_pattern,
                 table_id.dataset,
                 table_id.project_id,
-                self.filter_config.match_fully_qualified_names,
             )
             and self.filter_config.table_pattern.allowed(str(table_id))
         )  # TODO: use view_pattern ?
