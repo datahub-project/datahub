@@ -44,7 +44,7 @@ Actions are configured using a YAML file, much in the same way DataHub ingestion
 
 With each component being independently pluggable and configurable.
 
-```yml
+```yaml
 # 1. Required: Action Pipeline Name
 name: <action-pipeline-name>
 
@@ -89,7 +89,7 @@ datahub:
 
 An simple configuration file for a "Hello World" action, which simply prints all events it receives, is
 
-```yml
+```yaml
 # 1. Action Pipeline Name
 name: "hello_world"
 # 2. Event Source: Where to source event from.
@@ -106,7 +106,7 @@ action:
 
 We can modify this configuration further to filter for specific events, by adding a "filter" block.
 
-```yml
+```yaml
 # 1. Action Pipeline Name
 name: "hello_world"
 
@@ -136,7 +136,7 @@ action:
 To run a new Action, just use the `actions` CLI command
 
 ```
-datahub actions -c <config.yml>
+datahub actions -c <config.yaml>
 ```
 
 Once the Action is running, you will see
