@@ -278,7 +278,7 @@ While the UI-based forms handle most common ingestion scenarios, advanced users 
 - Advanced filtering and processing logic
 - Integration with external systems
 
-For these advanced use cases, DataHub supports direct YAML recipe configuration. For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](recipe_overview.md).
+For these advanced use cases, DataHub supports direct YAML recipe configuration. For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
 
 <Tabs>
    <TabItem value="cli" label="CLI">
@@ -356,5 +356,5 @@ Consider using CLI-based ingestion when:
 
 - **Demo Video**: [Watch a complete UI ingestion walkthrough](https://www.youtube.com/watch?v=EyMyLcaw_74)
 - **Quick Start Guides**: Step-by-step setup instructions for popular data sources
-- **Recipe Documentation**: [Comprehensive YAML configuration reference](recipe_overview.md)
+- **Recipe Documentation**: [Comprehensive YAML configuration reference](metadata-ingestion/recipe_overview.md)
 - **Integration Catalog**: [Browse all supported data sources and their features](https://docs.datahub.com/integrations)
