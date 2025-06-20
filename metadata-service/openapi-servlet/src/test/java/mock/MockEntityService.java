@@ -185,7 +185,7 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull String entityName,
       @Nonnull String aspectName,
       int start,
-      int count) {
+      @javax.annotation.Nullable Integer count) {
     return null;
   }
 
@@ -220,7 +220,10 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public ListUrnsResult listUrns(
-      @Nonnull OperationContext opContext, @Nonnull String entityName, int start, int count) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      int start,
+      @jakarta.annotation.Nullable Integer count) {
     return null;
   }
 

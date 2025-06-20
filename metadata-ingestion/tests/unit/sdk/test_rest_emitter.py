@@ -1028,7 +1028,9 @@ class TestDataHubRestEmitter:
         mock_session.get.return_value = mock_response
 
         # Create emitter with 2 second TTL
-        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, config_ttl_seconds=2)
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=2
+        )
         emitter._session = mock_session
 
         # First call should fetch from server
@@ -1050,13 +1052,15 @@ class TestDataHubRestEmitter:
     def test_config_cache_default_ttl(self, mock_session, mock_response):
         """Test that default TTL is 60 seconds"""
         emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
-        assert emitter._config_ttl_seconds == 60
+        assert emitter._server_config_refresh_interval is None
 
     def test_config_cache_manual_invalidation(self, mock_session, mock_response):
         """Test manual cache invalidation"""
         mock_session.get.return_value = mock_response
 
-        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=60
+        )
         emitter._session = mock_session
 
         # First call fetches from server
@@ -1163,10 +1167,12 @@ class TestDataHubRestEmitter:
         mock_session.get.return_value = mock_response
 
         # Create with 5 minute TTL
-        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, config_ttl_seconds=300)
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=300
+        )
         emitter._session = mock_session
 
-        assert emitter._config_ttl_seconds == 300
+        assert emitter._server_config_refresh_interval == 300
 
         # Fetch config
         emitter.fetch_server_config()

@@ -427,12 +427,14 @@ public class PoliciesConfig {
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
       Privilege.of(
-          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
+          "DATA_READ_ONLY",
+          "Iceberg Catalog Read only data-access",
+          "The ability to read the data in a dataset.");
 
   public static final Privilege DATA_READ_WRITE_PRIVILEGE =
       Privilege.of(
           "DATA_READ_WRITE",
-          "Read-write data-access",
+          "Iceberg Catalog Read-write data-access",
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =

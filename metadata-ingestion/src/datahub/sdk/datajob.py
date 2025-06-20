@@ -313,6 +313,7 @@ class DataJob(
         # Set the browse path aspect
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
 
+    # TODO: support datajob input/output
     @property
     def inlets(self) -> List[DatasetUrn]:
         """Get the inlets of the data job."""
