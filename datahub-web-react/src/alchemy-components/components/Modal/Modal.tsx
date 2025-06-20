@@ -37,9 +37,16 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     }
 `;
 
-const HeaderContainer = styled.div<{ hasChildren: boolean }>`
+const ModalHeader = styled.div<{ hasChildren: boolean }>`
     display: flex;
     flex-direction: column;
+`;
+
+const TitleSection = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
 `;
 
 const ButtonsContainer = styled.div`
@@ -60,6 +67,7 @@ export interface ModalProps {
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
+    titleIcon?: React.ReactNode;
 }
 
 export function Modal({
@@ -69,6 +77,7 @@ export function Modal({
     children,
     onCancel,
     dataTestId,
+    titleIcon,
     ...props
 }: ModalProps & AntModalProps) {
     return (
@@ -79,16 +88,19 @@ export function Modal({
             closeIcon={<Icon icon="X" source="phosphor" />}
             hasChildren={!!children}
             title={
-                <HeaderContainer hasChildren={!!children}>
-                    <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                        {title}
-                    </Heading>
+                <ModalHeader hasChildren={!!children}>
+                    <TitleSection>
+                        {titleIcon && titleIcon}
+                        <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
+                            {title}
+                        </Heading>
+                    </TitleSection>
                     {!!subtitle && (
                         <Text type="span" color="gray" colorLevel={1700} weight="medium">
                             {subtitle}
                         </Text>
                     )}
-                </HeaderContainer>
+                </ModalHeader>
             }
             footer={
                 !!buttons.length && (

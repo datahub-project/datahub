@@ -1,6 +1,6 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Text, colors } from '@components';
-import { Button, Input, Modal, Spin, notification } from 'antd';
+import { Modal, Text, colors } from '@components';
+import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -190,24 +190,24 @@ export default function DownloadAsCsvModal({
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
             title="Download as..."
-            visible={showDownloadAsCsvModal}
-            footer={
-                <>
-                    <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
-                        Close
-                    </Button>
-                    <Button
-                        data-testid="csv-modal-download-button"
-                        onClick={() => {
-                            setShowDownloadAsCsvModal(false);
-                            triggerCsvDownload(saveAsTitle);
-                        }}
-                        disabled={saveAsTitle.length === 0}
-                    >
-                        Download
-                    </Button>
-                </>
-            }
+            open={showDownloadAsCsvModal}
+            buttons={[
+                {
+                    text: 'Close',
+                    variant: 'text',
+                    onClick: () => setShowDownloadAsCsvModal(false),
+                },
+                {
+                    text: 'Download',
+                    onClick: () => {
+                        setShowDownloadAsCsvModal(false);
+                        triggerCsvDownload(saveAsTitle);
+                    },
+                    variant: 'filled',
+                    disabled: saveAsTitle.length === 0,
+                    buttonDataTestId: 'csv-modal-download-button',
+                },
+            ]}
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">

@@ -1,9 +1,10 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
@@ -16,6 +17,8 @@ type Props = {
 // eslint-disable-next-line
 export default function DeprecationDropdown({ urns, disabled = false, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
 
     const batchUndeprecate = () => {
@@ -58,17 +61,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                     {
                         title: 'Mark as un-deprecated',
                         onClick: () => {
-                            Modal.confirm({
-                                title: `Confirm Mark as un-deprecated`,
-                                content: `Are you sure you want to mark these assets as un-deprecated?`,
-                                onOk() {
-                                    batchUndeprecate();
-                                },
-                                onCancel() {},
-                                okText: 'Yes',
-                                maskClosable: true,
-                                closable: true,
-                            });
+                            setShowConfirmationModal(true);
                         },
                     },
                 ]}
@@ -83,6 +76,13 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={batchUndeprecate}
+                modalTitle="Confirm Mark as un-deprecated"
+                modalText="Are you sure you want to mark these assets as un-deprecated?"
+            />
         </>
     );
 }
