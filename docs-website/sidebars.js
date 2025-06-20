@@ -222,7 +222,7 @@ module.exports = {
               id: "docs/generated/lineage/automatic-lineage-extraction",
             },
             {
-              label: "Lineage Impact analysis",
+              label: "Lineage Impact Analysis",
               type: "doc",
               id: "docs/act-on-metadata/impact-analysis",
             },

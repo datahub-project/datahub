@@ -51,7 +51,7 @@ For detailed instructions, refer to the [source documentation](https://docs.data
 ### UI
 
 As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage](../ui-lineage.md) for more information.
+Please refer to our [UI Guides on Lineage](./ui-lineage.md) for more information.
 
 :::caution Recommendation on UI-based lineage
 
