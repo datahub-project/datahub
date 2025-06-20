@@ -7,9 +7,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability/>
 
-DataHub helps you discover and understand your organization's data by automatically collecting information about your data sources. This process is called **metadata ingestion**.
-
-Starting in version `0.8.25`, you can easily connect DataHub to your organization's data systems with just a few steps. Once configured, DataHub will automatically pull in:
+DataHub helps you discover and understand your organization's data by automatically collecting information about your data sources. This process is called **metadata ingestion**, allowing DataHub to automatically pull in:
 
 - **Table and column names** from your databases
 - **Asset Lineage** showing how information flows between systems
@@ -208,7 +206,7 @@ This makes it easy to track your ingestion performance and troubleshoot any issu
 
 After successful ingestion, you can view detailed information about what was extracted:
 
-1. Click the **Details** button on a completed ingestion run
+1. Click the **Success** status button on a completed ingestion run
 2. Select **View All** to see the list of ingested entities
 3. Click on individual entities to validate the extracted metadata
 
@@ -248,7 +246,7 @@ When ingestion fails, the most common causes include:
 
 ### Viewing Detailed Logs
 
-To diagnose ingestion failures, click **Details** on the failed run to view comprehensive logs.
+To diagnose ingestion failures, click on a run history status (Failed, Aborted) value to view and download comprehensive ingestion run logs.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-logs.png"/>
