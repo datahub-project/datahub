@@ -9,9 +9,13 @@ source:
     database_pattern:
       deny:
         - NewData
+        - .*@.*
     procedure_pattern:
       deny:
         - DemoData.Foo.NewProc
+    schema_pattern:
+      deny:
+        - .*John.*
     convert_urns_to_lowercase: true
 
 sink:
