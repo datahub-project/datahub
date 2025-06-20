@@ -186,6 +186,8 @@ For now, we support sending notifications to
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
+Learn more about how [subscriptions and notifications work](../subscription-and-notification.md), including what things you can be notified about and all the places you can receive notifications.
+
 ### How to find Team ID and Channel ID in Slack
 
 :::note
