@@ -1,5 +1,5 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
-import { InputRef, Modal, message } from 'antd';
+import { InputRef, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
@@ -32,6 +32,7 @@ import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
@@ -189,6 +190,8 @@ export const IngestionSourceList = ({
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
     const [totalSources, setTotalSources] = useState<number>(0);
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
+    const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
+    const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -479,35 +482,37 @@ export const IngestionSourceList = ({
         setPage(newPage);
     };
 
-    const deleteIngestionSource = useCallback(
-        (urn: string) => {
-            removeFromListIngestionSourcesCache(client, urn, page, pageSize, query);
-            removeIngestionSourceMutation({
-                variables: { urn },
-            })
-                .then(() => {
-                    analytics.event({
-                        type: EventType.DeleteIngestionSourceEvent,
-                    });
-                    message.success({ content: 'Removed ingestion source.', duration: 2 });
-                    const newRemovedUrns = [...removedUrns, urn];
-                    setRemovedUrns(newRemovedUrns);
-                    setTimeout(() => {
-                        refetch?.();
-                    }, 3000);
-                })
-                .catch((e: unknown) => {
-                    message.destroy();
-                    if (e instanceof Error) {
-                        message.error({
-                            content: `Failed to remove ingestion source: \n ${e.message || ''}`,
-                            duration: 3,
-                        });
-                    }
+    const handleConfirmDelete = useCallback(() => {
+        if (!sourceUrnToDelete) return;
+
+        removeFromListIngestionSourcesCache(client, sourceUrnToDelete, page, pageSize, query);
+        removeIngestionSourceMutation({
+            variables: { urn: sourceUrnToDelete },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.DeleteIngestionSourceEvent,
                 });
-        },
-        [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns],
-    );
+                message.success({ content: 'Removed ingestion source.', duration: 2 });
+                const newRemovedUrns = [...removedUrns, sourceUrnToDelete];
+                setRemovedUrns(newRemovedUrns);
+                setTimeout(() => {
+                    refetch?.();
+                }, 3000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: `Failed to remove ingestion source: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                }
+            })
+            .finally(() => {
+                setSourceUrnToDelete(null);
+            });
+    }, [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns, sourceUrnToDelete]);
 
     const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
         createOrUpdateIngestionSource(
@@ -551,22 +556,16 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(urn);
     }, []);
 
-    const onExecute = useCallback(
-        (urn: string) => {
-            Modal.confirm({
-                title: `Confirm Source Execution`,
-                content: "Click 'Execute' to run this ingestion source.",
-                onOk() {
-                    executeIngestionSource(urn);
-                },
-                onCancel() {},
-                okText: 'Execute',
-                maskClosable: true,
-                closable: true,
-            });
-        },
-        [executeIngestionSource],
-    );
+    const onExecute = useCallback((urn: string) => {
+        setSourceUrnToExecute(urn);
+    }, []);
+
+    const handleConfirmExecute = useCallback(() => {
+        if (sourceUrnToExecute) {
+            executeIngestionSource(sourceUrnToExecute);
+        }
+        setSourceUrnToExecute(null);
+    }, [sourceUrnToExecute, executeIngestionSource]);
 
     const onCancelExecution = useCallback((executionUrn: string | undefined, sourceUrn: string) => {
         if (!executionUrn) {
@@ -587,23 +586,9 @@ export const IngestionSourceList = ({
         setExecutionInfoToCancel(undefined);
     }, [executionInfoToCancel, cancelExecution]);
 
-    const onDelete = useCallback(
-        (urn: string) => {
-            Modal.confirm({
-                title: `Confirm Ingestion Source Removal`,
-                content: `Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs.`,
-                onOk() {
-                    deleteIngestionSource(urn);
-                },
-                onCancel() {},
-                okText: 'Yes',
-                okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
-                maskClosable: true,
-                closable: true,
-            });
-        },
-        [deleteIngestionSource],
-    );
+    const onDelete = useCallback((urn: string) => {
+        setSourceUrnToDelete(urn);
+    }, []);
 
     const onCancel = () => {
         setShowCreateModal(false);
@@ -708,6 +693,24 @@ export const IngestionSourceList = ({
                 isOpen={!!executionInfoToCancel}
                 onCancel={() => setExecutionInfoToCancel(undefined)}
                 onConfirm={onConfirmCancelExecution}
+            />
+            <ConfirmationModal
+                isOpen={!!sourceUrnToExecute}
+                handleConfirm={handleConfirmExecute}
+                handleClose={() => setSourceUrnToExecute(null)}
+                modalTitle="Confirm Source Execution"
+                modalText="Click 'Execute' to run this ingestion source."
+                closeButtonText="Cancel"
+                confirmButtonText="Execute"
+            />
+            <ConfirmationModal
+                isOpen={!!sourceUrnToDelete}
+                handleConfirm={handleConfirmDelete}
+                handleClose={() => setSourceUrnToDelete(null)}
+                modalTitle="Confirm Ingestion Source Removal"
+                modalText="Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs."
+                closeButtonText="Cancel"
+                confirmButtonText="Yes"
             />
             {/* For refetching and polling */}
             {selectedTab === TabType.Sources &&

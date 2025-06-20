@@ -9,7 +9,7 @@ import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
@@ -245,18 +245,19 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    items.push({
-        key: '2',
-        label: (
-            <MenuItem
-                onClick={() => {
-                    navigateToRunHistory(record);
-                }}
-            >
-                View Run History
-            </MenuItem>
-        ),
-    });
+    if (record.execCount)
+        items.push({
+            key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigateToRunHistory(record);
+                    }}
+                >
+                    View Run History
+                </MenuItem>
+            ),
+        });
     if (navigator.clipboard)
         items.push({
             key: '3',
@@ -297,7 +298,7 @@ export function ActionsColumn({
     });
 
     const renderRunStopButton = () => {
-        if (record.cliIngestion) return null;
+        if (record.cliIngestion || record.lastExecStatus === EXECUTION_REQUEST_STATUS_LOADING) return null;
 
         if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
             return (
@@ -307,8 +308,8 @@ export function ActionsColumn({
                     // weight="fill"
                     color="primary"
                     onClick={(e) => {
-                            e.stopPropagation();
-                            onCancel(record.lastExecUrn, record.urn);
+                        e.stopPropagation();
+                        onCancel(record.lastExecUrn, record.urn);
                     }}
                 />
             );
@@ -318,10 +319,10 @@ export function ActionsColumn({
                 icon="Play"
                 source="phosphor"
                 // weight="fill"
-                color='violet'
+                color="violet"
                 onClick={(e) => {
-                        e.stopPropagation();
-                        onExecute(record.urn);
+                    e.stopPropagation();
+                    onExecute(record.urn);
                 }}
             />
         );
