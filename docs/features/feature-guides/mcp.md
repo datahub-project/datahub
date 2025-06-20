@@ -30,9 +30,15 @@ Seamlessly integrates with AI-native tools like Cursor, Windsurf, Claude Desktop
 
 For folks on DataHub Cloud v0.3.12+, you can use our hosted MCP server endpoint.
 
-:::note
+:::info
 
 The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. For DataHub Core and older versions of DataHub Cloud, you'll need to [self-host the MCP server](#self-hosted-mcp-server-usage).
+
+:::
+
+:::note
+
+There are two [transports types](https://modelcontextprotocol.io/docs/concepts/transports) for remote MCP servers: streamable HTTP and server-sent events (SSE). DataHub only supports the newer streamable HTTP transport. SSE has been deprecated in favor of streamable HTTP, but some older MCP clients may still only support SSE. For those cases, you'll need to use something like [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
 
 :::
 
