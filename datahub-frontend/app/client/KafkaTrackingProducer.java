@@ -159,6 +159,11 @@ public class KafkaTrackingProducer {
             props,
             "sasl.oauthbearer.token.endpoint.url",
             "analytics.kafka.sasl.oauthbearer.token.endpoint.url");
+        setConfig(
+            config,
+            props,
+            "org.apache.kafka.sasl.oauthbearer.allowed.urls",
+            "analytics.kafka.sasl.oauthbearer.allowed.urls");
       }
     }
 
