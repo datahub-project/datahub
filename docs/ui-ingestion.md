@@ -46,6 +46,15 @@ For more granular control, administrators can create [Custom Policies](authoriza
 - **Delete** - Remove ingestion sources
 - **Execute** - Run ingestion sources on-demand
 
+**Prerequisites:**
+
+- **DataHub Core**: Enable the `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED` feature flag
+- **DataHub Cloud**: Work with your customer success team to get the feature enabled
+
+:::caution
+**Important**: Once this feature flag is enabled, any policies that apply to "All" resource types will now include Ingestion Sources, including the default read-only policies. This will make the Ingestion tab visible and potentially actionable depending on the applied privileges. Implement this with care if you have view-only policies that should not expose the Data Sources page.
+:::
+
 ### Accessing the Ingestion Interface
 
 Once you have the appropriate privileges, navigate to the **Ingestion** tab in DataHub.
