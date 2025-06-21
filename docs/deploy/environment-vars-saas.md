@@ -14,6 +14,7 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 | `SCHEMA_FIELD_CLL_ENABLED`             | `true`  | boolean   | [`GMS`]    | Controls whether the Column-level lineage focus view is accessible via the lineage Graph.                             |
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`   | `true`  | boolean   | [`GMS`]    | Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.          |
 | `HIDE_DBT_SOURCE_IN_LINEAGE`           | `false` | boolean   | [`GMS`]    | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                         |
+| `LINEAGE_GRAPH_V3`                     | `false` | boolean   | [`GMS`]    | Enables the lineage redesign of version 0.3.12.                                                                       |
 | `LINEAGE_DEFAULT_LAST_DAYS_FILTER`     |         | integer   | [`GMS`]    | Default filter for lineage within the last X days. When set, lineage UI defaults to showing data within this window.  |
 | `METADATA_SHARE_ENABLED`               | `false` | boolean   | [`GMS`]    | Enables sharing an entity with another Acryl instance via the share menu on entity profiles.                          |
 | `SHOW_NAV_BAR_REDESIGN`                | `true`  | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                              |

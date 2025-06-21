@@ -36,6 +36,7 @@ This is over and above updating-datahub.md file
 - [datahub-gms] `AI_FEATURES_ENABLED`: Flag to enable the AI settings page in the UI.
 - [datahub-gms] `DOCUMENTATION_AI_ENABLED`: This flag has been repurposed - it now controls the default value for whether or not documentation AI is enabled, but will be superseded by `globalSettings.documentationAi.enabled` if that is set.
 - [datahub-gms] `SHOW_PRODUCT_UPDATES`: Flag to show or hide in product sidebar update banner on new releases.
+- [datahub-gms] `LINEAGE_GRAPH_V3`: Flag to enable the new lineage redesign. Not required for the new DataFlow lineage tab, which always uses lineage V3.
 
 ## v0.3.11
 
