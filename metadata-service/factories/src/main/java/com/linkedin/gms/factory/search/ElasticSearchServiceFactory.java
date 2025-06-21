@@ -62,20 +62,23 @@ public class ElasticSearchServiceFactory {
             components.getSearchClient(),
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
             elasticSearchConfiguration.getImplementation(),
-            searchConfiguration,
+            elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService());
     return new ElasticSearchService(
         components.getIndexBuilder(),
         entityRegistry,
         components.getIndexConvention(),
         settingsBuilder,
+        configurationProvider.getSearchService(),
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),
-            searchConfiguration,
+            elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain),
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService()),
         new ESWriteDAO(
             components.getSearchClient(),
             components.getBulkProcessor(),

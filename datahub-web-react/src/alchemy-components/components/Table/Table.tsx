@@ -48,6 +48,7 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export const Table = <T,>({
                                     width={column.width}
                                     minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
-                                    shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
+                                    shouldAddRightBorder={index !== finalColumns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
                                         <StructuredPopover title={column.tooltipTitle}>
@@ -270,6 +271,7 @@ export const Table = <T,>({
                             </>
                         );
                     })}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

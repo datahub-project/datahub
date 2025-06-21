@@ -416,8 +416,15 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-    (_, inline_file_path: string, show_path_as_comment: string) => {
+    /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    (
+      _,
+      indent: string,
+      __,
+      inline_file_path: string,
+      ___,
+      show_path_as_comment: string
+    ) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
@@ -432,9 +439,14 @@ function markdown_process_inline_directives(
       // that can be used to limit the inlined content to a specific range of lines.
       let new_contents = "";
       if (show_path_as_comment) {
-        new_contents += `# Inlined from ${inline_file_path}\n`;
+        new_contents += `${indent}# Inlined from ${inline_file_path}\n`;
       }
-      new_contents += referenced_file;
+
+      // Add indentation to each line of the referenced file
+      new_contents += referenced_file
+        .split("\n")
+        .map((line) => `${indent}${line}`)
+        .join("\n");
 
       return new_contents;
     }
@@ -559,7 +571,9 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   // Full details
   for (const release of releases_list) {
     let body: string;
-    if (releaseNoteVersions.has(release.tag_name)) {
+    if (release.tag_name === "v1.1.0") {
+      body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
+    } else if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
@@ -659,8 +673,8 @@ function write_markdown_file(
       continue;
     }
     if (!accounted_for_in_sidebar(filepath)) {
-      throw new Error(
-        `File not accounted for in sidebar: ${filepath} - try adding it to docs-website/sidebars.js`
+      console.warn(
+        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`
       );
     }
   }

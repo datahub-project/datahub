@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.query.request;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -174,7 +175,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -209,7 +210,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -262,7 +263,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -292,7 +293,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredProperty() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -334,7 +335,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyNamespaced() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -371,7 +372,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyV1() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -415,7 +416,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyNamespacedV1() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -493,7 +494,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -567,7 +568,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -626,7 +627,7 @@ public class AggregationQueryBuilderTest {
             false,
             Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -651,7 +652,7 @@ public class AggregationQueryBuilderTest {
     final AggregationMetadata aggregationMetadata = new AggregationMetadata();
     aggregationMetadata.setName("structuredProperties.test_me.one");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -668,7 +669,7 @@ public class AggregationQueryBuilderTest {
     final AggregationMetadata aggregationMetadata = new AggregationMetadata();
     aggregationMetadata.setName("domains");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -683,7 +684,7 @@ public class AggregationQueryBuilderTest {
   public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
     final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -725,7 +726,7 @@ public class AggregationQueryBuilderTest {
     aggregations.put("test123", 1L);
     aggregationMetadata.setAggregations(aggregations);
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =

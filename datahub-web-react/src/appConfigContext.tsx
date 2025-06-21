@@ -79,6 +79,7 @@ export const DEFAULT_APP_CONFIG = {
         showManageTags: false,
         showIntroducePage: false,
         showIngestionPageRedesign: false,
+        showLineageExpandMore: false,
     },
     chromeExtensionConfig: {
         enabled: false,

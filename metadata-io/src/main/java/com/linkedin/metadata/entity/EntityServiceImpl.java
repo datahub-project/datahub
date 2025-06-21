@@ -789,7 +789,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
-      final int count) {
+      @Nullable Integer count) {
 
     log.debug(
         "Invoked listLatestAspects with entityName: {}, aspectName: {}, start: {}, count: {}",
@@ -1921,7 +1921,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count) {
+      @Nullable Integer count) {
     log.debug(
         "Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
 

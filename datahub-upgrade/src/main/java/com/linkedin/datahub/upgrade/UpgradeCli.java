@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
+import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -65,6 +66,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemUpdateCron")
   private SystemUpdateCron systemUpdateCron;
 
+  @Autowired
+  @Named("reindexDebug")
+  private ReindexDebug reindexDebug;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(restoreIndices);
@@ -81,6 +86,9 @@ public class UpgradeCli implements CommandLineRunner {
     }
     if (systemUpdateCron != null) {
       _upgradeManager.register(systemUpdateCron);
+    }
+    if (reindexDebug != null) {
+      _upgradeManager.register(reindexDebug);
     }
 
     final Args args = new Args();
