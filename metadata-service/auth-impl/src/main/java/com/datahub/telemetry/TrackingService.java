@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -153,7 +154,7 @@ public class TrackingService {
     }
   }
 
-  // TODO: No callers
+  // TODO: No callers: Remove post review
   /*
   public void track(
       @Nonnull final String eventName,
@@ -209,7 +210,8 @@ public class TrackingService {
    * @param timestamp The timestamp to parse
    * @return The timestamp in epoch milliseconds
    */
-  private long parseTimestamp(Object timestamp) {
+  @VisibleForTesting
+  long parseTimestamp(Object timestamp) {
     if (timestamp == null) {
       return System.currentTimeMillis();
     }
@@ -273,14 +275,14 @@ public class TrackingService {
    * @param entityClient The entity client
    * @param eventData The event data as a JsonNode
    */
-  public void track(
+  public int track(
       @Nonnull final String eventName,
       @Nonnull final OperationContext opContext,
       @Nullable final Authenticator authenticator,
       @Nullable final EntityClient entityClient,
       @Nonnull final JsonNode eventData) {
     // Call the track method with all destinations
-    track(
+    return track(
         eventName,
         opContext,
         authenticator,
@@ -513,6 +515,7 @@ public class TrackingService {
   }
 
   @Nullable
+  @VisibleForTesting
   JSONObject createFailedEvent() {
     final ObjectNode failedEventObj = JsonNodeFactory.instance.objectNode();
     failedEventObj.put(APP_VERSION_FIELD, _gitVersion.getVersion());
@@ -522,6 +525,7 @@ public class TrackingService {
   }
 
   @Nullable
+  @VisibleForTesting
   JSONObject transformObjectNodeToJSONObject(@Nonnull final ObjectNode objectNode) {
     final JSONObject jsonObject;
     try {
