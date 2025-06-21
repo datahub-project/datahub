@@ -162,6 +162,12 @@ ARG DOCKER_VERSION
 ARG RELEASE_VERSION
 RUN chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
 
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
+    && python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+
 # Embed build info into the image
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 

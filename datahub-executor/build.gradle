@@ -25,6 +25,7 @@ apply from: '../gradle/docker/docker.gradle'
 ext {
     python_executable = 'python3'
     venv_name = '.venv'
+    python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
     // Saas only
     docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-executor' : 'datahub-executor'
 }
@@ -128,12 +129,14 @@ docker {
         include "datahub-executor/requirements*"
         include "metadata-ingestion/**"
         include "metadata-ingestion-modules/acryl-cloud/**"
+        include "python-build/**"
+
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
     additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: versionTag.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
+    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {

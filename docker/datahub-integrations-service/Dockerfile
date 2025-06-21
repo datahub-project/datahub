@@ -144,6 +144,13 @@ COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integration
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
+    && python /version_updater.py --directory /datahub-integrations-service/ --version "$RELEASE_VERSION" --expected-update-count 2 \
+    && python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+
 WORKDIR /datahub-integrations-service
 
 USER datahub
