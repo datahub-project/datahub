@@ -23,7 +23,20 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment variables
+
+## v0.3.12
+
+### Breaking Changes
+
 - [graphql] The `appConfig -> documentationAiEnabled` field has been removed, superseded by `globalSettings -> documentationAi -> enabled`.
+- The `DATAHUB_SLACK_AT_MENTION_ENABLED` env variable has been moved to our Helm charts under `global.datahub.slack_mention.enabled`. Setting it via `extraEnvs` will no longer work. This has already been fixed for all existing customers in https://github.com/acryldata/datahub-apps/pull/4037.
 
 ### Potential Downtime
 
@@ -36,6 +49,11 @@ This is over and above updating-datahub.md file
 - [datahub-gms] `AI_FEATURES_ENABLED`: Flag to enable the AI settings page in the UI.
 - [datahub-gms] `DOCUMENTATION_AI_ENABLED`: This flag has been repurposed - it now controls the default value for whether or not documentation AI is enabled, but will be superseded by `globalSettings.documentationAi.enabled` if that is set.
 - [datahub-gms] `SHOW_PRODUCT_UPDATES`: Flag to show or hide in product sidebar update banner on new releases.
+- [datahub-gms] `APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY`: Flag to enable the Application section on entity sidebars by default- even if no application is set. Defaults to false.
+- [datahub-gms] `SHOW_INGESTION_PAGE_REDESIGN`: Flag to show the new UI for the ingestion page and the run history tab.
+- [datahub-gms] `FORMS_NOTIFICATIONS_ENABLED`: Controls whether to trigger notifications for forms and show the option to enable notifications on the form editor.
+- [datahub-gms] `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED`: If enabled, any user with permissions to view an ingestion source will be able to get to the ingestion page. Be careful as we have a default policy to allow all users to view all entities. This should only be enabled if working with a customer who wants to set privileges up explicitly for viewing ingestion sources - ie. Twilio.
+- Helm only: The `telemetry.mixpanel.enabled` flag in Helm should be set to true for all DataHub Cloud customers.
 - [datahub-gms] `LINEAGE_GRAPH_V3`: Flag to enable the new lineage redesign. Not required for the new DataFlow lineage tab, which always uses lineage V3.
 
 ## v0.3.11
