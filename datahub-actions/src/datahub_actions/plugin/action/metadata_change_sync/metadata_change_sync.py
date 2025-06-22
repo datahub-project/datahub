@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Union, cast
 
 from pydantic import BaseModel, Field
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -157,7 +158,8 @@ class MetadataChangeSyncAction(Action):
             logger.info(
                 f"emitting the mcp: entityType {mcp.entityType}, changeType {mcp.changeType}, urn {mcp.entityUrn}, aspect name {mcp.aspectName}"
             )
-            self.rest_emitter.emit_mcp(mcp)
+            mcpw = MetadataChangeProposalWrapper.try_from_mcpc(mcp) or mcp
+            self.rest_emitter.emit_mcp(mcpw)
             logger.info("successfully emit the mcp")
         except Exception as ex:
             logger.error(
