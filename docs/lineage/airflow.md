@@ -386,8 +386,9 @@ The first two options support Python 3.7+, and the others require Python 3.8+.
 
 - Airflow 1.10.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.9.1.0.
 - Airflow 2.0.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.11.0.1.
-- Airflow 2.2.x, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 0.14.1.5.
-- Airflow 2.3 - 2.4.3, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 1.0.0.
+- Airflow > 2.0.2 and Airflow <= 2.2.x, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 0.14.1.12.
+- Airflow >= 2.3.0 and Airflow < 2.5.0, use DataHub plugin v2 with acryl-datahub-airflow-plugin >= 0.15.0.1.
+- Airflow >= 2.5.0 and Airflow < 3.0, use DataHub plugin v2 with acryl-datahub-airflow-plugin >= 1.1.0.
 
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. While the implementation is still in our codebase, it is deprecated and will be removed in a future release.
 Note that the lineage backend did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA.
