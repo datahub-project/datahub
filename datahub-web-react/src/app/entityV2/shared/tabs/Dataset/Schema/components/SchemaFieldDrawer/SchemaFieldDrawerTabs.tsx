@@ -286,7 +286,10 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                         <Tab
                             tab={
                                 <TabIconContainer $isSelected={isSelected}>
-                                    <IconWrapper $isSelected={isSelected}>
+                                    <IconWrapper
+                                        $isSelected={isSelected}
+                                        data-testid={`${name}-field-drawer-tab-header`}
+                                    >
                                         {isSelected ? (
                                             <SelectedTabIcon size={20} weight="fill" />
                                         ) : (
@@ -297,7 +300,6 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                                 </TabIconContainer>
                             }
                             key={tab.name}
-                            data-testid={`${name}-field-drawer-tab-header`}
                         />
                     );
                 })}

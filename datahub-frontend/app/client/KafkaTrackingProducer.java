@@ -79,6 +79,9 @@ public class KafkaTrackingProducer {
         ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
         config.getString("analytics.kafka.delivery.timeout.ms"));
     props.put(
+        ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
+        config.getString("analytics.kafka.request.timeout.ms"));
+    props.put(
         ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
         config.getString("analytics.kafka.bootstrap.server"));
     // key: Actor urn.
@@ -151,6 +154,11 @@ public class KafkaTrackingProducer {
             props,
             SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS,
             "analytics.kafka.sasl.client.callback.handler.class");
+        setConfig(
+            config,
+            props,
+            "sasl.oauthbearer.token.endpoint.url",
+            "analytics.kafka.sasl.oauthbearer.token.endpoint.url");
       }
     }
 

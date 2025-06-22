@@ -20,7 +20,9 @@ dependencies {
   }
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
-  implementation externalDependency.springDocUI
+  implementation(externalDependency.springDocUI) {
+    exclude group: 'org.springframework.boot'
+  }
   implementation externalDependency.springWeb
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans

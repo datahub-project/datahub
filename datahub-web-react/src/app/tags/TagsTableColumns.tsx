@@ -257,10 +257,22 @@ export const TagActionsColumn = React.memo(
                     </MenuItem>
                 ),
             },
+            {
+                key: '1',
+                label: (
+                    <MenuItem
+                        onClick={() => {
+                            navigator.clipboard.writeText(tagUrn);
+                        }}
+                    >
+                        Copy Urn
+                    </MenuItem>
+                ),
+            },
             ...(canManageTags
                 ? [
                       {
-                          key: '1',
+                          key: '2',
                           label: (
                               <MenuItem
                                   onClick={onDelete}
