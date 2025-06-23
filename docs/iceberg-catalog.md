@@ -357,7 +357,7 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
 
 When creating a warehouse, the session expiry duration for the vended credentials can be configured via the
 `datahub iceberg` cli by passing the `--duration_seconds` parameter. If not specified, this currently defaults to 3600
-seconds
+seconds. This needs to be a minimum of 900 seconds (15 minutes).
 
 With AWS, at the time of creating the role for use with the catalog, a `MaxSessionDuration` can also be set. AWS currently
 supports values between 1 hour to 12 hours. This configuration will set the upper limit for what can be configured for the
