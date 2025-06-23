@@ -16,8 +16,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
-import org.apache.directory.scim.protocol.data.ErrorResponse;
-import org.apache.directory.scim.protocol.exception.ScimException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;

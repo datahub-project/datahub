@@ -62,8 +62,7 @@ public class DatasetStatsSummaryResolverTest {
         .thenReturn(testResult);
 
     // Execute resolver
-    DatasetStatsSummaryResolver resolver =
-        new DatasetStatsSummaryResolver(mockClient);
+    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 

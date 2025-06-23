@@ -3,8 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.dashboard;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -52,8 +50,7 @@ public class DashboardStatsSummaryTest {
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
-    DashboardStatsSummaryResolver resolver =
-        new DashboardStatsSummaryResolver(mockClient);
+    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
     QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
