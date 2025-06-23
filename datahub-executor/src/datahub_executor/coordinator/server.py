@@ -59,7 +59,7 @@ def shutdown_handler(*args, **kwargs):  # type: ignore
 
     for sighdlr in sighandler:
         try:
-            logger.error(f"shutting down: {sighdlr}")
+            logger.info(f"shutting down: {sighdlr}")
             sighdlr()
         except Exception:
             logger.error(

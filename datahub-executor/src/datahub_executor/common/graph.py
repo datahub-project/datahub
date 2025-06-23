@@ -93,6 +93,14 @@ class DataHubExecutorGraph(DataHubGraph):
     def _get_aspect(self, entity: Dict, aspect: str, key: str = "value") -> Dict:
         return entity.get("aspects", {}).get(aspect, {}).get(key, {})
 
+    def _has_ingestion_source_urn(self, entity: Dict) -> bool:
+        return (
+            self._get_aspect(entity, DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+            .get("source", {})
+            .get("ingestionSource")
+            is not None
+        )
+
     def _entity_to_execution_request_status(
         self, entity: Dict
     ) -> ExecutionRequestStatus:
@@ -175,6 +183,11 @@ class DataHubExecutorGraph(DataHubGraph):
             entity=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME, params=params
         ):
             try:
+                if not self._has_ingestion_source_urn(entry):
+                    # Doing test connection on first screen of ingestion page
+                    # before creating ingestion source can result in this if condition
+                    # being used
+                    continue
                 ers = self._entity_to_execution_request_status(entry)
                 # Exclude tasks created by CLI
                 if ers.executor_id != CLI_EXECUTOR_ID:
