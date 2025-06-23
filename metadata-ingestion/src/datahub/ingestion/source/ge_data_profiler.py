@@ -177,58 +177,6 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
-    if self.engine.dialect.name.lower() == REDSHIFT:
-        element_values = self.engine.execute(
-            sa.select(
-                [
-                    # We use coalesce here to force SQL Alchemy to see this
-                    # as a column expression.
-                    sa.func.coalesce(
-                        sa.text(f'APPROXIMATE count(distinct "{column}")')
-                    ),
-                ]
-            ).select_from(self._table)
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif (
-        self.engine.dialect.name.lower() == BIGQUERY
-        or self.engine.dialect.name.lower() == SNOWFLAKE
-    ):
-        element_values = self.engine.execute(
-            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
-                self._table
-            )
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif (
-        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
-        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
-    ):
-        return convert_to_json_serializable(
-            self.engine.execute(
-                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
-                    self._table
-                )
-            ).scalar()
-        )
-    elif self.engine.dialect.name.lower() == DATABRICKS:
-        return convert_to_json_serializable(
-            self.engine.execute(
-                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
-                    self._table
-                )
-            ).scalar()
-        )
-    return convert_to_json_serializable(
-        self.engine.execute(
-            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
-                self._table
-            )
-        ).scalar()
-    )
-
-
 def _get_column_quantiles_bigquery_patch(  # type:ignore
     self, column: str, quantiles: Iterable
 ) -> list:
@@ -429,7 +377,32 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     ) -> None:
         unique_count = None
         try:
-            unique_count = self.dataset.get_column_unique_count(column)
+            if self.dataset.engine.dialect.name.lower() == REDSHIFT:
+                # We use coalesce here to force SQL Alchemy to see this
+                # as a column expression.
+                expr = sa.func.coalesce(
+                    sa.text(f'APPROXIMATE count(distinct "{column}")')
+                )
+            elif (
+                self.dataset.engine.dialect.name.lower() == BIGQUERY
+                or self.dataset.engine.dialect.name.lower() == SNOWFLAKE
+            ):
+                expr = sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
+            elif (
+                self.dataset.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+                or self.dataset.engine.dialect.name.lower() == GXSqlDialect.TRINO
+            ):
+                expr = sa.func.approx_distinct(sa.column(column))
+            elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                expr = sa.func.approx_count_distinct(sa.column(column))
+            else:
+                expr = sa.func.count(sa.func.distinct(sa.column(column)))
+
+            unique_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select([expr]).select_from(self.dataset._table)
+                ).scalar()
+            )
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
@@ -1152,10 +1125,6 @@ class DatahubGEProfiler:
 
         with (
             PerfTimer() as timer,
-            unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-                get_column_unique_count_dh_patch,
-            ),
             unittest.mock.patch(
                 "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
                 _get_column_quantiles_bigquery_patch,
