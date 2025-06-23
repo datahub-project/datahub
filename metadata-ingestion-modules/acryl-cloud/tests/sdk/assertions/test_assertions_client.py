@@ -45,10 +45,8 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionChangeType,
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -2013,12 +2011,10 @@ def test_create_volume_assertion_uses_string_incident_behavior(
 class SqlAssertionInputParams:
     dataset_urn: Union[str, DatasetUrn]
     statement: str
-    criteria_type: Union[SqlAssertionType, str]
-    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_condition: Union[SqlAssertionCondition, str]
     criteria_parameters: Union[
         Union[float, int], tuple[Union[float, int], Union[float, int]]
     ]
-    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
     display_name: Optional[str] = None
     enabled: Optional[bool] = None
     incident_behavior: Optional[
@@ -2049,8 +2045,7 @@ class SqlAssertionUpsertInputParams:
 class SqlAssertionOutputParams:
     dataset_urn: Union[str, DatasetUrn]
     statement: str
-    criteria_type: Union[SqlAssertionType, str]
-    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_condition: Union[SqlAssertionCondition, str]
     criteria_parameters: Union[
         Union[float, int], tuple[Union[float, int], Union[float, int]]
     ]
@@ -2062,7 +2057,6 @@ class SqlAssertionOutputParams:
     updated_by: CorpUserUrn
     updated_at: datetime
     schedule: models.CronScheduleClass
-    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
 
 
 @freeze_time(FROZEN_TIME)
@@ -2073,17 +2067,13 @@ class SqlAssertionOutputParams:
             SqlAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
                 statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC,
-                criteria_change_type=None,
-                criteria_operator=SqlAssertionOperator.GREATER_THAN,
+                criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
                 criteria_parameters=100,
             ),
             SqlAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
                 statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC,
-                criteria_change_type=None,
-                criteria_operator=SqlAssertionOperator.GREATER_THAN,
+                criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
                 criteria_parameters=100,
                 display_name="New Assertion",
                 incident_behavior=[],
@@ -2100,9 +2090,7 @@ class SqlAssertionOutputParams:
             SqlAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
                 statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC_CHANGE,
-                criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
-                criteria_operator=SqlAssertionOperator.BETWEEN,
+                criteria_condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
                 criteria_parameters=(-10.0, 10.0),
                 display_name="Test SQL Assertion",
                 enabled=True,
@@ -2114,9 +2102,7 @@ class SqlAssertionOutputParams:
             SqlAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
                 statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC_CHANGE,
-                criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
-                criteria_operator=SqlAssertionOperator.BETWEEN,
+                criteria_condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
                 criteria_parameters=(-10.0, 10.0),
                 display_name="Test SQL Assertion",
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
@@ -2157,9 +2143,7 @@ def test_create_sql_assertion_entities_client_called(
     assertion = client._create_sql_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
         statement="SELECT COUNT(*) FROM table",
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
         incident_behavior=None,
         tags=None,
@@ -2175,39 +2159,11 @@ def test_create_sql_assertion_entities_client_called(
             SqlAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
                 statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC_CHANGE,
-                criteria_change_type=None,  # Missing change_type for METRIC_CHANGE
-                criteria_operator=SqlAssertionOperator.GREATER_THAN,
-                criteria_parameters=100,
-            ),
-            SDKUsageError,
-            "Change type is required for metric change assertions",
-            id="metric_change_missing_change_type",
-        ),
-        pytest.param(
-            SqlAssertionInputParams(
-                dataset_urn=_any_dataset_urn,
-                statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC,
-                criteria_change_type=SqlAssertionChangeType.PERCENTAGE,  # change_type not allowed for METRIC
-                criteria_operator=SqlAssertionOperator.GREATER_THAN,
-                criteria_parameters=100,
-            ),
-            SDKUsageError,
-            "Change type is not allowed for metric assertions",
-            id="metric_with_change_type",
-        ),
-        pytest.param(
-            SqlAssertionInputParams(
-                dataset_urn=_any_dataset_urn,
-                statement="SELECT COUNT(*) FROM table",
-                criteria_type=SqlAssertionType.METRIC,
-                criteria_change_type=None,
-                criteria_operator=SqlAssertionOperator.BETWEEN,
+                criteria_condition=SqlAssertionCondition.IS_WITHIN_A_RANGE,
                 criteria_parameters=100,  # Single value for BETWEEN operator
             ),
             SDKUsageError,
-            "The parameter value of SqlAssertionCriteria must be a tuple range for operator",
+            "The parameter value of SqlAssertionCriteria must be a tuple range for condition",
             id="between_operator_single_value",
         ),
     ],
@@ -2235,9 +2191,7 @@ def test_sync_sql_assertion_creates_new_when_urn_not_provided(
     mock_sql_assertion.urn = "urn:li:assertion:new_sql_assertion"
     mock_sql_assertion.statement = "SELECT COUNT(*) FROM table"
     mock_sql_assertion.criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
+        condition=SqlAssertionCondition.IS_GREATER_THAN,
         parameters=100,
     )
 
@@ -2251,9 +2205,7 @@ def test_sync_sql_assertion_creates_new_when_urn_not_provided(
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         statement="SELECT COUNT(*) FROM table",
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
     )
 
@@ -2262,9 +2214,7 @@ def test_sync_sql_assertion_creates_new_when_urn_not_provided(
     call_args = mock_create_sql_assertion.call_args[1]
     assert call_args["dataset_urn"] == any_dataset_urn
     assert call_args["statement"] == "SELECT COUNT(*) FROM table"
-    assert call_args["criteria_type"] == SqlAssertionType.METRIC
-    assert call_args["criteria_change_type"] is None
-    assert call_args["criteria_operator"] == SqlAssertionOperator.GREATER_THAN
+    assert call_args["criteria_condition"] == SqlAssertionCondition.IS_GREATER_THAN
     assert call_args["criteria_parameters"] == 100
 
     # Should return the mocked assertion
@@ -2286,9 +2236,7 @@ def test_sync_sql_assertion_calls_create_assertion_when_urn_is_none(
         dataset_urn=any_dataset_urn,
         urn=None,  # This should trigger creation path
         statement="SELECT COUNT(*) FROM table",
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
     )
     assert mock_create_assertion.call_count == 1
@@ -2312,9 +2260,7 @@ def test_sync_sql_assertion_uses_default_updated_by_when_none_provided(
         dataset_urn=any_dataset_urn,
         urn=None,  # Use None to trigger creation path
         statement="SELECT COUNT(*) FROM table",
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
         updated_by=None,  # This should default to DEFAULT_CREATED_BY
     )
@@ -2344,9 +2290,7 @@ def _validate_sql_assertion_vs_input(
             assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
 
     assert assertion.statement == expected_output_params.statement
-    assert assertion.criteria_type == expected_output_params.criteria_type
-    assert assertion.criteria_change_type == expected_output_params.criteria_change_type
-    assert assertion.criteria_operator == expected_output_params.criteria_operator
+    assert assertion.criteria_condition == expected_output_params.criteria_condition
     assert assertion.criteria_parameters == expected_output_params.criteria_parameters
     assert assertion.incident_behavior == expected_output_params.incident_behavior
     assert assertion.tags == expected_output_params.tags
@@ -2370,10 +2314,8 @@ def test_sync_sql_assertion_uses_string_incident_behavior(
     assertion = client.sync_sql_assertion(
         dataset_urn=_any_dataset_urn,
         statement="SELECT COUNT(*) FROM table",
-        criteria_type="METRIC_CHANGE",
-        criteria_operator="EQUAL_TO",
+        criteria_condition="IS_EQUAL_TO",
         criteria_parameters=0,
-        criteria_change_type="ABSOLUTE",
         incident_behavior="raise_on_fail",  # String input
     )
 
@@ -2394,10 +2336,8 @@ def test_create_sql_assertion_uses_string_incident_behavior(
     assertion = client._create_sql_assertion(
         dataset_urn=_any_dataset_urn,
         statement="SELECT COUNT(*) FROM table",
-        criteria_type="METRIC_CHANGE",
-        criteria_operator="EQUAL_TO",
+        criteria_condition="IS_EQUAL_TO",
         criteria_parameters=0,
-        criteria_change_type="ABSOLUTE",
         incident_behavior="resolve_on_pass",  # String input
         tags=None,
         created_by="urn:li:corpuser:test_user",

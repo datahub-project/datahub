@@ -39,10 +39,8 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     _SmartColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionChangeType,
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
     _SqlAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
@@ -624,9 +622,7 @@ class AssertionsClient:
             return self._create_sql_assertion(
                 dataset_urn=dataset_urn,
                 display_name=display_name,
-                criteria_type=criteria.type,
-                criteria_change_type=criteria.change_type,
-                criteria_operator=criteria.operator,
+                criteria_condition=criteria.condition,
                 criteria_parameters=criteria.parameters,
                 statement=statement,
                 incident_behavior=incident_behavior,
@@ -1766,9 +1762,7 @@ class AssertionsClient:
         dataset_urn: Union[str, DatasetUrn],
         display_name: Optional[str] = None,
         enabled: bool = True,
-        criteria_type: Union[SqlAssertionType, str],
-        criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None,
-        criteria_operator: Union[SqlAssertionOperator, str],
+        criteria_condition: Union[SqlAssertionCondition, str],
         criteria_parameters: Union[
             Union[float, int], tuple[Union[float, int], Union[float, int]]
         ],
@@ -1785,23 +1779,21 @@ class AssertionsClient:
             display_name: The display name of the assertion. If not provided, a random display
                 name will be generated.
             enabled: Whether the assertion is enabled. Defaults to True.
-            criteria_type: The type of sql assertion. Valid values are:
-                - "METRIC" -> Looks at the current value of the metric.
-                - "METRIC_CHANGE" -> Looks at the change in the metric between the current and previous run.
-            criteria_change_type: The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are:
-                - "ABSOLUTE" -> Looks at the absolute change in the metric.
-                - "PERCENTAGE" -> Looks at the percentage change in the metric.
-            criteria_operator: The operator to be used for the assertion. Valid values are:
-                - "GREATER_THAN" -> The metric value is greater than the threshold.
-                - "LESS_THAN" -> The metric value is less than the threshold.
-                - "GREATER_THAN_OR_EQUAL_TO" -> The metric value is greater than or equal to the threshold.
-                - "LESS_THAN_OR_EQUAL_TO" -> The metric value is less than or equal to the threshold.
-                - "EQUAL_TO" -> The metric value is equal to the threshold.
-                - "NOT_EQUAL_TO" -> The metric value is not equal to the threshold.
-                - "BETWEEN" -> The metric value is between the two thresholds.
+            criteria_condition: The condition for the sql assertion. Valid values are:
+                - "IS_EQUAL_TO" -> The metric value equals the threshold.
+                - "IS_NOT_EQUAL_TO" -> The metric value does not equal the threshold.
+                - "IS_GREATER_THAN" -> The metric value is greater than the threshold.
+                - "IS_LESS_THAN" -> The metric value is less than the threshold.
+                - "IS_WITHIN_A_RANGE" -> The metric value is within the specified range.
+                - "GROWS_AT_MOST_ABSOLUTE" -> The metric growth is at most the threshold (absolute change).
+                - "GROWS_AT_MOST_PERCENTAGE" -> The metric growth is at most the threshold (percentage change).
+                - "GROWS_AT_LEAST_ABSOLUTE" -> The metric growth is at least the threshold (absolute change).
+                - "GROWS_AT_LEAST_PERCENTAGE" -> The metric growth is at least the threshold (percentage change).
+                - "GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The metric growth is within the specified range (absolute change).
+                - "GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The metric growth is within the specified range (percentage change).
             criteria_parameters: The parameters to be used for the assertion. This can be a single value or a tuple range.
-                - If the operator is "BETWEEN", the value is a tuple of two values, with format min, max.
-                - If the operator is not "BETWEEN", the value is a single value.
+                - If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two values, with format min, max.
+                - For other conditions, the value is a single numeric value.
             statement: The statement to be used for the assertion.
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
@@ -1831,9 +1823,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         criteria = SqlAssertionCriteria(
-            type=criteria_type,
-            change_type=criteria_change_type,
-            operator=criteria_operator,
+            condition=criteria_condition,
             parameters=criteria_parameters,
         )
         assertion_input = _SqlAssertionInput(
@@ -3024,9 +3014,7 @@ class AssertionsClient:
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
         statement: str,
-        criteria_type: Union[SqlAssertionType, str],
-        criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None,
-        criteria_operator: Union[SqlAssertionOperator, str],
+        criteria_condition: Union[SqlAssertionCondition, str],
         criteria_parameters: Union[
             Union[float, int], tuple[Union[float, int], Union[float, int]]
         ],
@@ -3056,10 +3044,8 @@ class AssertionsClient:
             display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
             enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
             statement (str): The SQL statement to be used for the assertion.
-            criteria_type (Union[SqlAssertionType, str]): The type of sql assertion. Valid values are: "METRIC", "METRIC_CHANGE".
-            criteria_change_type (Optional[Union[SqlAssertionChangeType, str]]): The change type of the assertion, if the type is "METRIC_CHANGE". Valid values are: "ABSOLUTE", "PERCENTAGE".
-            criteria_operator (Union[SqlAssertionOperator, str]): The operator to be used for the assertion. Valid values are: "GREATER_THAN", "LESS_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN_OR_EQUAL_TO", "EQUAL_TO", "NOT_EQUAL_TO", "BETWEEN".
-            criteria_parameters (Union[float, int, tuple[float, int]]): The parameters to be used for the assertion. This can be a single value or a tuple range. If the operator is "BETWEEN", the value is a tuple of two values, with format min, max. If the operator is not "BETWEEN", the value is a single value.
+            criteria_condition (Union[SqlAssertionCondition, str]): The condition for the sql assertion. Valid values are: "IS_EQUAL_TO", "IS_NOT_EQUAL_TO", "IS_GREATER_THAN", "IS_LESS_THAN", "IS_WITHIN_A_RANGE", "GROWS_AT_MOST_ABSOLUTE", "GROWS_AT_MOST_PERCENTAGE", "GROWS_AT_LEAST_ABSOLUTE", "GROWS_AT_LEAST_PERCENTAGE", "GROWS_WITHIN_A_RANGE_ABSOLUTE", "GROWS_WITHIN_A_RANGE_PERCENTAGE".
+            criteria_parameters (Union[float, int, tuple[float, int]]): The parameters to be used for the assertion. This can be a single value or a tuple range. If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two values, with format min, max. For other conditions, the value is a single numeric value.
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
@@ -3084,9 +3070,7 @@ class AssertionsClient:
                 dataset_urn=dataset_urn,
                 display_name=display_name,
                 enabled=enabled if enabled is not None else True,
-                criteria_type=criteria_type,
-                criteria_change_type=criteria_change_type,
-                criteria_operator=criteria_operator,
+                criteria_condition=criteria_condition,
                 criteria_parameters=criteria_parameters,
                 statement=statement,
                 incident_behavior=incident_behavior,
@@ -3097,9 +3081,7 @@ class AssertionsClient:
 
         # 2. If urn is set, first validate the input:
         criteria = SqlAssertionCriteria(
-            type=criteria_type,
-            change_type=criteria_change_type,
-            operator=criteria_operator,
+            condition=criteria_condition,
             parameters=criteria_parameters,
         )
         assertion_input = _SqlAssertionInput(

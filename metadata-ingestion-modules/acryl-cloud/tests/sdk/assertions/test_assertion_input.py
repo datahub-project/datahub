@@ -10,13 +10,12 @@ import tzlocal
 from pydantic import ValidationError
 
 import datahub.metadata.schema_classes as models
+from acryl_datahub_cloud.sdk.assertion.assertion_base import SqlAssertion
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
-    RANGE_OPERATORS,
-    SINGLE_VALUE_NUMERIC_OPERATORS,
     AssertionIncidentBehavior,
     AssertionIncidentBehaviorInputTypes,
     CalendarInterval,
@@ -42,10 +41,8 @@ from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
     _FreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionChangeType,
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
     _SqlAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
@@ -2040,122 +2037,77 @@ def test_is_source_type_valid(params: SourceTypeValidityTestParams) -> None:
 
 
 @pytest.mark.parametrize(
-    "assertion_type, change_type, operator, parameters, expected_raises",
+    "assertion_condition, parameters, expected_raises",
     [
         # Valid METRIC assertions
         pytest.param(
-            SqlAssertionType.METRIC,
-            None,
-            SqlAssertionOperator.GREATER_THAN,
+            SqlAssertionCondition.IS_GREATER_THAN,
             100,
             nullcontext(),
             id="metric_greater_than_single_value",
         ),
         pytest.param(
-            "METRIC",
-            None,
-            "GREATER_THAN",
+            "IS_GREATER_THAN",
             100.5,
             nullcontext(),
             id="metric_greater_than_float_string_params",
         ),
         pytest.param(
-            SqlAssertionType.METRIC,
-            None,
-            SqlAssertionOperator.BETWEEN,
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
             (10, 100),
             nullcontext(),
             id="metric_between_range",
         ),
         pytest.param(
-            SqlAssertionType.METRIC,
-            None,
-            SqlAssertionOperator.EQUAL_TO,
+            SqlAssertionCondition.IS_EQUAL_TO,
             42,
             nullcontext(),
             id="metric_equal_to",
         ),
         # Valid METRIC_CHANGE assertions
         pytest.param(
-            SqlAssertionType.METRIC_CHANGE,
-            SqlAssertionChangeType.ABSOLUTE,
-            SqlAssertionOperator.LESS_THAN,
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
             10,
             nullcontext(),
             id="metric_change_absolute_less_than",
         ),
         pytest.param(
-            "METRIC_CHANGE",
-            "PERCENTAGE",
-            "GREATER_THAN_OR_EQUAL_TO",
+            "GROWS_AT_LEAST_PERCENTAGE",
             5.0,
             nullcontext(),
             id="metric_change_percentage_gte_string_params",
         ),
         pytest.param(
-            SqlAssertionType.METRIC_CHANGE,
-            SqlAssertionChangeType.ABSOLUTE,
-            SqlAssertionOperator.BETWEEN,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
             (-10, 10),
             nullcontext(),
             id="metric_change_absolute_between",
         ),
-        # Error cases - missing change_type for METRIC_CHANGE
-        pytest.param(
-            SqlAssertionType.METRIC_CHANGE,
-            None,
-            SqlAssertionOperator.GREATER_THAN,
-            100,
-            pytest.raises(
-                SDKUsageError,
-                match="Change type is required for metric change assertions",
-            ),
-            id="metric_change_missing_change_type",
-        ),
-        # Error cases - change_type provided for METRIC
-        pytest.param(
-            SqlAssertionType.METRIC,
-            SqlAssertionChangeType.ABSOLUTE,
-            SqlAssertionOperator.GREATER_THAN,
-            100,
-            pytest.raises(
-                SDKUsageError, match="Change type is not allowed for metric assertions"
-            ),
-            id="metric_with_change_type_error",
-        ),
         # Error cases - wrong parameters for operator
         pytest.param(
-            SqlAssertionType.METRIC,
-            None,
-            SqlAssertionOperator.BETWEEN,
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
             100,  # Should be tuple for BETWEEN
-            pytest.raises(SDKUsageError, match="must be a tuple range for operator"),
+            pytest.raises(SDKUsageError, match="must be a tuple range for condition"),
             id="between_operator_single_value_error",
         ),
         pytest.param(
-            SqlAssertionType.METRIC,
-            None,
-            SqlAssertionOperator.GREATER_THAN,
+            SqlAssertionCondition.IS_GREATER_THAN,
             (10, 100),  # Should be single value for GREATER_THAN
             pytest.raises(
-                SDKUsageError, match="must be a single value numeric for operator"
+                SDKUsageError, match="must be a single value numeric for condition"
             ),
             id="single_value_operator_tuple_error",
         ),
     ],
 )
 def test_sql_assertion_criteria_validation(
-    assertion_type: Union[SqlAssertionType, str],
-    change_type: Optional[Union[SqlAssertionChangeType, str]],
-    operator: Union[SqlAssertionOperator, str],
+    assertion_condition: Union[SqlAssertionCondition, str],
     parameters: Union[Union[float, int], tuple[Union[float, int], Union[float, int]]],
     expected_raises: ContextManager[Any],
 ) -> None:
     """Test SqlAssertionCriteria validation with various inputs."""
     criteria = SqlAssertionCriteria(
-        type=assertion_type,
-        change_type=change_type,
-        operator=operator,
+        condition=assertion_condition,
         parameters=parameters,
     )
 
@@ -2164,126 +2116,395 @@ def test_sql_assertion_criteria_validation(
         # The validation doesn't modify the original criteria, it just validates it
         # Note: criteria might have been converted by Pydantic if string inputs were used
         assert (
-            criteria.type == assertion_type
-            or str(criteria.type.value) == assertion_type  # type: ignore
-        )
-        if change_type is not None:
-            assert (
-                criteria.change_type == change_type
-                or str(criteria.change_type.value) == change_type  # type: ignore
-            )
-        else:
-            assert criteria.change_type is None
-        assert (
-            criteria.operator == operator or str(criteria.operator.value) == operator  # type: ignore
+            criteria.condition == assertion_condition
+            or str(criteria.condition.value) == assertion_condition  # type: ignore
         )
         assert criteria.parameters == parameters
 
 
 @pytest.mark.parametrize(
-    "assertion_type, expected_model_type",
+    "assertion_condition, expected_model_type",
     [
+        # METRIC type conditions
         pytest.param(
-            SqlAssertionType.METRIC,
+            SqlAssertionCondition.IS_EQUAL_TO,
             models.SqlAssertionTypeClass.METRIC,
-            id="enum_metric",
+            id="is_equal_to_metric",
         ),
         pytest.param(
-            "METRIC",
+            SqlAssertionCondition.IS_NOT_EQUAL_TO,
             models.SqlAssertionTypeClass.METRIC,
-            id="string_metric",
+            id="is_not_equal_to_metric",
         ),
         pytest.param(
-            SqlAssertionType.METRIC_CHANGE,
-            models.SqlAssertionTypeClass.METRIC_CHANGE,
-            id="enum_metric_change",
+            SqlAssertionCondition.IS_GREATER_THAN,
+            models.SqlAssertionTypeClass.METRIC,
+            id="is_greater_than_metric",
         ),
         pytest.param(
-            "METRIC_CHANGE",
+            SqlAssertionCondition.IS_LESS_THAN,
+            models.SqlAssertionTypeClass.METRIC,
+            id="is_less_than_metric",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
+            models.SqlAssertionTypeClass.METRIC,
+            id="is_within_a_range_metric",
+        ),
+        # String versions
+        pytest.param(
+            "IS_EQUAL_TO",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_is_equal_to_metric",
+        ),
+        pytest.param(
+            "IS_NOT_EQUAL_TO",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_is_not_equal_to_metric",
+        ),
+        pytest.param(
+            "IS_GREATER_THAN",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_is_greater_than_metric",
+        ),
+        pytest.param(
+            "IS_LESS_THAN",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_is_less_than_metric",
+        ),
+        pytest.param(
+            "IS_WITHIN_A_RANGE",
+            models.SqlAssertionTypeClass.METRIC,
+            id="string_is_within_a_range_metric",
+        ),
+        # METRIC_CHANGE type conditions
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
             models.SqlAssertionTypeClass.METRIC_CHANGE,
-            id="string_metric_change",
+            id="grows_at_least_absolute_metric_change",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="grows_at_least_percentage_metric_change",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="grows_at_most_absolute_metric_change",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="grows_at_most_percentage_metric_change",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="grows_within_a_range_absolute_metric_change",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="grows_within_a_range_percentage_metric_change",
+        ),
+        # String versions for metric change
+        pytest.param(
+            "GROWS_AT_LEAST_ABSOLUTE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_at_least_absolute_metric_change",
+        ),
+        pytest.param(
+            "GROWS_AT_LEAST_PERCENTAGE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_at_least_percentage_metric_change",
+        ),
+        pytest.param(
+            "GROWS_AT_MOST_ABSOLUTE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_at_most_absolute_metric_change",
+        ),
+        pytest.param(
+            "GROWS_AT_MOST_PERCENTAGE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_at_most_percentage_metric_change",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_ABSOLUTE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_within_a_range_absolute_metric_change",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_PERCENTAGE",
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            id="string_grows_within_a_range_percentage_metric_change",
         ),
     ],
 )
-def test_sql_assertion_criteria_get_type(
-    assertion_type: Union[SqlAssertionType, str],
+def test_sql_assertion_criteria_get_type_from_condition(
+    assertion_condition: Union[SqlAssertionCondition, str],
     expected_model_type: models.SqlAssertionTypeClass,
 ) -> None:
-    """Test SqlAssertionCriteria.get_type() conversion."""
-    result = SqlAssertionCriteria.get_type(assertion_type)
+    """Test SqlAssertionCriteria.get_type_from_condition() conversion."""
+    result = SqlAssertionCriteria.get_type_from_condition(assertion_condition)
     assert result == expected_model_type
 
 
 @pytest.mark.parametrize(
-    "change_type, expected_model_type",
+    "condition, expected_model_type",
     [
+        # Absolute change type conditions
         pytest.param(
-            SqlAssertionChangeType.ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
             models.AssertionValueChangeTypeClass.ABSOLUTE,
-            id="enum_absolute",
+            id="grows_at_most_absolute",
         ),
         pytest.param(
-            "ABSOLUTE",
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
             models.AssertionValueChangeTypeClass.ABSOLUTE,
-            id="string_absolute",
+            id="grows_at_least_absolute",
         ),
         pytest.param(
-            SqlAssertionChangeType.PERCENTAGE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="grows_within_range_absolute",
+        ),
+        # Percentage change type conditions
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
             models.AssertionValueChangeTypeClass.PERCENTAGE,
-            id="enum_percentage",
+            id="grows_at_most_percentage",
         ),
         pytest.param(
-            "PERCENTAGE",
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
             models.AssertionValueChangeTypeClass.PERCENTAGE,
-            id="string_percentage",
+            id="grows_at_least_percentage",
         ),
         pytest.param(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="grows_within_range_percentage",
+        ),
+        # String versions of change type conditions
+        pytest.param(
+            "GROWS_AT_MOST_ABSOLUTE",
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="string_grows_at_most_absolute",
+        ),
+        pytest.param(
+            "GROWS_AT_LEAST_ABSOLUTE",
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="string_grows_at_least_absolute",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_ABSOLUTE",
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            id="string_grows_within_range_absolute",
+        ),
+        pytest.param(
+            "GROWS_AT_MOST_PERCENTAGE",
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="string_grows_at_most_percentage",
+        ),
+        pytest.param(
+            "GROWS_AT_LEAST_PERCENTAGE",
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="string_grows_at_least_percentage",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_PERCENTAGE",
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            id="string_grows_within_range_percentage",
+        ),
+        # Value-based conditions (no change type)
+        pytest.param(
+            SqlAssertionCondition.IS_EQUAL_TO,
             None,
+            id="is_equal_to_no_change_type",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_NOT_EQUAL_TO,
             None,
-            id="none_change_type",
+            id="is_not_equal_to_no_change_type",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_GREATER_THAN,
+            None,
+            id="is_greater_than_no_change_type",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_LESS_THAN,
+            None,
+            id="is_less_than_no_change_type",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
+            None,
+            id="is_within_a_range_no_change_type",
+        ),
+        # String versions of value-based conditions
+        pytest.param(
+            "IS_EQUAL_TO",
+            None,
+            id="string_is_equal_to_no_change_type",
+        ),
+        pytest.param(
+            "IS_NOT_EQUAL_TO",
+            None,
+            id="string_is_not_equal_to_no_change_type",
+        ),
+        pytest.param(
+            "IS_GREATER_THAN",
+            None,
+            id="string_is_greater_than_no_change_type",
+        ),
+        pytest.param(
+            "IS_LESS_THAN",
+            None,
+            id="string_is_less_than_no_change_type",
+        ),
+        pytest.param(
+            "IS_WITHIN_A_RANGE",
+            None,
+            id="string_is_within_a_range_no_change_type",
         ),
     ],
 )
-def test_sql_assertion_criteria_get_change_type(
-    change_type: Optional[Union[SqlAssertionChangeType, str]],
+def test_sql_assertion_criteria_get_change_type_from_condition(
+    condition: Union[SqlAssertionCondition, str],
     expected_model_type: Optional[models.AssertionValueChangeTypeClass],
 ) -> None:
-    """Test SqlAssertionCriteria.get_change_type() conversion."""
-    result = SqlAssertionCriteria.get_change_type(change_type)
+    """Test SqlAssertionCriteria.get_change_type_from_condition() conversion."""
+    result = SqlAssertionCriteria.get_change_type_from_condition(condition)
     assert result == expected_model_type
 
 
 @pytest.mark.parametrize(
-    "operator, expected_model_operator",
+    "condition, expected_model_operator",
     [
+        # Value-based operators
         pytest.param(
-            SqlAssertionOperator.GREATER_THAN,
-            models.AssertionStdOperatorClass.GREATER_THAN,
-            id="enum_greater_than",
-        ),
-        pytest.param(
-            "GREATER_THAN",
-            models.AssertionStdOperatorClass.GREATER_THAN,
-            id="string_greater_than",
-        ),
-        pytest.param(
-            SqlAssertionOperator.BETWEEN,
-            models.AssertionStdOperatorClass.BETWEEN,
-            id="enum_between",
-        ),
-        pytest.param(
-            "EQUAL_TO",
+            SqlAssertionCondition.IS_EQUAL_TO,
             models.AssertionStdOperatorClass.EQUAL_TO,
-            id="string_equal_to",
+            id="is_equal_to_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_NOT_EQUAL_TO,
+            models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+            id="is_not_equal_to_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_GREATER_THAN,
+            models.AssertionStdOperatorClass.GREATER_THAN,
+            id="is_greater_than_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_LESS_THAN,
+            models.AssertionStdOperatorClass.LESS_THAN,
+            id="is_less_than_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="is_within_a_range_operator",
+        ),
+        # String versions of value-based operators
+        pytest.param(
+            "IS_EQUAL_TO",
+            models.AssertionStdOperatorClass.EQUAL_TO,
+            id="string_is_equal_to_operator",
+        ),
+        pytest.param(
+            "IS_NOT_EQUAL_TO",
+            models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+            id="string_is_not_equal_to_operator",
+        ),
+        pytest.param(
+            "IS_GREATER_THAN",
+            models.AssertionStdOperatorClass.GREATER_THAN,
+            id="string_is_greater_than_operator",
+        ),
+        pytest.param(
+            "IS_LESS_THAN",
+            models.AssertionStdOperatorClass.LESS_THAN,
+            id="string_is_less_than_operator",
+        ),
+        pytest.param(
+            "IS_WITHIN_A_RANGE",
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="string_is_within_a_range_operator",
+        ),
+        # Growth-based operators (absolute)
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            id="grows_at_least_absolute_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            id="grows_at_most_absolute_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="grows_within_a_range_absolute_operator",
+        ),
+        # Growth-based operators (percentage)
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            id="grows_at_least_percentage_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            id="grows_at_most_percentage_operator",
+        ),
+        pytest.param(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="grows_within_a_range_percentage_operator",
+        ),
+        # String versions of growth-based operators
+        pytest.param(
+            "GROWS_AT_LEAST_ABSOLUTE",
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            id="string_grows_at_least_absolute_operator",
+        ),
+        pytest.param(
+            "GROWS_AT_MOST_ABSOLUTE",
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            id="string_grows_at_most_absolute_operator",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_ABSOLUTE",
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="string_grows_within_a_range_absolute_operator",
+        ),
+        pytest.param(
+            "GROWS_AT_LEAST_PERCENTAGE",
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            id="string_grows_at_least_percentage_operator",
+        ),
+        pytest.param(
+            "GROWS_AT_MOST_PERCENTAGE",
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            id="string_grows_at_most_percentage_operator",
+        ),
+        pytest.param(
+            "GROWS_WITHIN_A_RANGE_PERCENTAGE",
+            models.AssertionStdOperatorClass.BETWEEN,
+            id="string_grows_within_a_range_percentage_operator",
         ),
     ],
 )
-def test_sql_assertion_criteria_get_operator(
-    operator: Union[SqlAssertionOperator, str],
+def test_sql_assertion_criteria_get_operator_from_condition(
+    condition: Union[SqlAssertionCondition, str],
     expected_model_operator: models.AssertionStdOperatorClass,
 ) -> None:
-    """Test SqlAssertionCriteria.get_operator() conversion."""
-    result = SqlAssertionCriteria.get_operator(operator)
+    """Test SqlAssertionCriteria.get_operator_from_condition() conversion."""
+    result = SqlAssertionCriteria.get_operator_from_condition(condition)
     assert result == expected_model_operator
 
 
@@ -2343,9 +2564,7 @@ def test_sql_assertion_input_creation_basic(
 ) -> None:
     """Test basic _SqlAssertionInput creation."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
+        condition=SqlAssertionCondition.IS_GREATER_THAN,
         parameters=100,
     )
 
@@ -2374,9 +2593,7 @@ def test_sql_assertion_input_creation_with_all_parameters(
 ) -> None:
     """Test _SqlAssertionInput creation with all parameters."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.PERCENTAGE,
-        operator=SqlAssertionOperator.BETWEEN,
+        condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
         parameters=(-10.0, 10.0),
     )
 
@@ -2416,9 +2633,7 @@ def test_sql_assertion_input_create_assertion_info(
 ) -> None:
     """Test _SqlAssertionInput._create_assertion_info() method."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+        condition=SqlAssertionCondition.IS_LESS_THAN,
         parameters=500,
     )
 
@@ -2444,10 +2659,7 @@ def test_sql_assertion_input_create_assertion_info(
         == "SELECT COUNT(*) FROM public.users WHERE active = true"
     )
     assert assertion_info.changeType is None
-    assert (
-        assertion_info.operator
-        == models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
-    )
+    assert assertion_info.operator == models.AssertionStdOperatorClass.LESS_THAN
     assert assertion_info.parameters.value is not None
     assert assertion_info.parameters.value.value == "500.0"
 
@@ -2458,9 +2670,7 @@ def test_sql_assertion_input_create_assertion_info_with_change_type(
 ) -> None:
     """Test _SqlAssertionInput._create_assertion_info() with change type."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC_CHANGE,
-        change_type=SqlAssertionChangeType.ABSOLUTE,
-        operator=SqlAssertionOperator.BETWEEN,
+        condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
         parameters=(5, 50),
     )
 
@@ -2491,9 +2701,7 @@ def test_sql_assertion_input_create_monitor_info(
 ) -> None:
     """Test _SqlAssertionInput._create_monitor_info() method."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN,
+        condition=SqlAssertionCondition.IS_GREATER_THAN,
         parameters=1000,
     )
 
@@ -2534,9 +2742,7 @@ def test_sql_assertion_input_get_assertion_evaluation_parameters(
 ) -> None:
     """Test _SqlAssertionInput._get_assertion_evaluation_parameters() method."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.EQUAL_TO,
+        condition=SqlAssertionCondition.IS_EQUAL_TO,
         parameters=42,
     )
 
@@ -2561,9 +2767,7 @@ def test_sql_assertion_input_convert_schedule_default(
 ) -> None:
     """Test _SqlAssertionInput._convert_schedule() with default schedule."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.NOT_EQUAL_TO,
+        condition=SqlAssertionCondition.IS_NOT_EQUAL_TO,
         parameters=0,
     )
 
@@ -2589,9 +2793,7 @@ def test_sql_assertion_input_convert_schedule_custom(
 ) -> None:
     """Test _SqlAssertionInput._convert_schedule() with custom schedule."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        condition=SqlAssertionCondition.IS_GREATER_THAN,
         parameters=100,
     )
 
@@ -2622,9 +2824,7 @@ def test_sql_assertion_input_unused_methods(
 ) -> None:
     """Test _SqlAssertionInput methods that are not used for SQL assertions."""
     criteria = SqlAssertionCriteria(
-        type=SqlAssertionType.METRIC,
-        change_type=None,
-        operator=SqlAssertionOperator.LESS_THAN,
+        condition=SqlAssertionCondition.IS_LESS_THAN,
         parameters=999,
     )
 
@@ -2649,62 +2849,258 @@ def test_sql_assertion_input_unused_methods(
     assert assertion_type == models.AssertionTypeClass.SQL
 
 
-def test_sql_assertion_type_enum_sync() -> None:
-    """Test that SqlAssertionType enum values match their corresponding model class values."""
-    # Test METRIC
-    assert SqlAssertionType.METRIC.value == models.SqlAssertionTypeClass.METRIC
-    # Test METRIC_CHANGE
+def test_sql_assertion_condition_type_mapping() -> None:
+    """Test that SqlAssertionCondition properly maps to model class values."""
+    # Test METRIC conditions
     assert (
-        SqlAssertionType.METRIC_CHANGE.value
+        SqlAssertionCriteria.get_type_from_condition(SqlAssertionCondition.IS_EQUAL_TO)
+        == models.SqlAssertionTypeClass.METRIC
+    )
+    assert (
+        SqlAssertionCriteria.get_type_from_condition(
+            SqlAssertionCondition.IS_GREATER_THAN
+        )
+        == models.SqlAssertionTypeClass.METRIC
+    )
+    assert (
+        SqlAssertionCriteria.get_type_from_condition(
+            SqlAssertionCondition.IS_WITHIN_A_RANGE
+        )
+        == models.SqlAssertionTypeClass.METRIC
+    )
+
+    # Test METRIC_CHANGE conditions
+    assert (
+        SqlAssertionCriteria.get_type_from_condition(
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE
+        )
+        == models.SqlAssertionTypeClass.METRIC_CHANGE
+    )
+    assert (
+        SqlAssertionCriteria.get_type_from_condition(
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE
+        )
+        == models.SqlAssertionTypeClass.METRIC_CHANGE
+    )
+    assert (
+        SqlAssertionCriteria.get_type_from_condition(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE
+        )
         == models.SqlAssertionTypeClass.METRIC_CHANGE
     )
 
-    # Verify all enum values are covered
-    sdk_values = {member.value for member in SqlAssertionType}
-    model_values = {
-        getattr(models.SqlAssertionTypeClass, attr)
-        for attr in dir(models.SqlAssertionTypeClass)
-        if not attr.startswith("_")
-        and isinstance(getattr(models.SqlAssertionTypeClass, attr), str)
-    }
-    assert sdk_values == model_values
 
-
-def test_sql_assertion_change_type_enum_sync() -> None:
-    """Test that SqlAssertionChangeType enum values match their corresponding model class values."""
-    # Test ABSOLUTE
+def test_sql_assertion_condition_operator_mapping() -> None:
+    """Test that SqlAssertionCondition properly maps to operators."""
+    # Test operator mappings
     assert (
-        SqlAssertionChangeType.ABSOLUTE.value
-        == models.AssertionValueChangeTypeClass.ABSOLUTE
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.IS_EQUAL_TO
+        )
+        == models.AssertionStdOperatorClass.EQUAL_TO
     )
-    # Test PERCENTAGE
     assert (
-        SqlAssertionChangeType.PERCENTAGE.value
-        == models.AssertionValueChangeTypeClass.PERCENTAGE
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.IS_NOT_EQUAL_TO
+        )
+        == models.AssertionStdOperatorClass.NOT_EQUAL_TO
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.IS_GREATER_THAN
+        )
+        == models.AssertionStdOperatorClass.GREATER_THAN
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.IS_LESS_THAN
+        )
+        == models.AssertionStdOperatorClass.LESS_THAN
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.IS_WITHIN_A_RANGE
+        )
+        == models.AssertionStdOperatorClass.BETWEEN
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE
+        )
+        == models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE
+        )
+        == models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+    )
+    assert (
+        SqlAssertionCriteria.get_operator_from_condition(
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE
+        )
+        == models.AssertionStdOperatorClass.BETWEEN
     )
 
-    # Verify all enum values are covered
-    sdk_values = {member.value for member in SqlAssertionChangeType}
-    model_values = {
-        getattr(models.AssertionValueChangeTypeClass, attr)
-        for attr in dir(models.AssertionValueChangeTypeClass)
-        if not attr.startswith("_")
-        and isinstance(getattr(models.AssertionValueChangeTypeClass, attr), str)
-    }
-    assert sdk_values == model_values
 
-
-def test_sql_assertion_operator_coverage() -> None:
-    """Test that SqlAssertionOperator covers all operators from RANGE_OPERATORS and SINGLE_VALUE_NUMERIC_OPERATORS."""
-    # Get all operators from SqlAssertionOperator enum
-    sdk_operators = {member.value for member in SqlAssertionOperator}
-
-    # Get all operators from RANGE_OPERATORS and SINGLE_VALUE_NUMERIC_OPERATORS
-    expected_operators = set(RANGE_OPERATORS + SINGLE_VALUE_NUMERIC_OPERATORS)
-
-    # Verify that all expected operators are covered by SqlAssertionOperator
-    assert sdk_operators == expected_operators, (
-        f"SqlAssertionOperator does not cover all expected operators.\n"
-        f"Missing operators: {expected_operators - sdk_operators}\n"
-        f"Extra operators: {sdk_operators - expected_operators}"
+@pytest.mark.parametrize(
+    "assertion_type, operator, change_type, expected_condition, expected_exception",
+    [
+        # METRIC type assertions (value-based) - success cases
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            models.AssertionStdOperatorClass.EQUAL_TO,
+            None,
+            SqlAssertionCondition.IS_EQUAL_TO,
+            nullcontext(),
+            id="metric_equal_to",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+            None,
+            SqlAssertionCondition.IS_NOT_EQUAL_TO,
+            nullcontext(),
+            id="metric_not_equal_to",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            models.AssertionStdOperatorClass.GREATER_THAN,
+            None,
+            SqlAssertionCondition.IS_GREATER_THAN,
+            nullcontext(),
+            id="metric_greater_than",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            models.AssertionStdOperatorClass.LESS_THAN,
+            None,
+            SqlAssertionCondition.IS_LESS_THAN,
+            nullcontext(),
+            id="metric_less_than",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            models.AssertionStdOperatorClass.BETWEEN,
+            None,
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
+            nullcontext(),
+            id="metric_between",
+        ),
+        # METRIC_CHANGE type assertions (growth-based with absolute change) - success cases
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+            nullcontext(),
+            id="metric_change_grows_at_most_absolute",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
+            nullcontext(),
+            id="metric_change_grows_at_least_absolute",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.BETWEEN,
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+            nullcontext(),
+            id="metric_change_grows_within_range_absolute",
+        ),
+        # METRIC_CHANGE type assertions (growth-based with percentage change) - success cases
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+            nullcontext(),
+            id="metric_change_grows_at_most_percentage",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+            nullcontext(),
+            id="metric_change_grows_at_least_percentage",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.BETWEEN,
+            models.AssertionValueChangeTypeClass.PERCENTAGE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+            nullcontext(),
+            id="metric_change_grows_within_range_percentage",
+        ),
+        # Error cases
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC,
+            "UNSUPPORTED_OPERATOR",  # Invalid operator
+            None,
+            None,
+            pytest.raises(ValueError, match="Unsupported combination"),
+            id="metric_unsupported_operator_error",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            None,  # Missing required changeType
+            None,
+            pytest.raises(
+                AssertionError,
+                match="changeType must be present for METRIC_CHANGE assertions",
+            ),
+            id="metric_change_missing_change_type_error",
+        ),
+        pytest.param(
+            models.SqlAssertionTypeClass.METRIC_CHANGE,
+            "UNSUPPORTED_OPERATOR",  # Invalid operator for metric change
+            models.AssertionValueChangeTypeClass.ABSOLUTE,
+            None,
+            pytest.raises(ValueError, match="Unsupported combination"),
+            id="metric_change_unsupported_operator_error",
+        ),
+        pytest.param(
+            "UNSUPPORTED_TYPE",  # Invalid assertion type
+            models.AssertionStdOperatorClass.EQUAL_TO,
+            None,
+            None,
+            pytest.raises(ValueError, match="Unsupported combination"),
+            id="unsupported_assertion_type_error",
+        ),
+    ],
+)
+def test_sql_assertion_get_condition_from_model_assertion_info(
+    assertion_type: Union[models.SqlAssertionTypeClass, str],
+    operator: Union[models.AssertionStdOperatorClass, str],
+    change_type: Optional[models.AssertionValueChangeTypeClass],
+    expected_condition: Optional[SqlAssertionCondition],
+    expected_exception: ContextManager[Any],
+) -> None:
+    """Test SqlAssertion._get_condition_from_model_assertion_info() conversion with success and error cases."""
+    # Create mock assertion info
+    assertion_info = models.SqlAssertionInfoClass(
+        type=assertion_type,
+        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_table,PROD)",
+        statement="SELECT COUNT(*) FROM table",
+        operator=operator,
+        parameters=models.AssertionStdParametersClass(
+            value=models.AssertionStdParameterClass(
+                type=models.AssertionStdParameterTypeClass.NUMBER,
+                value="100",
+            )
+        ),
+        changeType=change_type,
     )
+
+    # Test the method
+    with expected_exception:
+        result = SqlAssertion._get_condition_from_model_assertion_info(assertion_info)
+        # Only assert the result if we expect success (no exception)
+        if expected_condition is not None:
+            assert result == expected_condition

@@ -20,9 +20,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     InferenceSensitivity,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -490,9 +489,7 @@ def test_sql_assertion_creation_min_fields(
         mode=AssertionMode.ACTIVE,
         statement="SELECT COUNT(*) FROM table",
         criteria=SqlAssertionCriteria(
-            type=SqlAssertionType.METRIC,
-            change_type=None,
-            operator=SqlAssertionOperator.GREATER_THAN,
+            condition=SqlAssertionCondition.IS_GREATER_THAN,
             parameters=100,
         ),
         schedule=DEFAULT_DAILY_SCHEDULE,
@@ -514,9 +511,7 @@ def test_sql_assertion_all_attributes_are_readonly(
         mode=AssertionMode.ACTIVE,
         statement="SELECT COUNT(*) FROM table",
         criteria=SqlAssertionCriteria(
-            type=SqlAssertionType.METRIC,
-            change_type=None,
-            operator=SqlAssertionOperator.GREATER_THAN,
+            condition=SqlAssertionCondition.IS_GREATER_THAN,
             parameters=100,
         ),
         schedule=DEFAULT_DAILY_SCHEDULE,

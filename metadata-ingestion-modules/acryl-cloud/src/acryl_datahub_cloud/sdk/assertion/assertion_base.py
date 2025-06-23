@@ -37,10 +37,8 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionChangeType,
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     VolumeAssertionDefinition,
@@ -1359,16 +1357,8 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
         return self._statement
 
     @property
-    def criteria_type(self) -> Union[SqlAssertionType, str]:
-        return self._criteria.type
-
-    @property
-    def criteria_change_type(self) -> Optional[Union[SqlAssertionChangeType, str]]:
-        return self._criteria.change_type
-
-    @property
-    def criteria_operator(self) -> Union[SqlAssertionOperator, str]:
-        return self._criteria.operator
+    def criteria_condition(self) -> Union[SqlAssertionCondition, str]:
+        return self._criteria.condition
 
     @property
     def criteria_parameters(
@@ -1399,6 +1389,76 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
             )
 
     @staticmethod
+    def _get_condition_from_model_assertion_info(
+        assertion_info: models.SqlAssertionInfoClass,
+    ) -> SqlAssertionCondition:
+        """Convert stored assertion info to condition enum."""
+        # Handle value-based conditions (no change type)
+        if str(assertion_info.type) == str(models.SqlAssertionTypeClass.METRIC):
+            value_conditions = {
+                str(
+                    models.AssertionStdOperatorClass.EQUAL_TO
+                ): SqlAssertionCondition.IS_EQUAL_TO,
+                str(
+                    models.AssertionStdOperatorClass.NOT_EQUAL_TO
+                ): SqlAssertionCondition.IS_NOT_EQUAL_TO,
+                str(
+                    models.AssertionStdOperatorClass.GREATER_THAN
+                ): SqlAssertionCondition.IS_GREATER_THAN,
+                str(
+                    models.AssertionStdOperatorClass.LESS_THAN
+                ): SqlAssertionCondition.IS_LESS_THAN,
+                str(
+                    models.AssertionStdOperatorClass.BETWEEN
+                ): SqlAssertionCondition.IS_WITHIN_A_RANGE,
+            }
+            if str(assertion_info.operator) in value_conditions:
+                return value_conditions[str(assertion_info.operator)]
+
+        # Handle growth-based conditions (with change type)
+        elif str(assertion_info.type) == str(
+            models.SqlAssertionTypeClass.METRIC_CHANGE
+        ):
+            assert assertion_info.changeType is not None, (
+                "changeType must be present for METRIC_CHANGE assertions"
+            )
+
+            growth_conditions = {
+                (
+                    str(models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO),
+                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
+                ): SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+                (
+                    str(models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO),
+                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
+                ): SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+                (
+                    str(models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO),
+                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
+                ): SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
+                (
+                    str(models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO),
+                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
+                ): SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+                (
+                    str(models.AssertionStdOperatorClass.BETWEEN),
+                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
+                ): SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+                (
+                    str(models.AssertionStdOperatorClass.BETWEEN),
+                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
+                ): SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+            }
+
+            key = (str(assertion_info.operator), str(assertion_info.changeType))
+            if key in growth_conditions:
+                return growth_conditions[key]
+
+        raise ValueError(
+            f"Unsupported combination: type={assertion_info.type}, operator={assertion_info.operator}, changeType={assertion_info.changeType}"
+        )
+
+    @staticmethod
     def _get_criteria(assertion: Assertion) -> SqlAssertionCriteria:
         if assertion.info is None:
             raise SDKNotYetSupportedError(
@@ -1422,20 +1482,12 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
                     f"Assertion {assertion.urn} does not have a valid parameters for the SQL assertion"
                 )
 
+            condition = SqlAssertion._get_condition_from_model_assertion_info(
+                assertion.info
+            )
+
             return SqlAssertionCriteria(
-                type=assertion.info.type
-                if isinstance(assertion.info.type, str)
-                else str(assertion.info.type),
-                change_type=assertion.info.changeType
-                if assertion.info.changeType is None
-                else (
-                    assertion.info.changeType
-                    if isinstance(assertion.info.changeType, str)
-                    else str(assertion.info.changeType)
-                ),
-                operator=assertion.info.operator
-                if isinstance(assertion.info.operator, str)
-                else str(assertion.info.operator),
+                condition=condition,
                 parameters=parameters,
             )
         else:

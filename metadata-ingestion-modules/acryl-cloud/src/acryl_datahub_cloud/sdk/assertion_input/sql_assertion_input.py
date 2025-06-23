@@ -11,7 +11,6 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
     FieldSpecType,
     _AssertionInput,
-    _try_parse_and_validate_schema_classes_enum,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
     AssertionInfoInputType,
@@ -23,61 +22,109 @@ from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
 
 
-class SqlAssertionType(Enum):
-    METRIC_CHANGE = models.SqlAssertionTypeClass.METRIC_CHANGE
-    METRIC = models.SqlAssertionTypeClass.METRIC
-
-
-class SqlAssertionChangeType(Enum):
-    ABSOLUTE = models.AssertionValueChangeTypeClass.ABSOLUTE
-    PERCENTAGE = models.AssertionValueChangeTypeClass.PERCENTAGE
-
-
-class SqlAssertionOperator(Enum):
-    EQUAL_TO = models.AssertionStdOperatorClass.EQUAL_TO
-    NOT_EQUAL_TO = models.AssertionStdOperatorClass.NOT_EQUAL_TO
-    GREATER_THAN = models.AssertionStdOperatorClass.GREATER_THAN
-    LESS_THAN = models.AssertionStdOperatorClass.LESS_THAN
-    GREATER_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
-    LESS_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
-    BETWEEN = models.AssertionStdOperatorClass.BETWEEN
+class SqlAssertionCondition(Enum):
+    IS_EQUAL_TO = "IS_EQUAL_TO"  # models.SqlAssertionTypeClass.METRIC + models.AssertionStdOperatorClass.EQUAL_TO
+    IS_NOT_EQUAL_TO = "IS_NOT_EQUAL_TO"  # models.SqlAssertionTypeClass.METRIC + models.AssertionStdOperatorClass.NOT_EQUAL_TO
+    IS_GREATER_THAN = "IS_GREATER_THAN"  # models.SqlAssertionTypeClass.METRIC + models.AssertionStdOperatorClass.GREATER_THAN
+    IS_LESS_THAN = "IS_LESS_THAN"  # models.SqlAssertionTypeClass.METRIC + models.AssertionStdOperatorClass.LESS_THAN
+    IS_WITHIN_A_RANGE = "IS_WITHIN_A_RANGE"  # models.SqlAssertionTypeClass.METRIC + models.AssertionStdOperatorClass.BETWEEN
+    GROWS_AT_MOST_ABSOLUTE = "GROWS_AT_MOST_ABSOLUTE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.ABSOLUTE
+    GROWS_AT_MOST_PERCENTAGE = "GROWS_AT_MOST_PERCENTAGE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.PERCENTAGE
+    GROWS_AT_LEAST_ABSOLUTE = "GROWS_AT_LEAST_ABSOLUTE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.ABSOLUTE
+    GROWS_AT_LEAST_PERCENTAGE = "GROWS_AT_LEAST_PERCENTAGE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.PERCENTAGE
+    GROWS_WITHIN_A_RANGE_ABSOLUTE = "GROWS_WITHIN_A_RANGE_ABSOLUTE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.BETWEEN + models.AssertionValueChangeTypeClass.ABSOLUTE
+    GROWS_WITHIN_A_RANGE_PERCENTAGE = "GROWS_WITHIN_A_RANGE_PERCENTAGE"  # models.SqlAssertionTypeClass.METRIC_CHANGE + models.AssertionStdOperatorClass.BETWEEN + models.AssertionValueChangeTypeClass.PERCENTAGE
 
 
 class SqlAssertionCriteria(BaseModel):
-    type: Union[SqlAssertionType, str]
-    change_type: Optional[Union[SqlAssertionChangeType, str]]
-    operator: Union[SqlAssertionOperator, str]
+    condition: Union[SqlAssertionCondition, str]
     # Either a single value or a range must be provided
     parameters: Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]
 
     @classmethod
-    def get_type(
-        cls, type: Union[SqlAssertionType, str]
+    def get_type_from_condition(
+        cls, condition: Union[SqlAssertionCondition, str]
     ) -> models.SqlAssertionTypeClass:
-        return _try_parse_and_validate_schema_classes_enum(
-            type if isinstance(type, str) else str(type.value),
-            models.SqlAssertionTypeClass,
+        condition_enum = (
+            condition
+            if isinstance(condition, SqlAssertionCondition)
+            else SqlAssertionCondition(condition)
         )
 
-    @classmethod
-    def get_change_type(
-        cls, change_type: Optional[Union[SqlAssertionChangeType, str]]
-    ) -> Optional[models.AssertionValueChangeTypeClass]:
-        if change_type is None:
-            return None
-        return _try_parse_and_validate_schema_classes_enum(
-            change_type if isinstance(change_type, str) else str(change_type.value),
-            models.AssertionValueChangeTypeClass,
-        )
+        if condition_enum in [
+            SqlAssertionCondition.IS_EQUAL_TO,
+            SqlAssertionCondition.IS_NOT_EQUAL_TO,
+            SqlAssertionCondition.IS_GREATER_THAN,
+            SqlAssertionCondition.IS_LESS_THAN,
+            SqlAssertionCondition.IS_WITHIN_A_RANGE,
+        ]:
+            return models.SqlAssertionTypeClass.METRIC  # type: ignore[return-value]
+        elif condition_enum in [
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+        ]:
+            return models.SqlAssertionTypeClass.METRIC_CHANGE  # type: ignore[return-value]
+        else:
+            raise SDKUsageError(f"Unknown condition: {condition_enum}")
 
     @classmethod
-    def get_operator(
-        cls, operator: Union[SqlAssertionOperator, str]
+    def get_operator_from_condition(
+        cls, condition: Union[SqlAssertionCondition, str]
     ) -> models.AssertionStdOperatorClass:
-        return _try_parse_and_validate_schema_classes_enum(
-            operator if isinstance(operator, str) else str(operator.value),
-            models.AssertionStdOperatorClass,
+        condition_enum = (
+            condition
+            if isinstance(condition, SqlAssertionCondition)
+            else SqlAssertionCondition(condition)
         )
+
+        condition_to_operator = {
+            SqlAssertionCondition.IS_EQUAL_TO: models.AssertionStdOperatorClass.EQUAL_TO,
+            SqlAssertionCondition.IS_NOT_EQUAL_TO: models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+            SqlAssertionCondition.IS_GREATER_THAN: models.AssertionStdOperatorClass.GREATER_THAN,
+            SqlAssertionCondition.IS_LESS_THAN: models.AssertionStdOperatorClass.LESS_THAN,
+            SqlAssertionCondition.IS_WITHIN_A_RANGE: models.AssertionStdOperatorClass.BETWEEN,
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE: models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE: models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE: models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE: models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE: models.AssertionStdOperatorClass.BETWEEN,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE: models.AssertionStdOperatorClass.BETWEEN,
+        }
+
+        if condition_enum not in condition_to_operator:
+            raise SDKUsageError(f"Unknown condition: {condition_enum}")
+
+        return condition_to_operator[condition_enum]  # type: ignore[return-value]
+
+    @classmethod
+    def get_change_type_from_condition(
+        cls, condition: Union[SqlAssertionCondition, str]
+    ) -> Optional[models.AssertionValueChangeTypeClass]:
+        condition_enum = (
+            condition
+            if isinstance(condition, SqlAssertionCondition)
+            else SqlAssertionCondition(condition)
+        )
+
+        if condition_enum in [
+            SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
+            SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
+        ]:
+            return models.AssertionValueChangeTypeClass.ABSOLUTE  # type: ignore[return-value]
+        elif condition_enum in [
+            SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
+            SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
+            SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
+        ]:
+            return models.AssertionValueChangeTypeClass.PERCENTAGE  # type: ignore[return-value]
+        else:
+            # Value-based conditions don't have a change type
+            return None
 
     @classmethod
     def get_parameters(
@@ -111,35 +158,29 @@ class SqlAssertionCriteria(BaseModel):
 
     @staticmethod
     def validate(criteria: "SqlAssertionCriteria") -> "SqlAssertionCriteria":
-        operator = SqlAssertionCriteria.get_operator(criteria.operator)
+        operator = SqlAssertionCriteria.get_operator_from_condition(criteria.condition)
+        condition_enum = (
+            criteria.condition
+            if isinstance(criteria.condition, SqlAssertionCondition)
+            else SqlAssertionCondition(criteria.condition)
+        )
+
         if operator in SINGLE_VALUE_NUMERIC_OPERATORS:
             if not isinstance(criteria.parameters, float) and not isinstance(
                 criteria.parameters, int
             ):
                 raise SDKUsageError(
-                    f"The parameter value of SqlAssertionCriteria must be a single value numeric for operator {str(operator)}"
+                    f"The parameter value of SqlAssertionCriteria must be a single value numeric for condition {str(condition_enum)}"
                 )
         elif operator in RANGE_OPERATORS:
             if not isinstance(criteria.parameters, tuple):
                 raise SDKUsageError(
-                    f"The parameter value of SqlAssertionCriteria must be a tuple range for operator {str(operator)}"
+                    f"The parameter value of SqlAssertionCriteria must be a tuple range for condition {str(condition_enum)}"
                 )
         else:
             raise SDKUsageError(
-                f"Operator {str(operator)} is not supported for SqlAssertionCriteria"
+                f"Condition {str(condition_enum)} is not supported for SqlAssertionCriteria"
             )
-
-        if (
-            criteria.type == SqlAssertionType.METRIC_CHANGE
-            and criteria.change_type is None
-        ):
-            raise SDKUsageError("Change type is required for metric change assertions")
-
-        if (
-            criteria.type == SqlAssertionType.METRIC
-            and criteria.change_type is not None
-        ):
-            raise SDKUsageError("Change type is not allowed for metric assertions")
 
         return criteria
 
@@ -227,11 +268,15 @@ class _SqlAssertionInput(_AssertionInput):
         SqlAssertionCriteria.validate(self.criteria)
 
         return models.SqlAssertionInfoClass(
-            type=SqlAssertionCriteria.get_type(self.criteria.type),
+            type=SqlAssertionCriteria.get_type_from_condition(self.criteria.condition),
             entity=str(self.dataset_urn),
             statement=self.statement,
-            changeType=SqlAssertionCriteria.get_change_type(self.criteria.change_type),
-            operator=SqlAssertionCriteria.get_operator(self.criteria.operator),
+            changeType=SqlAssertionCriteria.get_change_type_from_condition(
+                self.criteria.condition
+            ),
+            operator=SqlAssertionCriteria.get_operator_from_condition(
+                self.criteria.condition
+            ),
             parameters=SqlAssertionCriteria.get_parameters(self.criteria.parameters),
         )
 

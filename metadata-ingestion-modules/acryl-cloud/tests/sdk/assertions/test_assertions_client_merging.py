@@ -27,10 +27,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionChangeType,
+    SqlAssertionCondition,
     SqlAssertionCriteria,
-    SqlAssertionOperator,
-    SqlAssertionType,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -1348,8 +1346,7 @@ class SqlAssertionInputParams:
 @dataclass
 class SqlAssertionOutputParams:
     dataset_urn: Union[str, DatasetUrn]
-    criteria_type: Union[SqlAssertionType, str]
-    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_condition: Union[SqlAssertionCondition, str]
     criteria_parameters: Union[
         Union[float, int], tuple[Union[float, int], Union[float, int]]
     ]
@@ -1363,19 +1360,16 @@ class SqlAssertionOutputParams:
     created_at: datetime
     updated_by: CorpUserUrn
     updated_at: datetime
-    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
 
 
 @dataclass
 class SqlAssertionUpsertInputParams:
     dataset_urn: Union[str, DatasetUrn]
-    criteria_type: Union[SqlAssertionType, str]
-    criteria_operator: Union[SqlAssertionOperator, str]
+    criteria_condition: Union[SqlAssertionCondition, str]
     criteria_parameters: Union[
         Union[float, int], tuple[Union[float, int], Union[float, int]]
     ]
     statement: str
-    criteria_change_type: Optional[Union[SqlAssertionChangeType, str]] = None
     urn: Optional[Union[str, AssertionUrn]] = None
     display_name: Optional[str] = None
     enabled: Optional[bool] = None
@@ -1398,9 +1392,7 @@ def test_sync_sql_assertion_valid_simple_input(
     input_params = SqlAssertionUpsertInputParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
         statement="SELECT COUNT(*) FROM test_table",
         display_name="Test SQL Assertion",
@@ -1420,9 +1412,7 @@ def test_sync_sql_assertion_valid_simple_input(
         input_params,
         SqlAssertionOutputParams(
             dataset_urn=input_params.dataset_urn,
-            criteria_type=input_params.criteria_type,
-            criteria_change_type=input_params.criteria_change_type,
-            criteria_operator=input_params.criteria_operator,
+            criteria_condition=input_params.criteria_condition,
             criteria_parameters=input_params.criteria_parameters,
             statement=input_params.statement,
             display_name=input_params.display_name or "",
@@ -1481,9 +1471,7 @@ def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
         criteria_parameters=42,
         statement="SELECT COUNT(*) FROM users",
     )
@@ -1491,12 +1479,8 @@ def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
     assert mock_create_assertion.call_count == 1
     assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
     assert (
-        mock_create_assertion.call_args[1]["criteria_type"] == SqlAssertionType.METRIC
-    )
-    assert mock_create_assertion.call_args[1]["criteria_change_type"] is None
-    assert (
-        mock_create_assertion.call_args[1]["criteria_operator"]
-        == SqlAssertionOperator.EQUAL_TO
+        mock_create_assertion.call_args[1]["criteria_condition"]
+        == SqlAssertionCondition.IS_EQUAL_TO
     )
     assert mock_create_assertion.call_args[1]["criteria_parameters"] == 42
     assert (
@@ -1531,9 +1515,7 @@ def test_sync_sql_assertion_uses_default_if_updated_by_is_not_set(
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC_CHANGE,
-        criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
-        criteria_operator=SqlAssertionOperator.LESS_THAN,
+        criteria_condition=SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
         criteria_parameters=10,
         statement="SELECT AVG(price) FROM products",
         updated_by=updated_by,
@@ -1563,9 +1545,7 @@ def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_no
             display_name="Mock SQL assertion",
             mode=AssertionMode.ACTIVE,
             criteria=SqlAssertionCriteria(
-                type=SqlAssertionType.METRIC,
-                change_type=None,
-                operator=SqlAssertionOperator.GREATER_THAN,
+                condition=SqlAssertionCondition.IS_GREATER_THAN,
                 parameters=50,
             ),
             statement="SELECT COUNT(*) FROM table",
@@ -1579,9 +1559,7 @@ def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_no
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=50,
         statement="SELECT COUNT(*) FROM table",
     )
@@ -1617,9 +1595,7 @@ def test_sync_sql_assertion_calls_upsert_if_assertion_exists_but_monitor_does_no
     input_params = SqlAssertionUpsertInputParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_condition=SqlAssertionCondition.IS_WITHIN_A_RANGE,
         criteria_parameters=(10, 100),
         statement="SELECT COUNT(*) FROM orders",
         display_name="Updated SQL Assertion",
@@ -1633,9 +1609,7 @@ def test_sync_sql_assertion_calls_upsert_if_assertion_exists_but_monitor_does_no
         input_params,
         SqlAssertionOutputParams(
             dataset_urn=any_dataset_urn,
-            criteria_type=input_params.criteria_type,
-            criteria_change_type=input_params.criteria_change_type,
-            criteria_operator=input_params.criteria_operator,
+            criteria_condition=input_params.criteria_condition,
             criteria_parameters=input_params.criteria_parameters,
             statement="SELECT COUNT(*) FROM orders",
             display_name="Updated SQL Assertion",
@@ -1670,9 +1644,7 @@ def test_sync_sql_assertion_raises_error_if_assertion_and_input_have_different_d
         client.sync_sql_assertion(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,different_dataset,PROD)",
             urn=any_assertion_urn,
-            criteria_type=SqlAssertionType.METRIC,
-            criteria_change_type=None,
-            criteria_operator=SqlAssertionOperator.EQUAL_TO,
+            criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
             criteria_parameters=0,
             statement="SELECT 1",
         )
@@ -1691,9 +1663,7 @@ def test_sync_sql_assertion_uses_existing_assertion_display_name_if_input_displa
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.NOT_EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.IS_NOT_EQUAL_TO,
         criteria_parameters=999,
         statement="SELECT COUNT(*) FROM events",
         display_name=None,
@@ -1733,9 +1703,7 @@ def test_sync_sql_assertion_uses_empty_display_name_if_existing_assertion_has_no
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
         criteria_parameters=1,
         statement="SELECT 1",
         display_name=None,
@@ -1757,9 +1725,7 @@ def test_sync_sql_assertion_uses_existing_assertion_incident_behavior_if_input_i
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC_CHANGE,
-        criteria_change_type=SqlAssertionChangeType.ABSOLUTE,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
         criteria_parameters=5,
         statement="SELECT SUM(revenue) FROM sales",
         incident_behavior=None,
@@ -1783,9 +1749,7 @@ def test_sync_sql_assertion_uses_existing_assertion_tags_if_input_tags_is_not_se
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.IS_LESS_THAN,
         criteria_parameters=1000,
         statement="SELECT MAX(id) FROM users",
         tags=None,
@@ -1812,9 +1776,7 @@ def test_sync_sql_assertion_uses_input_display_name_if_input_display_name_is_set
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_condition=SqlAssertionCondition.IS_WITHIN_A_RANGE,
         criteria_parameters=(0, 10),
         statement="SELECT COUNT(*) FROM failed_jobs",
         display_name="Custom SQL Assertion Name",
@@ -1835,9 +1797,7 @@ def test_sync_sql_assertion_uses_input_incident_behavior_if_input_incident_behav
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.EQUAL_TO,
+        criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
         criteria_parameters=0,
         statement="SELECT COUNT(*) FROM errors WHERE severity = 'critical'",
         incident_behavior=[],  # Empty list means set to no incident behavior
@@ -1858,9 +1818,7 @@ def test_sync_sql_assertion_uses_input_tags_if_input_tags_is_set(
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC_CHANGE,
-        criteria_change_type=SqlAssertionChangeType.PERCENTAGE,
-        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
         criteria_parameters=(-5, 5),
         statement="SELECT COUNT(*) FROM daily_active_users WHERE date = CURRENT_DATE",
         tags=["urn:li:tag:critical", "urn:li:tag:automated"],
@@ -1900,9 +1858,7 @@ def test_sync_sql_assertion_enabled_parameter_merging(
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.GREATER_THAN,
+        criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
         statement="SELECT COUNT(*) FROM active_users",
         enabled=enabled,
@@ -1941,9 +1897,7 @@ def test_sync_sql_assertion_enabled_none_preserves_inactive(
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC,
-        criteria_change_type=None,
-        criteria_operator=SqlAssertionOperator.LESS_THAN,
+        criteria_condition=SqlAssertionCondition.IS_LESS_THAN,
         criteria_parameters=10,
         statement="SELECT COUNT(*) FROM errors",
         enabled=None,  # Should preserve existing state
@@ -1973,9 +1927,7 @@ def test_sync_sql_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
         client.sync_sql_assertion(
             dataset_urn=any_dataset_urn,
             urn=None,  # This should trigger create
-            criteria_type=SqlAssertionType.METRIC,
-            criteria_change_type=None,
-            criteria_operator=SqlAssertionOperator.EQUAL_TO,
+            criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
             criteria_parameters=1,
             statement="SELECT 1",
             enabled=False,
@@ -2007,9 +1959,7 @@ def test_sync_sql_assertion_schedule_parameter_merging(
     result = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=SqlAssertionType.METRIC_CHANGE,
-        criteria_change_type=SqlAssertionChangeType.ABSOLUTE,
-        criteria_operator=SqlAssertionOperator.BETWEEN,
+        criteria_condition=SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
         criteria_parameters=(0, 100),
         statement="SELECT COUNT(*) FROM transactions WHERE amount > 1000",
         schedule=custom_schedule,
@@ -2044,9 +1994,7 @@ def _validate_sql_assertion_vs_input(
         # Should use existing or generate one
         assert assertion.display_name is not None
 
-    assert assertion.criteria_type == expected_output_params.criteria_type
-    assert assertion.criteria_change_type == expected_output_params.criteria_change_type
-    assert assertion.criteria_operator == expected_output_params.criteria_operator
+    assert assertion.criteria_condition == expected_output_params.criteria_condition
     assert assertion.criteria_parameters == expected_output_params.criteria_parameters
     assert assertion.statement == expected_output_params.statement
     assert assertion.mode == expected_output_params.mode
