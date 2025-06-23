@@ -52,10 +52,10 @@ interface Props {
     isLastPage?: boolean;
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
     saasProps: {
         onViewPool: (poolId: string) => void;
     };
-    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 function IngestionSourceTable({
@@ -72,8 +72,8 @@ function IngestionSourceTable({
     isLastPage,
     sourcesToRefetch,
     executedUrns,
-    saasProps,
     setSelectedTab,
+    saasProps,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
