@@ -20,7 +20,7 @@ aws_common = {"boto3"}
 open_search_common = {"opensearch-py==2.4.2"}
 
 plugins = {
-    "datahub-lineage-features": stats_common | open_search_common,
+    "datahub-lineage-features": stats_common | open_search_common | {"tenacity"},
     "datahub-reporting-forms": stats_common
     | aws_common
     | {
