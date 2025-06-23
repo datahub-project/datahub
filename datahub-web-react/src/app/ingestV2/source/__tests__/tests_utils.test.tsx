@@ -77,7 +77,7 @@ describe('getEntitiesIngestedByType', () => {
                 displayName: 'container',
             },
             {
-                count: 1521,
+                count: 1505,
                 displayName: 'dataset',
             },
         ]);
