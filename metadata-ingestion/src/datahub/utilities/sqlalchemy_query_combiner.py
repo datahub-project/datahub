@@ -115,13 +115,83 @@ class _QueryFuture:
     exc: Optional[Exception] = None
 
 
-def get_query_columns(query: Any) -> List[Any]:
+def get_query_columns(query: sqlalchemy.sql.Select) -> List[Any]:
     try:
         # inner_columns will be more accurate if the column names are unnamed,
         # since .columns will remove the "duplicates".
+        # SQLAlchemy 1.4 also introduces exported_columns/selected_columns, which
+        # function similarly to inner_columns but for some reason filter out any
+        # sa.text values.
         return list(query.inner_columns)
     except AttributeError:
         return list(query.columns)
+
+
+def get_query_froms(query: sqlalchemy.sql.Select) -> List[sqlalchemy.sql.Selectable]:
+    try:
+        # Introduced in SQLAlchemy 1.4.23
+        return query.get_final_froms()
+    except AttributeError:
+        # Deprecated in SQLAlchemy 1.4.23
+        return query.froms
+
+
+def is_simple_query(query: sqlalchemy.sql.Select) -> bool:
+    # A simple query has only one table, only aggregate select expressions, and
+    # no joins, limits, group bys, etc. It can be easily combined with other simple
+    # queries from the same table simply by concating the set of columns.
+
+    # Only has one FROM, no joins, and that that FROM is a table, not a subquery:
+    if len(get_query_froms(query)) != 1:
+        return False
+    if not isinstance(get_query_froms(query)[0], sqlalchemy.sql.TableClause):
+        return False
+
+    # Any bare column names mean it's definitely not an aggregate:
+    for c in get_query_columns(query):
+        if isinstance(c, sqlalchemy.sql.elements.ColumnClause):
+            return False
+
+    # Make sure there are no WHERE, LIMIT, OFFSET, or other clauses. This is done
+    # by comparing the query against a new one composed of just its column expressions
+    # and FROM clause, which won't carry along any additional clauses.
+    bare_query = sqlalchemy.select(*get_query_columns(query)).select_from(
+        get_query_froms(query)[0]
+    )
+    # We also allow equality with one such query that contains a single `where TRUE`
+    # clause, to handle the case of Great Expectations' stddev queries (which generate
+    # a `where TRUE` clause due to a programming typo).
+    allowed_queries = [bare_query, bare_query.where(True)]
+    query_stringified = str(query.compile(compile_kwargs={"literal_binds": True}))
+    matches_allowed_query = any(
+        query_stringified
+        == str(allowed.compile(compile_kwargs={"literal_binds": True}))
+        for allowed in allowed_queries
+    )
+    if not matches_allowed_query:
+        return False
+
+    # This is a either a simple aggregate query or, unlikely, a SELECT with no LIMIT or
+    # WHERE clause and that doesn't return any raw columns.
+    # Assume this is a simple aggregate query.
+    return True
+
+
+def are_query_froms_equal(
+    left: sqlalchemy.sql.Selectable, right: sqlalchemy.sql.Selectable
+) -> bool:
+    # Selectable objects don't define ==, and a bare str(obj) won't quote
+    # table names correctly or include params. Compare strings compiled
+    # from fake queries selecting from the Selectables.
+
+    def stringify_as_query(selectable: sqlalchemy.sql.Selectable) -> str:
+        return str(
+            sqlalchemy.select(1)
+            .select_from(selectable)
+            .compile(compile_kwargs={"literal_binds": True})
+        )
+
+    return stringify_as_query(left) == stringify_as_query(right)
 
 
 @dataclasses.dataclass
@@ -145,7 +215,6 @@ class SQLAlchemyQueryCombiner:
 
     enabled: bool
     catch_exceptions: bool
-    is_single_row_query_method: Callable[[Any], bool]
     serial_execution_fallback_enabled: bool
 
     # The Python GIL ensures that modifications to the report's counters
@@ -217,8 +286,9 @@ class SQLAlchemyQueryCombiner:
         if multiparams or params:
             return False, None
 
-        # Attempt to match against the known single-row query methods.
-        if not self.is_single_row_query_method(query):
+        # Only try to merge queries that are raw SELECT statements with no joins,
+        # filters, limits, etc.
+        if not is_simple_query(query):
             return False, None
 
         # Figure out how many columns this query returns.
@@ -347,7 +417,7 @@ class SQLAlchemyQueryCombiner:
                 if IS_SQLALCHEMY_1_4:
                     # On 1.4, it prints a warning if we don't call subquery.
                     query = query.subquery()  # type: ignore
-                cols = query.columns
+                cols = get_query_columns(query)
 
                 data = {}
                 counter: Dict[str, int] = {}
