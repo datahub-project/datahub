@@ -347,6 +347,16 @@ def should_hide_field(schema_field, current_source: str, schema_dict: Dict[str, 
     """Check if field should be hidden for the current source"""
     # Extract field name from the path
     field_name = schema_field.fieldPath.split('.')[-1]
+    for ends_with in [
+        "pattern.[type=array].allow",
+        "pattern.[type=array].allow.[type=string].string",
+        "pattern.[type=array].deny",
+        "pattern.[type=array].deny.[type=string].string",
+        "pattern.[type=boolean].ignoreCase"
+    ]:
+        # We don't want repeated allow/deny/ignoreCase for Allow/Deny patterns in docs
+        if schema_field.fieldPath.endswith(ends_with):
+            return True
     
     # Look in definitions for the field schema
     definitions = schema_dict.get("definitions", {})

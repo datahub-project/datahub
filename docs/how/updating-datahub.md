@@ -50,6 +50,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13397: Ingestion Rest Emitter
   - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
   - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
 
 ### Potential Downtime
 
