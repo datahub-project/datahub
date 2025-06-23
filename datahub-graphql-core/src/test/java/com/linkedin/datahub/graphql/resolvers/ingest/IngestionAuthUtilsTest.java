@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -34,7 +35,8 @@ public class IngestionAuthUtilsTest {
                 .getOperationContext()
                 .authorize(
                     argThat(allowedPrivileges::contains),
-                    eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, ""))))
+                    eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")),
+                    anyCollection()))
         .thenReturn(result);
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
@@ -55,7 +57,8 @@ public class IngestionAuthUtilsTest {
                 .getOperationContext()
                 .authorize(
                     argThat(allowedPrivileges::contains),
-                    eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, ""))))
+                    eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")),
+                    anyCollection()))
         .thenReturn(result);
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
