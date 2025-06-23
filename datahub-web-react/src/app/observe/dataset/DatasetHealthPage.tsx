@@ -166,7 +166,7 @@ export const DatasetHealthPage = () => {
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign} style={{ paddingBottom: 0 }}>
             <HeaderContainer>
-                <PageTitle title="Dataset Health" subTitle="Monitor the health of your organization's datasets" />
+                <PageTitle title="Data Health" subTitle="Monitor the health of your tables & columns" />
             </HeaderContainer>
             {!!appConfig.config.featureFlags.datasetHealthDashboardEnabled && mainTabs}
         </PageContainer>

@@ -5,12 +5,15 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { titleCase } from '@app/automations/utils';
 import { getCronAsText } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { getAssertionUrl } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { AssertionName } from '@app/observe/dataset/assertion/components';
-import { ASSERTIONS_DOCS_LINK, RUN_EVENTS_PREVIEW_LIMIT } from '@app/observe/dataset/assertion/constants';
+import {
+    ASSERTIONS_DOCS_LINK,
+    RUN_EVENTS_PREVIEW_LIMIT,
+    TYPE_TO_DISPLAY_NAME,
+} from '@app/observe/dataset/assertion/constants';
 import { healthUrlSuffix } from '@app/previewV2/HealthPopover';
 import { getTimeFromNow } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -141,7 +144,7 @@ export const AssertionsByAssertionSummaryTable = ({
             render: (record) => {
                 return (
                     <TypeWrapper>
-                        <Text>{titleCase(record.info?.type || 'Unknown')}</Text>
+                        <Text>{TYPE_TO_DISPLAY_NAME.get(record.info?.type) || 'Unknown'}</Text>
                         {record.info?.source?.type === AssertionSourceType.Inferred ? (
                             <Tooltip title="Smart assertion (AI anomaly detection)">
                                 <Sparkle size={16} color={colors.blue[500]} />

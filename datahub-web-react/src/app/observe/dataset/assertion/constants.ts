@@ -35,24 +35,32 @@ export const LAST_ASSERTION_RUN_AT_SORT_FIELD = 'lastCompletedTime';
 
 export const ASSERTION_TYPE_OPTIONS = [
     {
-        name: 'Freshness',
         value: AssertionType.Freshness,
+        name: 'Freshness',
     },
     {
-        name: 'Volume',
         value: AssertionType.Volume,
+        name: 'Volume',
     },
     {
-        name: 'Column',
         value: AssertionType.Field,
+        name: 'Column',
     },
     {
-        name: 'Custom SQL',
         value: AssertionType.Sql,
+        name: 'SQL',
     },
     {
-        name: 'External',
+        value: AssertionType.DataSchema,
+        name: 'Schema',
+    },
+    {
         value: AssertionType.Dataset,
+        name: 'External',
+    },
+    {
+        value: AssertionType.Custom,
+        name: 'Custom',
     },
 ];
 
@@ -63,13 +71,3 @@ export const TYPE_TO_DISPLAY_NAME = new Map();
 ASSERTION_TYPE_OPTIONS.forEach((option) => TYPE_TO_DISPLAY_NAME.set(option.value, option.name));
 
 export const RUN_EVENTS_PREVIEW_LIMIT = 1000;
-
-export const ASSERTION_TYPE_FILTER_OPTIONS: AssertionType[] = [
-    AssertionType.Freshness,
-    AssertionType.Volume,
-    AssertionType.Field,
-    AssertionType.Sql,
-    AssertionType.DataSchema,
-    AssertionType.Dataset,
-    AssertionType.Custom,
-];

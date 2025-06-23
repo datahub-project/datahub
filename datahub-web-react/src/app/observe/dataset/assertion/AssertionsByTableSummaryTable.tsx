@@ -243,7 +243,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
 
         {
             key: 'field',
-            title: 'Field',
+            title: 'Column',
             width: '80px',
             render: (record) => {
                 const assertionHealth = getAssertionHealth(record.health);

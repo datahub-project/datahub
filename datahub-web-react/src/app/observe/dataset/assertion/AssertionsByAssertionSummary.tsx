@@ -3,13 +3,12 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { titleCase } from '@app/automations/utils';
 import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { AssertionsByAssertionSummaryTable } from '@app/observe/dataset/assertion/AssertionsByAssertionSummaryTable';
 import {
     ASSERTION_RESULT_TYPE_OPTIONS_TO_RUN_SUMMARY_FILTER_FIELD,
-    ASSERTION_TYPE_FILTER_OPTIONS,
+    ASSERTION_TYPE_OPTIONS,
     AssertionResultTypeOptions,
     LAST_ASSERTION_RUN_AT_SORT_FIELD,
     RUN_EVENTS_PREVIEW_LIMIT,
@@ -132,7 +131,9 @@ export const AssertionsByAssertionSummary = () => {
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [assertionType, setAssertionType] = useState<string[]>(ASSERTION_TYPE_FILTER_OPTIONS);
+    const [assertionTypes, setAssertionTypes] = useState<string[]>(
+        ASSERTION_TYPE_OPTIONS.map((option) => option.value),
+    );
     const [assertionTags, setAssertionTags] = useState<string[]>([]);
 
     // Asset Filters
@@ -147,13 +148,13 @@ export const AssertionsByAssertionSummary = () => {
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, statuses, assertionType, assertionTags, assetFilterOptions]);
+    }, [searchQuery, statuses, assertionTypes, assertionTags, assetFilterOptions]);
 
     // Has Filters
     const hasFilters =
         statuses.length !== DEFAULT_STATUS_OPTIONS.length ||
         searchQuery.length > 0 ||
-        assertionType.length > 0 ||
+        assertionTypes.length > 0 ||
         assertionTags.length > 0 ||
         Object.values(assetFilterOptions).some((value) => value.length > 0);
 
@@ -166,7 +167,7 @@ export const AssertionsByAssertionSummary = () => {
             condition: FilterOperator.Between,
         });
 
-        filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionType });
+        filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionTypes });
 
         if (assertionTags.length > 0) {
             filters.push({ field: TAGS_FILTER_NAME, values: assertionTags });
@@ -351,14 +352,14 @@ export const AssertionsByAssertionSummary = () => {
                     {/* ************************* Assertion Type ************************* */}
                     <SimpleSelect
                         width="fit-content"
-                        options={ASSERTION_TYPE_FILTER_OPTIONS.map((option) => ({
-                            value: option,
-                            label: titleCase(option),
+                        options={ASSERTION_TYPE_OPTIONS.map((option) => ({
+                            value: option.value,
+                            label: option.name,
                         }))}
-                        values={assertionType}
+                        values={assertionTypes}
                         onUpdate={(values) => {
                             if (values.length !== 0) {
-                                setAssertionType(values);
+                                setAssertionTypes(values);
                                 analytics.event({
                                     type: EventType.DatasetHealthFilterEvent,
                                     tabType: 'AssertionsByAssertion',
@@ -383,7 +384,7 @@ export const AssertionsByAssertionSummary = () => {
                     <BaseEntityFilter
                         entityTypes={[EntityType.Tag]}
                         renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
-                        filterName="Assertion Tag"
+                        filterName="Tag"
                         fieldName={TAGS_FILTER_NAME}
                         facetState={{ facet: facets?.find((facet) => facet.field === TAGS_FILTER_NAME) }}
                         appliedFilters={{
