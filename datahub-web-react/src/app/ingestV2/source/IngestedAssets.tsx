@@ -109,6 +109,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const countsByEntityType =
         entitiesIngestedByTypeFromReport ??
         (entityTypeFacets ? extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets) : []);
+    console.log("countsByEntityType", countsByEntityType);
 
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
@@ -118,7 +119,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {error && <Message type="error" content="" />}
             <HeaderContainer>
                 <TitleContainer>
-                    <Typography.Title level={5}>Ingested Assets</Typography.Title>
+                    <Typography.Title level={5}>Ingested Records</Typography.Title>
                     {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
                         <>
                             {(total > 0 && (

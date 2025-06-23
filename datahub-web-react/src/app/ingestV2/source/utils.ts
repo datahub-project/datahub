@@ -178,17 +178,12 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
  * @returns {number | null}
  */
 export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const structuredReportObject = extractStructuredReportPOJO(result);
-    if (!structuredReportObject) {
+    const entityTypeCounts = getEntitiesIngestedByType(result);
+    if (!entityTypeCounts) {
         return null;
     }
 
-    try {
-        return structuredReportObject.sink.report.total_records_written;
-    } catch (e) {
-        console.error(`Caught exception while parsing structured report!`, e);
-        return null;
-    }
+    return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
 /** *
@@ -262,14 +257,19 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         const entities = structuredReportObject.source.report.aspects;
         const entitiesIngestedByType: { [key: string]: number } = {};
         Object.entries(entities).forEach(([entityName, aspects]) => {
-            // Get the max count of all the sub-aspects for this entity type.
-            entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            // Use the status aspect count instead of max count
+            const statusCount = (aspects as any)?.status;
+            if (statusCount !== undefined) {
+                entitiesIngestedByType[entityName] = statusCount;
+            } else {
+                // Get the max count of all the sub-aspects for this entity type if status is not present.
+                entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            }
         });
 
         if (Object.keys(entitiesIngestedByType).length === 0) {
             return null;
         }
-
         return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
             count,
             displayName: entityName,
