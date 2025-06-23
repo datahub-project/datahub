@@ -2,7 +2,7 @@ import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, Modal, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -145,6 +145,8 @@ export const IngestionSourceList = ({
     const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
+    const history = useHistory();
+
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
@@ -158,6 +160,21 @@ export const IngestionSourceList = ({
             }, 0);
         }
     }, [paramsQuery]);
+
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+
+        // Clear query param if user changes the search input
+        if (paramsQuery && value !== paramsQuery) {
+            const newParams = { ...params };
+            delete newParams.query;
+
+            history.replace({
+                pathname: location.pathname,
+                search: QueryString.stringify(newParams, { arrayFormat: 'comma' }),
+            });
+        }
+    };
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
@@ -217,7 +234,7 @@ export const IngestionSourceList = ({
         variables: {
             input: queryInputs,
         },
-        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-and-network',
+        fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
     });
 
@@ -229,6 +246,11 @@ export const IngestionSourceList = ({
 
     const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
     const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
+    useEffect(() => {
+        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
+        setFinalSources(sources);
+        setTotalSources(data?.listIngestionSources?.total || 0);
+    }, [data?.listIngestionSources]);
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -251,6 +273,7 @@ export const IngestionSourceList = ({
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
     }, [removedUrns]);
 
+    // Add active sources to polling on initial load and refetch
     useEffect(() => {
         const activeSourceUrns = finalSources
             .filter((source) => source.executions?.executionRequests?.some(isExecutionRequestActive))
@@ -258,6 +281,13 @@ export const IngestionSourceList = ({
 
         setSourcesToRefetch((prev) => new Set([...prev, ...activeSourceUrns]));
     }, [finalSources, refetch]);
+
+    // Remove the sources from polling which are not displayed
+    useEffect(() => {
+        const displayedUrns = finalSources.map((source) => source.urn);
+        setExecutedUrns((prev) => new Set([...prev].filter((urn) => displayedUrns.includes(urn))));
+        setSourcesToRefetch((prev) => new Set([...prev].filter((urn) => displayedUrns.includes(urn))));
+    }, [finalSources, setExecutedUrns, setSourcesToRefetch]);
 
     const executeIngestionSource = useCallback(
         (urn: string) => {
@@ -576,7 +606,7 @@ export const IngestionSourceList = ({
                             <StyledSearchBar
                                 placeholder="Search..."
                                 value={searchInput || ''}
-                                onChange={(value) => setSearchInput(value)}
+                                onChange={(value) => handleSearchInputChange(value)}
                                 ref={searchInputRef}
                             />
                             <StyledSimpleSelect
@@ -597,7 +627,7 @@ export const IngestionSourceList = ({
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-                {!loading && totalSources === 0 ? (
+                {!loading && data?.listIngestionSources?.total === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
                 ) : (
                     <>
