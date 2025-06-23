@@ -1673,23 +1673,19 @@ class AssertionsClient:
                 The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
                 Alternatively, a models.CronScheduleClass object can be provided with string parameters
                 cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
-            criteria_condition: The condition for the volume assertion. Must be a VolumeAssertionCondition value:
-                - VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO
-                - VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
-                - VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE
-                - VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE
-                Raw string values are also accepted.
-            criteria_parameters: The parameters for the assertion. For single-value conditions provide a single number.
-                For WITHIN_A_RANGE conditions, provide a tuple of two numbers (min_value, max_value).
-
-                Examples:
-                - For single value: 100 or 50.5
-                - For BETWEEN: (10, 100) or (5.0, 15.5)
+            criteria_condition: The condition for the volume assertion. Valid values are:
+                - "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO" -> The row count is less than or equal to the threshold.
+                - "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO" -> The row count is greater than or equal to the threshold.
+                - "ROW_COUNT_IS_WITHIN_A_RANGE" -> The row count is within the specified range.
+                - "ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE" -> The row count growth is at most the threshold (absolute change).
+                - "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE" -> The row count growth is at least the threshold (absolute change).
+                - "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The row count growth is within the specified range (absolute change).
+                - "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE" -> The row count growth is at most the threshold (percentage change).
+                - "ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE" -> The row count growth is at least the threshold (percentage change).
+                - "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The row count growth is within the specified range (percentage change).
+            criteria_parameters: The threshold parameters to be used for the assertion. This can be a single threshold value or a tuple range.
+                - If the condition is range-based (ROW_COUNT_IS_WITHIN_A_RANGE, ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE, ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
+                - For other conditions, the value is a single numeric threshold value.
 
         Returns:
             VolumeAssertion: The created assertion.
@@ -1774,9 +1770,9 @@ class AssertionsClient:
                 - "GROWS_AT_LEAST_PERCENTAGE" -> The metric growth is at least the threshold (percentage change).
                 - "GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The metric growth is within the specified range (absolute change).
                 - "GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The metric growth is within the specified range (percentage change).
-            criteria_parameters: The parameters to be used for the assertion. This can be a single value or a tuple range.
-                - If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two values, with format min, max.
-                - For other conditions, the value is a single numeric value.
+            criteria_parameters: The threshold parameters to be used for the assertion. This can be a single threshold value or a tuple range.
+                - If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
+                - For other conditions, the value is a single numeric threshold value.
             statement: The statement to be used for the assertion.
             incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
@@ -2825,8 +2821,21 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
-            criteria_condition (Optional[Union[str, VolumeAssertionCondition]]): Optional condition for the volume assertion. Must be a VolumeAssertionCondition value. If not provided, the existing definition from the backend will be preserved (for update operations). Required when creating a new assertion (when urn is None).
-            criteria_parameters (Optional[VolumeAssertionDefinitionParameters]): Optional parameters for the assertion. For single-value conditions provide a single number. For WITHIN_A_RANGE conditions, provide a tuple of two numbers (min_value, max_value). If not provided, existing value is preserved for updates. Required when creating a new assertion.
+            criteria_condition (Optional[Union[str, VolumeAssertionCondition]]): Optional condition for the volume assertion. Valid values are:
+                - "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO" -> The row count is less than or equal to the threshold.
+                - "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO" -> The row count is greater than or equal to the threshold.
+                - "ROW_COUNT_IS_WITHIN_A_RANGE" -> The row count is within the specified range.
+                - "ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE" -> The row count growth is at most the threshold (absolute change).
+                - "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE" -> The row count growth is at least the threshold (absolute change).
+                - "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The row count growth is within the specified range (absolute change).
+                - "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE" -> The row count growth is at most the threshold (percentage change).
+                - "ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE" -> The row count growth is at least the threshold (percentage change).
+                - "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The row count growth is within the specified range (percentage change).
+                If not provided, the existing definition from the backend will be preserved (for update operations). Required when creating a new assertion (when urn is None).
+            criteria_parameters (Optional[VolumeAssertionDefinitionParameters]): Optional threshold parameters to be used for the assertion. This can be a single threshold value or a tuple range.
+                - If the condition is range-based (ROW_COUNT_IS_WITHIN_A_RANGE, ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE, ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
+                - For other conditions, the value is a single numeric threshold value.
+                If not provided, existing value is preserved for updates. Required when creating a new assertion.
 
         Returns:
             VolumeAssertion: The created or updated assertion.
@@ -2996,8 +3005,21 @@ class AssertionsClient:
             display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
             enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
             statement (str): The SQL statement to be used for the assertion.
-            criteria_condition (Union[SqlAssertionCondition, str]): The condition for the sql assertion. Valid values are: "IS_EQUAL_TO", "IS_NOT_EQUAL_TO", "IS_GREATER_THAN", "IS_LESS_THAN", "IS_WITHIN_A_RANGE", "GROWS_AT_MOST_ABSOLUTE", "GROWS_AT_MOST_PERCENTAGE", "GROWS_AT_LEAST_ABSOLUTE", "GROWS_AT_LEAST_PERCENTAGE", "GROWS_WITHIN_A_RANGE_ABSOLUTE", "GROWS_WITHIN_A_RANGE_PERCENTAGE".
-            criteria_parameters (Union[float, int, tuple[float, int]]): The parameters to be used for the assertion. This can be a single value or a tuple range. If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two values, with format min, max. For other conditions, the value is a single numeric value.
+            criteria_condition (Union[SqlAssertionCondition, str]): The condition for the sql assertion. Valid values are:
+                - "IS_EQUAL_TO" -> The metric value equals the threshold.
+                - "IS_NOT_EQUAL_TO" -> The metric value does not equal the threshold.
+                - "IS_GREATER_THAN" -> The metric value is greater than the threshold.
+                - "IS_LESS_THAN" -> The metric value is less than the threshold.
+                - "IS_WITHIN_A_RANGE" -> The metric value is within the specified range.
+                - "GROWS_AT_MOST_ABSOLUTE" -> The metric growth is at most the threshold (absolute change).
+                - "GROWS_AT_MOST_PERCENTAGE" -> The metric growth is at most the threshold (percentage change).
+                - "GROWS_AT_LEAST_ABSOLUTE" -> The metric growth is at least the threshold (absolute change).
+                - "GROWS_AT_LEAST_PERCENTAGE" -> The metric growth is at least the threshold (percentage change).
+                - "GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The metric growth is within the specified range (absolute change).
+                - "GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The metric growth is within the specified range (percentage change).
+            criteria_parameters (Union[float, int, tuple[float, int]]): The threshold parameters to be used for the assertion. This can be a single threshold value or a tuple range.
+                - If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
+                - For other conditions, the value is a single numeric threshold value.
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
