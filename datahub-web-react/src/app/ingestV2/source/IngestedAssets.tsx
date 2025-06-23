@@ -118,7 +118,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {error && <Message type="error" content="" />}
             <HeaderContainer>
                 <TitleContainer>
-                    <Typography.Title level={5}>Ingested Records</Typography.Title>
+                    <Typography.Title level={5}>Ingested Assets</Typography.Title>
                     {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
                         <>
                             {(total > 0 && (
