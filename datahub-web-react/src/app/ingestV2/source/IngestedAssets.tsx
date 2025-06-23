@@ -109,7 +109,6 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const countsByEntityType =
         entitiesIngestedByTypeFromReport ??
         (entityTypeFacets ? extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets) : []);
-    console.log("countsByEntityType", countsByEntityType);
 
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
