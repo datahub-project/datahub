@@ -542,6 +542,11 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         """
         source_type = models.DatasetFieldAssertionSourceTypeClass.ALL_ROWS_QUERY
         field = None
+        SUPPORTED_DETECTION_MECHANISMS = [
+            _AllRowsQuery().type,
+            _AllRowsQueryDataHubDatasetProfile().type,
+            _ChangedRowsQuery(column_name="").type,
+        ]
 
         if isinstance(self.detection_mechanism, _ChangedRowsQuery):
             source_type = models.DatasetFieldAssertionSourceTypeClass.CHANGED_ROWS_QUERY
@@ -564,7 +569,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             # Note: This is only valid on the all rows query
         else:
             raise SDKNotYetSupportedError(
-                f"Detection mechanism {self.detection_mechanism} is not supported"
+                f"Detection mechanism {self.detection_mechanism} is not supported for smart column metric assertions, please use a supported detection mechanism: {', '.join(SUPPORTED_DETECTION_MECHANISMS)}"
             )
 
         return source_type, field

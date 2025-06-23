@@ -5,10 +5,12 @@ from datetime import datetime
 from typing import List, Optional, Tuple, Union
 
 import pytest
+from conftest import StubEntityClient
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
     DetectionMechanism,
+    DetectionMechanismInputTypes,
     InferenceSensitivity,
 )
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
@@ -18,7 +20,7 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
 from acryl_datahub_cloud.sdk.entities.assertion import (
     TagsInputType,
 )
-from acryl_datahub_cloud.sdk.errors import SDKUsageError
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
@@ -989,3 +991,51 @@ def test_smart_column_metric_assertion_input_conversion(
         monitor_params.datasetFieldParameters.sourceType
         == example_monitor_params.datasetFieldParameters.sourceType
     )
+
+
+@pytest.mark.parametrize(
+    "detection_mechanism,expected_error_contains",
+    [
+        (
+            DetectionMechanism.INFORMATION_SCHEMA,
+            "Detection mechanism type='information_schema' is not supported for smart column metric assertions, please use a supported detection mechanism: all_rows_query, all_rows_query_datahub_dataset_profile, changed_rows_query",
+        ),
+        (
+            DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name="id"),
+            "Detection mechanism type='high_watermark_column' column_name='id' additional_filter=None is not supported for smart column metric assertions, please use a supported detection mechanism: all_rows_query, all_rows_query_datahub_dataset_profile, changed_rows_query",
+        ),
+        (
+            DetectionMechanism.QUERY(),
+            "Detection mechanism type='query' additional_filter=None is not supported for smart column metric assertions, please use a supported detection mechanism: all_rows_query, all_rows_query_datahub_dataset_profile, changed_rows_query",
+        ),
+    ],
+)
+def test_smart_column_metric_assertion_input_detection_mechanism_validation(
+    stub_entity_client: StubEntityClient,
+    detection_mechanism: DetectionMechanismInputTypes,
+    expected_error_contains: str,
+) -> None:
+    """Test that unsupported detection mechanisms raise SDKUsageError."""
+    from datetime import datetime
+
+    from datahub.metadata import schema_classes as models
+
+    with pytest.raises(SDKNotYetSupportedError) as exc_info:
+        assertion_input = _SmartColumnMetricAssertionInput(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+            entity_client=stub_entity_client,
+            column_name="string_column",
+            metric_type=models.FieldMetricTypeClass.NULL_COUNT,
+            operator="GREATER_THAN",
+            value="10",
+            value_type=models.AssertionStdParameterTypeClass.NUMBER,
+            detection_mechanism=detection_mechanism,
+            created_by="urn:li:corpuser:test",
+            created_at=datetime.now(),
+            updated_by="urn:li:corpuser:test",
+            updated_at=datetime.now(),
+        )
+        # Call the method that triggers detection mechanism validation
+        assertion_input.to_assertion_and_monitor_entities()
+
+    assert expected_error_contains in str(exc_info.value)
