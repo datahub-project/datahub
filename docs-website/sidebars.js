@@ -364,12 +364,12 @@ module.exports = {
           Slack: [
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
+              id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
               className: "saasOnly",
             },
             {
