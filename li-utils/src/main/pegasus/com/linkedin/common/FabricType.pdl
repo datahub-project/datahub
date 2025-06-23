@@ -71,6 +71,11 @@ enum FabricType {
   TST
 
   /**
+   * System Integration Testing
+   */
+   SIT
+
+  /**
    * Designates sandbox fabrics
    */
   SANDBOX
