@@ -64,6 +64,10 @@ dependencies {
   implementation project(':metadata-integration:java:openlineage-converter')
   implementation project(':metadata-integration:java:datahub-event')
   swaggerCodegen externalDependency.swaggerCli
+
+  implementation(externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
 }
 
 sourceSets {
