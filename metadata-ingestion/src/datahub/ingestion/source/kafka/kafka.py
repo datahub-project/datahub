@@ -204,6 +204,7 @@ class KafkaConnectionTest:
     "Not supported",
     supported=False,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

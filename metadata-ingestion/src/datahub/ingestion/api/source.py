@@ -76,6 +76,7 @@ class SourceCapability(Enum):
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
+    TEST_CONNECTION = "Test Connection"
 
 
 class StructuredLogLevel(Enum):

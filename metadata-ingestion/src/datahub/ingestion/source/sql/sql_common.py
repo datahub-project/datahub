@@ -302,6 +302,7 @@ class ProfileMetadata:
     "Enabled by default",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 

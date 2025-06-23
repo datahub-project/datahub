@@ -99,6 +99,7 @@ def cleanup(config: BigQueryV2Config) -> None:
     SourceCapability.PARTITION_SUPPORT,
     "Enabled by default, partition keys and clustering keys are supported.",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
