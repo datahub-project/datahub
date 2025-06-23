@@ -41,8 +41,7 @@ from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     SqlAssertionCriteria,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
-    VolumeAssertionDefinition,
-    _VolumeAssertionDefinitionTypes,
+    VolumeAssertionCriteria,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import (
@@ -999,7 +998,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
         display_name: str,
         mode: AssertionMode,
         schedule: models.CronScheduleClass,
-        definition: _VolumeAssertionDefinitionTypes,
+        criteria: VolumeAssertionCriteria,
         tags: list[TagUrn],
         incident_behavior: list[AssertionIncidentBehavior],
         detection_mechanism: Optional[
@@ -1021,7 +1020,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
             schedule: The schedule of the assertion.
-            definition: The volume assertion definition (RowCountTotal or RowCountChange).
+            criteria: The volume assertion criteria.
             tags: The tags applied to the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
             detection_mechanism: The detection mechanism of the assertion.
@@ -1045,18 +1044,18 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             updated_at=updated_at,
             tags=tags,
         )
-        self._definition = definition
+        self._criteria = criteria
 
     @property
-    def definition(self) -> _VolumeAssertionDefinitionTypes:
-        return self._definition
+    def criteria(self) -> VolumeAssertionCriteria:
+        return self._criteria
 
     @staticmethod
     def _get_volume_definition(
         assertion: Assertion,
-    ) -> _VolumeAssertionDefinitionTypes:
+    ) -> VolumeAssertionCriteria:
         """Get volume assertion definition from a DataHub assertion entity."""
-        return VolumeAssertionDefinition.from_assertion(assertion)
+        return VolumeAssertionCriteria.from_assertion(assertion)
 
     @staticmethod
     def _get_detection_mechanism(
@@ -1104,7 +1103,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
             schedule=cls._get_schedule(monitor),
-            definition=cls._get_volume_definition(assertion),
+            criteria=cls._get_volume_definition(assertion),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
             created_by=cls._get_created_by(assertion),

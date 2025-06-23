@@ -18,12 +18,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DetectionMechanismInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
-    RowCountChange,
-    RowCountTotal,
-    VolumeAssertionDefinitionChangeKind,
-    VolumeAssertionDefinitionParameters,
-    VolumeAssertionDefinitionType,
-    VolumeAssertionOperator,
+    VolumeAssertionCondition,
+    VolumeAssertionCriteria,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -58,10 +54,8 @@ GENERATED_DISPLAY_NAME_LENGTH = 22
 @dataclass
 class VolumeAssertionCreateParams:
     dataset_urn: Union[str, DatasetUrn]
-    criteria_type: VolumeAssertionDefinitionType
-    criteria_operator: VolumeAssertionOperator
-    criteria_parameters: VolumeAssertionDefinitionParameters
-    criteria_change_type: Optional[VolumeAssertionDefinitionChangeKind] = None
+    criteria_condition: VolumeAssertionCondition
+    criteria_parameters: Union[float, tuple[float, float]]
     display_name: Optional[str] = None
     detection_mechanism: Optional[DetectionMechanismInputTypes] = None
     incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
@@ -75,10 +69,8 @@ class VolumeAssertionSyncParams:
     dataset_urn: Union[str, DatasetUrn]
     urn: Optional[Union[str, AssertionUrn]] = None
     display_name: Optional[str] = None
-    criteria_type: Optional[VolumeAssertionDefinitionType] = None
-    criteria_operator: Optional[VolumeAssertionOperator] = None
-    criteria_parameters: Optional[VolumeAssertionDefinitionParameters] = None
-    criteria_change_type: Optional[VolumeAssertionDefinitionChangeKind] = None
+    criteria_condition: Optional[VolumeAssertionCondition] = None
+    criteria_parameters: Optional[Union[float, tuple[float, float]]] = None
     detection_mechanism: Optional[DetectionMechanismInputTypes] = None
     incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
     tags: Optional[TagsInputType] = None
@@ -98,8 +90,7 @@ def test_create_volume_assertion_minimal_input(
 
     input_params = VolumeAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
 
@@ -109,8 +100,8 @@ def test_create_volume_assertion_minimal_input(
         display_name="New Assertion",
         mode=AssertionMode.ACTIVE,
         schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-        definition=RowCountTotal(
-            operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria=VolumeAssertionCriteria(
+            condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
             parameters=100,
         ),
         incident_behavior=[],
@@ -125,10 +116,8 @@ def test_create_volume_assertion_minimal_input(
     assertion = client._create_volume_assertion(
         dataset_urn=input_params.dataset_urn,
         display_name=input_params.display_name,
-        criteria_type=input_params.criteria_type,
-        criteria_operator=input_params.criteria_operator,
+        criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
-        criteria_change_type=input_params.criteria_change_type,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
@@ -155,8 +144,7 @@ def test_create_volume_assertion_full_input(
     input_params = VolumeAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
         display_name="Test Volume Assertion",
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.BETWEEN,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
         criteria_parameters=(100, 500),
         detection_mechanism=DetectionMechanism.QUERY(),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
@@ -171,8 +159,8 @@ def test_create_volume_assertion_full_input(
         display_name="Test Volume Assertion",
         mode=AssertionMode.INACTIVE,
         schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-        definition=RowCountTotal(
-            operator=VolumeAssertionOperator.BETWEEN,
+        criteria=VolumeAssertionCriteria(
+            condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
             parameters=(100, 500),
         ),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
@@ -187,10 +175,8 @@ def test_create_volume_assertion_full_input(
     assertion = client._create_volume_assertion(
         dataset_urn=input_params.dataset_urn,
         display_name=input_params.display_name,
-        criteria_type=input_params.criteria_type,
-        criteria_operator=input_params.criteria_operator,
+        criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
-        criteria_change_type=input_params.criteria_change_type,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
@@ -213,8 +199,7 @@ def test_create_volume_assertion_entities_client_called(
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
     assertion = client._create_volume_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
     assert mock_create.call_count == 2
@@ -242,8 +227,7 @@ def test_create_volume_assertion_enabled_parameter(
 
     client._create_volume_assertion(
         dataset_urn=any_dataset_urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
         enabled=enabled,
     )
@@ -269,8 +253,7 @@ def test_create_volume_assertion_enabled_defaults_to_true(
     # Don't specify enabled parameter
     client._create_volume_assertion(
         dataset_urn=any_dataset_urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
 
@@ -307,8 +290,7 @@ def test_sync_volume_assertion_valid_simple_input(
     input_params = VolumeAssertionSyncParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
     mock_upsert = MagicMock()
@@ -320,10 +302,8 @@ def test_sync_volume_assertion_valid_simple_input(
         dataset_urn=input_params.dataset_urn,
         urn=input_params.urn,
         display_name=input_params.display_name,
-        criteria_type=input_params.criteria_type,
-        criteria_operator=input_params.criteria_operator,
+        criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
-        criteria_change_type=input_params.criteria_change_type,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
@@ -339,8 +319,8 @@ def test_sync_volume_assertion_valid_simple_input(
         display_name=native_volume_assertion_entity_with_all_fields.description,
         mode=AssertionMode.ACTIVE,
         schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-        definition=RowCountTotal(
-            operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria=VolumeAssertionCriteria(
+            condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
             parameters=100,
         ),
         incident_behavior=[
@@ -394,8 +374,7 @@ def test_sync_volume_assertion_valid_full_input(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         display_name="test_display_name",
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.BETWEEN,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
         criteria_parameters=(50, 150),
         detection_mechanism=DetectionMechanism.QUERY(),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
@@ -412,10 +391,8 @@ def test_sync_volume_assertion_valid_full_input(
         dataset_urn=input_params.dataset_urn,
         urn=input_params.urn,
         display_name=input_params.display_name,
-        criteria_type=input_params.criteria_type,
-        criteria_operator=input_params.criteria_operator,
+        criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
-        criteria_change_type=input_params.criteria_change_type,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
@@ -431,8 +408,8 @@ def test_sync_volume_assertion_valid_full_input(
         display_name="test_display_name",
         mode=AssertionMode.INACTIVE,  # enabled=False
         schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-        definition=RowCountTotal(
-            operator=VolumeAssertionOperator.BETWEEN,
+        criteria=VolumeAssertionCriteria(
+            condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
             parameters=(50, 150),
         ),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
@@ -490,8 +467,7 @@ def test_sync_volume_assertion_calls_create_assertion_if_urn_is_not_set(
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
     assert mock_create_assertion.call_count == expected_create_assertion_call_count
@@ -528,8 +504,7 @@ def test_sync_volume_assertion_uses_default_if_updated_by_is_not_set(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         updated_by=updated_by,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
     assertion_entity_upserted = mock_upsert.call_args_list[0][0][0]
@@ -561,8 +536,8 @@ def test_sync_volume_assertion_calls_create_if_assertion_and_monitor_entities_do
             schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
             incident_behavior=[],
             tags=[],
-            definition=RowCountTotal(
-                operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+            criteria=VolumeAssertionCriteria(
+                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                 parameters=100,
             ),
         )
@@ -571,8 +546,7 @@ def test_sync_volume_assertion_calls_create_if_assertion_and_monitor_entities_do
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
     assert mock_upsert.call_count == 0
@@ -590,8 +564,7 @@ def test_sync_volume_assertion_raises_error_if_assertion_and_input_have_differen
         client.sync_volume_assertion(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,not_the_same_dataset_urn,PROD)",
             urn=any_assertion_urn,
-            criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-            criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+            criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
             criteria_parameters=100,
         )
 
@@ -628,8 +601,7 @@ def test_sync_volume_assertion_enabled_parameter_merging(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         enabled=enabled,
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
 
@@ -669,8 +641,7 @@ def test_sync_volume_assertion_enabled_none_preserves_inactive(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         enabled=None,  # Should preserve existing state
-        criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-        criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
 
@@ -699,8 +670,7 @@ def test_sync_volume_assertion_enabled_calls_create_with_enabled_when_urn_is_non
             dataset_urn=any_dataset_urn,
             urn=None,  # This should trigger create
             enabled=False,
-            criteria_type=VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-            criteria_operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+            criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
             criteria_parameters=100,
         )
 
@@ -729,39 +699,39 @@ def test_sync_volume_assertion_preserves_definition_from_backend_when_none_provi
         native_volume_assertion_entity_with_all_fields,
         native_volume_monitor_with_all_fields,
     )
-    existing_definition = existing_assertion.definition
+    existing_criteria = existing_assertion.criteria
 
-    # Verify the fixture definition to make test more explicit
-    assert isinstance(existing_definition, RowCountTotal)
+    # Verify the fixture criteria to make test more explicit
+    assert isinstance(existing_criteria, VolumeAssertionCriteria)
     assert (
-        existing_definition.operator == VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
+        existing_criteria.condition
+        == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
     )
-    assert existing_definition.parameters == 100.0  # Should be parsed as float
+    assert existing_criteria.parameters == 100.0  # Should be parsed as float
 
-    # Act - call sync_volume_assertion without providing a definition (definition=None)
-    # This should preserve the existing definition from the backend
+    # Act - call sync_volume_assertion without providing a criteria (criteria=None)
+    # This should preserve the existing criteria from the backend
     result_assertion = client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         display_name="Updated Display Name",  # Provide other fields to show they get updated
-        criteria_type=None,
-        criteria_operator=None,
-        criteria_parameters=None,  # Explicitly pass None to test definition preservation
+        criteria_condition=None,
+        criteria_parameters=None,  # Explicitly pass None to test criteria preservation
     )
 
     # Assert - verify the definition was preserved from the backend
-    assert result_assertion.definition == existing_definition
+    assert result_assertion.criteria == existing_criteria
     assert (
         result_assertion.display_name == "Updated Display Name"
     )  # Verify other fields were updated
 
-    # Also verify the preserved definition properties explicitly
-    assert isinstance(result_assertion.definition, RowCountTotal)
+    # Also verify the preserved criteria properties explicitly
+    assert isinstance(result_assertion.criteria, VolumeAssertionCriteria)
     assert (
-        result_assertion.definition.operator
-        == VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
+        result_assertion.criteria.condition
+        == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
     )
-    assert result_assertion.definition.parameters == 100.0
+    assert result_assertion.criteria.parameters == 100.0
 
     # Verify that upsert was called
     assert mock_upsert.call_count == 2  # assertion + monitor
@@ -785,19 +755,19 @@ def test_sync_volume_assertion_preserves_definition_from_backend_when_none_provi
     assert upserted_assertion.info.rowCountTotal.parameters.value.value == "100"
 
 
-def test_sync_volume_assertion_raises_error_when_no_definition_provided_and_no_backend_definition(
+def test_sync_volume_assertion_raises_error_when_no_criteria_provided_and_no_backend_criteria(
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
 ) -> None:
-    """Test that sync_volume_assertion raises proper error when definition=None and no backend assertion exists.
+    """Test that sync_volume_assertion raises proper error when criteria=None and no backend assertion exists.
 
-    Basically, this tests prevents the case of a sync operation without a definition when the sync is a creation.
+    Basically, this tests prevents the case of a sync operation without criteria when the sync is a creation.
     """
     # Arrange - create empty stub client (no assertion entities exist)
     empty_stub_datahub_client = StubDataHubClient()  # No entities
     client = AssertionsClient(empty_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
-    # Act & Assert - should raise error when no backend assertion exists and no definition provided
+    # Act & Assert - should raise error when no backend assertion exists and no criteria provided
     with pytest.raises(
         SDKUsageError,
         match="Cannot sync assertion .* no existing definition found in backend and no definition provided in request",
@@ -806,9 +776,8 @@ def test_sync_volume_assertion_raises_error_when_no_definition_provided_and_no_b
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,  # This assertion doesn't exist in backend
             display_name="Test Assertion",
-            # No criteria (aka definition) provided
-            criteria_type=None,
-            criteria_operator=None,
+            # No criteria provided
+            criteria_condition=None,
             criteria_parameters=None,
         )
 
@@ -827,7 +796,7 @@ def _validate_volume_assertion_created_vs_expected(
         )  # Generated display name
         assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
 
-    assert assertion.definition == expected_assertion.definition
+    assert assertion.criteria == expected_assertion.criteria
     assert assertion.incident_behavior == expected_assertion.incident_behavior
     assert assertion.tags == expected_assertion.tags
     assert assertion.created_by == expected_assertion.created_by
@@ -848,7 +817,7 @@ def _validate_volume_assertion_synced_vs_expected(
         # For sync operations, we expect the existing display name to be preserved
         assert assertion.display_name == expected_assertion.display_name
 
-    assert assertion.definition == expected_assertion.definition
+    assert assertion.criteria == expected_assertion.criteria
     assert assertion.incident_behavior == expected_assertion.incident_behavior
     assert assertion.tags == expected_assertion.tags
     assert assertion.created_by == expected_assertion.created_by
@@ -870,20 +839,17 @@ def test_create_volume_assertion_with_string_parameters(
     assertion = client._create_volume_assertion(
         dataset_urn=_any_dataset_urn,
         display_name="String Parameters Test",
-        criteria_type="ROW_COUNT_CHANGE",  # String instead of VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-        criteria_change_type="PERCENTAGE",  # String instead of VolumeAssertionDefinitionChangeKind.PERCENTAGE
-        criteria_operator="BETWEEN",  # String instead of VolumeAssertionOperator.BETWEEN
+        criteria_condition="ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",  # String instead of enum
         criteria_parameters=(10, 100),
     )
 
     # Verify the assertion was created successfully with correct values
     assert assertion.display_name == "String Parameters Test"
-    assert assertion.definition.type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-    # RowCountChange has kind attribute, RowCountTotal doesn't - check type first
-    assert isinstance(assertion.definition, RowCountChange)
-    assert assertion.definition.kind == VolumeAssertionDefinitionChangeKind.PERCENTAGE
-    assert assertion.definition.operator == VolumeAssertionOperator.BETWEEN
-    assert assertion.definition.parameters == (10, 100)
+    assert (
+        assertion.criteria.condition
+        == VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE
+    )
+    assert assertion.criteria.parameters == (10, 100)
 
     # Verify entity creation was called twice (assertion + monitor)
     assert client.client.entities.create.call_count == 2
@@ -906,8 +872,9 @@ def test_sync_volume_assertion_with_string_parameters(
             urn=any_assertion_urn,  # Use urn instead of id
             dataset_urn=_any_dataset_urn,
             display_name="String Sync Test",
-            definition=RowCountTotal(
-                operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO, parameters=50
+            criteria=VolumeAssertionCriteria(
+                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                parameters=50,
             ),
             mode=AssertionMode.ACTIVE,
             schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
@@ -925,21 +892,17 @@ def test_sync_volume_assertion_with_string_parameters(
             dataset_urn=_any_dataset_urn,
             urn=any_assertion_urn,
             display_name="String Sync Test",
-            criteria_type="ROW_COUNT_TOTAL",  # String instead of VolumeAssertionDefinitionType.ROW_COUNT_TOTAL
-            criteria_operator="GREATER_THAN_OR_EQUAL_TO",  # String instead of VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
+            criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",  # String instead of enum
             criteria_parameters=50,
         )
 
         # Verify the assertion was synced successfully
         assert assertion.display_name == "String Sync Test"
         assert (
-            assertion.definition.type == VolumeAssertionDefinitionType.ROW_COUNT_TOTAL
+            assertion.criteria.condition
+            == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
         )
-        assert (
-            assertion.definition.operator
-            == VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
-        )
-        assert assertion.definition.parameters == 50
+        assert assertion.criteria.parameters == 50
 
         # Verify the underlying method was called with the correct parameters
         mock_retrieve.assert_called_once()

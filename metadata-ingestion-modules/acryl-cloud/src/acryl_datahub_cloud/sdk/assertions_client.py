@@ -44,15 +44,10 @@ from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     _SqlAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
-    RowCountChange,
-    RowCountTotal,
-    VolumeAssertionDefinition,
-    VolumeAssertionDefinitionChangeKind,
-    VolumeAssertionDefinitionInputTypes,
+    VolumeAssertionCondition,
+    VolumeAssertionCriteria,
+    VolumeAssertionCriteriaInputTypes,
     VolumeAssertionDefinitionParameters,
-    VolumeAssertionDefinitionType,
-    VolumeAssertionOperator,
-    _VolumeAssertionDefinitionTypes,
     _VolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion, TagsInputType
@@ -480,8 +475,8 @@ class AssertionsClient:
         updated_by: Optional[Union[str, CorpUserUrn]],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
-        definition: VolumeAssertionDefinitionInputTypes,
-        use_backend_definition: bool = False,
+        criteria: VolumeAssertionCriteriaInputTypes,
+        use_backend_criteria: bool = False,
     ) -> Union[VolumeAssertion, _VolumeAssertionInput]:
         # 1. Retrieve any existing assertion and monitor entities:
         maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
@@ -504,7 +499,7 @@ class AssertionsClient:
             )
         # 2.3 If the assertion does not exist, create a new assertion with a generated urn and return the assertion input:
         elif not maybe_assertion_entity:
-            if use_backend_definition:
+            if use_backend_criteria:
                 raise SDKUsageError(
                     f"Cannot sync assertion {urn}: no existing definition found in backend and no definition provided in request"
                 )
@@ -512,8 +507,7 @@ class AssertionsClient:
                 f"No existing assertion entity found for assertion urn {urn}, creating a new assertion with a generated urn"
             )
             # Extract criteria from definition to call the new signature
-            parsed_definition = VolumeAssertionDefinition.parse(definition)
-            assert isinstance(parsed_definition, (RowCountTotal, RowCountChange))
+            parsed_criteria = VolumeAssertionCriteria.parse(criteria)
             return self._create_volume_assertion(
                 dataset_urn=dataset_urn,
                 display_name=display_name,
@@ -522,12 +516,8 @@ class AssertionsClient:
                 tags=tags,
                 created_by=updated_by,
                 schedule=schedule,
-                criteria_type=parsed_definition.type,
-                criteria_change_type=parsed_definition.kind
-                if isinstance(parsed_definition, RowCountChange)
-                else None,
-                criteria_operator=parsed_definition.operator,
-                criteria_parameters=parsed_definition.parameters,
+                criteria_condition=parsed_criteria.condition,
+                criteria_parameters=parsed_criteria.parameters,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -540,25 +530,25 @@ class AssertionsClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 4. Handle definition: use backend definition if flag is set and backend has one
-        if use_backend_definition:
+        # 4. Handle criteria: use backend criteria if flag is set and backend has one
+        if use_backend_criteria:
             if maybe_assertion_entity is not None:
-                # Use definition from backend
-                backend_definition = VolumeAssertionDefinition.from_assertion(
+                # Use criteria from backend
+                backend_criteria = VolumeAssertionCriteria.from_assertion(
                     maybe_assertion_entity
                 )
-                # Update the assertion_input with the real definition from backend
-                assertion_input.definition = backend_definition
-                effective_definition = backend_definition
-                logger.info("Using definition from backend assertion")
+                # Update the assertion_input with the real criteria from backend
+                assertion_input.criteria = backend_criteria
+                effective_criteria = backend_criteria
+                logger.info("Using criteria from backend assertion")
             else:
-                # No backend assertion and no user-provided definition - this is an error
+                # No backend assertion and no user-provided criteria - this is an error
                 raise SDKUsageError(
-                    f"Cannot sync assertion {urn}: no existing definition found in backend and no definition provided in request"
+                    f"Cannot sync assertion {urn}: no existing criteria found in backend and no criteria provided in request"
                 )
         else:
-            # Use the already-parsed definition from assertion_input
-            effective_definition = assertion_input.definition
+            # Use the already-parsed criteria from assertion_input
+            effective_criteria = assertion_input.criteria
 
         # 5. Merge the existing assertion with the validated input:
         merged_assertion_input = self._merge_volume_input(
@@ -575,7 +565,7 @@ class AssertionsClient:
             maybe_monitor_entity=maybe_monitor_entity,
             existing_assertion=existing_assertion,
             schedule=schedule,
-            definition=effective_definition,
+            criteria=effective_criteria,
         )
 
         return merged_assertion_input
@@ -963,7 +953,7 @@ class AssertionsClient:
         maybe_monitor_entity: Optional[Monitor],
         existing_assertion: VolumeAssertion,
         schedule: Optional[Union[str, models.CronScheduleClass]],
-        definition: Optional[_VolumeAssertionDefinitionTypes],
+        criteria: Optional[VolumeAssertionCriteria],
     ) -> _VolumeAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -1040,12 +1030,12 @@ class AssertionsClient:
                 existing_assertion,
                 maybe_assertion_entity.tags if maybe_assertion_entity else None,
             ),
-            definition=_merge_field(
-                definition,
-                "definition",
+            criteria=_merge_field(
+                criteria,
+                "criteria",
                 assertion_input,
                 existing_assertion,
-                existing_assertion.definition if existing_assertion else None,
+                existing_assertion.criteria if existing_assertion else None,
             ),
             created_by=existing_assertion.created_by
             or DEFAULT_CREATED_BY,  # Override with the existing assertion's created_by or the default created_by if not set
@@ -1640,11 +1630,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         created_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
-        criteria_type: Union[str, VolumeAssertionDefinitionType],
-        criteria_change_type: Optional[
-            Union[str, VolumeAssertionDefinitionChangeKind]
-        ] = None,
-        criteria_operator: Union[str, VolumeAssertionOperator],
+        criteria_condition: Union[str, VolumeAssertionCondition],
         criteria_parameters: VolumeAssertionDefinitionParameters,
     ) -> VolumeAssertion:
         """Create a volume assertion.
@@ -1687,19 +1673,19 @@ class AssertionsClient:
                 The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
                 Alternatively, a models.CronScheduleClass object can be provided with string parameters
                 cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
-            criteria_type: The type of volume assertion. Must be either VolumeAssertionDefinitionType.ROW_COUNT_TOTAL or VolumeAssertionDefinitionType.ROW_COUNT_CHANGE.
-                Raw string values are also accepted: "ROW_COUNT_TOTAL" or "ROW_COUNT_CHANGE".
-            criteria_change_type: Required when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. Must be either VolumeAssertionDefinitionChangeKind.ABSOLUTE
-                or VolumeAssertionDefinitionChangeKind.PERCENT. Optional (ignored) when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_TOTAL.
-                Raw string values are also accepted: "ABSOLUTE" or "PERCENTAGE".
-            criteria_operator: The comparison operator for the assertion. Must be a VolumeAssertionOperator value:
-                - VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
-                - VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO
-                - VolumeAssertionOperator.BETWEEN
-                Raw string values are also accepted: "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN_OR_EQUAL_TO", "BETWEEN".
-            criteria_parameters: The parameters for the assertion. For single-value operators
-                (GREATER_THAN_OR_EQUAL_TO, LESS_THAN_OR_EQUAL_TO), provide a single number.
-                For BETWEEN operator, provide a tuple of two numbers (min_value, max_value).
+            criteria_condition: The condition for the volume assertion. Must be a VolumeAssertionCondition value:
+                - VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO
+                - VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
+                - VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE
+                - VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE
+                Raw string values are also accepted.
+            criteria_parameters: The parameters for the assertion. For single-value conditions provide a single number.
+                For WITHIN_A_RANGE conditions, provide a tuple of two numbers (min_value, max_value).
 
                 Examples:
                 - For single value: 100 or 50.5
@@ -1716,15 +1702,12 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
 
-        # Create definition from individual criteria parameters
+        # Create criteria from criteria_condition and parameters
         # The dictionary object will be fully validated down in the _VolumeAssertionInput class
-        definition: dict[str, Any] = {
-            "type": criteria_type,
-            "operator": criteria_operator,
+        criteria: dict[str, Any] = {
+            "condition": criteria_condition,
             "parameters": criteria_parameters,
         }
-        if criteria_type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE:
-            definition["kind"] = criteria_change_type
 
         assertion_input = _VolumeAssertionInput(
             urn=None,
@@ -1740,7 +1723,7 @@ class AssertionsClient:
             updated_by=created_by,
             updated_at=now_utc,
             schedule=schedule,
-            definition=definition,
+            criteria=criteria,
         )
         assertion_entity, monitor_entity = (
             assertion_input.to_assertion_and_monitor_entities()
@@ -2811,11 +2794,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
-        criteria_type: Optional[Union[str, VolumeAssertionDefinitionType]] = None,
-        criteria_change_type: Optional[
-            Union[str, VolumeAssertionDefinitionChangeKind]
-        ] = None,
-        criteria_operator: Optional[Union[str, VolumeAssertionOperator]] = None,
+        criteria_condition: Optional[Union[str, VolumeAssertionCondition]] = None,
         criteria_parameters: Optional[VolumeAssertionDefinitionParameters] = None,
     ) -> VolumeAssertion:
         """Upsert and merge a volume assertion.
@@ -2846,10 +2825,8 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
-            criteria_type (Optional[Union[str, VolumeAssertionDefinitionType]]): Optional type of volume assertion. Must be either VolumeAssertionDefinitionType.ROW_COUNT_TOTAL or VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. If not provided, the existing definition from the backend will be preserved (for update operations). Required when creating a new assertion (when urn is None).
-            criteria_change_type (Optional[Union[str, VolumeAssertionDefinitionChangeKind]]): Optional change type for row count change assertions. Required when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_CHANGE. Ignored when criteria_type is VolumeAssertionDefinitionType.ROW_COUNT_TOTAL. If not provided, existing value is preserved for updates.
-            criteria_operator (Optional[Union[str, VolumeAssertionOperator]]): Optional comparison operator for the assertion. Must be a VolumeAssertionOperator value. If not provided, existing value is preserved for updates. Required when creating a new assertion.
-            criteria_parameters (Optional[VolumeAssertionDefinitionParameters]): Optional parameters for the assertion. For single-value operators provide a single number. For BETWEEN operator, provide a tuple of two numbers (min_value, max_value). If not provided, existing value is preserved for updates. Required when creating a new assertion.
+            criteria_condition (Optional[Union[str, VolumeAssertionCondition]]): Optional condition for the volume assertion. Must be a VolumeAssertionCondition value. If not provided, the existing definition from the backend will be preserved (for update operations). Required when creating a new assertion (when urn is None).
+            criteria_parameters (Optional[VolumeAssertionDefinitionParameters]): Optional parameters for the assertion. For single-value conditions provide a single number. For WITHIN_A_RANGE conditions, provide a tuple of two numbers (min_value, max_value). If not provided, existing value is preserved for updates. Required when creating a new assertion.
 
         Returns:
             VolumeAssertion: The created or updated assertion.
@@ -2864,44 +2841,26 @@ class AssertionsClient:
             updated_by = DEFAULT_CREATED_BY
 
         # 1. Validate criteria parameters if any are provided
-        if (
-            criteria_type is not None
-            or criteria_operator is not None
-            or criteria_parameters is not None
-        ) and (
-            criteria_type is None
-            or criteria_operator is None
-            or criteria_parameters is None
-            or (
-                criteria_type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-                and criteria_change_type is None
-            )
+        if (criteria_condition is not None or criteria_parameters is not None) and (
+            criteria_condition is None or criteria_parameters is None
         ):
             raise SDKUsageError(
-                "When providing volume assertion criteria, all required parameters must be provided "
-                "(criteria_type, criteria_operator, criteria_parameters must be provided, "
-                "and criteria_change_type is required when criteria_type is 'row_count_change')"
+                "When providing volume assertion criteria, both criteria_condition and criteria_parameters must be provided"
             )
 
-        # Assert the invariant: if criteria_type is provided, all required parameters are provided
-        assert criteria_type is None or (
-            criteria_operator is not None
-            and criteria_parameters is not None
-            and (
-                criteria_type != VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-                or criteria_change_type is not None
-            )
-        ), "criteria fields already validated"
+        # Assert the invariant: if criteria_condition is provided, criteria_parameters is also provided
+        assert criteria_condition is None or criteria_parameters is not None, (
+            "criteria fields already validated"
+        )
 
         # 2. If urn is not set, create a new assertion
         if urn is None:
-            if criteria_type is None:
+            if criteria_condition is None:
                 raise SDKUsageError(
                     "Volume assertion criteria are required when creating a new assertion"
                 )
             logger.info("URN is not set, creating a new assertion")
             # Type narrowing: we know these are not None because of validation above
-            assert criteria_operator is not None
             assert criteria_parameters is not None
             return self._create_volume_assertion(
                 dataset_urn=dataset_urn,
@@ -2912,9 +2871,7 @@ class AssertionsClient:
                 tags=tags,
                 created_by=updated_by,
                 schedule=schedule,
-                criteria_type=criteria_type,
-                criteria_change_type=criteria_change_type,
-                criteria_operator=criteria_operator,
+                criteria_condition=criteria_condition,
                 criteria_parameters=criteria_parameters,
             )
 
@@ -2926,24 +2883,19 @@ class AssertionsClient:
         # this is a creation case and the user missed the definition parameter, which is required.
         # Likely this pattern never happened before because there is no a publicly documented default definition
         # that we can use as fallback.
-        if criteria_type is not None:
-            # Create definition from individual criteria parameters
-            temp_definition: dict[str, Any] = {
-                "type": criteria_type,
-                "operator": criteria_operator,
+        if criteria_condition is not None:
+            # Create criteria from criteria_condition and parameters
+            temp_criteria: dict[str, Any] = {
+                "condition": criteria_condition,
                 "parameters": criteria_parameters,
             }
 
-            if criteria_type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE:
-                temp_definition["kind"] = criteria_change_type
-
-            use_backend_definition = False
+            use_backend_criteria = False
         else:
-            # No criteria provided, use backend definition
-            use_backend_definition = True
-            temp_definition = {
-                "type": VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-                "operator": VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+            # No criteria provided, use backend criteria
+            use_backend_criteria = True
+            temp_criteria = {
+                "condition": VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                 "parameters": 0,  # Temporary placeholder
             }
 
@@ -2960,7 +2912,7 @@ class AssertionsClient:
             updated_by=updated_by,
             updated_at=now_utc,
             schedule=schedule,
-            definition=temp_definition,
+            criteria=temp_criteria,
         )
 
         # 4. Merge the assertion input with the existing assertion and monitor entities or create a new assertion
@@ -2973,8 +2925,8 @@ class AssertionsClient:
                 display_name=display_name,
                 enabled=enabled,
                 detection_mechanism=detection_mechanism,
-                definition=temp_definition,
-                use_backend_definition=use_backend_definition,
+                criteria=temp_criteria,
+                use_backend_criteria=use_backend_criteria,
                 incident_behavior=incident_behavior,
                 tags=tags,
                 updated_by=updated_by,

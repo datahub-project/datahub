@@ -1,4 +1,3 @@
-from abc import ABC
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Tuple, Union
@@ -26,357 +25,426 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk.entity_client import EntityClient
 
-# TODO: better naming for "volume assertion definition"
+# Type aliases and enums for volume assertions
 
 
-# Type aliases  and enums for volume assertions
+class VolumeAssertionCondition(Enum):
+    """Valid conditions for volume assertions combining type, operator, and change kind."""
 
+    # Row count total conditions
+    ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO = "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO"  # models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL + models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+    ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO = "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO"  # models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL + models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+    ROW_COUNT_IS_WITHIN_A_RANGE = "ROW_COUNT_IS_WITHIN_A_RANGE"  # models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL + models.AssertionStdOperatorClass.BETWEEN
 
-class VolumeAssertionDefinitionType(str, Enum):
-    ROW_COUNT_TOTAL = models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL
-    ROW_COUNT_CHANGE = models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE
+    # Row count change conditions - absolute
+    ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE = "ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.ABSOLUTE
+    ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE = "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.ABSOLUTE
+    ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE = "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.BETWEEN + models.AssertionValueChangeTypeClass.ABSOLUTE
 
-
-# Currently supported volume assertion definition types
-CURRENTLY_SUPPORTED_VOLUME_ASSERTION_DEFINITIONS = [
-    VolumeAssertionDefinitionType.ROW_COUNT_TOTAL,
-    VolumeAssertionDefinitionType.ROW_COUNT_CHANGE,
-]
-
-
-class VolumeAssertionDefinitionChangeKind(str, Enum):
-    ABSOLUTE = models.AssertionValueChangeTypeClass.ABSOLUTE
-    PERCENTAGE = models.AssertionValueChangeTypeClass.PERCENTAGE
+    # Row count change conditions - percentage
+    ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE = "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.PERCENTAGE
+    ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE = "ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO + models.AssertionValueChangeTypeClass.PERCENTAGE
+    ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE = "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE"  # models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE + models.AssertionStdOperatorClass.BETWEEN + models.AssertionValueChangeTypeClass.PERCENTAGE
 
 
 VolumeAssertionDefinitionParameters = Union[float, Tuple[float, float]]
 
-
-class VolumeAssertionOperator(str, Enum):
-    """Valid operators for volume assertions."""
-
-    LESS_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
-    GREATER_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
-    BETWEEN = models.AssertionStdOperatorClass.BETWEEN
+VolumeAssertionCriteriaInputTypes = Union[dict[str, Any], "VolumeAssertionCriteria"]
 
 
-class _AbstractVolumeAssertionDefinition(BaseModel, ABC):
-    type: str
+class VolumeAssertionCriteria(BaseModel):
+    condition: VolumeAssertionCondition
+    parameters: VolumeAssertionDefinitionParameters
 
     class Config:
         extra = Extra.forbid
 
+    @staticmethod
+    def parse(criteria: VolumeAssertionCriteriaInputTypes) -> "VolumeAssertionCriteria":
+        """Parse and validate volume assertion criteria.
 
-class RowCountTotal(_AbstractVolumeAssertionDefinition):
-    type: VolumeAssertionDefinitionType = VolumeAssertionDefinitionType.ROW_COUNT_TOTAL
-    operator: VolumeAssertionOperator
-    parameters: VolumeAssertionDefinitionParameters
+        This method converts dictionary-based volume assertion criteria into typed volume
+        assertion objects, or validates already instantiated volume assertion objects. It
+        supports nine volume assertion conditions covering both total row count checks and
+        row count change monitoring with absolute or percentage thresholds.
 
+        Args:
+            criteria: A volume assertion criteria that can be either:
+                - A dictionary containing volume assertion configuration with keys:
+                  - condition: Must be one of the VolumeAssertionCondition enum values:
+                    - "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO": Total row count threshold (upper bound)
+                    - "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO": Total row count threshold (lower bound)
+                    - "ROW_COUNT_IS_WITHIN_A_RANGE": Total row count within specified range
+                    - "ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE": Row count change upper bound (absolute)
+                    - "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE": Row count change lower bound (absolute)
+                    - "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE": Row count change within range (absolute)
+                    - "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE": Row count change upper bound (percentage)
+                    - "ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE": Row count change lower bound (percentage)
+                    - "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE": Row count change within range (percentage)
+                  - parameters: Numeric threshold(s) for the condition:
+                    - Single number (int/float) for single-bound conditions
+                    - Tuple of two numbers for range conditions (WITHIN_A_RANGE)
+                - An already instantiated VolumeAssertionCriteria object
 
-class RowCountChange(_AbstractVolumeAssertionDefinition):
-    type: VolumeAssertionDefinitionType = VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-    kind: VolumeAssertionDefinitionChangeKind
-    operator: VolumeAssertionOperator
-    parameters: VolumeAssertionDefinitionParameters
+        Returns:
+            A validated VolumeAssertionCriteria object with the specified condition and parameters.
 
+        Raises:
+            SDKUsageError: If the criteria is invalid, including:
+                - Invalid input type (not dict or VolumeAssertionCriteria object)
+                - Missing required fields (condition or parameters)
+                - Invalid condition value (not in VolumeAssertionCondition enum)
+                - Invalid parameter structure for condition:
+                  - Single-bound conditions require a single number
+                  - Range conditions require a tuple of two numbers
+                  - Parameters must be numeric (int or float)
+                - Parameter validation failures (negative values, invalid ranges)
 
-_VOLUME_ASSERTION_DEFINITION_CONCRETE_TYPES = (
-    RowCountTotal,
-    RowCountChange,
-)
-_VolumeAssertionDefinitionTypes = Union[
-    RowCountTotal,
-    RowCountChange,
-]
+        Examples:
+            Parse a total row count assertion with single threshold:
+            >>> criteria = {
+            ...     "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+            ...     "parameters": 100
+            ... }
+            >>> result = VolumeAssertionCriteria.parse(criteria)
+            >>> result.condition.value
+            "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO"
 
-VolumeAssertionDefinitionInputTypes = Union[
-    dict[str, Any], _VolumeAssertionDefinitionTypes
-]
+            Parse a row count change assertion with range:
+            >>> criteria = {
+            ...     "condition": "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",
+            ...     "parameters": (10.0, 50.0)
+            ... }
+            >>> result = VolumeAssertionCriteria.parse(criteria)
+            >>> result.parameters
+            (10.0, 50.0)
 
+            Parse an already instantiated object:
+            >>> obj = VolumeAssertionCriteria(
+            ...     condition=VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO,
+            ...     parameters=200
+            ... )
+            >>> result = VolumeAssertionCriteria.parse(obj)
+            >>> result == obj
+            True
+        """
+        if isinstance(criteria, VolumeAssertionCriteria):
+            return criteria
 
-class VolumeAssertionDefinition:
-    ROW_COUNT_TOTAL = RowCountTotal
-    ROW_COUNT_CHANGE = RowCountChange
+        if isinstance(criteria, dict):
+            condition = criteria.get("condition")
+            parameters = criteria.get("parameters")
+
+            if condition is None:
+                raise SDKUsageError(
+                    "Volume assertion criteria must include a 'condition' field"
+                )
+            if parameters is None:
+                raise SDKUsageError(
+                    "Volume assertion criteria must include a 'parameters' field"
+                )
+
+            # Validate condition and parameters compatibility
+            VolumeAssertionCriteria._validate_condition_and_parameters(
+                condition, parameters
+            )
+
+            return VolumeAssertionCriteria(condition=condition, parameters=parameters)
+
+        raise SDKUsageError(
+            f"Volume assertion criteria must be a dict or VolumeAssertionCriteria object, got: {type(criteria)}"
+        )
+
+    @staticmethod
+    def build_model_volume_info(
+        criteria: "VolumeAssertionCriteria",
+        dataset_urn: str,
+        filter: Optional[models.DatasetFilterClass] = None,
+    ) -> models.VolumeAssertionInfoClass:
+        """Build a DataHub VolumeAssertionInfoClass from volume assertion criteria."""
+        condition = criteria.condition
+        parameters = criteria.parameters
+
+        # Convert condition to DataHub models based on condition type
+        if condition.value.startswith("ROW_COUNT_IS_"):
+            volume_info = VolumeAssertionCriteria._build_row_count_total_info(
+                condition, parameters, dataset_urn
+            )
+        elif condition.value.startswith("ROW_COUNT_GROWS_"):
+            volume_info = VolumeAssertionCriteria._build_row_count_change_info(
+                condition, parameters, dataset_urn
+            )
+        else:
+            raise SDKUsageError(f"Unsupported volume assertion condition: {condition}")
+
+        if filter is not None:
+            volume_info.filter = filter
+        return volume_info
+
+    @staticmethod
+    def _build_row_count_total_info(
+        condition: VolumeAssertionCondition,
+        parameters: VolumeAssertionDefinitionParameters,
+        dataset_urn: str,
+    ) -> models.VolumeAssertionInfoClass:
+        """Build VolumeAssertionInfoClass for row count total assertions."""
+        if condition.value.endswith("_WITHIN_A_RANGE"):
+            operator = models.AssertionStdOperatorClass.BETWEEN
+        elif condition.value.endswith("_LESS_THAN_OR_EQUAL_TO"):
+            operator = models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+        elif condition.value.endswith("_GREATER_THAN_OR_EQUAL_TO"):
+            operator = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+        else:
+            raise SDKUsageError(f"Unknown row count condition: {condition}")
+
+        return models.VolumeAssertionInfoClass(
+            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+            entity=dataset_urn,
+            rowCountTotal=models.RowCountTotalClass(
+                operator=operator,
+                parameters=VolumeAssertionCriteria._build_assertion_parameters(
+                    operator, parameters
+                ),
+            ),
+        )
+
+    @staticmethod
+    def _build_row_count_change_info(
+        condition: VolumeAssertionCondition,
+        parameters: VolumeAssertionDefinitionParameters,
+        dataset_urn: str,
+    ) -> models.VolumeAssertionInfoClass:
+        """Build VolumeAssertionInfoClass for row count change assertions."""
+        # Determine operator
+        if condition.value.endswith(
+            "_WITHIN_A_RANGE_ABSOLUTE"
+        ) or condition.value.endswith("_WITHIN_A_RANGE_PERCENTAGE"):
+            operator = models.AssertionStdOperatorClass.BETWEEN
+        elif condition.value.endswith("_AT_MOST_ABSOLUTE") or condition.value.endswith(
+            "_AT_MOST_PERCENTAGE"
+        ):
+            operator = models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+        elif condition.value.endswith("_AT_LEAST_ABSOLUTE") or condition.value.endswith(
+            "_AT_LEAST_PERCENTAGE"
+        ):
+            operator = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+        else:
+            raise SDKUsageError(f"Unknown row count change condition: {condition}")
+
+        # Determine change type
+        if condition.value.endswith("_ABSOLUTE") or condition.value.endswith(
+            "_ABSOLUTE_WITHIN_A_RANGE"
+        ):
+            change_type = models.AssertionValueChangeTypeClass.ABSOLUTE
+        elif condition.value.endswith("_PERCENTAGE") or condition.value.endswith(
+            "_PERCENTAGE_WITHIN_A_RANGE"
+        ):
+            change_type = models.AssertionValueChangeTypeClass.PERCENTAGE
+        else:
+            raise SDKUsageError(
+                f"Cannot determine change type for condition: {condition}"
+            )
+
+        return models.VolumeAssertionInfoClass(
+            type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+            entity=dataset_urn,
+            rowCountChange=models.RowCountChangeClass(
+                type=change_type,
+                operator=operator,
+                parameters=VolumeAssertionCriteria._build_assertion_parameters(
+                    operator, parameters
+                ),
+            ),
+        )
+
+    @staticmethod
+    def from_assertion(assertion: Assertion) -> "VolumeAssertionCriteria":
+        """Create volume assertion criteria from a DataHub assertion entity."""
+        VolumeAssertionCriteria._validate_assertion_info(assertion)
+
+        # Type narrowing: we know assertion.info is VolumeAssertionInfoClass after validation
+        assert isinstance(assertion.info, models.VolumeAssertionInfoClass)
+
+        if assertion.info.type == models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL:
+            return VolumeAssertionCriteria._extract_row_count_total_criteria(assertion)
+        elif assertion.info.type == models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE:
+            return VolumeAssertionCriteria._extract_row_count_change_criteria(assertion)
+        else:
+            raise SDKNotYetSupportedError(
+                f"Unsupported volume assertion type: {assertion.info.type}"
+            )
+
+    @staticmethod
+    def _validate_assertion_info(assertion: Assertion) -> None:
+        """Validate that assertion has valid volume assertion info."""
+        if assertion.info is None:
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} does not have a volume assertion info, which is not supported"
+            )
+        if not isinstance(assertion.info, models.VolumeAssertionInfoClass):
+            raise SDKNotYetSupportedError(
+                f"Assertion {assertion.urn} is not a volume assertion"
+            )
+
+    @staticmethod
+    def _extract_row_count_total_criteria(
+        assertion: Assertion,
+    ) -> "VolumeAssertionCriteria":
+        """Extract criteria from row count total assertion."""
+        # Type narrowing: we know assertion.info is VolumeAssertionInfoClass
+        assert isinstance(assertion.info, models.VolumeAssertionInfoClass)
+
+        if assertion.info.rowCountTotal is None:
+            raise SDKNotYetSupportedError(
+                f"Volume assertion {assertion.urn} has ROW_COUNT_TOTAL type but no rowCountTotal"
+            )
+
+        operator = assertion.info.rowCountTotal.operator
+        parameters = VolumeAssertionCriteria._extract_volume_parameters(
+            str(assertion.urn), str(operator), assertion.info.rowCountTotal.parameters
+        )
+
+        if operator == models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO:
+            condition = VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO
+        elif operator == models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO:
+            condition = VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
+        elif operator == models.AssertionStdOperatorClass.BETWEEN:
+            condition = VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE
+        else:
+            raise SDKNotYetSupportedError(
+                f"Unsupported operator for row count total: {operator}"
+            )
+
+        return VolumeAssertionCriteria(condition=condition, parameters=parameters)
+
+    @staticmethod
+    def _extract_row_count_change_criteria(
+        assertion: Assertion,
+    ) -> "VolumeAssertionCriteria":
+        """Extract criteria from row count change assertion."""
+        # Type narrowing: we know assertion.info is VolumeAssertionInfoClass
+        assert isinstance(assertion.info, models.VolumeAssertionInfoClass)
+
+        if assertion.info.rowCountChange is None:
+            raise SDKNotYetSupportedError(
+                f"Volume assertion {assertion.urn} has ROW_COUNT_CHANGE type but no rowCountChange"
+            )
+
+        operator = assertion.info.rowCountChange.operator
+        change_type = assertion.info.rowCountChange.type
+        parameters = VolumeAssertionCriteria._extract_volume_parameters(
+            str(assertion.urn), str(operator), assertion.info.rowCountChange.parameters
+        )
+
+        # Determine condition based on operator and change type
+        if operator == models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO:
+            condition = (
+                VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE
+                if change_type == models.AssertionValueChangeTypeClass.ABSOLUTE
+                else VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE
+            )
+        elif operator == models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO:
+            condition = (
+                VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE
+                if change_type == models.AssertionValueChangeTypeClass.ABSOLUTE
+                else VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE
+            )
+        elif operator == models.AssertionStdOperatorClass.BETWEEN:
+            condition = (
+                VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE
+                if change_type == models.AssertionValueChangeTypeClass.ABSOLUTE
+                else VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE
+            )
+        else:
+            raise SDKNotYetSupportedError(
+                f"Unsupported operator for row count change: {operator}"
+            )
+
+        return VolumeAssertionCriteria(condition=condition, parameters=parameters)
+
+    @staticmethod
+    def _extract_volume_parameters(
+        assertion_urn: str,
+        operator: str,
+        parameters: models.AssertionStdParametersClass,
+    ) -> VolumeAssertionDefinitionParameters:
+        """Extract parameters from assertion based on operator type."""
+        if operator == "BETWEEN":
+            if parameters.minValue is None or parameters.maxValue is None:
+                raise SDKNotYetSupportedError(
+                    f"Volume assertion {assertion_urn} has BETWEEN operator but missing min/max values"
+                )
+            return (float(parameters.minValue.value), float(parameters.maxValue.value))
+        else:
+            if parameters.value is None:
+                raise SDKNotYetSupportedError(
+                    f"Volume assertion {assertion_urn} has {operator} operator but missing value"
+                )
+            return float(parameters.value.value)
 
     @staticmethod
     def _validate_between_parameters(
-        parameters: VolumeAssertionDefinitionParameters, assertion_type: str
+        parameters: VolumeAssertionDefinitionParameters, condition: str
     ) -> None:
-        """Validate parameters for BETWEEN operator."""
+        """Validate parameters for WITHIN_A_RANGE conditions."""
         if not isinstance(parameters, tuple) or len(parameters) != 2:
             raise SDKUsageError(
-                f"For BETWEEN operator in {assertion_type}, parameters must be a tuple of two numbers (min_value, max_value)."
+                f"For WITHIN_A_RANGE condition {condition}, parameters must be a tuple of two numbers (min_value, max_value)."
             )
 
     @staticmethod
     def _validate_single_value_parameters(
         parameters: VolumeAssertionDefinitionParameters,
-        operator_enum: VolumeAssertionOperator,
-        assertion_type: str,
+        condition: str,
     ) -> None:
-        """Validate parameters for single-value operators."""
+        """Validate parameters for single-value conditions."""
         if not isinstance(parameters, (int, float)):
             if isinstance(parameters, tuple):
                 raise SDKUsageError(
-                    f"For {operator_enum.value} operator in {assertion_type}, parameters must be a single number, not a tuple."
+                    f"For condition {condition}, parameters must be a single number, not a tuple."
                 )
             else:
                 raise SDKUsageError(
-                    f"For {operator_enum.value} operator in {assertion_type}, parameters must be a single number."
+                    f"For condition {condition}, parameters must be a single number."
                 )
 
     @staticmethod
-    def _parse_operator(
-        operator: Union[str, VolumeAssertionOperator],
-    ) -> VolumeAssertionOperator:
-        """Parse and validate operator input, converting string to enum if needed."""
-        if isinstance(operator, str):
+    def _parse_condition(
+        condition: Union[str, VolumeAssertionCondition],
+    ) -> VolumeAssertionCondition:
+        """Parse and validate condition input, converting string to enum if needed."""
+        if isinstance(condition, str):
             try:
-                return VolumeAssertionOperator(operator)
+                return VolumeAssertionCondition(condition)
             except ValueError as e:
-                valid_operators = ", ".join(
-                    [op.value for op in VolumeAssertionOperator]
+                valid_conditions = ", ".join(
+                    [cond.value for cond in VolumeAssertionCondition]
                 )
                 raise SDKUsageError(
-                    f"Invalid operator '{operator}'. Valid operators: {valid_operators}"
+                    f"Invalid condition '{condition}'. Valid conditions: {valid_conditions}"
                 ) from e
-        return operator
+        return condition
 
     @staticmethod
-    def _validate_operator_and_parameters(
-        operator: Union[str, VolumeAssertionOperator],
+    def _validate_condition_and_parameters(
+        condition: Union[str, VolumeAssertionCondition],
         parameters: VolumeAssertionDefinitionParameters,
-        assertion_type: str,
     ) -> None:
-        """Validate that operator and parameters are compatible for volume assertions."""
-        operator_enum = VolumeAssertionDefinition._parse_operator(operator)
+        """Validate that condition and parameters are compatible for volume assertions."""
+        condition_enum = VolumeAssertionCriteria._parse_condition(condition)
 
-        # Validate parameter structure based on operator
-        if operator_enum == VolumeAssertionOperator.BETWEEN:
-            VolumeAssertionDefinition._validate_between_parameters(
-                parameters, assertion_type
+        # Validate parameter structure based on condition
+        if (
+            condition_enum.value.endswith("_WITHIN_A_RANGE")
+            or condition_enum.value.endswith("_WITHIN_A_RANGE_ABSOLUTE")
+            or condition_enum.value.endswith("_WITHIN_A_RANGE_PERCENTAGE")
+        ):
+            VolumeAssertionCriteria._validate_between_parameters(
+                parameters, condition_enum.value
             )
         else:
-            VolumeAssertionDefinition._validate_single_value_parameters(
-                parameters, operator_enum, assertion_type
-            )
-
-    @staticmethod
-    def _parse_instantiated_object(
-        definition: _VolumeAssertionDefinitionTypes,
-    ) -> _VolumeAssertionDefinitionTypes:
-        """Parse and validate already instantiated volume assertion objects."""
-        VolumeAssertionDefinition._validate_operator_and_parameters(
-            definition.operator, definition.parameters, definition.type
-        )
-        return definition
-
-    @staticmethod
-    def _parse_dict_definition(
-        definition_dict: dict[str, Any],
-    ) -> _VolumeAssertionDefinitionTypes:
-        """Parse and validate dictionary-based volume assertion definitions."""
-        # Make a copy of the dictionary to avoid mutating the original
-        definition_copy = definition_dict.copy()
-
-        try:
-            assertion_type = definition_copy.pop("type")
-        except KeyError as e:
-            raise SDKUsageError(
-                "Volume assertion definition must include a 'type' field"
-            ) from e
-
-        # Check for valid assertion type first
-        if assertion_type not in CURRENTLY_SUPPORTED_VOLUME_ASSERTION_DEFINITIONS:
-            supported_types = ", ".join(
-                [t.value for t in CURRENTLY_SUPPORTED_VOLUME_ASSERTION_DEFINITIONS]
-            )
-            raise SDKUsageError(
-                f"Unknown volume assertion type: {assertion_type}. Supported types: {supported_types}"
-            )
-
-        # Extract operator and parameters for validation
-        operator = definition_copy.get("operator")
-        parameters = definition_copy.get("parameters")
-
-        if operator is None:
-            raise SDKUsageError(
-                f"Missing required 'operator' field for {assertion_type}"
-            )
-        if parameters is None:
-            raise SDKUsageError(
-                f"Missing required 'parameters' field for {assertion_type}"
-            )
-
-        # Validate basic parameter type first
-        if not isinstance(parameters, (int, float, tuple)):
-            raise SDKUsageError(
-                f"For {assertion_type}, parameters must be a number or a tuple of two numbers, got: {type(parameters)}"
-            )
-
-        # Validate operator and parameters before object creation
-        VolumeAssertionDefinition._validate_operator_and_parameters(
-            operator, parameters, assertion_type
-        )
-
-        # Convert string operator to enum for object creation
-        if isinstance(operator, str):
-            definition_copy["operator"] = VolumeAssertionDefinition._parse_operator(
-                operator
-            )
-
-        if assertion_type == VolumeAssertionDefinitionType.ROW_COUNT_TOTAL:
-            try:
-                return RowCountTotal(**definition_copy)
-            except Exception as e:
-                raise SDKUsageError(
-                    f"Failed to create {VolumeAssertionDefinitionType.ROW_COUNT_TOTAL.value} volume assertion: {str(e)}"
-                ) from e
-        else:  # assertion_type == VolumeAssertionDefinitionType.ROW_COUNT_CHANGE
-            try:
-                return RowCountChange(**definition_copy)
-            except Exception as e:
-                raise SDKUsageError(
-                    f"Failed to create {VolumeAssertionDefinitionType.ROW_COUNT_CHANGE.value} volume assertion: {str(e)}"
-                ) from e
-
-    @staticmethod
-    def parse(
-        definition: VolumeAssertionDefinitionInputTypes,
-    ) -> _VolumeAssertionDefinitionTypes:
-        """Parse and validate a volume assertion definition.
-
-        This method converts dictionary-based volume assertion definitions into typed volume
-        assertion objects, or validates already instantiated volume assertion objects. It
-        supports two volume assertion types: row_count_total and row_count_change.
-
-        Args:
-            definition: A volume assertion definition that can be either:
-                - A dictionary containing volume assertion configuration with keys:
-                  - type: Must be "row_count_total" or "row_count_change"
-                  - operator: Must be "LESS_THAN_OR_EQUAL_TO", "GREATER_THAN_OR_EQUAL_TO", or "BETWEEN"
-                  - parameters: Number for single-value operators, tuple of two numbers for BETWEEN
-                  - kind: Required for "row_count_change", must be "absolute" or "percent"
-                - An already instantiated RowCountTotal or RowCountChange object
-
-        Returns:
-            A validated volume assertion definition object (RowCountTotal or RowCountChange).
-
-        Raises:
-            SDKUsageError: If the definition is invalid, including:
-                - Invalid input type (not dict or volume assertion object)
-                - Missing required fields (type, operator, parameters, kind for row_count_change)
-                - Unknown assertion type (not row_count_total or row_count_change)
-                - Invalid operator (not in allowed operators)
-                - Invalid parameter structure for operator:
-                  - Single-value operators require number parameters
-                  - BETWEEN operator requires tuple of two numbers
-                - Object construction failures (extra fields, validation errors)
-
-        Examples:
-            Parse a row count total assertion:
-            >>> definition = {
-            ...     "type": "row_count_total",
-            ...     "operator": "GREATER_THAN_OR_EQUAL_TO",
-            ...     "parameters": 100
-            ... }
-            >>> result = VolumeAssertionDefinition.parse(definition)
-            >>> isinstance(result, RowCountTotal)
-            True
-
-            Parse a row count change assertion with BETWEEN operator:
-            >>> definition = {
-            ...     "type": "row_count_change",
-            ...     "kind": "absolute",
-            ...     "operator": "BETWEEN",
-            ...     "parameters": (10, 50)
-            ... }
-            >>> result = VolumeAssertionDefinition.parse(definition)
-            >>> isinstance(result, RowCountChange)
-            True
-
-            Parse an already instantiated object:
-            >>> obj = RowCountTotal(
-            ...     operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
-            ...     parameters=200
-            ... )
-            >>> result = VolumeAssertionDefinition.parse(obj)
-            >>> result == obj
-            True
-        """
-        # If already instantiated, validate and return
-        if isinstance(definition, _VOLUME_ASSERTION_DEFINITION_CONCRETE_TYPES):
-            return VolumeAssertionDefinition._parse_instantiated_object(definition)
-
-        if not isinstance(definition, dict):
-            raise SDKUsageError(
-                f"Volume assertion definition must be a dict or a volume assertion definition object, got: {type(definition)}"
-            )
-
-        return VolumeAssertionDefinition._parse_dict_definition(definition)
-
-    @staticmethod
-    def build_model_volume_info(
-        definition: _VolumeAssertionDefinitionTypes,
-        dataset_urn: str,
-        filter: Optional[models.DatasetFilterClass] = None,
-    ) -> models.VolumeAssertionInfoClass:
-        """Build a DataHub VolumeAssertionInfoClass from a validated volume assertion definition.
-
-        This method converts validated volume assertion definition objects into DataHub model
-        classes suitable for creating volume assertions in the DataHub metadata service.
-
-        Args:
-            definition: A validated volume assertion definition object (RowCountTotal or RowCountChange).
-                        This should be the output of VolumeAssertionDefinition.parse().
-            dataset_urn: The dataset URN that this assertion applies to.
-            filter: Optional filter to apply to the assertion.
-
-        Returns:
-            A VolumeAssertionInfoClass configured for the specific volume assertion type.
-
-        Raises:
-            SDKUsageError: If the definition type is not supported.
-        """
-        if isinstance(definition, RowCountTotal):
-            volume_info = models.VolumeAssertionInfoClass(
-                type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
-                entity=dataset_urn,
-                rowCountTotal=models.RowCountTotalClass(
-                    operator=definition.operator.value,
-                    parameters=VolumeAssertionDefinition._build_assertion_parameters(
-                        definition.operator, definition.parameters
-                    ),
-                ),
-            )
-            if filter is not None:
-                volume_info.filter = filter
-            return volume_info
-        elif isinstance(definition, RowCountChange):
-            # Map kind to DataHub assertion value change type
-            change_type = (
-                models.AssertionValueChangeTypeClass.ABSOLUTE
-                if definition.kind == VolumeAssertionDefinitionChangeKind.ABSOLUTE
-                else models.AssertionValueChangeTypeClass.PERCENTAGE
-            )
-
-            volume_info = models.VolumeAssertionInfoClass(
-                type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
-                entity=dataset_urn,
-                rowCountChange=models.RowCountChangeClass(
-                    type=change_type,
-                    operator=definition.operator.value,
-                    parameters=VolumeAssertionDefinition._build_assertion_parameters(
-                        definition.operator, definition.parameters
-                    ),
-                ),
-            )
-            if filter is not None:
-                volume_info.filter = filter
-            return volume_info
-        else:
-            raise SDKUsageError(
-                f"Unsupported volume assertion definition type: {type(definition)}"
+            VolumeAssertionCriteria._validate_single_value_parameters(
+                parameters, condition_enum.value
             )
 
     @staticmethod
@@ -391,19 +459,19 @@ class VolumeAssertionDefinition:
 
     @staticmethod
     def _build_assertion_parameters(
-        operator: VolumeAssertionOperator,
+        operator: str,
         parameters: VolumeAssertionDefinitionParameters,
     ) -> models.AssertionStdParametersClass:
         """Build assertion parameters for DataHub model classes.
 
         Args:
-            operator: The volume assertion operator.
+            operator: The assertion operator (from models.AssertionStdOperatorClass).
             parameters: The parameters (int for single value, tuple for BETWEEN).
 
         Returns:
             AssertionStdParametersClass with appropriate parameter structure.
         """
-        if operator == VolumeAssertionOperator.BETWEEN:
+        if operator == models.AssertionStdOperatorClass.BETWEEN:
             assert isinstance(parameters, tuple) and len(parameters) == 2, (
                 f"BETWEEN operator requires tuple of two numbers, got: {parameters}"
             )
@@ -411,11 +479,11 @@ class VolumeAssertionDefinition:
             min_val, max_val = sorted(parameters)
             return models.AssertionStdParametersClass(
                 minValue=models.AssertionStdParameterClass(
-                    value=VolumeAssertionDefinition._format_number_value(min_val),
+                    value=VolumeAssertionCriteria._format_number_value(min_val),
                     type=models.AssertionStdParameterTypeClass.NUMBER,
                 ),
                 maxValue=models.AssertionStdParameterClass(
-                    value=VolumeAssertionDefinition._format_number_value(max_val),
+                    value=VolumeAssertionCriteria._format_number_value(max_val),
                     type=models.AssertionStdParameterTypeClass.NUMBER,
                 ),
             )
@@ -426,96 +494,9 @@ class VolumeAssertionDefinition:
             )
             return models.AssertionStdParametersClass(
                 value=models.AssertionStdParameterClass(
-                    value=VolumeAssertionDefinition._format_number_value(parameters),
+                    value=VolumeAssertionCriteria._format_number_value(parameters),
                     type=models.AssertionStdParameterTypeClass.NUMBER,
                 ),
-            )
-
-    @staticmethod
-    def _extract_volume_parameters(
-        assertion_urn: str,
-        operator: VolumeAssertionOperator,
-        parameters: models.AssertionStdParametersClass,
-    ) -> VolumeAssertionDefinitionParameters:
-        """Extract parameters from assertion based on operator type."""
-        if operator.value == "BETWEEN":
-            if parameters.minValue is None or parameters.maxValue is None:
-                raise SDKNotYetSupportedError(
-                    f"Volume assertion {assertion_urn} has BETWEEN operator but missing min/max values"
-                )
-            return (float(parameters.minValue.value), float(parameters.maxValue.value))
-        else:
-            if parameters.value is None:
-                raise SDKNotYetSupportedError(
-                    f"Volume assertion {assertion_urn} has {operator.value} operator but missing value"
-                )
-            return float(parameters.value.value)
-
-    @staticmethod
-    def _get_row_count_total(assertion: Assertion) -> RowCountTotal:
-        """Extract RowCountTotal from assertion."""
-        assert isinstance(assertion.info, models.VolumeAssertionInfoClass)
-        if assertion.info.rowCountTotal is None:
-            raise SDKNotYetSupportedError(
-                f"Volume assertion {assertion.urn} has ROW_COUNT_TOTAL type but no rowCountTotal, which is not supported"
-            )
-        row_count_total = assertion.info.rowCountTotal
-        operator = VolumeAssertionOperator(row_count_total.operator)
-        parameters = VolumeAssertionDefinition._extract_volume_parameters(
-            str(assertion.urn), operator, row_count_total.parameters
-        )
-        return RowCountTotal(operator=operator, parameters=parameters)
-
-    @staticmethod
-    def _get_row_count_change(assertion: Assertion) -> RowCountChange:
-        """Extract RowCountChange from assertion."""
-        assert isinstance(assertion.info, models.VolumeAssertionInfoClass)
-        if assertion.info.rowCountChange is None:
-            raise SDKNotYetSupportedError(
-                f"Volume assertion {assertion.urn} has ROW_COUNT_CHANGE type but no rowCountChange, which is not supported"
-            )
-        row_count_change = assertion.info.rowCountChange
-        operator = VolumeAssertionOperator(row_count_change.operator)
-        parameters = VolumeAssertionDefinition._extract_volume_parameters(
-            str(assertion.urn), operator, row_count_change.parameters
-        )
-        kind: VolumeAssertionDefinitionChangeKind = (
-            VolumeAssertionDefinitionChangeKind.ABSOLUTE
-            if row_count_change.type == models.AssertionValueChangeTypeClass.ABSOLUTE
-            else VolumeAssertionDefinitionChangeKind.PERCENTAGE
-        )
-        return RowCountChange(operator=operator, parameters=parameters, kind=kind)
-
-    @staticmethod
-    def from_assertion(assertion: Assertion) -> _VolumeAssertionDefinitionTypes:
-        """Create a volume assertion definition from a DataHub assertion entity.
-
-        Args:
-            assertion: The DataHub assertion entity to extract the definition from.
-
-        Returns:
-            A volume assertion definition object (RowCountTotal or RowCountChange).
-
-        Raises:
-            SDKNotYetSupportedError: If the assertion is not a volume assertion or has
-                unsupported configuration.
-        """
-        if assertion.info is None:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} does not have a volume assertion info, which is not supported"
-            )
-        if not isinstance(assertion.info, models.VolumeAssertionInfoClass):
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} is not a volume assertion"
-            )
-
-        if assertion.info.type == models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL:
-            return VolumeAssertionDefinition._get_row_count_total(assertion)
-        elif assertion.info.type == models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE:
-            return VolumeAssertionDefinition._get_row_count_change(assertion)
-        else:
-            raise SDKNotYetSupportedError(
-                f"Volume assertion {assertion.urn} has unsupported type {assertion.info.type}"
             )
 
 
@@ -526,7 +507,7 @@ class _VolumeAssertionInput(_AssertionInput):
         # Required fields
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
-        definition: VolumeAssertionDefinitionInputTypes,
+        criteria: VolumeAssertionCriteriaInputTypes,
         urn: Optional[Union[str, AssertionUrn]] = None,
         # Optional fields
         display_name: Optional[str] = None,
@@ -558,7 +539,7 @@ class _VolumeAssertionInput(_AssertionInput):
             updated_at=updated_at,
         )
 
-        self.definition = VolumeAssertionDefinition.parse(definition)
+        self.criteria = VolumeAssertionCriteria.parse(criteria)
 
     def _assertion_type(self) -> str:
         return models.AssertionTypeClass.VOLUME
@@ -575,8 +556,8 @@ class _VolumeAssertionInput(_AssertionInput):
         Returns:
             A VolumeAssertionInfoClass configured for volume assertions.
         """
-        return VolumeAssertionDefinition.build_model_volume_info(
-            self.definition, str(self.dataset_urn), filter
+        return VolumeAssertionCriteria.build_model_volume_info(
+            self.criteria, str(self.dataset_urn), filter
         )
 
     def _create_monitor_info(

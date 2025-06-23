@@ -1,17 +1,13 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Type, Union
+from typing import Optional, Type
 from unittest.mock import Mock
 
 import pytest
 
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
-    RowCountChange,
-    RowCountTotal,
-    VolumeAssertionDefinition,
-    VolumeAssertionDefinitionChangeKind,
-    VolumeAssertionDefinitionInputTypes,
-    VolumeAssertionOperator,
-    _VolumeAssertionDefinitionTypes,
+    VolumeAssertionCondition,
+    VolumeAssertionCriteria,
+    VolumeAssertionCriteriaInputTypes,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
@@ -23,18 +19,18 @@ _TEST_FILTER = Mock(spec=models.DatasetFilterClass)
 
 
 @dataclass
-class VolumeAssertionDefinitionTestParams:
-    """Test parameters for VolumeAssertionDefinition.parse method."""
+class VolumeAssertionCriteriaTestParams:
+    """Test parameters for VolumeAssertionCriteria.parse method."""
 
-    input_definition: VolumeAssertionDefinitionInputTypes
+    input_criteria: VolumeAssertionCriteriaInputTypes
     expected_type: Optional[Type] = None
-    expected_value: Optional[_VolumeAssertionDefinitionTypes] = None
+    expected_value: Optional[VolumeAssertionCriteria] = None
     expected_error: Optional[str] = None
     should_succeed: bool = True
 
 
-class TestVolumeAssertionDefinitionParse:
-    """Comprehensive test suite for VolumeAssertionDefinition.parse method."""
+class TestVolumeAssertionCriteriaParse:
+    """Comprehensive test suite for VolumeAssertionCriteria.parse method."""
 
     @pytest.mark.parametrize(
         "test_params",
@@ -42,406 +38,458 @@ class TestVolumeAssertionDefinitionParse:
             # ============ SUCCESSFUL CASES ============
             # Test already instantiated objects that pass isinstance check
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
-                    expected_type=RowCountTotal,
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
                     should_succeed=True,
                 ),
-                id="already_instantiated_row_count_total",
+                id="already_instantiated_criteria",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
-                        parameters=50,
-                    ),
-                    expected_type=RowCountChange,
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
-                        parameters=50,
-                    ),
-                    should_succeed=True,
-                ),
-                id="already_instantiated_row_count_change",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 200),
                     ),
-                    expected_type=RowCountTotal,
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 200),
                     ),
                     should_succeed=True,
                 ),
-                id="already_instantiated_row_count_total_between",
+                id="already_instantiated_criteria_range",
             ),
-            # ============ SUCCESSFUL DICT PARSING WITH INT AND TUPLE PARAMETERS ============
+            # ============ SUCCESSFUL DICT PARSING ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
                         "parameters": 100,
                     },
-                    expected_type=RowCountTotal,
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
                     should_succeed=True,
                 ),
-                id="row_count_total_with_int_parameter",
+                id="dict_with_int_parameter",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "kind": "ABSOLUTE",
-                        "operator": "LESS_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE",
                         "parameters": 50,
                     },
-                    expected_type=RowCountChange,
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE,
                         parameters=50,
                     ),
                     should_succeed=True,
                 ),
-                id="row_count_change_with_int_parameter",
+                id="dict_change_with_int_parameter",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "BETWEEN",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
                         "parameters": (100, 200),
                     },
-                    expected_type=RowCountTotal,
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 200),
                     ),
                     should_succeed=True,
                 ),
-                id="row_count_total_between_with_tuple_parameters",
+                id="dict_between_with_tuple_parameters",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "kind": "PERCENTAGE",
-                        "operator": "BETWEEN",
-                        "parameters": (10, 50),
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO",
+                        "parameters": 500.5,
                     },
-                    expected_type=RowCountChange,
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.BETWEEN,
-                        parameters=(10, 50),
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO,
+                        parameters=500.5,
                     ),
                     should_succeed=True,
                 ),
-                id="row_count_change_between_with_tuple_parameters",
+                id="dict_less_than_or_equal_to_with_float",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE",
+                        "parameters": 25,
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE,
+                        parameters=25,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_grows_by_at_most_absolute",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE",
+                        "parameters": 10,
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE,
+                        parameters=10,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_grows_by_at_least_absolute",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE",
+                        "parameters": 75.5,
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE,
+                        parameters=75.5,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_grows_by_at_most_percentage",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE",
+                        "parameters": (5, 25),
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE,
+                        parameters=(5, 25),
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_grows_within_range_absolute",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",
+                        "parameters": (10.5, 30.2),
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE,
+                        parameters=(10.5, 30.2),
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_grows_within_range_percentage",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": 0,
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        parameters=0,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_with_zero_parameter",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
+                        "parameters": (100.5, 200.8),
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
+                        parameters=(100.5, 200.8),
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_range_with_float_parameters",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        "parameters": 100,
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        parameters=100,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_with_enum_condition_object",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": 100,
+                        "extra_field": "should_be_ignored",
+                    },
+                    expected_type=VolumeAssertionCriteria,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        parameters=100,
+                    ),
+                    should_succeed=True,
+                ),
+                id="dict_with_extra_fields_ignored",
             ),
             # ============ INPUT TYPE VALIDATION FAILURES ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition="invalid_string",  # type: ignore[arg-type]
-                    expected_error="Volume assertion definition must be a dict or a volume assertion definition object, got: <class 'str'>",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria="invalid_string",  # type: ignore[arg-type]
+                    expected_error="Volume assertion criteria must be a dict or VolumeAssertionCriteria object, got: <class 'str'>",
                     should_succeed=False,
                 ),
                 id="invalid_input_type_string",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=None,  # type: ignore[arg-type]
-                    expected_error="Volume assertion definition must be a dict or a volume assertion definition object, got: <class 'NoneType'>",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria=None,  # type: ignore[arg-type]
+                    expected_error="Volume assertion criteria must be a dict or VolumeAssertionCriteria object, got: <class 'NoneType'>",
                     should_succeed=False,
                 ),
                 id="invalid_input_type_none",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=123,  # type: ignore[arg-type]
-                    expected_error="Volume assertion definition must be a dict or a volume assertion definition object, got: <class 'int'>",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria=123,  # type: ignore[arg-type]
+                    expected_error="Volume assertion criteria must be a dict or VolumeAssertionCriteria object, got: <class 'int'>",
                     should_succeed=False,
                 ),
                 id="invalid_input_type_int",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition=["item1", "item2"],  # type: ignore[arg-type]
-                    expected_error="Volume assertion definition must be a dict or a volume assertion definition object, got: <class 'list'>",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria=[],  # type: ignore[arg-type]
+                    expected_error="Volume assertion criteria must be a dict or VolumeAssertionCriteria object, got: <class 'list'>",
                     should_succeed=False,
                 ),
                 id="invalid_input_type_list",
             ),
             # ============ DICT STRUCTURE VALIDATION FAILURES ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
                         "parameters": 100,
                     },
-                    expected_error="Volume assertion definition must include a 'type' field",
+                    expected_error="Volume assertion criteria must include a 'condition' field",
                     should_succeed=False,
                 ),
-                id="missing_type_field",
+                id="missing_condition_field",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "unknown_type",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
                     },
-                    expected_error="Unknown volume assertion type: unknown_type. Supported types: ROW_COUNT_TOTAL, ROW_COUNT_CHANGE",
+                    expected_error="Volume assertion criteria must include a 'parameters' field",
                     should_succeed=False,
                 ),
-                id="unknown_assertion_type",
+                id="missing_parameters_field",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    },
-                    expected_error="Unknown volume assertion type: . Supported types: ROW_COUNT_TOTAL, ROW_COUNT_CHANGE",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={},
+                    expected_error="Volume assertion criteria must include a 'condition' field",
                     should_succeed=False,
                 ),
-                id="empty_assertion_type",
+                id="empty_dict",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "row_count_total",  # Wrong case
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "INVALID_CONDITION",
                         "parameters": 100,
                     },
-                    expected_error="Unknown volume assertion type: row_count_total",
+                    expected_error="Invalid condition 'INVALID_CONDITION'. Valid conditions:",
                     should_succeed=False,
                 ),
-                id="case_sensitive_type_validation",
+                id="invalid_condition_value",
             ),
-            # ============ MISSING REQUIRED FIELDS ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "row_count_is_greater_than_or_equal_to",  # lowercase
                         "parameters": 100,
                     },
-                    expected_error="Missing required 'operator' field for ROW_COUNT_TOTAL",
+                    expected_error="Invalid condition 'row_count_is_greater_than_or_equal_to'. Valid conditions:",
                     should_succeed=False,
                 ),
-                id="missing_operator_field_row_count_total",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    },
-                    expected_error="Missing required 'parameters' field for ROW_COUNT_CHANGE",
-                    should_succeed=False,
-                ),
-                id="missing_parameters_field_row_count_change",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        # Missing both operator and parameters
-                    },
-                    expected_error="Missing required 'operator' field for ROW_COUNT_TOTAL",
-                    should_succeed=False,
-                ),
-                id="missing_both_operator_and_parameters",
-            ),
-            # ============ INVALID OPERATORS ============
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "GREATER_THAN",
-                        "parameters": 100,
-                    },
-                    expected_error="Invalid operator 'GREATER_THAN'. Valid operators:",
-                    should_succeed=False,
-                ),
-                id="invalid_operator_greater_than",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "operator": "LESS_THAN",
-                        "parameters": 100,
-                    },
-                    expected_error="Invalid operator 'LESS_THAN'. Valid operators:",
-                    should_succeed=False,
-                ),
-                id="invalid_operator_less_than",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "EQUAL_TO",
-                        "parameters": 100,
-                    },
-                    expected_error="Invalid operator 'EQUAL_TO'. Valid operators:",
-                    should_succeed=False,
-                ),
-                id="invalid_operator_equal_to",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "operator": "CONTAIN",
-                        "parameters": 100,
-                    },
-                    expected_error="Invalid operator 'CONTAIN'. Valid operators:",
-                    should_succeed=False,
-                ),
-                id="invalid_operator_contain",
-            ),
-            pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "INVALID_OPERATOR",
-                        "parameters": 100,
-                    },
-                    expected_error="Invalid operator 'INVALID_OPERATOR'. Valid operators:",
-                    should_succeed=False,
-                ),
-                id="completely_invalid_operator",
+                id="condition_wrong_case",
             ),
             # ============ PARAMETER VALIDATION FAILURES ============
-            # ============ INT/TUPLE PARAMETER VALIDATION FAILURES ============
-            # Wrong parameter type for single-value operators
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
-                        "parameters": (100, 200),  # Should be single int, not tuple
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": (100, 200),  # Should be single value, not tuple
                     },
-                    expected_error="For GREATER_THAN_OR_EQUAL_TO operator in ROW_COUNT_TOTAL, parameters must be a single number, not a tuple",
+                    expected_error="For condition ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO, parameters must be a single number, not a tuple",
                     should_succeed=False,
                 ),
-                id="single_value_operator_rejects_tuple_parameters",
+                id="single_value_condition_rejects_tuple_parameters",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "kind": "ABSOLUTE",
-                        "operator": "LESS_THAN_OR_EQUAL_TO",
-                        "parameters": "100",  # Should be int, not string
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
+                        "parameters": 100,  # Should be tuple, not single value
                     },
-                    expected_error="For ROW_COUNT_CHANGE, parameters must be a number or a tuple of two numbers, got: <class 'str'>",
+                    expected_error="For WITHIN_A_RANGE condition ROW_COUNT_IS_WITHIN_A_RANGE, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
-                id="single_value_operator_rejects_string_parameters",
+                id="within_range_condition_rejects_single_parameters",
             ),
-            # Wrong parameter type for BETWEEN operator
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "BETWEEN",
-                        "parameters": 100,  # Should be tuple, not int
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": "invalid_number",
                     },
-                    expected_error="For BETWEEN operator in ROW_COUNT_TOTAL, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="For condition ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO, parameters must be a single number",
                     should_succeed=False,
                 ),
-                id="between_operator_rejects_int_parameters",
+                id="single_value_condition_with_invalid_string",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "kind": "PERCENTAGE",
-                        "operator": "BETWEEN",
-                        "parameters": (100,),  # Should be tuple of 2, not 1
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": "150",  # String is not valid parameter type
                     },
-                    expected_error="For BETWEEN operator in ROW_COUNT_CHANGE, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="For condition ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO, parameters must be a single number",
                     should_succeed=False,
                 ),
-                id="between_operator_rejects_single_element_tuple",
+                id="string_parameter_fails_validation",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "BETWEEN",
-                        "parameters": (100, 200, 300),  # Should be tuple of 2, not 3
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                        "parameters": None,
                     },
-                    expected_error="For BETWEEN operator in ROW_COUNT_TOTAL, parameters must be a tuple of two numbers (min_value, max_value)",
+                    expected_error="Volume assertion criteria must include a 'parameters' field",
                     should_succeed=False,
                 ),
-                id="between_operator_rejects_three_element_tuple",
+                id="single_value_condition_with_none_parameter",
             ),
-            # ============ OBJECT CONSTRUCTION FAILURES (valid operators but other issues) ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_CHANGE",
-                        "operator": "GREATER_THAN_OR_EQUAL_TO",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
+                        "parameters": (100,),  # Only one value in tuple
+                    },
+                    expected_error="For WITHIN_A_RANGE condition ROW_COUNT_IS_WITHIN_A_RANGE, parameters must be a tuple of two numbers (min_value, max_value)",
+                    should_succeed=False,
+                ),
+                id="range_condition_with_single_value_tuple",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
+                        "parameters": (100, 200, 300),  # Three values in tuple
+                    },
+                    expected_error="For WITHIN_A_RANGE condition ROW_COUNT_IS_WITHIN_A_RANGE, parameters must be a tuple of two numbers (min_value, max_value)",
+                    should_succeed=False,
+                ),
+                id="range_condition_with_three_value_tuple",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE",
                         "parameters": 100,
-                        # Missing required 'kind' field for row_count_change
                     },
-                    expected_error="Failed to create ROW_COUNT_CHANGE volume assertion:",
+                    expected_error="For WITHIN_A_RANGE condition ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE, parameters must be a tuple of two numbers (min_value, max_value)",
                     should_succeed=False,
                 ),
-                id="row_count_change_missing_kind_field",
+                id="absolute_range_condition_rejects_single_parameter",
             ),
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={
-                        "type": "ROW_COUNT_TOTAL",
-                        "operator": "BETWEEN",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",
+                        "parameters": 50,
+                    },
+                    expected_error="For WITHIN_A_RANGE condition ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE, parameters must be a tuple of two numbers (min_value, max_value)",
+                    should_succeed=False,
+                ),
+                id="percentage_range_condition_rejects_single_parameter",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO",
                         "parameters": (100, 200),
-                        "extra_invalid_field": "should_cause_failure",  # Extra field should cause Pydantic validation failure
                     },
-                    expected_error="Failed to create ROW_COUNT_TOTAL volume assertion:",
+                    expected_error="For condition ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO, parameters must be a single number, not a tuple",
                     should_succeed=False,
                 ),
-                id="object_construction_fails_with_extra_fields",
+                id="less_than_or_equal_to_condition_rejects_tuple",
             ),
-            # ============ INTEGRATION TESTS ============
             pytest.param(
-                VolumeAssertionDefinitionTestParams(
-                    input_definition={},
-                    expected_error="Volume assertion definition must include a 'type' field",
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE",
+                        "parameters": (10, 20),
+                    },
+                    expected_error="For condition ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE, parameters must be a single number, not a tuple",
                     should_succeed=False,
                 ),
-                id="empty_dict_handling",
+                id="absolute_growth_condition_rejects_tuple",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaTestParams(
+                    input_criteria={
+                        "condition": "ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE",
+                        "parameters": (30, 50),
+                    },
+                    expected_error="For condition ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE, parameters must be a single number, not a tuple",
+                    should_succeed=False,
+                ),
+                id="percentage_growth_condition_rejects_tuple",
             ),
         ],
     )
     def test_parse_comprehensive(
-        self, test_params: VolumeAssertionDefinitionTestParams
+        self, test_params: VolumeAssertionCriteriaTestParams
     ) -> None:
-        """Comprehensive test for VolumeAssertionDefinition.parse method."""
+        """Comprehensive test for VolumeAssertionCriteria.parse method."""
         if test_params.should_succeed:
             # Test successful cases
-            result = VolumeAssertionDefinition.parse(test_params.input_definition)
+            result = VolumeAssertionCriteria.parse(test_params.input_criteria)
             if test_params.expected_type:
                 assert isinstance(result, test_params.expected_type)
             # For successful cases, expected_value must be provided
@@ -452,7 +500,7 @@ class TestVolumeAssertionDefinitionParse:
         else:
             # Test failure cases
             with pytest.raises(SDKUsageError) as exc_info:
-                VolumeAssertionDefinition.parse(test_params.input_definition)
+                VolumeAssertionCriteria.parse(test_params.input_criteria)
 
             if test_params.expected_error:
                 assert test_params.expected_error in str(exc_info.value)
@@ -470,17 +518,17 @@ class TestVolumeAssertionDefinitionParse:
 
         # This should fail, but shouldn't modify the original dict
         with pytest.raises(SDKUsageError):
-            VolumeAssertionDefinition.parse(original_dict)
+            VolumeAssertionCriteria.parse(original_dict)
 
         # Original dict should be unchanged
         assert original_dict == dict_copy
 
 
 @dataclass
-class VolumeAssertionDefinitionBuildModelTestParams:
-    """Test parameters for VolumeAssertionDefinition.build_model_volume_info method."""
+class VolumeAssertionCriteriaBuildModelTestParams:
+    """Test parameters for VolumeAssertionCriteria.build_model_volume_info method."""
 
-    input_definition: Union[RowCountTotal, RowCountChange, Any]
+    input_criteria: VolumeAssertionCriteria
     input_dataset_urn: str = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)"
     )
@@ -490,8 +538,8 @@ class VolumeAssertionDefinitionBuildModelTestParams:
     should_succeed: bool = True
 
 
-class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
-    """Test suite for VolumeAssertionDefinition.build_model_volume_info method."""
+class TestVolumeAssertionCriteriaBuildModelVolumeInfo:
+    """Test suite for VolumeAssertionCriteria.build_model_volume_info method."""
 
     @pytest.mark.parametrize(
         "test_params",
@@ -499,9 +547,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             # ============ SUCCESSFUL CASES ============
             # RowCountTotal with single value operators
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -522,9 +570,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="row_count_total_greater_than_or_equal_to",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO,
                         parameters=500,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -546,9 +594,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             ),
             # RowCountTotal with BETWEEN operator
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 200),
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -574,10 +622,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             ),
             # RowCountChange with absolute kind
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE,
                         parameters=25,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -599,10 +646,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="row_count_change_absolute_greater_than_or_equal_to",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE,
                         parameters=50,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -624,10 +670,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="row_count_change_absolute_less_than_or_equal_to",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE,
                         parameters=(5, 25),
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -654,10 +699,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             ),
             # RowCountChange with percentage kind
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE,
                         parameters=15,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -679,10 +723,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="row_count_change_percentage_greater_than_or_equal_to",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE,
                         parameters=75,
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -704,10 +747,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="row_count_change_percentage_less_than_or_equal_to",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE,
                         parameters=(10, 30),
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -735,9 +777,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             # ============ BETWEEN PARAMETER SORTING TESTS ============
             # Test that values are sorted so minValue is always <= maxValue
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(200, 100),  # Provided in reversed order
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -762,10 +804,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="between_operator_sorts_values_row_count_total_reversed",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE,
                         parameters=(50, 20),  # Provided in reversed order
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -791,9 +832,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 id="between_operator_sorts_values_row_count_change_reversed",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 100),  # Equal values
                     ),
                     expected_value=models.VolumeAssertionInfoClass(
@@ -819,9 +860,9 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
             ),
             # ============ FILTER TEST CASE ============
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
                     input_filter=_TEST_FILTER,
@@ -843,42 +884,142 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 ),
                 id="row_count_total_with_filter",
             ),
-            # ============ FAILURE CASES ============
-            # Unsupported definition type
+            # ============ FLOAT PARAMETERS TEST CASES ============
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition="invalid_definition_type",  # type: ignore[arg-type]
-                    expected_error="Unsupported volume assertion definition type",
-                    should_succeed=False,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        parameters=100.5,
+                    ),
+                    expected_value=models.VolumeAssertionInfoClass(
+                        type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        rowCountTotal=models.RowCountTotalClass(
+                            operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                            parameters=models.AssertionStdParametersClass(
+                                value=models.AssertionStdParameterClass(
+                                    value="100.5",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    should_succeed=True,
                 ),
-                id="unsupported_definition_type_string",
+                id="row_count_total_with_float_parameter",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition=None,  # type: ignore[arg-type]
-                    expected_error="Unsupported volume assertion definition type",
-                    should_succeed=False,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
+                        parameters=(10.5, 20.8),
+                    ),
+                    expected_value=models.VolumeAssertionInfoClass(
+                        type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        rowCountTotal=models.RowCountTotalClass(
+                            operator=models.AssertionStdOperatorClass.BETWEEN,
+                            parameters=models.AssertionStdParametersClass(
+                                minValue=models.AssertionStdParameterClass(
+                                    value="10.5",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                                maxValue=models.AssertionStdParameterClass(
+                                    value="20.8",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    should_succeed=True,
                 ),
-                id="unsupported_definition_type_none",
+                id="row_count_total_range_with_float_parameters",
             ),
             pytest.param(
-                VolumeAssertionDefinitionBuildModelTestParams(
-                    input_definition={"type": "unknown"},  # type: ignore[arg-type]
-                    expected_error="Unsupported volume assertion definition type",
-                    should_succeed=False,
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE,
+                        parameters=15.7,
+                    ),
+                    expected_value=models.VolumeAssertionInfoClass(
+                        type=models.VolumeAssertionTypeClass.ROW_COUNT_CHANGE,
+                        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        rowCountChange=models.RowCountChangeClass(
+                            type=models.AssertionValueChangeTypeClass.PERCENTAGE,
+                            operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                            parameters=models.AssertionStdParametersClass(
+                                value=models.AssertionStdParameterClass(
+                                    value="15.7",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    should_succeed=True,
                 ),
-                id="unsupported_definition_type_dict",
+                id="row_count_change_percentage_with_float_parameter",
+            ),
+            # ============ EDGE CASE PARAMETERS ============
+            pytest.param(
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                        parameters=0,
+                    ),
+                    expected_value=models.VolumeAssertionInfoClass(
+                        type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        rowCountTotal=models.RowCountTotalClass(
+                            operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                            parameters=models.AssertionStdParametersClass(
+                                value=models.AssertionStdParameterClass(
+                                    value="0",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_total_with_zero_parameter",
+            ),
+            pytest.param(
+                VolumeAssertionCriteriaBuildModelTestParams(
+                    input_criteria=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
+                        parameters=(0, 1),
+                    ),
+                    expected_value=models.VolumeAssertionInfoClass(
+                        type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                        entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                        rowCountTotal=models.RowCountTotalClass(
+                            operator=models.AssertionStdOperatorClass.BETWEEN,
+                            parameters=models.AssertionStdParametersClass(
+                                minValue=models.AssertionStdParameterClass(
+                                    value="0",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                                maxValue=models.AssertionStdParameterClass(
+                                    value="1",
+                                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                                ),
+                            ),
+                        ),
+                    ),
+                    should_succeed=True,
+                ),
+                id="row_count_total_range_with_zero_min",
             ),
         ],
     )
     def test_build_model_volume_info_comprehensive(
-        self, test_params: VolumeAssertionDefinitionBuildModelTestParams
+        self, test_params: VolumeAssertionCriteriaBuildModelTestParams
     ) -> None:
-        """Comprehensive test for VolumeAssertionDefinition.build_model_volume_info method."""
+        """Comprehensive test for VolumeAssertionCriteria.build_model_volume_info method."""
         if test_params.should_succeed:
             # Test successful cases
-            result = VolumeAssertionDefinition.build_model_volume_info(
-                test_params.input_definition,
+            result = VolumeAssertionCriteria.build_model_volume_info(
+                test_params.input_criteria,
                 test_params.input_dataset_urn,
                 test_params.input_filter,
             )
@@ -897,8 +1038,8 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
         else:
             # Test failure cases
             with pytest.raises(SDKUsageError) as exc_info:
-                VolumeAssertionDefinition.build_model_volume_info(
-                    test_params.input_definition,
+                VolumeAssertionCriteria.build_model_volume_info(
+                    test_params.input_criteria,
                     test_params.input_dataset_urn,
                     test_params.input_filter,
                 )
@@ -907,18 +1048,34 @@ class TestVolumeAssertionDefinitionBuildModelVolumeInfo:
                 assert test_params.expected_error in str(exc_info.value)
 
 
+def test_volume_assertion_criteria_validation_errors() -> None:
+    """Test that VolumeAssertionCriteria.parse validates parameters correctly."""
+    # Test that range conditions require tuple parameters
+    with pytest.raises(SDKUsageError) as exc_info:
+        VolumeAssertionCriteria.parse(
+            {
+                "condition": "ROW_COUNT_IS_WITHIN_A_RANGE",
+                "parameters": 100,  # Should be tuple for range
+            }
+        )
+    assert (
+        "For WITHIN_A_RANGE condition ROW_COUNT_IS_WITHIN_A_RANGE, parameters must be a tuple of two numbers (min_value, max_value)."
+        in str(exc_info.value)
+    )
+
+
 @dataclass
-class VolumeAssertionDefinitionFromAssertionTestParams:
+class VolumeAssertionCriteriaFromAssertionTestParams:
     """Test parameters for VolumeAssertionDefinition.from_assertion method."""
 
     input_assertion: Assertion
-    expected_value: Optional[_VolumeAssertionDefinitionTypes] = None
+    expected_value: Optional[VolumeAssertionCriteria] = None
     expected_error: Optional[str] = None
     should_succeed: bool = True
 
 
-class TestVolumeAssertionDefinitionFromAssertion:
-    """Test suite for VolumeAssertionDefinition.from_assertion method."""
+class TestVolumeAssertionCriteriaFromAssertion:
+    """Test suite for VolumeAssertionCriteria.from_assertion method."""
 
     @pytest.mark.parametrize(
         "test_params",
@@ -926,7 +1083,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             # ============ SUCCESSFUL CASES ============
             # RowCountTotal with GREATER_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -943,8 +1100,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
                         parameters=100,
                     ),
                     should_succeed=True,
@@ -953,7 +1110,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountTotal with LESS_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -970,8 +1127,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO,
                         parameters=500,
                     ),
                     should_succeed=True,
@@ -980,7 +1137,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountTotal with BETWEEN operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1001,8 +1158,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountTotal(
-                        operator=VolumeAssertionOperator.BETWEEN,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_IS_WITHIN_A_RANGE,
                         parameters=(100, 200),
                     ),
                     should_succeed=True,
@@ -1011,7 +1168,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with absolute kind and GREATER_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1029,9 +1186,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_ABSOLUTE,
                         parameters=25,
                     ),
                     should_succeed=True,
@@ -1040,7 +1196,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with absolute kind and LESS_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1058,9 +1214,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE,
                         parameters=50,
                     ),
                     should_succeed=True,
@@ -1069,7 +1224,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with absolute kind and BETWEEN operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1091,9 +1246,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.ABSOLUTE,
-                        operator=VolumeAssertionOperator.BETWEEN,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE,
                         parameters=(5, 25),
                     ),
                     should_succeed=True,
@@ -1102,7 +1256,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with percentage kind and GREATER_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1120,9 +1274,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_LEAST_PERCENTAGE,
                         parameters=15,
                     ),
                     should_succeed=True,
@@ -1131,7 +1284,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with percentage kind and LESS_THAN_OR_EQUAL_TO operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1149,9 +1302,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.LESS_THAN_OR_EQUAL_TO,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_BY_AT_MOST_PERCENTAGE,
                         parameters=75,
                     ),
                     should_succeed=True,
@@ -1160,7 +1312,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with percentage kind and BETWEEN operator
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1182,9 +1334,8 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             ),
                         ),
                     ),
-                    expected_value=RowCountChange(
-                        kind=VolumeAssertionDefinitionChangeKind.PERCENTAGE,
-                        operator=VolumeAssertionOperator.BETWEEN,
+                    expected_value=VolumeAssertionCriteria(
+                        condition=VolumeAssertionCondition.ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE,
                         parameters=(10, 30),
                     ),
                     should_succeed=True,
@@ -1194,7 +1345,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             # ============ ERROR CASES ============
             # Assertion with no info - create mock with info set to None
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Mock(
                         spec=Assertion,
                         urn=AssertionUrn.from_string("urn:li:assertion:test"),
@@ -1207,7 +1358,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # Assertion with wrong assertion info type (not VolumeAssertionInfoClass)
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.FreshnessAssertionInfoClass(
@@ -1222,7 +1373,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # Assertion with wrong assertion info type (DatasetAssertionInfo instead of VolumeAssertionInfo)
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.DatasetAssertionInfoClass(
@@ -1244,7 +1395,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # Unsupported volume assertion type (hypothetical future type)
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1252,14 +1403,14 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
                         ),
                     ),
-                    expected_error="Volume assertion urn:li:assertion:test has unsupported type UNSUPPORTED_TYPE",
+                    expected_error="Unsupported volume assertion type: UNSUPPORTED_TYPE",
                     should_succeed=False,
                 ),
                 id="unsupported_volume_assertion_type",
             ),
             # RowCountTotal with missing rowCountTotal field
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1268,14 +1419,14 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             rowCountTotal=None,  # Missing required field
                         ),
                     ),
-                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_TOTAL type but no rowCountTotal, which is not supported",
+                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_TOTAL type but no rowCountTotal",
                     should_succeed=False,
                 ),
                 id="row_count_total_missing_row_count_total_field",
             ),
             # RowCountChange with missing rowCountChange field
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1284,14 +1435,14 @@ class TestVolumeAssertionDefinitionFromAssertion:
                             rowCountChange=None,  # Missing required field
                         ),
                     ),
-                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_CHANGE type but no rowCountChange, which is not supported",
+                    expected_error="Volume assertion urn:li:assertion:test has ROW_COUNT_CHANGE type but no rowCountChange",
                     should_succeed=False,
                 ),
                 id="row_count_change_missing_row_count_change_field",
             ),
             # RowCountTotal with BETWEEN operator but missing minValue
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1316,7 +1467,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountTotal with BETWEEN operator but missing maxValue
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1341,7 +1492,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountTotal with single-value operator but missing value
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1362,7 +1513,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with BETWEEN operator but missing minValue
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1388,7 +1539,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with BETWEEN operator but missing maxValue
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1414,7 +1565,7 @@ class TestVolumeAssertionDefinitionFromAssertion:
             ),
             # RowCountChange with single-value operator but missing value
             pytest.param(
-                VolumeAssertionDefinitionFromAssertionTestParams(
+                VolumeAssertionCriteriaFromAssertionTestParams(
                     input_assertion=Assertion(
                         id=AssertionUrn.from_string("urn:li:assertion:test"),
                         info=models.VolumeAssertionInfoClass(
@@ -1437,14 +1588,12 @@ class TestVolumeAssertionDefinitionFromAssertion:
         ],
     )
     def test_from_assertion_comprehensive(
-        self, test_params: VolumeAssertionDefinitionFromAssertionTestParams
+        self, test_params: VolumeAssertionCriteriaFromAssertionTestParams
     ) -> None:
-        """Comprehensive test for VolumeAssertionDefinition.from_assertion method."""
+        """Comprehensive test for VolumeAssertionCriteria.from_assertion method."""
         if test_params.should_succeed:
             # Test successful cases
-            result = VolumeAssertionDefinition.from_assertion(
-                test_params.input_assertion
-            )
+            result = VolumeAssertionCriteria.from_assertion(test_params.input_assertion)
 
             # For successful cases, expected_value must be provided
             assert test_params.expected_value is not None, (
@@ -1454,26 +1603,28 @@ class TestVolumeAssertionDefinitionFromAssertion:
         else:
             # Test failure cases
             with pytest.raises(SDKNotYetSupportedError) as exc_info:
-                VolumeAssertionDefinition.from_assertion(test_params.input_assertion)
+                VolumeAssertionCriteria.from_assertion(test_params.input_assertion)
 
             if test_params.expected_error:
                 assert test_params.expected_error in str(exc_info.value)
 
 
 def test_parse_volume_assertion_definition_no_mutate_input_dict() -> None:
-    """Test that calling VolumeAssertionDefinition.parse() does not mutate the input dictionary."""
+    """Test that calling VolumeAssertionCriteria.parse() does not mutate the input dictionary."""
     # Create a dictionary that should NOT be mutated by parse() calls
     definition_dict = {
-        "type": "ROW_COUNT_TOTAL",
-        "operator": "GREATER_THAN_OR_EQUAL_TO",
+        "condition": "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
         "parameters": 100,
     }
     original_dict = definition_dict.copy()  # Keep a copy to verify no mutation
 
     # Call parse and verify it succeeds
-    result = VolumeAssertionDefinition.parse(definition_dict)
-    assert isinstance(result, RowCountTotal)
-    assert result.operator == VolumeAssertionOperator.GREATER_THAN_OR_EQUAL_TO
+    result = VolumeAssertionCriteria.parse(definition_dict)
+    assert isinstance(result, VolumeAssertionCriteria)
+    assert (
+        result.condition
+        == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
+    )
     assert result.parameters == 100
 
     # Verify the original dict was not mutated

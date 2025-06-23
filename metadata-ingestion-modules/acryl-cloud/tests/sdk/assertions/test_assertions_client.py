@@ -1970,8 +1970,7 @@ def test_sync_volume_assertion_uses_string_incident_behavior(
     # Act - call with string incident_behavior (without URN to trigger create path)
     assertion = client.sync_volume_assertion(
         dataset_urn=_any_dataset_urn,
-        criteria_type="ROW_COUNT_TOTAL",
-        criteria_operator="BETWEEN",
+        criteria_condition="ROW_COUNT_IS_WITHIN_A_RANGE",
         criteria_parameters=(100, 1000),
         incident_behavior="raise_on_fail",  # String input
     )
@@ -1992,8 +1991,7 @@ def test_create_volume_assertion_uses_string_incident_behavior(
     # Act - call with string incident_behavior
     assertion = client._create_volume_assertion(
         dataset_urn=_any_dataset_urn,
-        criteria_type="ROW_COUNT_TOTAL",
-        criteria_operator="BETWEEN",
+        criteria_condition="ROW_COUNT_IS_WITHIN_A_RANGE",
         criteria_parameters=(100, 1000),
         incident_behavior="resolve_on_pass",  # String input
         created_by="urn:li:corpuser:test_user",

@@ -307,7 +307,6 @@ class _SqlAssertionInput(_AssertionInput):
         Returns:
             A CronScheduleClass with appropriate schedule settings.
         """
-        print(f"self.schedule: {self.schedule}")
         if self.schedule is None:
             return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
 
