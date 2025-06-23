@@ -1,9 +1,9 @@
+import { codecovVitePlugin } from '@codecov/vite-plugin';
 import react from '@vitejs/plugin-react';
 import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { codecovVitePlugin } from "@codecov/vite-plugin";
 import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
@@ -89,9 +89,9 @@ export default defineConfig(({ mode }) => {
             }),
             codecovVitePlugin({
                 enableBundleAnalysis: true,
-                bundleName: "datahub-react-web",
+                bundleName: 'datahub-react-web',
                 uploadToken: process.env.CODECOV_TOKEN,
-                gitService: "github",
+                gitService: 'github',
             }),
         ],
         // optimizeDeps: {
@@ -110,7 +110,7 @@ export default defineConfig(({ mode }) => {
                             if (id.includes('@mui')) {
                                 return 'mui-vendor';
                             }
-                            if (id.includes('phosphor-react')) {
+                            if (id.includes('phosphor-icons')) {
                                 return 'phosphor-vendor';
                             }
                             // All other node_modules
