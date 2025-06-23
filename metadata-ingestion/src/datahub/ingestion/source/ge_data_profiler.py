@@ -10,7 +10,6 @@ import json
 import logging
 import re
 import threading
-import traceback
 import unittest.mock
 import uuid
 from functools import lru_cache
@@ -78,7 +77,6 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
     IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
-    get_query_columns,
 )
 
 if TYPE_CHECKING:
@@ -294,76 +292,6 @@ def _get_column_median_patch(self, column):
         return convert_to_json_serializable(element_values.fetchone()[0])
     else:
         return _original_get_column_median(self, column)
-
-
-def _is_single_row_query_method(query: Any) -> bool:
-    SINGLE_ROW_QUERY_FILES = {
-        # "great_expectations/dataset/dataset.py",
-        "great_expectations/dataset/sqlalchemy_dataset.py",
-    }
-    SINGLE_ROW_QUERY_METHODS = {
-        "get_row_count",
-        "get_column_min",
-        "get_column_max",
-        "get_column_mean",
-        "get_column_stdev",
-        "get_column_nonnull_count",
-        "get_column_unique_count",
-    }
-    CONSTANT_ROW_QUERY_METHODS = {
-        # This actually returns two rows instead of a single row.
-        "get_column_median",
-    }
-    UNPREDICTABLE_ROW_QUERY_METHODS = {
-        "get_column_value_counts",
-    }
-    UNHANDLEABLE_ROW_QUERY_METHODS = {
-        "expect_column_kl_divergence_to_be_less_than",
-        "get_column_quantiles",  # this is here for now since SQLAlchemy anonymous columns need investigation
-        "get_column_hist",  # this requires additional investigation
-    }
-    COLUMN_MAP_QUERY_METHOD = "inner_wrapper"
-    COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS = [
-        "element_count",
-        "null_count",
-        "unexpected_count",
-    ]
-
-    FIRST_PARTY_SINGLE_ROW_QUERY_METHODS = {
-        "get_column_unique_count_dh_patch",
-    }
-
-    # We'll do this the inefficient way since the arrays are pretty small.
-    stack = traceback.extract_stack()
-    for frame in reversed(stack):
-        if frame.name in FIRST_PARTY_SINGLE_ROW_QUERY_METHODS:
-            return True
-
-        if not any(frame.filename.endswith(file) for file in SINGLE_ROW_QUERY_FILES):
-            continue
-
-        if frame.name in UNPREDICTABLE_ROW_QUERY_METHODS:
-            return False
-        if frame.name in UNHANDLEABLE_ROW_QUERY_METHODS:
-            return False
-        if frame.name in SINGLE_ROW_QUERY_METHODS:
-            return True
-        if frame.name in CONSTANT_ROW_QUERY_METHODS:
-            # TODO: figure out how to handle these. A cross join will return (`constant` ** `queries`) rows rather
-            #  than `constant` rows with `queries` columns. See
-            #  https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
-            return False
-
-        if frame.name == COLUMN_MAP_QUERY_METHOD:
-            # Some column map expectations are single-row.
-            # We can disambiguate by checking the column names.
-            query_columns = get_query_columns(query)
-            column_names = [column.name for column in query_columns]
-
-            if column_names == COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS:
-                return True
-
-    return False
 
 
 def _run_with_query_combiner(
@@ -1245,7 +1173,6 @@ class DatahubGEProfiler:
             SQLAlchemyQueryCombiner(
                 enabled=self.config.query_combiner_enabled,
                 catch_exceptions=self.config.catch_exceptions,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
