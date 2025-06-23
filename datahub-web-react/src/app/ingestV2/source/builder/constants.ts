@@ -46,7 +46,6 @@ export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
 export const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 export const BIGQUERY = 'bigquery';
-export const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
 export const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 export const CLICKHOUSE = 'clickhouse';
@@ -191,8 +190,6 @@ export const PLATFORM_URN_TO_LOGO = {
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
-    [BIGQUERY_BETA]: BIGQUERY_URN,
-    [BIGQUERY_USAGE]: BIGQUERY_URN,
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
     [FEAST_LEGACY]: FEAST_URN,
     [LOOK_ML]: LOOKER_URN,
