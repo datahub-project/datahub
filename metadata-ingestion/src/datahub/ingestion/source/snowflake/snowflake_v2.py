@@ -312,6 +312,7 @@ class SnowflakeV2Source(
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
+                SourceCapability.TEST_CONNECTION,
             )
         ]
 
