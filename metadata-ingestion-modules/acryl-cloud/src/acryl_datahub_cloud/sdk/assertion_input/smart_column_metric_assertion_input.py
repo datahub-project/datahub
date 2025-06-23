@@ -46,7 +46,7 @@ ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION = [
 # Keep this in sync with FIELD_VALUES_OPERATOR_CONFIG in the frontend
 # datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
 FIELD_VALUES_OPERATOR_CONFIG = {
-    "StringTypeClass": [
+    "STRING": [
         models.AssertionStdOperatorClass.NULL,
         models.AssertionStdOperatorClass.NOT_NULL,
         models.AssertionStdOperatorClass.EQUAL_TO,
@@ -57,7 +57,7 @@ FIELD_VALUES_OPERATOR_CONFIG = {
         models.AssertionStdOperatorClass.LESS_THAN,
         models.AssertionStdOperatorClass.BETWEEN,
     ],
-    "NumberTypeClass": [
+    "NUMBER": [
         models.AssertionStdOperatorClass.GREATER_THAN,
         models.AssertionStdOperatorClass.LESS_THAN,
         models.AssertionStdOperatorClass.BETWEEN,
@@ -68,21 +68,21 @@ FIELD_VALUES_OPERATOR_CONFIG = {
         models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
         models.AssertionStdOperatorClass.NOT_EQUAL_TO,
     ],
-    "BooleanTypeClass": [
+    "BOOLEAN": [
         models.AssertionStdOperatorClass.IS_TRUE,
         models.AssertionStdOperatorClass.IS_FALSE,
         models.AssertionStdOperatorClass.NULL,
         models.AssertionStdOperatorClass.NOT_NULL,
     ],
-    "DateTypeClass": [
+    "DATE": [
         models.AssertionStdOperatorClass.NULL,
         models.AssertionStdOperatorClass.NOT_NULL,
     ],
-    "TimeTypeClass": [
+    "TIME": [
         models.AssertionStdOperatorClass.NULL,
         models.AssertionStdOperatorClass.NOT_NULL,
     ],
-    "NullTypeClass": [
+    "NULL": [
         models.AssertionStdOperatorClass.NULL,
         models.AssertionStdOperatorClass.NOT_NULL,
     ],
@@ -91,7 +91,7 @@ FIELD_VALUES_OPERATOR_CONFIG = {
 # Keep this in sync with FIELD_METRIC_TYPE_CONFIG in the frontend
 # datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
 FIELD_METRIC_TYPE_CONFIG = {
-    "StringTypeClass": [
+    "STRING": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,
@@ -101,7 +101,7 @@ FIELD_METRIC_TYPE_CONFIG = {
         models.FieldMetricTypeClass.EMPTY_COUNT,
         models.FieldMetricTypeClass.EMPTY_PERCENTAGE,
     ],
-    "NumberTypeClass": [
+    "NUMBER": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,
@@ -116,25 +116,25 @@ FIELD_METRIC_TYPE_CONFIG = {
         models.FieldMetricTypeClass.ZERO_COUNT,
         models.FieldMetricTypeClass.ZERO_PERCENTAGE,
     ],
-    "BooleanTypeClass": [
+    "BOOLEAN": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,
         models.FieldMetricTypeClass.UNIQUE_PERCENTAGE,
     ],
-    "DateTypeClass": [
+    "DATE": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,
         models.FieldMetricTypeClass.UNIQUE_PERCENTAGE,
     ],
-    "TimeTypeClass": [
+    "TIME": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,
         models.FieldMetricTypeClass.UNIQUE_PERCENTAGE,
     ],
-    "NullTypeClass": [
+    "NULL": [
         models.FieldMetricTypeClass.NULL_COUNT,
         models.FieldMetricTypeClass.NULL_PERCENTAGE,
         models.FieldMetricTypeClass.UNIQUE_COUNT,

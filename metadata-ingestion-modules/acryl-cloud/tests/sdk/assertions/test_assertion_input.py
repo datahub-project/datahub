@@ -1079,14 +1079,14 @@ def test_to_monitor_entity_with_smart_freshness_assertion_with_all_fields_set(
         pytest.param(
             "last_modified_wrong_type",
             re.escape(
-                "Column last_modified_wrong_type with type NumberTypeClass does not have an allowed type for a last modified column in dataset urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD). Allowed types are ['DateTypeClass', 'TimeTypeClass']."
+                "Column last_modified_wrong_type with type NUMBER does not have an allowed type for a last modified column in dataset urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD). Allowed types are ['DATE', 'TIME']."
             ),
             id="last_modified_wrong_type",
         ),
         pytest.param(
             "wrong_type_int_as_a_string",
             re.escape(
-                "Column wrong_type_int_as_a_string with type StringTypeClass does not have an allowed type for a last modified column in dataset urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD). Allowed types are ['DateTypeClass', 'TimeTypeClass']."
+                "Column wrong_type_int_as_a_string with type STRING does not have an allowed type for a last modified column in dataset urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD). Allowed types are ['DATE', 'TIME']."
             ),
             id="wrong_type_int_as_a_string",
         ),

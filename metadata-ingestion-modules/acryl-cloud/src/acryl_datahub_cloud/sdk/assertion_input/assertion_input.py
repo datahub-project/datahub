@@ -66,6 +66,15 @@ DEFAULT_EVERY_SIX_HOURS_SCHEDULE = models.CronScheduleClass(
     ),  # User local timezone, matches the UI default
 )
 
+TYPE_CLASS_NAME_TO_TYPE_MAP = {
+    "StringTypeClass": "STRING",
+    "NumberTypeClass": "NUMBER",
+    "BooleanTypeClass": "BOOLEAN",
+    "DateTypeClass": "DATE",
+    "TimeTypeClass": "TIME",
+    "NullTypeClass": "NULL",
+}
+
 
 class AbstractDetectionMechanism(BaseModel, ABC):
     type: str
@@ -1176,15 +1185,39 @@ class _AssertionInput(ABC):
         schema_fields = self.cached_dataset._schema_dict()
         field = schema_fields.get(column_name)
         if field:
-            return models.SchemaFieldSpecClass(
-                path=field.fieldPath,
-                type=field.type.type.__class__.__name__,
-                nativeType=field.nativeDataType,
-            )
+            return self._convert_schema_field_to_schema_field_spec(field)
         else:
             raise SDKUsageError(
                 msg=f"Column {column_name} not found in dataset {self.dataset_urn}",
             )
+
+    def _convert_schema_field_to_schema_field_spec(
+        self, field: models.SchemaFieldClass
+    ) -> models.SchemaFieldSpecClass:
+        """
+        Convert a SchemaFieldClass to a SchemaFieldSpecClass.
+        """
+        type_class_name = field.type.type.__class__.__name__
+        try:
+            type = self._convert_schema_field_type_class_name_to_type(type_class_name)
+        except KeyError as e:
+            raise SDKUsageError(
+                msg=f"Invalid type: {type_class_name}. Must be one of {list(TYPE_CLASS_NAME_TO_TYPE_MAP.keys())}",
+            ) from e
+
+        return models.SchemaFieldSpecClass(
+            path=field.fieldPath,
+            type=type,
+            nativeType=field.nativeDataType,
+        )
+
+    def _convert_schema_field_type_class_name_to_type(
+        self, type_class_name: str
+    ) -> str:
+        """
+        Convert a type class name to a type.
+        """
+        return TYPE_CLASS_NAME_TO_TYPE_MAP[type_class_name]
 
     def _validate_field_type(
         self,
@@ -1205,7 +1238,10 @@ class _AssertionInput(ABC):
         Raises:
             SDKUsageError: If the field has an invalid type
         """
-        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
+        allowed_type_names = [
+            self._convert_schema_field_type_class_name_to_type(t.__class__.__name__)
+            for t in allowed_types
+        ]
         if field_spec.type not in allowed_type_names:
             raise SDKUsageError(
                 msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
