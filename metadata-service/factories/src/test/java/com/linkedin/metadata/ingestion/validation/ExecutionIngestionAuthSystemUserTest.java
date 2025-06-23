@@ -1,6 +1,5 @@
 package com.linkedin.metadata.ingestion.validation;
 
-import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
@@ -127,7 +126,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
                 UrnUtils.getUrn("urn:li:dataHubIngestionSource:datahub-forms-notifications")));
     execInput.setRequestedAt(System.currentTimeMillis());
     execInput.setActorUrn(UrnUtils.getUrn(SYSTEM_ACTOR));
-    execInput.setExecutorId(DEFAULT_EXECUTOR_ID);
+    execInput.setExecutorId("default");
     Map<String, String> arguments = new HashMap<>();
     final JSONObject jsonRecipe = new JSONObject();
     final JSONObject config = new JSONObject();
