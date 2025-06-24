@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -45,9 +44,6 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -89,6 +85,7 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 class DremioSource(StatefulIngestionSourceBase):
     """
     This plugin integrates with Dremio to extract and ingest metadata into DataHub.
@@ -175,14 +172,6 @@ class DremioSource(StatefulIngestionSourceBase):
 
         return source_map
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Internal method to generate workunits for Dremio metadata.
@@ -242,7 +231,6 @@ class DremioSource(StatefulIngestionSourceBase):
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.sql_parsing_aggregator.gen_metadata():
-            self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
         # Profiling
