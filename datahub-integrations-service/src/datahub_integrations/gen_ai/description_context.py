@@ -1,4 +1,5 @@
 import ast
+import html
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -15,6 +16,21 @@ from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
     get_bedrock_model_env_variable,
 )
+
+DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
+    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
+)
+
+_MAX_UPSTREAM_TABLES = 5
+_MAX_DOWNSTREAM_TABLES = 8
+_MAX_UPSTREAM_FIELDS_PER_COLUMN = 5
+
+# New constants for content truncation
+_MAX_GLOSSARY_TERM_DEFINITION_LENGTH = 2000
+_MAX_TABLE_DESCRIPTION_LENGTH = 2000
+_MAX_COLUMN_DESCRIPTION_LENGTH = 1000
+_MAX_TAG_DESCRIPTION_LENGTH = 500
+_MAX_DOMAIN_DESCRIPTION_LENGTH = 800
 
 
 class DescriptionParsingError(Exception):
@@ -146,13 +162,59 @@ class TableInfo(BaseModel):
     downstream_lineage_info: Optional[List[TableDownstreamLineageInfo]] = None
 
 
-DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
-    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
-)
+def sanitize_html_content(text: str) -> str:
+    """Remove HTML tags and decode HTML entities from text."""
+    if not text:
+        return text
 
-_MAX_UPSTREAM_TABLES = 5
-_MAX_DOWNSTREAM_TABLES = 8
-_MAX_UPSTREAM_FIELDS_PER_COLUMN = 5
+    # Remove HTML tags (including img tags)
+    text = re.sub(r"<[^>]+>", "", text)
+
+    # Decode HTML entities
+    text = html.unescape(text)
+
+    return text.strip()
+
+
+def truncate_with_ellipsis(text: str, max_length: int, suffix: str = "...") -> str:
+    """Truncate text to max_length and add suffix if truncated."""
+    if not text or len(text) <= max_length:
+        return text
+
+    # Account for suffix length
+    actual_max = max_length - len(suffix)
+    return text[:actual_max] + suffix
+
+
+def sanitize_markdown_content(text: str) -> str:
+    """Remove markdown-style embeds that contain encoded data from text, but preserve alt text."""
+    if not text:
+        return text
+
+    # Remove markdown embeds with data URLs (base64 encoded content) but preserve alt text
+    # Pattern: ![alt text](data:image/type;base64,encoded_data) -> alt text
+    text = re.sub(r"!\[([^\]]*)\]\(data:[^)]+\)", r"\1", text)
+
+    return text.strip()
+
+
+def sanitize_and_truncate_description(text: str, max_length: int) -> str:
+    """Sanitize HTML content and truncate to specified length."""
+    if not text:
+        return text
+
+    try:
+        # First sanitize HTML content
+        sanitized = sanitize_html_content(text)
+
+        # Then sanitize markdown content (preserving alt text)
+        sanitized = sanitize_markdown_content(sanitized)
+
+        # Then truncate if needed
+        return truncate_with_ellipsis(sanitized, max_length)
+    except Exception as e:
+        logger.warning(f"Error sanitizing and truncating description: {e}")
+        return text[:max_length] if len(text) > max_length else text
 
 
 def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInfo]:
@@ -170,8 +232,14 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInf
 def make_schema_field_metadata(
     schema_field: models.SchemaFieldClass,
 ) -> SchemaFieldMetadata:
+    description = schema_field.description
+    if description:
+        description = sanitize_and_truncate_description(
+            description, _MAX_COLUMN_DESCRIPTION_LENGTH
+        )
+
     field_metadata = SchemaFieldMetadata(
-        description=schema_field.description,
+        description=description,
         created=schema_field.created,
         nativeDataType=schema_field.nativeDataType,
         isPartOfKey=schema_field.isPartOfKey if schema_field.isPartOfKey else None,
@@ -195,10 +263,16 @@ def get_column_upstream_metadata(
             continue
         for field in schema_metadata.fields:
             if field.fieldPath == column_name:
+                description = field.description
+                if description:
+                    description = sanitize_and_truncate_description(
+                        description, _MAX_COLUMN_DESCRIPTION_LENGTH
+                    )
+
                 upstreams_metadata.append(
                     UpstreamColumnMetadata(
                         upstream_column_name=urn,
-                        upstream_column_description=field.description,
+                        upstream_column_description=description,
                         upstream_column_native_type=field.nativeDataType,
                     )
                 )
@@ -403,6 +477,11 @@ def get_table_name_and_description(
         # If we have an edited description, that takes precedence over the one in the dataset properties.
         dataset_description = editable_dataset_properties.description
 
+    if dataset_description:
+        dataset_description = sanitize_and_truncate_description(
+            dataset_description, _MAX_TABLE_DESCRIPTION_LENGTH
+        )
+
     return dataset_name, dataset_description
 
 
@@ -416,6 +495,10 @@ def get_table_domain_info(
         if domain_properties is not None:
             domain_name = domain_properties.name
             domain_description = domain_properties.description
+            if domain_description:
+                domain_description = sanitize_and_truncate_description(
+                    domain_description, _MAX_DOMAIN_DESCRIPTION_LENGTH
+                )
         else:
             domain_name = None
             domain_description = None
@@ -444,6 +527,10 @@ def get_tag_names_and_description(
         if tag_details is not None:
             tag_name = tag_details.name
             tag_desc = tag_details.description
+            if tag_desc:
+                tag_desc = sanitize_and_truncate_description(
+                    tag_desc, _MAX_TAG_DESCRIPTION_LENGTH
+                )
         else:
             tag_name = tag_urn.rsplit("urn:li:tag:")[-1]
             tag_desc = ""
@@ -487,6 +574,10 @@ def get_glossary_term_names_and_definition(
         if term_details is not None and term_details.name is not None:
             term_name = term_details.name
             term_def = term_details.definition
+            if term_def:
+                term_def = sanitize_and_truncate_description(
+                    term_def, _MAX_GLOSSARY_TERM_DEFINITION_LENGTH
+                )
             term_info.append(
                 GlossaryTermInfo(term_name=term_name, term_definition=term_def)
             )
@@ -544,15 +635,23 @@ def extract_metadata_for_urn(
         column_metadata[field_urn] = field_metadata
         column_names[field_urn] = field.fieldPath
 
-    column_descriptions = {
-        make_schema_field_urn(urn, field.fieldPath): field.description
-        for field in entity["schemaMetadata"].fields
-    }
+    column_descriptions = {}
+    for field in entity["schemaMetadata"].fields:
+        field_urn = make_schema_field_urn(urn, field.fieldPath)
+        description = field.description
+        if description:
+            description = sanitize_and_truncate_description(
+                description, _MAX_COLUMN_DESCRIPTION_LENGTH
+            )
+        column_descriptions[field_urn] = description
+
     if editableSchemaMetadata := entity.get("editableSchemaMetadata"):
         for efield in editableSchemaMetadata.editableSchemaFieldInfo:
             field_urn = make_schema_field_urn(urn, efield.fieldPath)
             if field_urn in column_descriptions and efield.description:
-                column_descriptions[field_urn] = efield.description
+                column_descriptions[field_urn] = sanitize_and_truncate_description(
+                    efield.description, _MAX_COLUMN_DESCRIPTION_LENGTH
+                )
 
     # TODO: We should consider AI-generated descriptions for tables/columns
     # if no user-generated description is available.

@@ -294,9 +294,11 @@ def has_valid_links_metric_fn(
     """
 
     scores = []
+    justifications = []
     for desc, target in zip(predictions, targets, strict=False):
         if not desc:
             scores.append(False)
+            justifications.append(None)
             continue
 
         # Extract valid links from entity_info
@@ -305,6 +307,7 @@ def has_valid_links_metric_fn(
         links = extract_links(desc)
         if not links:
             scores.append(True)  # No links is considered valid
+            justifications.append(None)
             continue
 
         # Check if all links are valid
@@ -313,13 +316,15 @@ def has_valid_links_metric_fn(
             for text, url in links
             if not is_valid_link(text, url, valid_links)
         ]
-        if len(invalid_links) > 0:
-            logger.info(f"Invalid links: {invalid_links}")
 
         scores.append(len(invalid_links) == 0)
+        justifications.append(
+            f"Invalid links: {invalid_links}" if len(invalid_links) > 0 else None
+        )
 
     return mlflow.metrics.MetricValue(
         scores=scores,
+        justifications=justifications,
         aggregate_results={
             "pass_percentage": 100
             * len(list(filter(lambda x: x, scores)))
