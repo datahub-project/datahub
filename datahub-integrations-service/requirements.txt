@@ -151,7 +151,7 @@ et-xmlfile==2.0.0
     # via openpyxl
 expandvars==0.12.0
     # via acryl-datahub
-fastapi==0.115.12
+fastapi==0.115.13
     # via
     #   acryl-datahub-integrations
     #   mlflow-skinny
@@ -303,7 +303,7 @@ markupsafe==2.1.5
     # via
     #   jinja2
     #   mako
-mcp==1.9.2
+mcp==1.9.4
     # via acryl-datahub-integrations
 mixpanel==4.10.1
     # via acryl-datahub
@@ -408,7 +408,7 @@ pyasn1-modules==0.4.1
     # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==2.11.5
+pydantic==2.11.7
     # via
     #   acryl-datahub
     #   acryl-datahub-actions

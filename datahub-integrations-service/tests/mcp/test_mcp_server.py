@@ -45,5 +45,5 @@ async def test_ping(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     assert (
         response.text
-        == 'event: message\r\ndata: {"jsonrpc":"2.0","id":"123","result":{}}\r\n\r\n'
+        == 'event: message\r\ndata: {"jsonrpc":"2.0","id":123,"result":{}}\r\n\r\n'
     )

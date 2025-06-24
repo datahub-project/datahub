@@ -277,7 +277,7 @@ expandvars==0.12.0
     #   acryl-datahub
 faker==24.11.0
     # via acryl-datahub-integrations (pyproject.toml)
-fastapi==0.115.12
+fastapi==0.115.13
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -574,7 +574,7 @@ matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mcp==1.9.2
+mcp==1.9.4
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -792,7 +792,7 @@ pycparser==2.22
     # via
     #   -r requirements.txt
     #   cffi
-pydantic==2.11.5
+pydantic==2.11.7
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
