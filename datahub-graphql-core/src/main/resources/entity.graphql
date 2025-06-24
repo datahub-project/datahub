@@ -383,10 +383,12 @@ type ERModelRelationshipProperties {
   The relationFieldMappings
   """
   relationshipFieldMappings: [RelationshipFieldMapping!]
+
   """
   Cardinality of the ERModelRelationship
   """
   cardinality: ERModelRelationshipCardinality!
+
   """
   Created timestamp millis associated with the ERModelRelationship
   """
@@ -5274,7 +5276,7 @@ input ERModelRelationshipPropertiesInput {
   """
   optional field to store cardinality of the ERModelRelationship
   """
-  cardinality: String
+  erModelRelationshipCardinality: ERModelRelationshipCardinality
   """
   optional flag about the ERModelRelationship is getting create
   """

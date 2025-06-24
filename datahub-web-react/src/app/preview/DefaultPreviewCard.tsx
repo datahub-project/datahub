@@ -41,6 +41,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    ErModelRelationshipCardinality,
 } from '@types';
 
 const PreviewContainer = styled.div`
@@ -204,7 +205,7 @@ interface Props {
     health?: Health[];
     parentDataset?: Dataset;
     lastRunEvent?: DataProcessRunEvent | null;
-    cardinality?: string | null;
+    cardinality?: ErModelRelationshipCardinality | null;
 }
 
 export default function DefaultPreviewCard({

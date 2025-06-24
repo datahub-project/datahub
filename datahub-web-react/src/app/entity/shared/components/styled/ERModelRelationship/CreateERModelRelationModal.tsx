@@ -21,7 +21,7 @@ import {
 } from '@graphql/ermodelrelationship.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
-import { EntityType, ErModelRelationship, OwnerEntityType } from '@types';
+import { EntityType, ErModelRelationship, ErModelRelationshipCardinality, OwnerEntityType } from '@types';
 
 import arrow from '@images/Arrow.svg';
 
@@ -142,7 +142,7 @@ export const CreateERModelRelationModal = ({
                                 destinationField: r.field2Name,
                             };
                         }),
-                        cardinality: ermodelrelationCardinality,
+                        erModelRelationshipCardinality: ermodelrelationCardinality,
                         created: true,
                     },
                     editableProperties: {
@@ -190,7 +190,7 @@ export const CreateERModelRelationModal = ({
                         source: table1Dataset?.urn || '',
                         destination: table2Dataset?.urn || '',
                         name: originalERModelRelationName || '',
-                        cardinality: ermodelrelationCardinality,
+                        erModelRelationshipCardinality: ermodelrelationCardinality,
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
                         relationshipFieldmappings: tableData.map((r) => {
@@ -422,10 +422,10 @@ export const CreateERModelRelationModal = ({
                     <p className="all-content-heading">Cardinality</p>
                     <Form.Item style={{ margin: 0 }} name="ermodelrelationCardinality">
                         <Select className="cardinality-select" onChange={(e) => setERModelRelationCardinality(e)}>
-                            <Select.Option value="ONE_ONE">ONE_ONE</Select.Option>
-                            <Select.Option value="ONE_N">ONE_N</Select.Option>
-                            <Select.Option value="N_ONE">N_ONE</Select.Option>
-                            <Select.Option value="N_N">N_N</Select.Option>
+                            <Select.Option value="ONE_ONE">{ErModelRelationshipCardinality.OneOne}</Select.Option>
+                            <Select.Option value="ONE_N">{ErModelRelationshipCardinality.OneN}</Select.Option>
+                            <Select.Option value="N_ONE">{ErModelRelationshipCardinality.NOne}</Select.Option>
+                            <Select.Option value="N_N">{ErModelRelationshipCardinality.NN}</Select.Option>
                         </Select>
                     </Form.Item>
                     <p className="all-content-heading">Fields</p>

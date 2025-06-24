@@ -8,7 +8,7 @@ import { CreateERModelRelationModal } from '@app/entity/shared/components/styled
 import { getDatasetName } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, ErModelRelationship } from '@types';
+import { EntityType, ErModelRelationship, ErModelRelationshipCardinality } from '@types';
 
 import arrow from '@images/Arrow.svg';
 import editIcon from '@images/editIconBlack.svg';
@@ -138,8 +138,8 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         // Reverse the cardinality if the source and destination are reversed
         // Only for one_n and n_one, rest are same
         if (shuffleFlag && prePageType !== 'ERModelRelationship') {
-            if (cardinality === 'ONE_N') return 'N_ONE';
-            if (cardinality === 'N_ONE') return 'ONE_N';
+            if (cardinality === ErModelRelationshipCardinality.OneN) return ErModelRelationshipCardinality.NOne;
+            if (cardinality === ErModelRelationshipCardinality.NOne) return ErModelRelationshipCardinality.OneN;
         }
         return cardinality;
     };

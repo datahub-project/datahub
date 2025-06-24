@@ -59,7 +59,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getPathName = () => 'erModelRelationship';
 
-    getCollectionName = () => 'ER-Model-Relationships';
+    getCollectionName = () => 'ER Model Relationships';
 
     getEntityName = () => 'ER-Model-Relationship';
 
