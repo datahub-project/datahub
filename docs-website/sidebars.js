@@ -814,6 +814,7 @@ module.exports = {
         "docs/actions/README",
         "docs/actions/quickstart",
         "docs/actions/concepts",
+        "docs/test-new-doc,"
         {
           Sources: [
             {
