@@ -5,7 +5,7 @@ import { IconStyleType } from '@app/entity/Entity';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, GlobalTags, GlossaryTerms, Owner, ErModelRelationshipCardinality } from '@types';
+import { EntityType, ErModelRelationshipCardinality, GlobalTags, GlossaryTerms, Owner } from '@types';
 
 import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 

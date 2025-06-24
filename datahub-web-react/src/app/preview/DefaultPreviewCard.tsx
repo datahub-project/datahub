@@ -34,6 +34,7 @@ import {
     Domain,
     Entity,
     EntityPath,
+    ErModelRelationshipCardinality,
     GlobalTags,
     GlossaryTerms,
     Health,
@@ -41,7 +42,6 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-    ErModelRelationshipCardinality,
 } from '@types';
 
 const PreviewContainer = styled.div`
