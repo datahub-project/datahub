@@ -126,7 +126,7 @@ export const DatasetHealthPage = () => {
                         </Content>
                     ),
                     key: BY_TABLE_TAB_ID,
-                    name: 'By Table',
+                    name: 'By Asset',
                 },
             ]}
             secondary
@@ -166,7 +166,10 @@ export const DatasetHealthPage = () => {
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign} style={{ paddingBottom: 0 }}>
             <HeaderContainer>
-                <PageTitle title="Data Health" subTitle="Monitor the health of your tables & columns" />
+                <PageTitle
+                    title="Data Health"
+                    subTitle="A birds-eye view of the health of your entire data landscape."
+                />
             </HeaderContainer>
             {!!appConfig.config.featureFlags.datasetHealthDashboardEnabled && mainTabs}
         </PageContainer>

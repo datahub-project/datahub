@@ -1,4 +1,4 @@
-import { SimpleSelect, colors } from '@components';
+import { SimpleSelect, Tooltip, colors } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -413,171 +413,179 @@ export const AssertionsByAssertionSummary = () => {
                     <VerticalDivider />
 
                     {/* ************************* Asset filters ************************* */}
-                    <FilterSelect
-                        placeholder="Asset"
-                        width="fit-content"
-                        shouldDisplayConfirmationFooter
-                        initialSelectedOptions={Object.entries(assetFilterOptions).flatMap(([key, selectedOptions]) =>
-                            selectedOptions.map((value) => ({
-                                value,
-                                label: value,
-                                parentValue: key,
-                                isParent: false,
-                            })),
-                        )}
-                        filterOptions={{
-                            platform:
-                                facets
-                                    ?.find((facet) => facet.field === ASSERTEE_PLATFORM_FILTER_NAME)
-                                    ?.aggregations.map((aggregation) => ({
-                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                        category: 'platform',
-                                        count: aggregation.count,
-                                        name: aggregation.value,
-                                    })) || [],
-                            domain:
-                                facets
-                                    ?.find((facet) => facet.field === ASSERTEE_DOMAINS_FILTER_NAME)
-                                    ?.aggregations.map((aggregation) => ({
-                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                        category: 'domain',
-                                        count: aggregation.count,
-                                        name: aggregation.value,
-                                    })) || [],
-                            owner:
-                                facets
-                                    ?.find((facet) => facet.field === ASSERTEE_OWNERS_FILTER_NAME)
-                                    ?.aggregations.map((aggregation) => ({
-                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                        category: 'owner',
-                                        count: aggregation.count,
-                                        name: aggregation.value,
-                                    })) || [],
-                            term:
-                                facets
-                                    ?.find((facet) => facet.field === ASSERTEE_GLOSSARY_TERMS_FILTER_NAME)
-                                    ?.aggregations.map((aggregation) => ({
-                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                        category: 'term',
-                                        count: aggregation.count,
-                                        name: aggregation.value,
-                                    })) || [],
-                            tag:
-                                facets
-                                    ?.find((facet) => facet.field === ASSERTEE_TAGS_FILTER_NAME)
-                                    ?.aggregations.map((aggregation) => ({
-                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
-                                        category: 'tag',
-                                        count: aggregation.count,
-                                        name: aggregation.value,
-                                    })) || [],
-                        }}
-                        onFilterChange={(rawValues) => {
-                            // This is a bug in the alchemy-components library, where sometimes it returns a list of undefined values
-                            const values = rawValues.filter((value) => typeof value !== 'undefined');
+                    <Tooltip
+                        title="Filter by the properties of the asset that the assertion is running on."
+                        placement="topLeft"
+                    >
+                        <div>
+                            <FilterSelect
+                                placeholder="Asset"
+                                width="fit-content"
+                                shouldDisplayConfirmationFooter
+                                initialSelectedOptions={Object.entries(assetFilterOptions).flatMap(
+                                    ([key, selectedOptions]) =>
+                                        selectedOptions.map((value) => ({
+                                            value,
+                                            label: value,
+                                            parentValue: key,
+                                            isParent: false,
+                                        })),
+                                )}
+                                filterOptions={{
+                                    platform:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_PLATFORM_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'platform',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
+                                    domain:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_DOMAINS_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'domain',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
+                                    owner:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_OWNERS_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'owner',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
+                                    term:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_GLOSSARY_TERMS_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'term',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
+                                    tag:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_TAGS_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'tag',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
+                                }}
+                                onFilterChange={(rawValues) => {
+                                    // This is a bug in the alchemy-components library, where sometimes it returns a list of undefined values
+                                    const values = rawValues.filter((value) => typeof value !== 'undefined');
 
-                            const domainValues = values
-                                .filter((value) => value.category === 'domain')
-                                .map((value) => value.name);
-                            const ownerValues = values
-                                .filter((value) => value.category === 'owner')
-                                .map((value) => value.name);
-                            const platformValues = values
-                                .filter((value) => value.category === 'platform')
-                                .map((value) => value.name);
-                            const termValues = values
-                                .filter((value) => value.category === 'term')
-                                .map((value) => value.name);
-                            const tagValues = values
-                                .filter((value) => value.category === 'tag')
-                                .map((value) => value.name);
+                                    const domainValues = values
+                                        .filter((value) => value.category === 'domain')
+                                        .map((value) => value.name);
+                                    const ownerValues = values
+                                        .filter((value) => value.category === 'owner')
+                                        .map((value) => value.name);
+                                    const platformValues = values
+                                        .filter((value) => value.category === 'platform')
+                                        .map((value) => value.name);
+                                    const termValues = values
+                                        .filter((value) => value.category === 'term')
+                                        .map((value) => value.name);
+                                    const tagValues = values
+                                        .filter((value) => value.category === 'tag')
+                                        .map((value) => value.name);
 
-                            const newAssetFilterOptions: AssetFilterOptions = {
-                                ...assetFilterOptions,
-                            };
-                            let hasChanged = false;
-                            if (!compareListItems(domainValues, assetFilterOptions.domain)) {
-                                newAssetFilterOptions.domain = domainValues;
-                                hasChanged = true;
-                                if (domainValues.length > 0) {
-                                    analytics.event({
-                                        type: EventType.DatasetHealthFilterEvent,
-                                        tabType: 'AssertionsByAssertion',
-                                        filterType: 'filter',
-                                        filterSubType: 'assetDomains',
-                                        content: {
-                                            filterValues: domainValues,
-                                        },
-                                    });
-                                }
-                            }
-                            if (!compareListItems(ownerValues, assetFilterOptions.owner)) {
-                                newAssetFilterOptions.owner = ownerValues;
-                                hasChanged = true;
-                                if (ownerValues.length > 0) {
-                                    analytics.event({
-                                        type: EventType.DatasetHealthFilterEvent,
-                                        tabType: 'AssertionsByAssertion',
-                                        filterType: 'filter',
-                                        filterSubType: 'assetOwners',
-                                        content: {
-                                            filterValues: ownerValues,
-                                        },
-                                    });
-                                }
-                            }
+                                    const newAssetFilterOptions: AssetFilterOptions = {
+                                        ...assetFilterOptions,
+                                    };
+                                    let hasChanged = false;
+                                    if (!compareListItems(domainValues, assetFilterOptions.domain)) {
+                                        newAssetFilterOptions.domain = domainValues;
+                                        hasChanged = true;
+                                        if (domainValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetDomains',
+                                                content: {
+                                                    filterValues: domainValues,
+                                                },
+                                            });
+                                        }
+                                    }
+                                    if (!compareListItems(ownerValues, assetFilterOptions.owner)) {
+                                        newAssetFilterOptions.owner = ownerValues;
+                                        hasChanged = true;
+                                        if (ownerValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetOwners',
+                                                content: {
+                                                    filterValues: ownerValues,
+                                                },
+                                            });
+                                        }
+                                    }
 
-                            if (!compareListItems(platformValues, assetFilterOptions.platform)) {
-                                newAssetFilterOptions.platform = platformValues;
-                                hasChanged = true;
-                                if (platformValues.length > 0) {
-                                    analytics.event({
-                                        type: EventType.DatasetHealthFilterEvent,
-                                        tabType: 'AssertionsByAssertion',
-                                        filterType: 'filter',
-                                        filterSubType: 'assetPlatforms',
-                                        content: {
-                                            filterValues: platformValues,
-                                        },
-                                    });
-                                }
-                            }
+                                    if (!compareListItems(platformValues, assetFilterOptions.platform)) {
+                                        newAssetFilterOptions.platform = platformValues;
+                                        hasChanged = true;
+                                        if (platformValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetPlatforms',
+                                                content: {
+                                                    filterValues: platformValues,
+                                                },
+                                            });
+                                        }
+                                    }
 
-                            if (!compareListItems(termValues, assetFilterOptions.term)) {
-                                newAssetFilterOptions.term = termValues;
-                                hasChanged = true;
-                                if (termValues.length > 0) {
-                                    analytics.event({
-                                        type: EventType.DatasetHealthFilterEvent,
-                                        tabType: 'AssertionsByAssertion',
-                                        filterType: 'filter',
-                                        filterSubType: 'assetTerms',
-                                        content: {
-                                            filterValues: termValues,
-                                        },
-                                    });
-                                }
-                            }
-                            if (!compareListItems(tagValues, assetFilterOptions.tag)) {
-                                newAssetFilterOptions.tag = tagValues;
-                                hasChanged = true;
-                                if (tagValues.length > 0) {
-                                    analytics.event({
-                                        type: EventType.DatasetHealthFilterEvent,
-                                        tabType: 'AssertionsByAssertion',
-                                        filterType: 'filter',
-                                        filterSubType: 'assetTags',
-                                        content: {
-                                            filterValues: tagValues,
-                                        },
-                                    });
-                                }
-                            }
-                            if (hasChanged) {
-                                setAssetFilterOptions(newAssetFilterOptions);
-                            }
-                        }}
-                    />
+                                    if (!compareListItems(termValues, assetFilterOptions.term)) {
+                                        newAssetFilterOptions.term = termValues;
+                                        hasChanged = true;
+                                        if (termValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetTerms',
+                                                content: {
+                                                    filterValues: termValues,
+                                                },
+                                            });
+                                        }
+                                    }
+                                    if (!compareListItems(tagValues, assetFilterOptions.tag)) {
+                                        newAssetFilterOptions.tag = tagValues;
+                                        hasChanged = true;
+                                        if (tagValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetTags',
+                                                content: {
+                                                    filterValues: tagValues,
+                                                },
+                                            });
+                                        }
+                                    }
+                                    if (hasChanged) {
+                                        setAssetFilterOptions(newAssetFilterOptions);
+                                    }
+                                }}
+                            />
+                        </div>
+                    </Tooltip>
                 </FilterOptionsWrapper>
             </Header>
             <AssertionsByAssertionSummaryTable

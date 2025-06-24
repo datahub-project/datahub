@@ -186,7 +186,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 const assertionHealth = getAssertionHealth(record.health);
                 const freshnessHealth = getHealthForAssertionType(AssertionType.Freshness, assertionHealth);
                 const message = freshnessHealth
-                    ? `${freshnessHealth.statusCount} ${freshnessHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[freshnessHealth.status]} (${freshnessHealth.total} total assertions)`
+                    ? `${freshnessHealth.statusCount}/${freshnessHealth.total} assertion${freshnessHealth.total === 1 ? '' : 's'} ${freshnessHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[freshnessHealth.status]}`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No freshness assertions have run yet. Create one to see results here.';
                 return (
@@ -217,7 +217,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 const assertionHealth = getAssertionHealth(record.health);
                 const volumeHealth = getHealthForAssertionType(AssertionType.Volume, assertionHealth);
                 const message = volumeHealth
-                    ? `${volumeHealth.statusCount} ${volumeHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[volumeHealth.status]} (${volumeHealth.total} total assertions)`
+                    ? `${volumeHealth.statusCount}/${volumeHealth.total} assertion${volumeHealth.total === 1 ? '' : 's'} ${volumeHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[volumeHealth.status]}`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No volume assertions have run yet. Create one to see results here.';
                 return (
@@ -249,7 +249,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 const assertionHealth = getAssertionHealth(record.health);
                 const fieldHealth = getHealthForAssertionType(AssertionType.Field, assertionHealth);
                 const message = fieldHealth
-                    ? `${fieldHealth.statusCount} ${fieldHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[fieldHealth.status]} (${fieldHealth.total} total assertions)`
+                    ? `${fieldHealth.statusCount}/${fieldHealth.total} assertion${fieldHealth.total === 1 ? '' : 's'} ${fieldHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[fieldHealth.status]}`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No field assertions have run yet. Create one to see results here.';
                 return (
@@ -280,7 +280,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 const assertionHealth = getAssertionHealth(record.health);
                 const schemaHealth = getHealthForAssertionType(AssertionType.DataSchema, assertionHealth);
                 const message = schemaHealth
-                    ? `${schemaHealth.statusCount} ${schemaHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[schemaHealth.status]} (${schemaHealth.total} total assertions)`
+                    ? `${schemaHealth.statusCount}/${schemaHealth.total} assertion${schemaHealth.total === 1 ? '' : 's'} ${schemaHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[schemaHealth.status]}`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No schema assertions have run yet. Create one to see results here.';
                 return (
@@ -311,7 +311,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 const assertionHealth = getAssertionHealth(record.health);
                 const sqlHealth = getHealthForAssertionType(AssertionType.Sql, assertionHealth);
                 const message = sqlHealth
-                    ? `${sqlHealth.statusCount} ${sqlHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[sqlHealth.status]} (${sqlHealth.total} total assertions)`
+                    ? `${sqlHealth.statusCount}/${sqlHealth.total} assertion${sqlHealth.total === 1 ? '' : 's'} ${sqlHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[sqlHealth.status]}`
                     : // TODO: link to asset page, quality tab with auto-trigger create assertion modal in query params
                       'No SQL assertions have run yet. Create one to see results here.';
                 return (
@@ -345,7 +345,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                           const assertionHealth = getAssertionHealth(record.health);
                           const customHealth = getHealthForAssertionType(AssertionType.Custom, assertionHealth);
                           const message = customHealth
-                              ? `${customHealth.statusCount} ${customHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[customHealth.status]} (${customHealth.total} total assertions)`
+                              ? `${customHealth.statusCount}/${customHealth.total} assertion${customHealth.total === 1 ? '' : 's'} ${customHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[customHealth.status]}`
                               : // TODO: link to custom assertions reporting documentation
                                 'No custom assertions have run yet. Create some with the SDK to see results here.';
                           return (
@@ -381,7 +381,7 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                           const assertionHealth = getAssertionHealth(record.health);
                           const datasetHealth = getHealthForAssertionType(AssertionType.Dataset, assertionHealth);
                           const message = datasetHealth
-                              ? `${datasetHealth.statusCount} ${datasetHealth.statusCount === 1 ? 'is' : 'are'} ${HealthStatusToText[datasetHealth.status]} (${datasetHealth.total} total assertions)`
+                              ? `${datasetHealth.statusCount}/${datasetHealth.total} assertion${datasetHealth.total === 1 ? '' : 's'} ${datasetHealth.total === 1 ? 'is' : 'are'} ${HealthStatusToText[datasetHealth.status]}`
                               : // TODO: Add a link to the external data quality tool documentation
                                 'No external assertions have been reported yet. Integrate an external data quality tool to see results here.';
                           return (

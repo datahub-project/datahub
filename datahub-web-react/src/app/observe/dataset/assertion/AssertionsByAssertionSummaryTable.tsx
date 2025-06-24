@@ -296,11 +296,11 @@ export const AssertionsByAssertionSummaryTable = ({
                                     : 'This assertion has never been run.'
                             }
                         >
-                            <Text weight="semiBold">{lastRun ? getTimeFromNow(lastRun) : 'Never run'}</Text>
+                            <Text weight="semiBold">{lastRun ? getTimeFromNow(lastRun) : 'never run'}</Text>
                         </Tooltip>
                         {monitorSchedule?.cron ? (
                             <Tooltip title={monitorSchedule.cron}>
-                                <LastRunText>Runs {getCronAsText(monitorSchedule.cron).text}</LastRunText>
+                                <LastRunText>runs {getCronAsText(monitorSchedule.cron).text}</LastRunText>
                             </Tooltip>
                         ) : null}
                     </RunDetailsWrapper>
