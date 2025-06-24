@@ -304,7 +304,7 @@ class ProfileMetadata:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default to get lineage for for views via `include_view_lineage`",
+    "Enabled by default to get lineage for views via `include_view_lineage`",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
