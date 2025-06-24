@@ -164,7 +164,17 @@ def refresh_slack_app(request: Request) -> RedirectResponse:
     manifest = get_slack_app_manifest(
         is_minimal_permissions=is_minimal_slack_permissions
     )
-    config = update_app_with_manifest(config, manifest)
+    try:
+        config = update_app_with_manifest(config, manifest)
+    except slack_sdk.errors.SlackApiError as e:
+        error_message = e.response["error"]
+        logger.exception(
+            f"Error during refreshing existing Slack app tokens: {error_message}"
+        )
+        raise fastapi.HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to refresh existing Slack app tokens: {error_message}. Instead, try providing a fresh set of tokens and clicking the 'create a new installation' link in the footer.",
+        ) from e
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
 
