@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -70,13 +71,15 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(false);
+    when(environment.getArgumentOrDefault("excludeAsset", false)).thenReturn(false);
+    when(environment.getArgumentOrDefault("excludeColumns", false)).thenReturn(false);
     when(service.inferDocumentation(urn, mockContext.getActorUrn()))
         .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 
     // Execute
     Future<InferredDocumentation> future = resolver.get(environment);
-    var result = future.get();
+    InferredDocumentation result = future.get();
 
     // Verify
     assertEquals(result.getEntityDescription(), inferredDescription.getEntityDescription());
@@ -107,13 +110,15 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeAsset", false)).thenReturn(false);
+    when(environment.getArgumentOrDefault("excludeColumns", false)).thenReturn(false);
     when(service.inferDocumentation(urn, mockContext.getActorUrn()))
         .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 
     // Execute
     Future<InferredDocumentation> future = resolver.get(environment);
-    var result = future.get();
+    InferredDocumentation result = future.get();
 
     // Verify result mapping
     assertEquals(result.getEntityDescription(), inferredDescription.getEntityDescription());
@@ -166,13 +171,166 @@ public class InferDocumentationResolverTest {
                 SchemaFieldUtils.generateSchemaFieldUrn(urn, field1Path),
                 Constants.DOCUMENTATION_ASPECT_NAME,
                 schemaDoc));
+    ArgumentCaptor<Collection<MetadataChangeProposal>> argumentCaptor =
+        ArgumentCaptor.forClass(Collection.class);
     Mockito.verify(client, Mockito.times(1))
         .batchIngestProposals(
-            eq(mockContext.getOperationContext()), any(Collection.class), eq(false));
+            eq(mockContext.getOperationContext()), argumentCaptor.capture(), eq(false));
+
+    // Verify exactly 2 MCPs (entity + column descriptions)
+    Collection<MetadataChangeProposal> capturedMCPs = argumentCaptor.getValue();
+    assertEquals(capturedMCPs.size(), 2);
   }
 
   @Test
-  public void testGetAndSaveWithExistingDocs() throws Exception {
+  public void testGetAndSaveExcludeAsset() throws Exception {
+    // Mock inputs
+    final Urn urn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+    final String mockDescription = "test generated description";
+    final String field1Path = "id";
+    final Map<String, String> mockColumnDescriptions = Map.of(field1Path, "Silly little id column");
+    final SuggestedDescription suggestedDescription = new SuggestedDescription();
+    suggestedDescription.setEntityDescription(mockDescription);
+    suggestedDescription.setColumnDescriptions(mockColumnDescriptions);
+
+    // Mock environment and service behaviors
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getArgument("urn")).thenReturn(urn.toString());
+    when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeAsset", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeColumns", false)).thenReturn(false);
+    when(service.inferDocumentation(urn, mockContext.getActorUrn()))
+        .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
+    when(environment.getContext()).thenReturn(mockContext);
+
+    // Execute
+    Future<InferredDocumentation> future = resolver.get(environment);
+    InferredDocumentation result = future.get();
+
+    // Verify result still contains all data
+    assertEquals(result.getEntityDescription(), mockDescription);
+    assertNotNull(result.getColumnDescriptions());
+
+    // Verify only column descriptions are saved (not entity description)
+    // Should only call getV2 once for the schema field
+    Mockito.verify(client, Mockito.times(1))
+        .getV2(
+            eq(mockContext.getOperationContext()),
+            any(String.class),
+            any(Urn.class),
+            eq(Set.of(Constants.DOCUMENTATION_ASPECT_NAME)));
+
+    // Verify batchIngestProposals is called with only column MCPs
+    ArgumentCaptor<Collection<MetadataChangeProposal>> argumentCaptor =
+        ArgumentCaptor.forClass(Collection.class);
+    Mockito.verify(client, Mockito.times(1))
+        .batchIngestProposals(
+            eq(mockContext.getOperationContext()), argumentCaptor.capture(), eq(false));
+
+    // Verify exactly 1 MCP (only column description)
+    Collection<MetadataChangeProposal> capturedMCPs = argumentCaptor.getValue();
+    assertEquals(capturedMCPs.size(), 1);
+  }
+
+  @Test
+  public void testGetAndSaveExcludeColumns() throws Exception {
+    // Mock inputs
+    final Urn urn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+    final String mockDescription = "test generated description";
+    final String field1Path = "id";
+    final Map<String, String> mockColumnDescriptions = Map.of(field1Path, "Silly little id column");
+    final SuggestedDescription suggestedDescription = new SuggestedDescription();
+    suggestedDescription.setEntityDescription(mockDescription);
+    suggestedDescription.setColumnDescriptions(mockColumnDescriptions);
+
+    // Mock environment and service behaviors
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getArgument("urn")).thenReturn(urn.toString());
+    when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeAsset", false)).thenReturn(false);
+    when(environment.getArgumentOrDefault("excludeColumns", false)).thenReturn(true);
+    when(service.inferDocumentation(urn, mockContext.getActorUrn()))
+        .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
+    when(environment.getContext()).thenReturn(mockContext);
+
+    // Execute
+    Future<InferredDocumentation> future = resolver.get(environment);
+    InferredDocumentation result = future.get();
+
+    // Verify result still contains all data
+    assertEquals(result.getEntityDescription(), mockDescription);
+    assertNotNull(result.getColumnDescriptions());
+
+    // Verify only entity description is saved (not column descriptions)
+    // Should only call getV2 once for the entity
+    Mockito.verify(client, Mockito.times(1))
+        .getV2(
+            eq(mockContext.getOperationContext()),
+            any(String.class),
+            any(Urn.class),
+            eq(Set.of(Constants.DOCUMENTATION_ASPECT_NAME)));
+
+    // Verify batchIngestProposals is called with only entity MCP
+    ArgumentCaptor<Collection<MetadataChangeProposal>> argumentCaptor =
+        ArgumentCaptor.forClass(Collection.class);
+    Mockito.verify(client, Mockito.times(1))
+        .batchIngestProposals(
+            eq(mockContext.getOperationContext()), argumentCaptor.capture(), eq(false));
+
+    // Verify exactly 1 MCP (only entity description)
+    Collection<MetadataChangeProposal> capturedMCPs = argumentCaptor.getValue();
+    assertEquals(capturedMCPs.size(), 1);
+  }
+
+  @Test
+  public void testGetAndSaveExcludeBoth() throws Exception {
+    // Mock inputs
+    final Urn urn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+    final String mockDescription = "test generated description";
+    final String field1Path = "id";
+    final Map<String, String> mockColumnDescriptions = Map.of(field1Path, "Silly little id column");
+    final SuggestedDescription suggestedDescription = new SuggestedDescription();
+    suggestedDescription.setEntityDescription(mockDescription);
+    suggestedDescription.setColumnDescriptions(mockColumnDescriptions);
+
+    // Mock environment and service behaviors
+    QueryContext mockContext = getMockAllowContext();
+    when(environment.getArgument("urn")).thenReturn(urn.toString());
+    when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeAsset", false)).thenReturn(true);
+    when(environment.getArgumentOrDefault("excludeColumns", false)).thenReturn(true);
+    when(service.inferDocumentation(urn, mockContext.getActorUrn()))
+        .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
+    when(environment.getContext()).thenReturn(mockContext);
+
+    // Execute
+    Future<InferredDocumentation> future = resolver.get(environment);
+    InferredDocumentation result = future.get();
+
+    // Verify result still contains all data
+    assertEquals(result.getEntityDescription(), mockDescription);
+    assertNotNull(result.getColumnDescriptions());
+
+    // Verify no getV2 calls since nothing is being saved
+    Mockito.verify(client, Mockito.never()).getV2(any(), any(String.class), any(Urn.class), any());
+
+    // Verify batchIngestProposals is called with empty list
+    ArgumentCaptor<Collection<MetadataChangeProposal>> argumentCaptor =
+        ArgumentCaptor.forClass(Collection.class);
+    Mockito.verify(client, Mockito.times(1))
+        .batchIngestProposals(
+            eq(mockContext.getOperationContext()), argumentCaptor.capture(), eq(false));
+
+    // Verify exactly 0 MCPs (both excluded)
+    Collection<MetadataChangeProposal> capturedMCPs = argumentCaptor.getValue();
+    assertEquals(capturedMCPs.size(), 0);
+  }
+
+  @Test
+  public void testGetWithExistingDocs() throws Exception {
     // TODO: test to make sure if there's already docs, the non-ai are not overwritten, but the AI
     // docs are
   }

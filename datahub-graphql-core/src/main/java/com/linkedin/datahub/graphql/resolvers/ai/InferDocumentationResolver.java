@@ -54,6 +54,10 @@ public class InferDocumentationResolver
     final String actorUrnStr = context.getActorUrn();
     final Boolean saveResult =
         bindArgument(environment.getArgumentOrDefault("saveResult", false), Boolean.class);
+    final Boolean excludeAsset =
+        bindArgument(environment.getArgumentOrDefault("excludeAsset", false), Boolean.class);
+    final Boolean excludeColumns =
+        bindArgument(environment.getArgumentOrDefault("excludeColumns", false), Boolean.class);
     if (saveResult && !DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -67,7 +71,11 @@ public class InferDocumentationResolver
                     () -> {
                       if (saveResult) {
                         saveInferredDocumentation(
-                            context.getOperationContext(), targetUrn, inferredDocumentation);
+                            context.getOperationContext(),
+                            targetUrn,
+                            inferredDocumentation,
+                            excludeAsset,
+                            excludeColumns);
                       }
                       return mapInferredDocumentation(inferredDocumentation);
                     },
@@ -78,14 +86,16 @@ public class InferDocumentationResolver
   private void saveInferredDocumentation(
       @Nonnull final OperationContext operationContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final SuggestedDescription inferredDocumentation) {
+      @Nonnull final SuggestedDescription inferredDocumentation,
+      @Nonnull final Boolean excludeAsset,
+      @Nonnull final Boolean excludeColumns) {
     final List<MetadataChangeProposal> metadataChangeProposals = new ArrayList<>();
-    if (!inferredDocumentation.getEntityDescription().isEmpty()) {
+    if (!inferredDocumentation.getEntityDescription().isEmpty() && !excludeAsset) {
       metadataChangeProposals.add(
           getInferredDocumentationMCPForEntity(
               operationContext, entityUrn, inferredDocumentation.getEntityDescription()));
     }
-    if (!inferredDocumentation.getColumnDescriptions().isEmpty()) {
+    if (!inferredDocumentation.getColumnDescriptions().isEmpty() && !excludeColumns) {
       inferredDocumentation
           .getColumnDescriptions()
           .forEach(

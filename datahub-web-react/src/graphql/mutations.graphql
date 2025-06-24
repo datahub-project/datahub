@@ -156,8 +156,13 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
     removeBusinessAttribute(input: $input)
 }
 
-mutation inferDocumentation($urn: String!, $saveResult: Boolean) {
-    inferDocumentation(urn: $urn, saveResult: $saveResult) {
+mutation inferDocumentation($urn: String!, $saveResult: Boolean, $excludeAsset: Boolean, $excludeColumns: Boolean) {
+    inferDocumentation(
+        urn: $urn
+        saveResult: $saveResult
+        excludeAsset: $excludeAsset
+        excludeColumns: $excludeColumns
+    ) {
         entityDescription
         columnDescriptions {
             jsonBlob

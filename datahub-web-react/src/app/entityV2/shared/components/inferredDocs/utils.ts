@@ -3,14 +3,18 @@ import { INFER_DOCUMENTATION_ENTITY_TYPES } from '@app/entityV2/shared/component
 import { useInferDocumentationMutation } from '@src/graphql/mutations.generated';
 import { EntityType } from '@src/types.generated';
 
-export const useInferDocumentationForItem = ({
+export const useInferDocumentation = ({
     entityUrn,
     columnPath,
-    saveResult,
+    saveResult = false,
+    excludeAsset = false,
+    excludeColumns = false,
 }: {
     entityUrn: string;
     columnPath?: string;
     saveResult?: boolean;
+    excludeAsset?: boolean;
+    excludeColumns?: boolean;
 }) => {
     const [inferDocumentation] = useInferDocumentationMutation();
 
@@ -19,6 +23,8 @@ export const useInferDocumentationForItem = ({
             variables: {
                 urn: entityUrn,
                 saveResult: !!saveResult,
+                excludeAsset: !!excludeAsset,
+                excludeColumns: !!excludeColumns,
             },
         });
         const maybeColumnsJSON = result.data?.inferDocumentation?.columnDescriptions?.jsonBlob;

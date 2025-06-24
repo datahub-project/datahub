@@ -14,7 +14,7 @@ import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/sc
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { useInferDocumentationForItem } from '@app/entityV2/shared/components/inferredDocs/utils';
+import { useInferDocumentation } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
@@ -190,10 +190,12 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const inferDocumentation = useInferDocumentationForItem({
+    const inferDocumentation = useInferDocumentation({
         entityUrn,
         saveResult: true,
+        excludeAsset: true,
     });
+
     const onInferSchemaDescriptions = async () => {
         try {
             await inferDocumentation();

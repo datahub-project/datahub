@@ -2,9 +2,17 @@
 
 extend type Mutation {
   """
-  Infer documentation for a given entity
+  Infer documentation for a given entity. Currently only supports Datasets & Columns (Schema Fields).
+
+  This allows you to generate for datasets or columns separately, but by default generates and returns descriptions for both.
+  By default, the inferred documentation is NOT saved for the asset or columns.
   """
-  inferDocumentation(urn: String!, saveResult: Boolean): InferredDocumentation
+  inferDocumentation(
+    urn: String!
+    saveResult: Boolean
+    excludeAsset: Boolean
+    excludeColumns: Boolean
+  ): InferredDocumentation
 }
 
 """

@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import InferDocsButton from '@app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import {
-    useInferDocumentationForItem,
+    useInferDocumentation,
     useIsDocumentationInferenceEnabled,
 } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -106,9 +106,11 @@ export default function InferDocsPanel({
 
     const enableDocInference = useIsDocumentationInferenceEnabled();
 
-    const inferDocumentationForItem = useInferDocumentationForItem({
+    const inferDocumentationForItem = useInferDocumentation({
         entityUrn: urn,
         columnPath: forColumnPath,
+        excludeAsset: !!forColumnPath,
+        excludeColumns: !forColumnPath,
     });
 
     const generateSuggestion = async () => {
