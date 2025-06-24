@@ -302,6 +302,14 @@ class ProfileMetadata:
     "Enabled by default",
     supported=True,
 )
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for for views via `include_view_lineage`",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default to get lineage for views via `include_view_column_lineage`",
+)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
