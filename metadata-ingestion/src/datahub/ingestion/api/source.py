@@ -248,6 +248,7 @@ class SourceReport(Report):
                             self.aspect_urn_samples[entityType][
                                 "fineGrainedLineages"
                             ].append(urn)
+                            self.aspects[entityType]["fineGrainedLineages"] += 1
 
     def report_warning(
         self,
