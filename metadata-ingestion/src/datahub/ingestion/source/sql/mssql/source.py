@@ -175,9 +175,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
-    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
-)
-@capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
 )
