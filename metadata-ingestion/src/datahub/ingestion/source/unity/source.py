@@ -6,9 +6,9 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 from azure.identity import DefaultAzureCredential
+
 from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
-
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,

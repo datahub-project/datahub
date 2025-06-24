@@ -112,17 +112,16 @@ class UnityCatalogConnectionTest:
                     server_hostname=config.workspace_url,
                     http_path=f"/sql/1.0/warehouses/{config.warehouse_id}",
                     access_token=token,
-                ) as connection:
-                    with connection.cursor() as cursor:
-                        cursor.execute("SELECT 1")
-                        result = cursor.fetchone()
-                        if not result:
-                            return TestConnectionReport(
-                                basic_connectivity=CapabilityReport(
-                                    capable=False,
-                                    failure_reason="Failed to execute test query",
-                                )
+                ) as connection, connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    result = cursor.fetchone()
+                    if not result:
+                        return TestConnectionReport(
+                            basic_connectivity=CapabilityReport(
+                                capable=False,
+                                failure_reason="Failed to execute test query",
                             )
+                        )
             except Exception as e:
                 return TestConnectionReport(
                     basic_connectivity=CapabilityReport(
