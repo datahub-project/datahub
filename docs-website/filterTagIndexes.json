@@ -738,17 +738,6 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/lookml",
-      "imgPath": "img/logos/platforms/looker.svg",
-      "Title": "LookML",
-      "Description": "LookML is a code-based modeling language for defining data relationships, business logic, and data access permissions in Looker.",
-      "tags": {
-        "Platform Type": "BI Tool",
-        "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Lower Casing, Status Aspect"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/preset",
       "imgPath": "img/logos/platforms/preset.svg",
       "Title": "Preset",
@@ -766,17 +755,6 @@
       "Description": "Google Cloud Storage is a unified object storage service that provides industry-leading durability and availability for data.",
       "tags": {
         "Platform Type": "Datastore",
-        "Connection Type": "Pull",
-        "Features": ""
-      }
-    },
-    {
-      "Path": "docs/generated/ingestion/sources/sql-queries",
-      "imgPath": "img/datahub-logo-color-mark.svg",
-      "Title": "SQL Queries",
-      "Description": "SQL Queries is a data tool that allows users to execute and analyze SQL queries across various database systems.",
-      "tags": {
-        "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
       }
