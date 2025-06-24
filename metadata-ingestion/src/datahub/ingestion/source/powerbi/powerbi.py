@@ -1253,6 +1253,7 @@ class Mapper:
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration profiling.enabled",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

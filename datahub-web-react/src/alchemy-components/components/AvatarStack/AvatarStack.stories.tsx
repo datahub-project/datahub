@@ -1,6 +1,7 @@
-import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { AvatarStack, avatarListDefaults } from './AvatarStack';
+import React from 'react';
+
+import { AvatarStack, avatarListDefaults } from '@components/components/AvatarStack/AvatarStack';
 
 // Meta Configuration
 const meta = {
@@ -74,3 +75,17 @@ export const withSingleAvatar = () => (
 );
 
 export const withNoAvatar = () => <AvatarStack avatars={[]} />;
+
+export const withMoreAvatars = () => (
+    <AvatarStack
+        avatars={[
+            { name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Test User', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Micky Test', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Jake', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Mike', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+        ]}
+        size="md"
+        maxToShow={3}
+    />
+);

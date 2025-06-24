@@ -1,8 +1,10 @@
 import React from 'react';
+
+import { EntityCardList } from '@app/homeV2/content/recent/EntityCardList';
+
 // import styled from 'styled-components';
 // import { BulbTwoTone } from '@ant-design/icons';
-import { Entity } from '../../../../types.generated';
-import { EntityCardList } from './EntityCardList';
+import { Entity } from '@types';
 
 // const BULB_COLOR = '#EEAD1C';
 
@@ -16,5 +18,5 @@ type Props = {
 
 // TODO: Decide whether we want the lightbulb or not.
 export const RecentlyEditedOrViewed = ({ entities }: Props) => {
-    return <EntityCardList title="You recently viewed" entities={entities} />;
+    return <EntityCardList title="You recently viewed" entities={entities} isHomePage />;
 };

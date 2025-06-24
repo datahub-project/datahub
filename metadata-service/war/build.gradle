@@ -35,10 +35,10 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation(externalDependency.springBootStarterWeb) {
-    exclude module: "spring-boot-starter-tomcat"
-  }
-  implementation externalDependency.springBootStarterJetty
+  implementation(externalDependency.springBootStarterWeb)
+  implementation(externalDependency.springBootStarterJetty)
+  implementation(externalDependency.springBootStarterValidation)
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
@@ -56,8 +56,14 @@ dependencies {
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
+
+  // Required for springdocs/swagger
+  implementation("javax.xml.bind:jaxb-api:2.3.1")
+  implementation("org.glassfish.jaxb:jaxb-runtime:2.3.8")
 
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest
@@ -114,6 +120,8 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+
+  debugBuildArgs = [APP_ENV:  'dev']
 }
 
 test {

@@ -72,7 +72,7 @@ ingestion:
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
-  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
+  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false} # whether mixpanel tracking is enabled.
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
@@ -80,6 +80,7 @@ secretService:
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
+  serverEnv: ${DATAHUB_SERVER_ENV:core}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -112,6 +113,11 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  limit:
+    results:
+      max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${GRAPH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${GRAPH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
@@ -130,12 +136,29 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+  limit:
+    results:
+      max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+  limit:
+    results:
+      max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
+
+systemMetadataService:
+  limit:
+    results:
+      max: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -144,12 +167,19 @@ configEntityRegistry:
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+  usageExport:
+    enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
+    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+    aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
+    userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
+  theme:
+    themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
@@ -159,6 +189,8 @@ visualConfig:
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
+  application:
+    showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
@@ -226,7 +258,7 @@ elasticsearch:
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:1} # increase to 30 if expected indexing rates to be greater than 100/s
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
@@ -235,6 +267,7 @@ elasticsearch:
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
+    minSearchFilterLength: ${ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH:3}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
     docIds:
       schemaField:
@@ -268,13 +301,18 @@ elasticsearch:
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
-      maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
       enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
       graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
+      lineageMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS:20} # the maximum hops to traverse lineage graph visualization
+      impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
+      queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
 kafka:
+  topics:
+    dataHubUsage: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
@@ -310,8 +348,15 @@ kafka:
       autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
     mcl:
       autoOffsetReset: ${KAFKA_CONSUMER_MCL_AUTO_OFFSET_RESET:earliest}
+      fineGrainedLoggingEnabled: ${KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED:false}
+      aspectsToDrop: ${KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP:}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+
+  # Consumer Pool - Used for Our Events API
+  consumerPool:
+    initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
+    maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
@@ -356,13 +401,25 @@ spring:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
+# Useful to debug low-level Spring errors such as class version mismatches
+server:
+  server-header: false
+#  error:
+#    include-message: always
+#    include-binding-errors: always
+#    include-stacktrace: always
+
 springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui/index.html
+    path: /openapi/swagger-ui
+    urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
+    # Do not change this even though some APIs are using 3.1
+    # Serialization of enum types will break
+    version: openapi_3_0
   groups:
     enabled: true
 
@@ -462,7 +519,7 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
-      
+
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
@@ -509,6 +566,9 @@ featureFlags:
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -517,6 +577,12 @@ entityChangeEvents:
 
 views:
   enabled: ${VIEWS_ENABLED:true}
+
+searchBar:
+  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+
+homePage:
+  firstInPersonalSidebar: ${FIRST_IN_PERSONAL_SIDEBAR:YOUR_ASSETS}
 
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
@@ -592,6 +658,8 @@ cache:
           storageFeatures: 21600 # 6hrs
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+        telemetry:
+          telemetryClientId: 86400 # 1 day
 
 graphQL:
   concurrency:
@@ -621,8 +689,14 @@ businessAttribute:
   keepAliveTime: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
 
 metadataChangeProposal:
+  consumer:
+    batch:
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
+    privilegeConstraints:
+      enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
   sideEffects:
@@ -660,6 +734,9 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+eventsApi:
+  enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
       enablePublicRead: ${ENABLE_PUBLIC_READ:false}

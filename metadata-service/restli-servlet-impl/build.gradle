@@ -41,6 +41,7 @@ dependencies {
   }
 
   implementation project(':metadata-service:restli-api')
+  implementation project(':metadata-service:configuration')
   implementation project(':metadata-auth:auth-api')
   implementation project(path: ':metadata-service:restli-api', configuration: 'dataTemplate')
   implementation project(':li-utils')

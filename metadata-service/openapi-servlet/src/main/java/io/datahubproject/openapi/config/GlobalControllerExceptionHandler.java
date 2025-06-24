@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -9,8 +10,8 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -92,22 +93,40 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   public ResponseEntity<Map<String, String>> handleValidationException(
       ValidationException e, HttpServletRequest request) {
     log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
+
+    Map<String, String> response =
+        new LinkedHashMap<>(Map.of("error", "Validation Error", "message", e.getMessage()));
+    HttpStatus statusCode = HttpStatus.BAD_REQUEST;
+
     if (e.getValidationExceptionCollection() != null
         && e.getValidationExceptionCollection()
             .getSubTypes()
-            .equals(Set.of(ValidationSubType.PRECONDITION))) {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()),
-          HttpStatus.PRECONDITION_FAILED);
-    } else {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+            .contains(ValidationSubType.AUTHORIZATION)) {
+      response.put("error", "Authorization Error");
+      statusCode = HttpStatus.FORBIDDEN;
+    } else if (e.getValidationExceptionCollection() != null
+        && e.getValidationExceptionCollection()
+            .getSubTypes()
+            .contains(ValidationSubType.PRECONDITION)) {
+      response.put("error", "Precondition Error");
+      statusCode = HttpStatus.PRECONDITION_FAILED;
     }
+
+    return new ResponseEntity<>(response, statusCode);
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, String>> handleGenericException(
       Exception e, HttpServletRequest request) {
+
+    Throwable cause = e.getCause();
+    while (cause != null) {
+      if (cause instanceof JsonProcessingException || cause instanceof jakarta.json.JsonException) {
+        return handleJsonException((Exception) cause, request);
+      }
+      cause = cause.getCause();
+    }
+
     log.error("Unhandled exception occurred for request: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -120,5 +139,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
 
     log.error("No handler found for request: {}", request.getRequestURI());
     return new ResponseEntity<>(Map.of("error", message), HttpStatus.NOT_FOUND);
+  }
+
+  @ExceptionHandler({JsonProcessingException.class, jakarta.json.JsonException.class})
+  public ResponseEntity<Map<String, String>> handleJsonException(
+      Exception e, HttpServletRequest request) {
+    log.error("Invalid JSON format: {}", request.getRequestURI(), e);
+    return new ResponseEntity<>(
+        Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
 }

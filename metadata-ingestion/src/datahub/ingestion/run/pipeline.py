@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -136,9 +137,8 @@ class CliReport(Report):
 
 
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
-
     return DatahubRestSink(ctx, sink_config)
 
 
@@ -175,6 +175,7 @@ class Pipeline:
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
+                    self.config.datahub_api.client_mode = ClientMode.INGESTION
                     self.graph = exit_stack.enter_context(
                         DataHubGraph(self.config.datahub_api)
                     )
@@ -555,18 +556,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:

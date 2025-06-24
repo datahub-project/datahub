@@ -1,5 +1,5 @@
+import { AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { AssertionSourceType } from '@src/types.generated';
-import { AssertionTable } from './types';
 
 export const ASSERTION_DEFAULT_FILTERS = {
     sortBy: '',

@@ -9,6 +9,7 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
     capability,
     config_class,
@@ -17,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
@@ -262,16 +262,15 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DBTCloudConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
+        return cls(config, ctx)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

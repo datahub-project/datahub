@@ -1,14 +1,15 @@
-import React from 'react';
-
 import { Tooltip, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useMatchedFieldLabel, useMatchedFieldsForList } from '../context/SearchResultContext';
-import { MatchedField } from '../../../types.generated';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import { useSearchQuery } from '../context/SearchContext';
-import { MatchesGroupedByFieldName } from './constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './utils';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { useSearchQuery } from '@app/search/context/SearchContext';
+import { useMatchedFieldLabel, useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
+import { MatchesGroupedByFieldName } from '@app/search/matches/constants';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/search/matches/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { MatchedField } from '@types';
 
 const MatchesContainer = styled.div`
     display: flex;

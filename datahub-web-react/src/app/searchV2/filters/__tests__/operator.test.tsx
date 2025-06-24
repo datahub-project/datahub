@@ -1,14 +1,14 @@
-import { EntityType } from '@src/types.generated';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@src/app/search/utils/constants';
 import {
     ALL_EQUALS_OPERATOR,
     EQUALS_OPERATOR,
     EXISTS_OPERATOR,
-    getOperatorOptionsForPredicate,
     NOT_EQUALS_OPERATOR,
     NOT_EXISTS_OPERATOR,
-} from '../operator/operator';
-import { FieldType, FilterOperatorType, FilterPredicate } from '../types';
+    getOperatorOptionsForPredicate,
+} from '@app/searchV2/filters/operator/operator';
+import { FieldType, FilterOperatorType, FilterPredicate } from '@app/searchV2/filters/types';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '@src/app/search/utils/constants';
+import { EntityType } from '@src/types.generated';
 
 describe('operator', () => {
     const tagPredicate = {

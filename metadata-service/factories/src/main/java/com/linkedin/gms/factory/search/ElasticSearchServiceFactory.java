@@ -7,8 +7,8 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -37,9 +37,9 @@ public class ElasticSearchServiceFactory {
   @Qualifier("settingsBuilder")
   private SettingsBuilder settingsBuilder;
 
-  @Autowired private EntityIndexBuilders entityIndexBuilders;
-
-  @Autowired private ConfigurationProvider configurationProvider;
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
 
   @Bean(name = "elasticSearchService")
   @Nonnull
@@ -62,17 +62,23 @@ public class ElasticSearchServiceFactory {
             components.getSearchClient(),
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
             elasticSearchConfiguration.getImplementation(),
-            searchConfiguration,
+            elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService());
     return new ElasticSearchService(
-        entityIndexBuilders,
+        components.getIndexBuilder(),
+        entityRegistry,
+        components.getIndexConvention(),
+        settingsBuilder,
+        configurationProvider.getSearchService(),
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),
-            searchConfiguration,
+            elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain),
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService()),
         new ESWriteDAO(
             components.getSearchClient(),
             components.getBulkProcessor(),

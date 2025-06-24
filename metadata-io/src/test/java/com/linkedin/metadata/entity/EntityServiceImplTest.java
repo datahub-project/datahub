@@ -567,7 +567,7 @@ public class EntityServiceImplTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     // Test case 1: async = true path
     // Arrange
@@ -625,7 +625,7 @@ public class EntityServiceImplTest {
                         .aspectName(DATASET_PROFILE_ASPECT_NAME)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     try {
       entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
@@ -973,5 +973,67 @@ public class EntityServiceImplTest {
           () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
       verify(mockCounter).inc();
     }
+  }
+
+  @Test
+  public void testRestoreIndicesWithNullSystemMetadata() {
+    // Setup mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
+
+    // Create test aspects
+    List<EbeanAspectV2> batch = new ArrayList<>();
+
+    // Create an aspect with null system metadata
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,nullMetadataTest,PROD)");
+    Status testStatus = new Status().setRemoved(false);
+
+    EbeanAspectV2 aspectWithNullMetadata =
+        new EbeanAspectV2(
+            testUrn.toString(),
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(testStatus),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            null // Explicitly set systemMetadata to null
+            );
+    batch.add(aspectWithNullMetadata);
+
+    // Setup mock stream
+    when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
+    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+
+    // Setup mock EventProducer
+    EventProducer mockEventProducer = mock(EventProducer.class);
+    when(mockEventProducer.produceMetadataChangeLog(
+            any(OperationContext.class), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    // Create EntityServiceImpl with mocks
+    EntityServiceImpl entityServiceSpy =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+
+    // Create RestoreIndicesArgs
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .start(0)
+            .limit(100)
+            .batchSize(50)
+            .batchDelayMs(0L)
+            .createDefaultAspects(false);
+
+    // Execute the method under test
+    List<RestoreIndicesResult> results =
+        entityServiceSpy.restoreIndices(opContext, args, message -> {});
+
+    // Verify results
+    assertNotNull(results);
+    assertEquals(1, results.size());
+    assertEquals(1, results.get(0).rowsMigrated);
   }
 }

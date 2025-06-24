@@ -1,13 +1,16 @@
 import { Modal, Steps, Typography } from 'antd';
+import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { isEqual } from 'lodash';
-import { SourceBuilderState, StepProps } from './types';
-import { CreateScheduleStep } from './CreateScheduleStep';
-import { DefineRecipeStep } from './DefineRecipeStep';
-import { NameSourceStep } from './NameSourceStep';
-import { SelectTemplateStep } from './SelectTemplateStep';
-import sourcesJson from './sources.json';
+
+import { CreateScheduleStep } from '@app/ingest/source/builder/CreateScheduleStep';
+import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
+import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
+import { SelectTemplateStep } from '@app/ingest/source/builder/SelectTemplateStep';
+import sourcesJson from '@app/ingest/source/builder/sources.json';
+import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+
+import { IngestionSource } from '@types';
 
 const StyledModal = styled(Modal)`
     && .ant-modal-content {
@@ -66,9 +69,18 @@ type Props = {
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -160,6 +172,8 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
+                sourceRefetch={sourceRefetch}
+                selectedSource={selectedSource}
             />
         </StyledModal>
     );

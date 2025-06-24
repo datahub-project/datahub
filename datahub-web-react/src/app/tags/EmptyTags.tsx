@@ -1,6 +1,6 @@
+import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty, Typography } from 'antd';
 
 type Props = {
     isEmptySearch: boolean;
@@ -32,7 +32,7 @@ const EmptyTags = ({ isEmptySearch }: Props) => {
                         <div>
                             {!isEmptySearch && (
                                 <Typography.Paragraph>
-                                    Tags can be used to organize and categorize data assets across the platform.
+                                    Tags can be used to organize data assets in DataHub.
                                 </Typography.Paragraph>
                             )}
                         </div>

@@ -46,7 +46,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -244,7 +243,7 @@ public class BusinessAttributeUpdateHookTest {
                   any(Filter.class),
                   isNull(),
                   any(Filter.class),
-                  eq(Arrays.asList(BUSINESS_ATTRIBUTE_OF)),
+                  eq(Set.of(BUSINESS_ATTRIBUTE_OF)),
                   any(RelationshipFilter.class),
                   eq(Edge.EDGE_SORT_CRITERION),
                   nullable(String.class),

@@ -10,16 +10,15 @@ set -euxo pipefail
 
 # Log the locally loaded images
 # docker images | grep "datahub-"
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
-
 if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
 else
   mkdir -p ~/.datahub/plugins/frontend/auth/
   echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
   echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
+
 
   python3 -m venv venv
   set +x

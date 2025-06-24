@@ -1,8 +1,10 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import { FetchedEntity } from '../lineage/types';
-import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { FetchedEntity } from '@app/lineage/types';
+
+import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -94,6 +96,10 @@ export enum EntityCapabilityType {
      * Lineage information of an entity
      */
     LINEAGE,
+    /**
+     * Assigning the entity to an application
+     */
+    APPLICATIONS,
 }
 
 export interface EntityMenuActions {

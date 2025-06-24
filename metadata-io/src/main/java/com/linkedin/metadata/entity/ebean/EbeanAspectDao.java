@@ -115,7 +115,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!AspectStorageValidationUtil.checkV2TableExists(server)) {
       log.error(
           "GMS is on a newer version than your storage layer. Please refer to "
-              + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
+              + "https://docs.datahub.com/docs/advanced/no-code-upgrade to view the upgrade guide.");
       canWrite = false;
       return false;
     } else {
@@ -964,6 +964,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @param urns urns for batch
    * @return separated batches
    */
+  // TODO: Remove? No usages of private method
   private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
       AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
     Map<Urn, List<MCPItem>> itemsByUrn =
@@ -977,7 +978,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .filter(entry -> !urns.contains(entry.getKey()))
                     .flatMap(entry -> entry.getValue().stream())
                     .collect(Collectors.toList()))
-            .build();
+            .build(null);
 
     List<AspectsBatch> nonEmptyBatches =
         urns.stream()
@@ -986,7 +987,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     AspectsBatchImpl.builder()
                         .retrieverContext(retrieverContext)
                         .items(itemsByUrn.get(urn))
-                        .build())
+                        .build(null))
             .filter(b -> !b.getItems().isEmpty())
             .collect(Collectors.toList());
 

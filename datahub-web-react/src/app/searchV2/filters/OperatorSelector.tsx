@@ -1,9 +1,12 @@
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { SEARCH_FILTER_CONDITION_TYPE_TO_INFO, getOperatorOptionsForPredicate } from './operator/operator';
-import { FilterOperatorType, FilterPredicate } from './types';
+
+import {
+    SEARCH_FILTER_CONDITION_TYPE_TO_INFO,
+    getOperatorOptionsForPredicate,
+} from '@app/searchV2/filters/operator/operator';
+import { FilterOperatorType, FilterPredicate } from '@app/searchV2/filters/types';
 
 const OptionContainer = styled.div`
     display: flex;
@@ -21,8 +24,8 @@ const SelectedOperatorText = styled.div`
     border: 1.5px solid transparent;
     padding: 2px;
     :hover {
-        border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
+        background-color: ${(p) => p.theme.styles['primary-color']};
         color: #fff;
     }
 `;

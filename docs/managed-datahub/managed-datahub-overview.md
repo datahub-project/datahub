@@ -5,6 +5,7 @@
 DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata platform, offering enhanced capabilities for data discovery, observability, and governance that accelerate the production-readiness of your data and AI assets.
 
 ### Enterprise-Grade Service
+
 - **Proven Implementation Service** tailored to your organization's specific needs
 - **SLA-Backed Reliability** ensuring 99.5% uptime for critical operations
 - **Optimized Performance** with infrastructure fine-tuned and managed by experts
@@ -12,10 +13,12 @@ DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata pl
 - **Enhanced Security Controls** meeting enterprise compliance requirements
 
 ### Accelerated Adoption
+
 - **Comprehensive Team Training** to maximize platform utilization
 - **Expert Support** providing guidance through your data journey
 
 ### Add-on Capabilities
+
 - **Enhanced Discovery & Understanding** with personalized user experiences, AI-generated documentation and propagation, and collaboration features
 - **Improved Data Quality Monitoring** with ability to run quality checks, use AI anomaly detection, and comprehensively monitor data assets
 - **Robust Governance Mechanisms** with dynamic compliance forms, certification & approval workflows, and enforced governance standards
@@ -125,16 +128,16 @@ out the datasets that seem to grow like weeds when no one's looking.
 ## More Questions?
 
 Have more questions and want to talk to someone? Fill out
-the form using the link below, and someone from the Acryl team will reach
+the form using the link below, and someone from the DataHub team will reach
 out to set up a chat.
 
-<a href="https://www.acryldata.io/sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
+<a href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
 Learn about DataHub Cloud
 </a>
 
 <!--
 Fill out
-[this form](https://www.acryldata.io/sign-up?utm_source=datahubproject&utm_content=acryl_vs_datahub), and someone from the Acryl team will reach out to set up a chat.
+[this form](https://www.datahub.com/demo?utm_source=datahubproject&utm_content=acryl_vs_datahub), and someone from the DataHub team will reach out to set up a chat.
 
 
  ## Chrome Extension

@@ -31,8 +31,6 @@ import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-// single threaded to prevent sql logging collisions
-@Test(singleThreaded = true)
 public class EbeanEntityServiceOptimizationTest {
   /*
    Counts for ORM optimization calculations
@@ -81,7 +79,9 @@ public class EbeanEntityServiceOptimizationTest {
   public void testEmptyORMOptimization() {
     // empty batch
     assertSQL(
-        AspectsBatchImpl.builder().retrieverContext(opContext.getRetrieverContext()).build(),
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .build(opContext),
         0,
         0,
         0,
@@ -108,7 +108,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         nonExistingBaseCount + 1,
         1,
         0,
@@ -130,7 +130,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -157,7 +157,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -179,7 +179,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,
@@ -208,7 +208,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,
@@ -234,7 +234,7 @@ public class EbeanEntityServiceOptimizationTest {
       entityService.ingestProposal(opContext, batch, false);
       // First collect all SQL statements that start with "txn[]"
       List<String> allSqlStatements = new ArrayList<>();
-      for (String sqlGroup : LoggedSql.collect()) {
+      for (String sqlGroup : new ArrayList<>(LoggedSql.collect())) {
         // Split by "txn[]" but preserve the prefix
         String[] parts = sqlGroup.split("(?=txn\\[\\])");
         for (String part : parts) {
