@@ -879,6 +879,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 

@@ -214,7 +214,7 @@ export const AssertionResultPopoverContent = ({
                                             <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
                                                 View results in{' '}
                                                 {assertion.platform?.name &&
-                                                assertion.platform?.name.toLowerCase() !== 'unknown'
+                                                assertion.platform?.name?.toLowerCase() !== 'unknown'
                                                     ? assertion.platform?.name
                                                     : 'source system.'}
                                             </a>

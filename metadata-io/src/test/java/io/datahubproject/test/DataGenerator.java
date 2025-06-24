@@ -172,7 +172,7 @@ public class DataGenerator {
                                 opContext,
                                 AspectsBatchImpl.builder()
                                     .mcps(List.of(mcp), auditStamp, opContext.getRetrieverContext())
-                                    .build()
+                                    .build(opContext)
                                     .getMCPItems(),
                                 entityService,
                                 true)

@@ -17,10 +17,12 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
+    StructuredPropertyInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
@@ -36,6 +38,7 @@ class MLModelGroup(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
     __slots__ = ()
@@ -66,6 +69,7 @@ class MLModelGroup(
         domain: Optional[DomainInputType] = None,
         training_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
         downstream_jobs: Optional[Sequence[Union[str, DataProcessInstanceUrn]]] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelGroupUrn(platform=platform, name=id, env=env)
@@ -105,6 +109,9 @@ class MLModelGroup(
             self.set_training_jobs(training_jobs)
         if downstream_jobs is not None:
             self.set_downstream_jobs(downstream_jobs)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: AspectBag) -> Self:

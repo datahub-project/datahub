@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
@@ -11,16 +12,18 @@ describe('NameSourceStep', () => {
         };
         const state = { name: '' };
         const { getByTestId } = render(
-            <NameSourceStep
-                state={state}
-                updateState={updateStateMock}
-                prev={() => {}}
-                submit={() => {}}
-                goTo={() => {}}
-                cancel={() => {}}
-                ingestionSources={[]}
-                isEditing
-            />,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <NameSourceStep
+                    state={state}
+                    updateState={updateStateMock}
+                    prev={() => {}}
+                    submit={() => {}}
+                    goTo={() => {}}
+                    cancel={() => {}}
+                    ingestionSources={[]}
+                    isEditing
+                />
+            </MockedProvider>,
         );
         const nameInput = getByTestId('source-name-input') as HTMLInputElement;
         const SourceName = '   Test Name   ';

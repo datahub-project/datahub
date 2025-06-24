@@ -1,6 +1,6 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import { Alert } from 'antd';
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -197,7 +197,7 @@ export const EntityProfile = <T, U>({
     isIconEditable,
     subHeader,
 }: Props<T, U>): JSX.Element => {
-    const { isTabFullsize } = useContext(TabFullsizeContext);
+    const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
     const isLineageV2 = useLineageV2();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -285,6 +285,12 @@ export const EntityProfile = <T, U>({
     );
 
     const routedTab = useRoutedTab(enabledAndVisibleTabs);
+
+    useEffect(() => {
+        if (!routedTab?.supportsFullsize) {
+            setTabFullsize?.(false);
+        }
+    }, [routedTab?.supportsFullsize, setTabFullsize]);
 
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;

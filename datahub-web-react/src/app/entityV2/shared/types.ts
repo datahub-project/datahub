@@ -62,6 +62,7 @@ export type EntityTab = {
     properties?: any;
     id?: string;
     getCount?: (GenericEntityProperties, T, loading: boolean) => number | undefined;
+    supportsFullsize?: boolean; // As per TabFullsizedContext
 };
 
 export type EntitySidebarTab = {
