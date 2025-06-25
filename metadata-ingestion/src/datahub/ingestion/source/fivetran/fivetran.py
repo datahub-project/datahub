@@ -76,8 +76,8 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
-        input_dataset_urn_list: List[DatasetUrn] = []
-        output_dataset_urn_list: List[DatasetUrn] = []
+        input_dataset_urn_list: List[str | DatasetUrn] = []
+        output_dataset_urn_list: List[str | DatasetUrn] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
 
         # TODO: Once Fivetran exposes the database via the API, we shouldn't ask for it via config.
@@ -179,9 +179,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                         )
                     )
 
-        datajob.inlets.extend(input_dataset_urn_list)
-        datajob.outlets.extend(output_dataset_urn_list)
-        datajob.fine_grained_lineages.extend(fine_grained_lineage)
+        datajob.set_inlets(input_dataset_urn_list)
+        datajob.set_outlets(output_dataset_urn_list)
+        datajob.set_fine_grained_lineages(fine_grained_lineage)
 
         return dict(
             **{
