@@ -15,7 +15,11 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     TimeWindowSize,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
+    SqlAssertionCondition,
     SqlAssertionCriteria,
+)
+from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
+    VolumeAssertionCondition,
 )
 from acryl_datahub_cloud.sdk.assertions_client import AssertionsClient
 from acryl_datahub_cloud.sdk.resolver_client import ResolverClient
@@ -36,4 +40,6 @@ __all__ = [
     "SubscriptionClient",
     "SqlAssertion",
     "SqlAssertionCriteria",
+    "VolumeAssertionCondition",
+    "SqlAssertionCondition",
 ]
