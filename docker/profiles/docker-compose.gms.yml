@@ -196,11 +196,15 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
+  ports:
+    - 9090:9090
+    - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin

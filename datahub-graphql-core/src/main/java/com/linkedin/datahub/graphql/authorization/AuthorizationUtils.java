@@ -19,7 +19,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
@@ -370,6 +373,21 @@ public class AuthorizationUtils {
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
     return AuthUtil.isAuthorized(context.getOperationContext(), privilegeGroup, resourceSpec);
+  }
+
+  public static boolean isAuthorizedForTags(
+      @Nonnull QueryContext context,
+      @Nonnull String resourceType,
+      @Nonnull String resource,
+      @Nonnull DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull Collection<Urn> tagUrns) {
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
+    final Set<EntitySpec> subResources =
+        tagUrns.stream()
+            .map(tagUrn -> new EntitySpec(TAG_ENTITY_NAME, tagUrn.toString()))
+            .collect(Collectors.toSet());
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), privilegeGroup, resourceSpec, subResources);
   }
 
   public static boolean isViewDatasetUsageAuthorized(
