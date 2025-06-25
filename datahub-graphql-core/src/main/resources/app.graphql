@@ -187,6 +187,11 @@ type PlatformPrivileges {
   Whether the user can manage applications.
   """
   manageApplications: Boolean!
+
+  """
+  Whether the user can manage platform features.
+  """
+  manageFeatures: Boolean!
 }
 
 """

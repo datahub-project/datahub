@@ -1,4 +1,5 @@
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import { debounce } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +9,7 @@ import EmptyApplications from '@app/applications/EmptyApplications';
 import { useUserContext } from '@app/context/useUserContext';
 import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
 import { Message } from '@src/app/shared/Message';
+import { DEBOUNCE_SEARCH_MS } from '@src/app/shared/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
@@ -62,13 +64,15 @@ const ManageApplications = () => {
     const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
     // Debounce search query input to reduce unnecessary renders
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearchQuery(searchQuery);
-        }, 300);
+    const debouncedSetSearchQuery = useMemo(
+        () => debounce((query: string) => setDebouncedSearchQuery(query), DEBOUNCE_SEARCH_MS),
+        [],
+    );
 
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+    useEffect(() => {
+        debouncedSetSearchQuery(searchQuery);
+        return () => debouncedSetSearchQuery.cancel();
+    }, [searchQuery, debouncedSetSearchQuery]);
 
     // Search query configuration
     const searchInputs = useMemo(
