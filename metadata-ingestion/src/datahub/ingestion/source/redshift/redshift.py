@@ -369,8 +369,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
-                context="Deprecation Warning",
-                title="Deprecation Warning",
+                context="Config option deprecation warning",
+                title="Config option deprecation warning",
             )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
