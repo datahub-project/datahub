@@ -75,6 +75,24 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
   }
 
+  @ExceptionHandler(RuntimeException.class)
+  public ResponseEntity<Map<String, String>> handleRuntimeException(
+      RuntimeException e, HttpServletRequest request) {
+
+    // Check if this exception originates from UrnUtils.getUrn()
+    for (StackTraceElement element : e.getStackTrace()) {
+      if (element.getClassName().equals("com.linkedin.common.urn.UrnUtils")
+          && element.getMethodName().equals("getUrn")) {
+        log.error("Invalid URN format in request: {}", request.getRequestURI(), e);
+        return new ResponseEntity<>(
+            Map.of("error", "Invalid URN format: " + e.getMessage()), HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    // For other RuntimeExceptions, let them bubble up to the generic handler
+    return handleGenericException(e, request);
+  }
+
   @Override
   protected void logException(Exception ex, HttpServletRequest request) {
     log.error("Error while resolving request: {}", request.getRequestURI(), ex);

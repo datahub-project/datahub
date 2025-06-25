@@ -579,6 +579,24 @@ public class ESGraphQueryDAO {
     }
   }
 
+  /**
+   * Executes a search request against the graph index. This method is exposed for use by other
+   * graph service methods that need direct search access.
+   *
+   * @param searchRequest The search request to execute
+   * @return The search response from Elasticsearch
+   * @throws ESQueryException if the search fails
+   */
+  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
+    try {
+      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    }
+  }
+
   @VisibleForTesting
   public QueryBuilder getLineageQuery(
       @Nonnull OperationContext opContext,
