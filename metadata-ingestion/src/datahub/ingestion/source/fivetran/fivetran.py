@@ -245,6 +245,9 @@ class FivetranSource(StatefulIngestionSourceBase):
             flow_urn=datajob.flow_urn,
             platform_instance=self.config.platform_instance,
             name=datajob.name,
+            inlets=datajob.inlets,
+            outlets=datajob.outlets,
+            fine_grained_lineages=datajob.fine_grained_lineages,
         )
         return DataProcessInstance.from_datajob(
             datajob=datajob_v1,
