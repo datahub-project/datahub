@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mock_data.datahub_mock_data import (
     DataHubMockDataConfig,
@@ -14,132 +16,35 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 
 
-def test_calculate_lineage_tables_zero_hops():
-    """Test _calculate_lineage_tables with 0 hops (edge case)."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(fan_out=3, hops=0)
-
-    assert total_tables == 1
-    assert tables_at_levels == [1]
-
-
-def test_calculate_lineage_tables_one_hop():
-    """Test _calculate_lineage_tables with 1 hop."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(fan_out=2, hops=1)
-
-    assert total_tables == 3  # 1 (level 0) + 2 (level 1)
-    assert tables_at_levels == [1, 2]
-
-
-def test_calculate_lineage_tables_ten_hops_exponential():
-    """Test _calculate_lineage_tables with 10 hops using exponential growth."""
+@pytest.mark.parametrize(
+    "fan_out,hops,fan_out_after_first,expected_total,expected_levels",
+    [
+        # Basic cases
+        (3, 0, None, 1, [1]),
+        (2, 1, None, 3, [1, 2]),
+        (1, 3, None, 4, [1, 1, 1, 1]),
+        # With fan_out_after_first
+        (3, 3, 2, 22, [1, 3, 6, 12]),
+        (5, 4, 1, 21, [1, 5, 5, 5, 5]),
+        (3, 3, 1, 10, [1, 3, 3, 3]),
+        # Large exponential case
+        (3, 10, None, 88573, [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049]),
+    ],
+)
+def test_calculate_lineage_tables_parametrized(
+    fan_out, hops, fan_out_after_first, expected_total, expected_levels
+):
+    """Test _calculate_lineage_tables with various parameter combinations."""
     config = DataHubMockDataConfig()
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
     total_tables, tables_at_levels = source._calculate_lineage_tables(
-        fan_out=3, hops=10
+        fan_out=fan_out, hops=hops, fan_out_after_first=fan_out_after_first
     )
-
-    # Calculate expected exponential behavior:
-    # Level 0: 1 table (3^0)
-    # Level 1: 3 tables (3^1)
-    # Level 2: 9 tables (3^2)
-    # Level 3: 27 tables (3^3)
-    # Level 4: 81 tables (3^4)
-    # Level 5: 243 tables (3^5)
-    # Level 6: 729 tables (3^6)
-    # Level 7: 2187 tables (3^7)
-    # Level 8: 6561 tables (3^8)
-    # Level 9: 19683 tables (3^9)
-    # Level 10: 59049 tables (3^10)
-    expected_levels = [1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049]
-    expected_total = sum(expected_levels)  # 88573
 
     assert total_tables == expected_total
     assert tables_at_levels == expected_levels
-
-
-def test_calculate_lineage_tables_with_fan_out_after_first():
-    """Test _calculate_lineage_tables with fan_out_after_first_hop set."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(
-        fan_out=3, hops=3, fan_out_after_first=2
-    )
-
-    # Level 0: 1 table
-    # Level 1: 3 tables (using fan_out)
-    # Level 2: 3 * 2 = 6 tables (using fan_out_after_first)
-    # Level 3: 6 * 2 = 12 tables (using fan_out_after_first)
-    # Total: 1 + 3 + 6 + 12 = 22
-    assert total_tables == 22
-    assert tables_at_levels == [1, 3, 6, 12]
-
-
-def test_calculate_lineage_tables_large_hops_with_limit():
-    """Test _calculate_lineage_tables with large hops but limited fanout."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(
-        fan_out=5, hops=4, fan_out_after_first=1
-    )
-
-    # Level 0: 1 table
-    # Level 1: 5 tables (using fan_out)
-    # Level 2: 5 * 1 = 5 tables (using fan_out_after_first)
-    # Level 3: 5 * 1 = 5 tables (using fan_out_after_first)
-    # Level 4: 5 * 1 = 5 tables (using fan_out_after_first)
-    # Total: 1 + 5 + 5 + 5 + 5 = 21
-    assert total_tables == 21
-    assert tables_at_levels == [1, 5, 5, 5, 5]
-
-
-def test_calculate_lineage_tables_fan_out_one():
-    """Test _calculate_lineage_tables with fan_out=1."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(fan_out=1, hops=3)
-
-    # Level 0: 1 table
-    # Level 1: 1 table (1^1)
-    # Level 2: 1 table (1^2)
-    # Level 3: 1 table (1^3)
-    # Total: 1 + 1 + 1 + 1 = 4
-    assert total_tables == 4
-    assert tables_at_levels == [1, 1, 1, 1]
-
-
-def test_calculate_lineage_tables_fan_out_after_first_one():
-    """Test _calculate_lineage_tables with fan_out_after_first=1."""
-    config = DataHubMockDataConfig()
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    total_tables, tables_at_levels = source._calculate_lineage_tables(
-        fan_out=3, hops=3, fan_out_after_first=1
-    )
-
-    # Level 0: 1 table
-    # Level 1: 3 tables (using fan_out)
-    # Level 2: 3 * 1 = 3 tables (using fan_out_after_first)
-    # Level 3: 3 * 1 = 3 tables (using fan_out_after_first)
-    # Total: 1 + 3 + 3 + 3 = 10
-    assert total_tables == 10
-    assert tables_at_levels == [1, 3, 3, 3]
 
 
 def test_mock_data_source_basic_functionality():
@@ -176,40 +81,37 @@ def test_lineage_config_gen1_custom_values():
     assert lineage_config.lineage_fan_out_after_first_hop == 2
 
 
-def test_generate_lineage_data_gen1_workunit_counts():
+@pytest.mark.parametrize(
+    "fan_out,hops,expected_workunits",
+    [
+        # Basic configuration: fan_out=2, hops=1
+        # - Level 0: 1 table (2^0)
+        # - Level 1: 2 tables (2^1)
+        # Total tables: 3
+        # Each table gets a status aspect + SubTypes aspect
+        # Level 0 table connects to 2 level 1 tables = 2 lineage aspects
+        (2, 1, 8),  # 3 status + 3 SubTypes + 2 lineage
+        # Large fan out: fan_out=4, hops=1
+        # - Level 0: 1 table
+        # - Level 1: 4 tables
+        # Total: 5 status aspects + 5 SubTypes aspects + 4 lineage aspects = 14 workunits
+        (4, 1, 14),
+    ],
+)
+def test_generate_lineage_data_gen1_workunit_counts_parametrized(
+    fan_out, hops, expected_workunits
+):
     """Test lineage data generation workunit counts with different configurations."""
     ctx = PipelineContext(run_id="test")
-
-    # Test basic configuration: fan_out=2, hops=1
     config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=2, lineage_hops=1)
+        gen_1=LineageConfigGen1(
+            emit_lineage=True, lineage_fan_out=fan_out, lineage_hops=hops
+        )
     )
     source = DataHubMockDataSource(ctx, config)
     workunits = list(source._data_gen_1())
 
-    # With fan_out=2, hops=1, we expect:
-    # - Level 0: 1 table (2^0)
-    # - Level 1: 2 tables (2^1)
-    # Total tables: 3
-    # Each table gets a status aspect + SubTypes aspect
-    # Level 0 table connects to 2 level 1 tables = 2 lineage aspects
-    expected_workunits = (
-        3 + 3 + 2
-    )  # status aspects + SubTypes aspects + lineage aspects
     assert len(workunits) == expected_workunits
-
-    # Test large fan out: fan_out=4, hops=1
-    config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=4, lineage_hops=1)
-    )
-    source = DataHubMockDataSource(ctx, config)
-    workunits = list(source._data_gen_1())
-
-    # With fan_out=4, hops=1:
-    # - Level 0: 1 table
-    # - Level 1: 4 tables
-    # Total: 5 status aspects + 5 SubTypes aspects + 4 lineage aspects = 14 workunits
-    assert len(workunits) == 14
 
 
 def test_generate_lineage_data_gen1_no_hops():
@@ -360,44 +262,37 @@ def test_aspect_generation():
     assert upstream.type == "TRANSFORMED"
 
 
-def test_calculate_fanout_for_level():
+@pytest.mark.parametrize(
+    "level,fan_out,fan_out_after_first,expected",
+    [
+        # Level 0 should always use the standard fan_out
+        (0, 3, None, 3),
+        (0, 5, 2, 5),
+        # Level 1+ should use fan_out_after_first when set
+        (1, 3, 2, 2),
+        (2, 4, 1, 1),
+        # Level 1+ should use standard fan_out when fan_out_after_first is None
+        (1, 3, None, 3),
+        (2, 5, None, 5),
+        # Edge cases
+        (1, 3, 0, 0),
+        (10, 100, 50, 50),
+    ],
+)
+def test_calculate_fanout_for_level_parametrized(
+    level, fan_out, fan_out_after_first, expected
+):
     """Test _calculate_fanout_for_level method with various scenarios."""
     config = DataHubMockDataConfig()
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
-    # Level 0 should always use the standard fan_out
-    assert source._calculate_fanout_for_level(level=0, fan_out=3) == 3
-    assert (
-        source._calculate_fanout_for_level(level=0, fan_out=5, fan_out_after_first=2)
-        == 5
-    )
+    kwargs = {"level": level, "fan_out": fan_out}
+    if fan_out_after_first is not None:
+        kwargs["fan_out_after_first"] = fan_out_after_first
 
-    # Level 1+ should use fan_out_after_first when set
-    assert (
-        source._calculate_fanout_for_level(level=1, fan_out=3, fan_out_after_first=2)
-        == 2
-    )
-    assert (
-        source._calculate_fanout_for_level(level=2, fan_out=4, fan_out_after_first=1)
-        == 1
-    )
-
-    # Level 1+ should use standard fan_out when fan_out_after_first is None
-    assert source._calculate_fanout_for_level(level=1, fan_out=3) == 3
-    assert source._calculate_fanout_for_level(level=2, fan_out=5) == 5
-
-    # Edge cases
-    assert (
-        source._calculate_fanout_for_level(level=1, fan_out=3, fan_out_after_first=0)
-        == 0
-    )
-    assert (
-        source._calculate_fanout_for_level(
-            level=10, fan_out=100, fan_out_after_first=50
-        )
-        == 50
-    )
+    result = source._calculate_fanout_for_level(**kwargs)
+    assert result == expected
 
 
 def test_subtypes_config_defaults():
@@ -417,70 +312,69 @@ def test_subtypes_config_custom_values():
     assert lineage_config.level_subtypes == {0: "View", 1: "Table", 2: "View"}
 
 
-def test_determine_subtype_alternating():
-    """Test alternating subtype pattern."""
-    config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALTERNATING)
-    )
+@pytest.mark.parametrize(
+    "subtype_pattern,level_subtypes,test_cases",
+    [
+        (
+            SubTypePattern.ALTERNATING,
+            None,
+            [
+                ("table1", 0, 0, "Table"),  # index 0
+                ("table2", 0, 1, "View"),  # index 1
+                ("table3", 1, 0, "Table"),  # index 0
+                ("table4", 1, 1, "View"),  # index 1
+                ("table5", 2, 0, "Table"),  # index 0
+            ],
+        ),
+        (
+            SubTypePattern.ALL_TABLE,
+            None,
+            [
+                ("table1", 0, 0, "Table"),
+                ("table2", 0, 1, "Table"),
+                ("table3", 1, 0, "Table"),
+                ("table4", 1, 1, "Table"),
+            ],
+        ),
+        (
+            SubTypePattern.ALL_VIEW,
+            None,
+            [
+                ("table1", 0, 0, "View"),
+                ("table2", 0, 1, "View"),
+                ("table3", 1, 0, "View"),
+                ("table4", 1, 1, "View"),
+            ],
+        ),
+        (
+            SubTypePattern.LEVEL_BASED,
+            {0: "Table", 1: "View", 2: "Table"},
+            [
+                ("table1", 0, 0, "Table"),  # level 0
+                ("table2", 0, 1, "Table"),  # level 0
+                ("table3", 1, 0, "View"),  # level 1
+                ("table4", 1, 1, "View"),  # level 1
+                ("table5", 2, 0, "Table"),  # level 2
+                ("table6", 3, 0, "Table"),  # level 3 (default)
+            ],
+        ),
+    ],
+)
+def test_determine_subtype_patterns(subtype_pattern, level_subtypes, test_cases):
+    """Test _determine_subtype with various subtype patterns."""
+    config_kwargs = {"subtype_pattern": subtype_pattern}
+    if level_subtypes is not None:
+        config_kwargs["level_subtypes"] = level_subtypes
+
+    config = DataHubMockDataConfig(gen_1=LineageConfigGen1(**config_kwargs))
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
-    # Test alternating pattern
-    assert source._determine_subtype("table1", 0, 0) == "Table"  # index 0
-    assert source._determine_subtype("table2", 0, 1) == "View"  # index 1
-    assert source._determine_subtype("table3", 1, 0) == "Table"  # index 0
-    assert source._determine_subtype("table4", 1, 1) == "View"  # index 1
-    assert source._determine_subtype("table5", 2, 0) == "Table"  # index 0
-
-
-def test_determine_subtype_all_table():
-    """Test all_table subtype pattern."""
-    config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALL_TABLE)
-    )
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    # All should be Table
-    assert source._determine_subtype("table1", 0, 0) == "Table"
-    assert source._determine_subtype("table2", 0, 1) == "Table"
-    assert source._determine_subtype("table3", 1, 0) == "Table"
-    assert source._determine_subtype("table4", 1, 1) == "Table"
-
-
-def test_determine_subtype_all_view():
-    """Test all_view subtype pattern."""
-    config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALL_VIEW)
-    )
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    # All should be View
-    assert source._determine_subtype("table1", 0, 0) == "View"
-    assert source._determine_subtype("table2", 0, 1) == "View"
-    assert source._determine_subtype("table3", 1, 0) == "View"
-    assert source._determine_subtype("table4", 1, 1) == "View"
-
-
-def test_determine_subtype_level_based():
-    """Test level_based subtype pattern."""
-    config = DataHubMockDataConfig(
-        gen_1=LineageConfigGen1(
-            subtype_pattern=SubTypePattern.LEVEL_BASED,
-            level_subtypes={0: "Table", 1: "View", 2: "Table"},
+    for table_name, level, index, expected_subtype in test_cases:
+        actual_subtype = source._determine_subtype(table_name, level, index)
+        assert actual_subtype == expected_subtype, (
+            f"Expected {expected_subtype} for {table_name} (level={level}, index={index})"
         )
-    )
-    ctx = PipelineContext(run_id="test")
-    source = DataHubMockDataSource(ctx, config)
-
-    # Level-based pattern
-    assert source._determine_subtype("table1", 0, 0) == "Table"  # level 0
-    assert source._determine_subtype("table2", 0, 1) == "Table"  # level 0
-    assert source._determine_subtype("table3", 1, 0) == "View"  # level 1
-    assert source._determine_subtype("table4", 1, 1) == "View"  # level 1
-    assert source._determine_subtype("table5", 2, 0) == "Table"  # level 2
-    assert source._determine_subtype("table6", 3, 0) == "Table"  # level 3 (default)
 
 
 def test_determine_subtype_invalid_pattern():
