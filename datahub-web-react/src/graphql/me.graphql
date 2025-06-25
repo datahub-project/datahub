@@ -3,6 +3,7 @@ query getMe {
         corpUser {
             urn
             username
+            type
             info {
                 active
                 displayName

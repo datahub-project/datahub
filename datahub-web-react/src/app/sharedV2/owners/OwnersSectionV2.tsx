@@ -3,12 +3,12 @@ import { debounce } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import OwnerOption from '@app/sharedV2/owners/components/OwnerOption';
 import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
+import useOwnershipTypes from '@app/sharedV2/owners/hooks/useOwnershipTypes';
 import { OwnerSelectOption, PartialExtendedOwner } from '@app/sharedV2/owners/types';
-import useDefaultOwner from '@app/sharedV2/owners/useDefaultOwner';
-import useOwnershipTypes from '@app/sharedV2/owners/useOwnershipTypes';
 import { isCorpUserOrCorpGroup, mapEntityToOwnerEntityType } from '@app/sharedV2/owners/utils';
 import { MergeStrategy, mergeArrays } from '@app/utils/mergeArrays';
 
@@ -54,11 +54,15 @@ const OwnersSection = ({
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [inputValue, setInputValue] = useState('');
 
-    const defaultOwner = useDefaultOwner();
+    const { user: defaultOwner } = useUserContext();
 
     const owners: PartialExtendedOwner[] = useMemo(
         () =>
-            mergeArrays(!isEditForm && defaultOwner ? [defaultOwner] : [], existingOwners, (owner) => owner.owner.urn),
+            mergeArrays<PartialExtendedOwner>(
+                !isEditForm && defaultOwner ? [{ owner: defaultOwner }] : [],
+                existingOwners,
+                (owner) => owner.owner.urn,
+            ),
         [existingOwners, defaultOwner, isEditForm],
     );
 

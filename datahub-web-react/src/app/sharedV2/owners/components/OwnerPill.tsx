@@ -34,10 +34,8 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
     const avatarPhotoUrl = owner?.owner?.editableProperties?.pictureLink;
     const userName = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
 
-    const isProposed = !owner.isProposed;
+    const isProposed = !!owner.isProposed;
     const removable = !readonly && !isProposed;
-
-    console.log('>>> owner', owner);
 
     const onRemoveClick = useCallback(
         (e: React.MouseEvent<HTMLElement>) => {

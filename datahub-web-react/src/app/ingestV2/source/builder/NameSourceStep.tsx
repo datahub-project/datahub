@@ -3,10 +3,10 @@ import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import OwnersSection from '@app/sharedV2/owners/OwnersSectionV2';
-import useDefaultOwner from '@app/sharedV2/owners/useDefaultOwner';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { Entity, Owner } from '@types';
@@ -28,7 +28,8 @@ const ExtraPluginKey = 'extra_pip_plugins';
 export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
     const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(state.owners?.map((owner) => owner.urn) ?? []);
-    const defaultOwner = useDefaultOwner();
+    const [isInitialized, setIsInitialized] = useState<boolean>(false);
+    const { user: defaultOwner } = useUserContext();
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -55,11 +56,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
 
     // Initialize state with default owner (the current user) when creating the new source
     useEffect(() => {
-        if (!isEditing && defaultOwner && (state.owners?.length ?? 0) === 0) {
-            setSelectedOwnerUrns([defaultOwner.owner.urn]);
-            setOwners([defaultOwner.owner]);
+        if (!isInitialized && !isEditing && defaultOwner && (state.owners?.length ?? 0) === 0) {
+            setSelectedOwnerUrns([defaultOwner.urn]);
+            setOwners([defaultOwner]);
+            setIsInitialized(true);
         }
-    }, [isEditing, defaultOwner, updateState, state, setOwners]);
+    }, [isInitialized, isEditing, defaultOwner, updateState, state, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {
