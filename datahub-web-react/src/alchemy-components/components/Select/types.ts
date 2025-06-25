@@ -59,6 +59,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
     hideSelectedOptions?: boolean;
+    selectMinHeight?: string;
 }
 
 export interface SelectStyleProps {
@@ -69,6 +70,7 @@ export interface SelectStyleProps {
     isOpen?: boolean;
     width?: number | 'full' | 'fit-content';
     position?: OptionPosition;
+    minHeight?: string;
 }
 
 export interface ActionButtonsProps {
