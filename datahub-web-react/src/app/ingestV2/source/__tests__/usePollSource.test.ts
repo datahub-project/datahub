@@ -158,7 +158,7 @@ describe('usePollSource', () => {
         };
         triggerOnCompleted(onCompleted, { ingestionSource: updatedSource });
         expect(setFinalSourcesMock).toHaveBeenCalled();
-        expect(updateListIngestionSourcesCache).toHaveBeenCalledWith(client, updatedSource, {});
+        expect(updateListIngestionSourcesCache).toHaveBeenCalledWith(client, updatedSource, {}, true);
 
         // First argument of first call of mock calls
         const cb = setFinalSourcesMock.mock.calls[0][0];

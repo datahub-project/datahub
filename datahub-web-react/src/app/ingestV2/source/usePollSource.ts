@@ -58,7 +58,7 @@ export default function usePollSource({
                     ) as IngestionSource[],
             );
 
-            updateListIngestionSourcesCache(client, updatedSource, queryInputs);
+            updateListIngestionSourcesCache(client, updatedSource, queryInputs, true);
 
             const stillRunning = updatedSource.executions?.executionRequests?.some((req) =>
                 isExecutionRequestActive(req),

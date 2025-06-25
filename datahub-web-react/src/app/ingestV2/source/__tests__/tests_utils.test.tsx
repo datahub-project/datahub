@@ -11,6 +11,7 @@ import {
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
 import {
+    buildOwnerEntities,
     capitalizeMonthsAndDays,
     formatTimezone,
     getEntitiesIngestedByType,
@@ -408,5 +409,110 @@ describe('getSourceStatus', () => {
         const source = createSource(urn, [createExecutionRequest({ result: undefined })]);
         const result = getSourceStatus(source, new Set(), new Set());
         expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
+    });
+});
+
+describe('buildOwnerEntities', () => {
+    const entityUrn = 'urn:li:entity:123';
+    const ownerUrn = 'urn:li:user:123';
+    const defaultOwnerType = { urn: 'urn:li:ownershipType:custom', type: EntityType.CustomOwnershipType };
+
+    it('should return an empty array when owners is undefined', () => {
+        expect(buildOwnerEntities(entityUrn, undefined, defaultOwnerType)).toEqual([]);
+    });
+
+    it('should return an empty array when owners is empty', () => {
+        expect(buildOwnerEntities(entityUrn, [], defaultOwnerType)).toEqual([]);
+    });
+
+    it('should apply all defaults when owner fields are missing', () => {
+        const owners = [{ type: EntityType.CorpUser, urn: ownerUrn }];
+        const result = buildOwnerEntities(entityUrn, owners, defaultOwnerType);
+
+        expect(result).toEqual([
+            {
+                owner: {
+                    type: 'CORP_USER',
+                    urn: ownerUrn,
+                    editableProperties: {
+                        email: '',
+                        displayName: '',
+                        title: '',
+                        pictureLink: '',
+                    },
+                    properties: {
+                        displayName: '',
+                        email: '',
+                        active: true,
+                        firstName: '',
+                        lastName: '',
+                        fullName: '',
+                        title: '',
+                    },
+                    info: {
+                        email: '',
+                        admins: [],
+                        members: [],
+                        groups: [],
+                        active: true,
+                        displayName: '',
+                        firstName: '',
+                        lastName: '',
+                        fullName: '',
+                        title: '',
+                    },
+                },
+                associatedUrn: entityUrn,
+                type: 'CORP_USER',
+                ownershipType: defaultOwnerType,
+                __typename: 'Owner',
+            },
+        ]);
+    });
+
+    it('should override defaults with owner values', () => {
+        const owners = [
+            {
+                type: EntityType.CorpUser,
+                urn: ownerUrn,
+                editableProperties: {
+                    email: 'test@example.com',
+                    displayName: 'Test User',
+                },
+                properties: {
+                    displayName: 'Test User',
+                    email: 'test@example.com',
+                    active: false,
+                },
+                info: {
+                    email: 'test@example.com',
+                    active: false,
+                    admins: ['admin1'],
+                },
+            },
+        ];
+        const result = buildOwnerEntities(entityUrn, owners, defaultOwnerType);
+
+        expect(result[0].owner.editableProperties.email).toBe('test@example.com');
+        expect(result[0].owner.editableProperties.displayName).toBe('Test User');
+        expect(result[0].owner.properties.active).toBe(false);
+        expect(result[0].owner.info.active).toBe(false);
+        expect(result[0].owner.info.admins).toEqual(['admin1']);
+    });
+
+    it('should set ownershipType to null if not provided', () => {
+        const owners = [{ type: EntityType.CorpUser, urn: ownerUrn }];
+        const result = buildOwnerEntities(entityUrn, owners, undefined);
+        expect(result[0].ownershipType).toBeNull();
+    });
+
+    it('should handle partial owner objects', () => {
+        const owners = [
+            { type: EntityType.CorpGroup, urn: ownerUrn, editableProperties: { displayName: 'Partial User' } },
+        ];
+        const result = buildOwnerEntities(entityUrn, owners, defaultOwnerType);
+        expect(result[0].owner.editableProperties.displayName).toBe('Partial User');
+        expect(result[0].owner.properties.displayName).toBe('');
+        expect(result[0].owner.info.admins).toEqual([]);
     });
 });

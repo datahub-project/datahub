@@ -19,12 +19,15 @@ import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
-import { addToListIngestionSourcesCache, removeFromListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
-import { getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import {
+    addToListIngestionSourcesCache,
+    removeFromListIngestionSourcesCache,
+    updateListIngestionSourcesCache,
+} from '@app/ingestV2/source/cacheUtils';
+import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
@@ -35,8 +38,17 @@ import {
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
 import { TabType } from '@app/ingestV2/types';
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import {
+    Entity,
+    EntityType,
+    IngestionSource,
+    OwnerEntityType,
+    OwnershipTypeEntity,
+    SortCriterion,
+    UpdateIngestionSourceInput,
+} from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -155,6 +167,8 @@ export const IngestionSourceList = ({
     const [sourcesToRefetch, setSourcesToRefetch] = useState<Set<string>>(new Set());
     const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
+    const [totalSources, setTotalSources] = useState<number>(0);
+
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -208,6 +222,15 @@ export const IngestionSourceList = ({
         nextFetchPolicy: 'cache-first',
     });
 
+    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+    });
+
+    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
+
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
@@ -216,14 +239,14 @@ export const IngestionSourceList = ({
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
-    const totalSources = data?.listIngestionSources?.total || 0;
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
         setFinalSources(sources);
-    }, [data?.listIngestionSources?.ingestionSources]);
+        setTotalSources(data?.listIngestionSources?.total || 0);
+    }, [data?.listIngestionSources]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
@@ -285,22 +308,45 @@ export const IngestionSourceList = ({
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
+        owners?: Entity[],
     ) => {
+        const ownerInputs = owners?.map((owner) => {
+            return {
+                ownerUrn: owner.urn,
+                ownerEntityType:
+                    owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
+                ownershipTypeUrn: defaultOwnerType?.urn,
+            };
+        });
         if (focusSourceUrn) {
-            // Update:
+            // Update
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
+                    if (ownerInputs?.length) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: owners || [],
+                                    owners: ownerInputs,
                                     resources: [{ resourceUrn: focusSourceUrn }],
                                 },
                             },
                         });
                     }
+
+                    const updatedSource = {
+                        config: {
+                            ...input.config,
+                            version: null,
+                        },
+                        name: input.name,
+                        type: input.type,
+                        schedule: input.schedule || null,
+                        urn: focusSourceUrn,
+                        ownership: {
+                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnerType) || [],
+                        },
+                    };
+                    updateListIngestionSourcesCache(client, updatedSource, queryInputs, false);
 
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
@@ -313,8 +359,9 @@ export const IngestionSourceList = ({
                     });
                     if (shouldRun) executeIngestionSource(focusSourceUrn);
                     else setSourcesToRefetch((prev) => new Set(prev).add(focusSourceUrn));
-                    resetState();
+
                     onCreateOrUpdateIngestionSourceSuccess();
+                    resetState();
                 })
                 .catch((e) => {
                     message.destroy();
@@ -328,24 +375,31 @@ export const IngestionSourceList = ({
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
-                    const ownersToAdd = owners?.filter((owner) => owner.ownerUrn !== me.urn);
+                    const ownersToAdd = ownerInputs?.filter((owner) => owner.ownerUrn !== me.urn);
+                    const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
-                    const newSource = {
-                        urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
+                    const newSource: IngestionSource = {
+                        urn: newUrn,
                         name: input.name,
                         type: input.type,
-                        config: null,
+                        config: { executorId: '', recipe: '', version: null, debugMode: null, extraArgs: null },
                         schedule: {
-                            interval: input.schedule?.interval || null,
+                            interval: input.schedule?.interval || '',
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
                         executions: null,
-                        ownership: null,
-                        __typename: 'IngestionSource',
+                        ownership: {
+                            owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
+                            lastModified: {
+                                time: 0,
+                            },
+                            __typename: 'Ownership' as const,
+                        },
+                        __typename: 'IngestionSource' as const,
                     };
 
-                    if (ownersToAdd && ownersToAdd.length > 0) {
+                    if (ownersToAdd?.length) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
@@ -356,23 +410,24 @@ export const IngestionSourceList = ({
                         });
                     }
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
-                    setTimeout(() => {
-                        analytics.event({
-                            type: EventType.CreateIngestionSourceEvent,
-                            sourceType: input.type,
-                            interval: input.schedule?.interval,
-                        });
-                        message.success({
-                            content: `Successfully created ingestion source!`,
-                            duration: 3,
-                        });
-                        if (result.data?.createIngestionSource)
-                            if (shouldRun) {
-                                executeIngestionSource(result.data.createIngestionSource);
-                            } else setSourcesToRefetch((prev) => new Set(prev).add(newSource.urn));
-                    }, 2000);
-                    setShowCreateModal(false);
-                    setFocusSourceUrn(undefined);
+                    setFinalSources((currSources) => [newSource, ...currSources]);
+
+                    analytics.event({
+                        type: EventType.CreateIngestionSourceEvent,
+                        sourceType: input.type,
+                        interval: input.schedule?.interval,
+                        numOwners: ownersToAdd?.length,
+                    });
+                    message.success({
+                        content: `Successfully created ingestion source!`,
+                        duration: 3,
+                    });
+                    if (result.data?.createIngestionSource) {
+                        if (shouldRun) {
+                            executeIngestionSource(result.data.createIngestionSource);
+                        } else setSourcesToRefetch((prev) => new Set(prev).add(newSource.urn));
+                    }
+                    onCreateOrUpdateIngestionSourceSuccess();
                     resetState();
                 })
                 .catch((e) => {
