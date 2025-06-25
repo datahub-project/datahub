@@ -336,7 +336,7 @@ class DataJob(
 
         # extend the flow's browse path with this job
         browse_path = []
-        if flow_browse_path:
+        if flow_browse_path is not None:
             for entry in flow_browse_path.path:
                 browse_path.append(
                     models.BrowsePathEntryClass(id=entry.id, urn=entry.urn)
@@ -369,7 +369,7 @@ class DataJob(
     def set_outlets(self, outlets: List[DatasetUrnOrStr]) -> None:
         """Set the outlets of the data job."""
         for outlet in outlets:
-            outlet_urn = DatasetUrn.from_string(outlet)
+            outlet_urn = DatasetUrn.from_string(outlet)  # type checking
             self._ensure_datajob_inputoutput_props().outputDatasets.append(
                 str(outlet_urn)
             )
