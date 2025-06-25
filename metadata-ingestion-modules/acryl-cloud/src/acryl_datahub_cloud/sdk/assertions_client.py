@@ -27,6 +27,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _SmartVolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
+    FreshnessAssertionScheduleCheckType,
     _FreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
@@ -2655,7 +2656,11 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         freshness_schedule_check_type: Optional[
-            Union[str, models.FreshnessAssertionScheduleTypeClass]
+            Union[
+                str,
+                FreshnessAssertionScheduleCheckType,
+                models.FreshnessAssertionScheduleTypeClass,
+            ]
         ] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         lookback_window: Optional[TimeWindowSizeInputTypes] = None,
@@ -2689,9 +2694,9 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            freshness_schedule_check_type (Optional[Union[str, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "cron".
+            freshness_schedule_check_type (Optional[Union[str, FreshnessAssertionScheduleCheckType, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "fixed_interval".
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
-            lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion.
+            lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion. E.g. TimeWindowSize(unit=CalendarInterval.MINUTE, multiple=10) for 10 minutes. Valid values for CalendarInterval are: "MINUTE", "HOUR", "DAY" and for multiple, the integer number of units. Alternatively a dict can be provided with the keys "unit" and "multiple".
 
         Returns:
             FreshnessAssertion: The created or updated assertion.

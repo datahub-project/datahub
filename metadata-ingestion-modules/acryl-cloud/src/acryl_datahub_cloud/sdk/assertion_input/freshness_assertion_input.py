@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
@@ -32,6 +33,41 @@ from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
 
 
+class FreshnessAssertionScheduleCheckType(str, Enum):
+    FIXED_INTERVAL = "FIXED_INTERVAL"
+    SINCE_THE_LAST_CHECK = "SINCE_THE_LAST_CHECK"
+
+
+DEFAULT_FRESHNESS_SCHEDULE_CHECK_TYPE = (
+    FreshnessAssertionScheduleCheckType.SINCE_THE_LAST_CHECK
+)
+
+
+def _parse_freshness_schedule_check_type(
+    schedule_check_type: Optional[
+        Union[
+            str,
+            FreshnessAssertionScheduleCheckType,
+            models.FreshnessAssertionScheduleTypeClass,
+        ]
+    ],
+) -> FreshnessAssertionScheduleCheckType:
+    """Parse the freshness schedule check type."""
+    if isinstance(schedule_check_type, FreshnessAssertionScheduleCheckType):
+        return schedule_check_type
+    if isinstance(schedule_check_type, models.FreshnessAssertionScheduleTypeClass):
+        return FreshnessAssertionScheduleCheckType(
+            _try_parse_and_validate_schema_classes_enum(
+                schedule_check_type, models.FreshnessAssertionScheduleTypeClass
+            )
+        )
+    return (
+        FreshnessAssertionScheduleCheckType(schedule_check_type)
+        if schedule_check_type
+        else DEFAULT_FRESHNESS_SCHEDULE_CHECK_TYPE
+    )
+
+
 class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
     def _assertion_type(self) -> str:
         """Get the assertion type."""
@@ -56,7 +92,11 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
         freshness_schedule_check_type: Optional[
-            Union[str, models.FreshnessAssertionScheduleTypeClass]
+            Union[
+                str,
+                FreshnessAssertionScheduleCheckType,
+                models.FreshnessAssertionScheduleTypeClass,
+            ]
         ] = None,
         lookback_window: Optional[TimeWindowSizeInputTypes] = None,
     ):
@@ -78,28 +118,30 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
             updated_at=updated_at,
         )
 
-        self.freshness_schedule_check_type = (
-            _try_parse_and_validate_schema_classes_enum(
-                freshness_schedule_check_type
-                or models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK,
-                models.FreshnessAssertionScheduleTypeClass,
-            )
+        self.freshness_schedule_check_type = _parse_freshness_schedule_check_type(
+            freshness_schedule_check_type
         )
         self.lookback_window = (
             _try_parse_time_window_size(lookback_window) if lookback_window else None
         )
+        self._validate_schedule_check_type()
+
+    def _validate_schedule_check_type(self) -> None:
+        """Validate the schedule check type."""
+        if self.freshness_schedule_check_type is None:
+            raise SDKUsageError("Freshness schedule check type is required.")
         if (
             self.freshness_schedule_check_type
-            is models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
-            and lookback_window is None
+            == FreshnessAssertionScheduleCheckType.FIXED_INTERVAL
+            and self.lookback_window is None
         ):
             raise SDKUsageError(
                 "Fixed interval freshness assertions must have a lookback_window provided."
             )
         if (
             self.freshness_schedule_check_type
-            is models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK
-            and lookback_window is not None
+            == FreshnessAssertionScheduleCheckType.SINCE_THE_LAST_CHECK
+            and self.lookback_window is not None
         ):
             raise SDKUsageError(
                 "Since the last check freshness assertions cannot have a lookback_window provided."

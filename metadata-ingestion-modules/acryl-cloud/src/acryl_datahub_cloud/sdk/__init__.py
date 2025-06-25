@@ -9,10 +9,14 @@ from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
+    CalendarInterval,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
     TimeWindowSize,
+)
+from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
+    FreshnessAssertionScheduleCheckType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricType,
@@ -50,4 +54,6 @@ __all__ = [
     "SqlAssertionCriteria",
     "VolumeAssertionCondition",
     "SqlAssertionCondition",
+    "FreshnessAssertionScheduleCheckType",
+    "CalendarInterval",
 ]

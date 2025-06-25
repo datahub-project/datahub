@@ -438,12 +438,14 @@ class InferenceSensitivity(Enum):
 DEFAULT_SENSITIVITY: InferenceSensitivity = InferenceSensitivity.MEDIUM
 
 TIME_WINDOW_SIZE_EXAMPLES = {
-    "Time window size from models.TimeWindowSizeClass": "models.TimeWindowSizeClass(unit='MINUTE', multiple=10)",
+    "Recommended: Time window size from objects": "TimeWindowSize(unit=CalendarInterval.MINUTE, multiple=10)",
     "Time window size from object": "TimeWindowSize(unit='MINUTE', multiple=10)",
+    "Time window size from models.TimeWindowSizeClass": "models.TimeWindowSizeClass(unit='MINUTE', multiple=10)",
+    "Time window size from dict": '{"unit": "MINUTE", "multiple": 10}',
 }
 
 
-class CalendarInterval(Enum):
+class CalendarInterval(str, Enum):
     MINUTE = "MINUTE"
     HOUR = "HOUR"
     DAY = "DAY"
@@ -458,7 +460,22 @@ TimeWindowSizeInputTypes: TypeAlias = Union[
     models.TimeWindowSizeClass,
     models.FixedIntervalScheduleClass,
     TimeWindowSize,
+    dict[str, Union[str, int]],  # {"unit": "MINUTE", "multiple": 10}
 ]
+
+
+def _try_parse_calendar_interval(
+    config: Union[str, CalendarInterval],
+) -> CalendarInterval:
+    if isinstance(config, CalendarInterval):
+        return config
+    try:
+        return CalendarInterval(config.upper())
+    except ValueError as e:
+        raise SDKUsageErrorWithExamples(
+            msg=f"Invalid calendar interval: {config}",
+            examples=TIME_WINDOW_SIZE_EXAMPLES,
+        ) from e
 
 
 def _try_parse_time_window_size(
@@ -482,6 +499,23 @@ def _try_parse_time_window_size(
                 models.CalendarIntervalClass,
             ),
             multiple=config.multiple,
+        )
+    elif isinstance(config, dict):
+        if "unit" not in config or "multiple" not in config:
+            raise SDKUsageErrorWithExamples(
+                msg=f"Invalid time window size: {config}",
+                examples=TIME_WINDOW_SIZE_EXAMPLES,
+            )
+        try:
+            multiple = int(config["multiple"])
+        except ValueError as e:
+            raise SDKUsageErrorWithExamples(
+                msg=f"Invalid time window size: {config}",
+                examples=TIME_WINDOW_SIZE_EXAMPLES,
+            ) from e
+        return models.TimeWindowSizeClass(
+            unit=_try_parse_calendar_interval(str(config["unit"])),
+            multiple=multiple,
         )
     else:
         raise SDKUsageErrorWithExamples(
