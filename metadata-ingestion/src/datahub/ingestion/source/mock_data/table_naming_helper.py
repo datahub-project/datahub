@@ -1,10 +1,3 @@
-"""
-Helper class for managing table naming conventions in mock data generation.
-
-Table naming pattern: "hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
-"""
-
-
 class TableNamingHelper:
     """
     Helper class for managing table naming conventions in mock data generation.

@@ -1,7 +1,3 @@
-"""
-Tests for TableNamingHelper class.
-"""
-
 import pytest
 
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
