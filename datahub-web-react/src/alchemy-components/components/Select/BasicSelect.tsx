@@ -72,6 +72,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     renderCustomSelectedValue,
     hideSelectedOptions,
     filterResultsByQuery = selectDefaults.filterResultsByQuery,
+    selectMinHeight,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -289,6 +290,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        minHeight={selectMinHeight}
                         {...props}
                     >
                         <SelectLabelContainer>

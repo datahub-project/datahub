@@ -168,6 +168,7 @@ const OwnersSection = ({
                     )}
                     filterResultsByQuery={false}
                     renderCustomOptionText={(option) => <OwnerOption entity={option.owner.owner} />}
+                    selectMinHeight="42px"
                 />
             </FormSection>
         </SectionContainer>

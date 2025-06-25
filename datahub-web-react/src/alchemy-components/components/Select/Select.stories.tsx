@@ -212,6 +212,9 @@ const meta: Meta = {
                 defaultValue: { summary: `${baseSelectDefaults.filterResultsByQuery}` },
             },
         },
+        selectMinHeight: {
+            description: 'Set to customize min-height of the select',
+        },
     },
 
     // Define defaults
