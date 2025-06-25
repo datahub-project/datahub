@@ -10,6 +10,7 @@ import humanfriendly
 import pydantic
 import redshift_connector
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -357,7 +358,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             ).workunit_processor,
         ]
 
+    def _warn_deprecated_configs(self):
+        if (
+            self.config.match_fully_qualified_names is not None
+            and not self.config.match_fully_qualified_names
+            and self.config.schema_pattern is not None
+            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.report.report_warning(
+                message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
+                context="Deprecation Warning",
+                title="Deprecation Warning",
+            )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
 
         if connection is None:
