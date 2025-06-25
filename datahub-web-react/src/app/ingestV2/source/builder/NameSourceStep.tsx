@@ -7,8 +7,10 @@ import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecuto
 import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { Entity } from '@types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -51,7 +53,7 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: PendingOwner[]) => {
+    const setOwners = (newOwners: Entity[]) => {
         const newState: SourceBuilderState = {
             ...state,
             owners: newOwners,
@@ -225,6 +227,7 @@ export const NameSourceStep = ({
                     sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
                     canEdit={!!canEditSource}
+                    shouldSetOwnerEntities
                 />
 
                 <Collapse ghost>

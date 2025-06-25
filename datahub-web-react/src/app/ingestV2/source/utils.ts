@@ -25,11 +25,13 @@ import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import {
+    Entity,
     EntityType,
     ExecutionRequestResult,
     FacetFilterInput,
     FacetMetadata,
     IngestionSource,
+    OwnershipTypeEntity,
     SortCriterion,
     SortOrder,
 } from '@types';
@@ -424,5 +426,49 @@ export const getSourceStatus = (
 
     return (
         getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
+    );
+};
+
+export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerType?: OwnershipTypeEntity) => {
+    return (
+        owners?.map((owner: any) => ({
+            owner: {
+                ...owner,
+                editableProperties: {
+                    email: '',
+                    displayName: '',
+                    title: '',
+                    pictureLink: '',
+                    ...owner.editableProperties,
+                },
+                properties: {
+                    displayName: '',
+                    email: '',
+                    active: true,
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.properties,
+                },
+                info: {
+                    email: '',
+                    admins: [],
+                    members: [],
+                    groups: [],
+                    active: true,
+                    displayName: '',
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.info,
+                },
+            },
+            associatedUrn: urn,
+            type: owner.type,
+            ownershipType: defaultOwnerType ?? null,
+            __typename: 'Owner' as const,
+        })) || []
     );
 };

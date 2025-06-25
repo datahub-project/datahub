@@ -63,20 +63,21 @@ const OwnersContainer = styled.div`
 `;
 
 // Owners section props
-interface Props {
+interface Props<T> {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
     existingOwners: Owner[];
-    onChange: (owners: PendingOwner[]) => void;
+    onChange: (owners: T[]) => void;
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
     canEdit?: boolean;
+    shouldSetOwnerEntities?: boolean;
 }
 
 /**
  * Component for owner selection and management
  */
-const OwnersSection = ({
+const OwnersSection = <T,>({
     selectedOwnerUrns,
     setSelectedOwnerUrns,
     existingOwners,
@@ -84,10 +85,12 @@ const OwnersSection = ({
     sourceRefetch,
     isEditForm = false,
     canEdit = true,
-}: Props) => {
+    shouldSetOwnerEntities = false,
+}: Props<T>) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
 
     // Autocomplete query for owners across both CorpUser and CorpGroup types
     const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
@@ -158,9 +161,15 @@ const OwnersSection = ({
     const handleSelectChange = (newValues) => {
         setSelectedOwnerUrns(newValues);
 
+        const newEntities = newValues.map((urn) => {
+            return finalResults.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
+        });
+
+        setSelectedOwnerEntities(newEntities);
+
         if (newValues.length > 0 && defaultOwnerType) {
             const newOwners = newValues.map((urn) => {
-                const foundEntity = finalResults.find((e) => e.urn === urn);
+                const foundEntity = newEntities.find((e) => e.urn === urn);
                 const ownerEntityType =
                     foundEntity && foundEntity.type === EntityType.CorpGroup
                         ? OwnerEntityType.CorpGroup
@@ -173,7 +182,8 @@ const OwnersSection = ({
                 };
             });
 
-            onChange(newOwners);
+            if (shouldSetOwnerEntities) onChange(newEntities as T[]);
+            else onChange(newOwners);
         }
     };
 
