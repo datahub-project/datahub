@@ -89,6 +89,7 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 class DremioSource(StatefulIngestionSourceBase):
     """
     This plugin integrates with Dremio to extract and ingest metadata into DataHub.
@@ -242,7 +243,6 @@ class DremioSource(StatefulIngestionSourceBase):
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.sql_parsing_aggregator.gen_metadata():
-            self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
         # Profiling
