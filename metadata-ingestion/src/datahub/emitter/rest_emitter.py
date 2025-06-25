@@ -105,7 +105,7 @@ BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
 )
 
 
-def preserve_unicode_escapes(obj):
+def preserve_unicode_escapes(obj: Any) -> Any:
     """Recursively convert unicode characters back to escape sequences"""
     if isinstance(obj, dict):
         return {k: preserve_unicode_escapes(v) for k, v in obj.items()}
@@ -113,7 +113,7 @@ def preserve_unicode_escapes(obj):
         return [preserve_unicode_escapes(item) for item in obj]
     elif isinstance(obj, str):
         # Convert non-ASCII characters back to \u escapes
-        def escape_unicode(match):
+        def escape_unicode(match: Any) -> Any:
             return f"\\u{ord(match.group(0)):04x}"
 
         return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
