@@ -156,4 +156,10 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
       @Nullable Long endTimeMillis) {
     return TimeseriesScrollResult.builder().build();
   }
+
+  @Override
+  public Map<Urn, Map<String, Map<String, Object>>> raw(
+      OperationContext opContext, Map<String, Set<String>> urnAspects) {
+    return Map.of();
+  }
 }

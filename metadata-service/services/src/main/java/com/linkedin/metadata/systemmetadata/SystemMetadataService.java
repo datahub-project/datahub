@@ -5,9 +5,11 @@ import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.client.tasks.GetTaskResponse;
@@ -60,4 +62,14 @@ public interface SystemMetadataService {
   default void configure() {}
 
   void clear();
+
+  /**
+   * Returns raw elasticsearch documents
+   *
+   * @param opContext operation context
+   * @param urnAspects the map of urns to aspect names
+   * @return map of urns, aspect names, to raw elasticsearch documents
+   */
+  Map<Urn, Map<String, Map<String, Object>>> raw(
+      OperationContext opContext, Map<String, Set<String>> urnAspects);
 }
