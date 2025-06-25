@@ -1612,7 +1612,7 @@ class SqlParsingAggregator(Closeable):
                         upstream_query = self._query_map.get(upstream_query_id)
                         if (
                             upstream_query
-                            and upstream_query.query_id not in composed_of_queries
+                            and upstream_query.query_id not in recursion_path
                         ):
                             temp_query_lineage_info = _recurse_into_query(
                                 upstream_query, recursion_path
