@@ -4,6 +4,7 @@ import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { AVAILABLE_ICONS } from '@components/components/Icon';
+import { selectDefaults as baseSelectDefaults } from '@components/components/Select/BasicSelect';
 import { Select, selectDefaults } from '@components/components/Select/Select';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -187,10 +188,28 @@ const meta: Meta = {
                 defaultValue: { summary: 'undefined' },
             },
         },
+        renderCustomSelectedValue: {
+            description: "A function to render the custom value if selectedLabelProps' variant is `custom`",
+        },
+        renderCustomOptionText: {
+            description: 'An optional function to customize an options rendering',
+        },
         emptyState: {
             description: 'Custom empty state component to render when no options are available',
             table: {
                 defaultValue: { summary: 'undefined' },
+            },
+        },
+        hideSelectedOptions: {
+            description: 'Whether to hide selected options from options in the dropdown',
+            table: {
+                defaultValue: { summary: `${baseSelectDefaults.hideSelectedOptions}` },
+            },
+        },
+        filterResultsByQuery: {
+            description: 'Whether to filter options by a query in the search bar',
+            table: {
+                defaultValue: { summary: `${baseSelectDefaults.filterResultsByQuery}` },
             },
         },
     },

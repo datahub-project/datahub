@@ -5,6 +5,7 @@ import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
+import { Popover } from '@components/components/Popover';
 
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 
@@ -14,6 +15,7 @@ export const avatarDefaults: AvatarProps = {
     showInPill: false,
     isOutlined: false,
     type: AvatarType.user,
+    pillBorderType: 'default',
 };
 
 export const Avatar = ({
@@ -24,11 +26,14 @@ export const Avatar = ({
     type = avatarDefaults.type,
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
+    extraRightContent,
+    pillBorderType = avatarDefaults.pillBorderType,
+    namePopover,
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
     return (
-        <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
+        <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill} $borderType={pillBorderType}>
             {(type === AvatarType.user || imageUrl) && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
                     {!hasError && imageUrl ? (
@@ -48,7 +53,12 @@ export const Avatar = ({
                     {mapRoleIcon(name)}
                 </AvatarImageWrapper>
             )}
-            {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
+            {showInPill && (
+                <Popover {...(namePopover ?? {})}>
+                    <AvatarText $size={size}>{name}</AvatarText>
+                </Popover>
+            )}
+            {extraRightContent}
         </Container>
     );
 };
