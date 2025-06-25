@@ -32,7 +32,6 @@ class SubTypePattern(str, Enum):
     ALTERNATING = "alternating"
     ALL_TABLE = "all_table"
     ALL_VIEW = "all_view"
-    HASH_BASED = "hash_based"
     LEVEL_BASED = "level_based"
 
 
@@ -83,14 +82,9 @@ class LineageConfigGen1(ConfigModel):
         description="Optional limit on fanout for hops after the first hop. When set, prevents exponential growth by limiting the number of downstream tables per upstream table at levels 2 and beyond. When None, uses the standard exponential growth (lineage_fan_out^level).",
     )
 
-    emit_subtypes: bool = Field(
-        default=False,
-        description="Whether to emit SubTypes aspects for testing purposes. When False, no SubTypes data is generated regardless of other settings.",
-    )
-
     subtype_pattern: SubTypePattern = Field(
         default=SubTypePattern.ALTERNATING,
-        description="Pattern for determining SubTypes. Options: 'alternating', 'all_table', 'all_view', 'hash_based', 'level_based'",
+        description="Pattern for determining SubTypes. Options: 'alternating', 'all_table', 'all_view', 'level_based'",
     )
 
     level_subtypes: dict[int, str] = Field(
@@ -215,8 +209,6 @@ class DataHubMockDataSource(Source):
             return "Table"
         elif pattern == SubTypePattern.ALL_VIEW:
             return "View"
-        elif pattern == SubTypePattern.HASH_BASED:
-            return "Table" if hash(table_name) % 2 == 0 else "View"
         else:
             return "Table"  # default
 
@@ -273,9 +265,7 @@ class DataHubMockDataSource(Source):
 
                 yield self._get_status_aspect(table_name)
 
-                # Emit SubTypes aspect if enabled
-                if self.config.gen_1.emit_subtypes:
-                    yield self._get_subtypes_aspect(table_name, i, j)
+                yield self._get_subtypes_aspect(table_name, i, j)
 
                 yield from self._generate_lineage_for_table(
                     table_name=table_name,
