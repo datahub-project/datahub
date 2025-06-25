@@ -25,9 +25,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricInputType,
     OperatorInputType,
-    RangeInputType,
     RangeTypeInputType,
-    ValueInputType,
+    SmartColumnMetricAssertionParameters,
     ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
@@ -58,11 +57,9 @@ class SmartColumnMetricAssertion(
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        # Depending on the operator, value, range (and corresponding type) or no parameters are required:
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[ValueTypeInputType] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeInputType] = None,
+        # Consolidated criteria parameters
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         # TODO: Evaluate these params:
         display_name: str,
         mode: AssertionMode,
@@ -128,10 +125,8 @@ class SmartColumnMetricAssertion(
             column_name=column_name,
             metric_type=metric_type,
             operator=operator,
-            value=value,
-            value_type=value_type,
-            range=range,
-            range_type=range_type,
+            criteria_parameters=criteria_parameters,
+            criteria_type=criteria_type,
         )
 
     @classmethod
@@ -152,10 +147,8 @@ class SmartColumnMetricAssertion(
             column_name=cls._get_column_name(assertion),
             metric_type=cls._get_metric_type(assertion),
             operator=cls._get_operator(assertion),
-            value=cls._get_value(assertion),
-            value_type=cls._get_value_type(assertion),
-            range=cls._get_range(assertion),
-            range_type=cls._get_range_type(assertion),
+            criteria_parameters=cls._get_criteria_parameters(assertion),
+            criteria_type=cls._get_criteria_type(assertion),
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
             schedule=cls._get_schedule(monitor),

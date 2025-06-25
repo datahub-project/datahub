@@ -31,9 +31,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricInputType,
     OperatorInputType,
-    RangeInputType,
     RangeTypeInputType,
-    ValueInputType,
+    SmartColumnMetricAssertionParameters,
     ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
@@ -197,18 +196,14 @@ class _HasColumnMetricFunctionality:
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[ValueTypeInputType] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeInputType] = None,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
     ):
         self._column_name = column_name
         self._metric_type = metric_type
         self._operator = operator
-        self._value = value
-        self._value_type = value_type
-        self._range = range
-        self._range_type = range_type
+        self._criteria_parameters = criteria_parameters
+        self._criteria_type = criteria_type
 
     @property
     def column_name(self) -> str:
@@ -223,20 +218,12 @@ class _HasColumnMetricFunctionality:
         return self._operator
 
     @property
-    def value(self) -> Optional[ValueInputType]:
-        return self._value
+    def criteria_parameters(self) -> Optional[SmartColumnMetricAssertionParameters]:
+        return self._criteria_parameters
 
     @property
-    def value_type(self) -> Optional[ValueTypeInputType]:
-        return self._value_type
-
-    @property
-    def range(self) -> Optional[RangeInputType]:
-        return self._range
-
-    @property
-    def range_type(self) -> Optional[RangeTypeInputType]:
-        return self._range_type
+    def criteria_type(self) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
+        return self._criteria_type
 
     @staticmethod
     def _get_column_name(assertion: Assertion) -> str:
@@ -278,25 +265,19 @@ class _HasColumnMetricFunctionality:
         return operator
 
     @staticmethod
-    def _get_value(assertion: Assertion) -> Optional[ValueInputType]:
+    def _get_criteria_parameters(
+        assertion: Assertion,
+    ) -> Optional[SmartColumnMetricAssertionParameters]:
+        # First check if there's a single value parameter
         value = _get_nested_field_for_entity_with_default(
             assertion,
             field_path="info.fieldMetricAssertion.parameters.value.value",
             default=None,
         )
-        return value
+        if value is not None:
+            return value
 
-    @staticmethod
-    def _get_value_type(assertion: Assertion) -> Optional[ValueTypeInputType]:
-        value_type = _get_nested_field_for_entity_with_default(
-            assertion,
-            field_path="info.fieldMetricAssertion.parameters.value.type",
-            default=None,
-        )
-        return value_type
-
-    @staticmethod
-    def _get_range(assertion: Assertion) -> Optional[RangeInputType]:
+        # Then check for range parameters
         min_value = _get_nested_field_for_entity_with_default(
             assertion,
             field_path="info.fieldMetricAssertion.parameters.minValue",
@@ -308,36 +289,48 @@ class _HasColumnMetricFunctionality:
             default=None,
         )
 
-        # If both are None, return None
-        if min_value is None and max_value is None:
-            return None
+        # If both range values exist, extract their values and return as tuple
+        if min_value is not None and max_value is not None:
+            if hasattr(min_value, "value"):
+                min_value = min_value.value
+            if hasattr(max_value, "value"):
+                max_value = max_value.value
+            return (min_value, max_value)
 
-        # Extract the value from the parameter objects if they exist
-        if min_value is not None and hasattr(min_value, "value"):
-            min_value = min_value.value
-        if max_value is not None and hasattr(max_value, "value"):
-            max_value = max_value.value
-
-        return (min_value, max_value)
+        # If no parameters found, return None
+        return None
 
     @staticmethod
-    def _get_range_type(assertion: Assertion) -> Optional[RangeTypeInputType]:
-        min_value_range_type = _get_nested_field_for_entity_with_default(
+    def _get_criteria_type(
+        assertion: Assertion,
+    ) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
+        # First check if there's a single value type
+        value_type = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.value.type",
+            default=None,
+        )
+        if value_type is not None:
+            return value_type
+
+        # Then check for range types
+        min_value_type = _get_nested_field_for_entity_with_default(
             assertion,
             field_path="info.fieldMetricAssertion.parameters.minValue.type",
             default=None,
         )
-        max_value_range_type = _get_nested_field_for_entity_with_default(
+        max_value_type = _get_nested_field_for_entity_with_default(
             assertion,
             field_path="info.fieldMetricAssertion.parameters.maxValue.type",
             default=None,
         )
 
-        # If both are None, return None instead of a tuple of Nones
-        if min_value_range_type is None and max_value_range_type is None:
-            return None
+        # If both range types exist, return as tuple
+        if min_value_type is not None and max_value_type is not None:
+            return (min_value_type, max_value_type)
 
-        return (min_value_range_type, max_value_range_type)
+        # If no types found, return None
+        return None
 
 
 class _AssertionPublic(ABC):

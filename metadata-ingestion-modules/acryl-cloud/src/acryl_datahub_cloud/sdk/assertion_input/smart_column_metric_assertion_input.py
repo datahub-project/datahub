@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from enum import Enum
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
@@ -143,9 +144,58 @@ FIELD_METRIC_TYPE_CONFIG = {
 }
 
 
-MetricInputType = Union[models.FieldMetricTypeClass, str]
+class MetricType(str, Enum):
+    NULL_COUNT = models.FieldMetricTypeClass.NULL_COUNT
+    NULL_PERCENTAGE = models.FieldMetricTypeClass.NULL_PERCENTAGE
+    UNIQUE_COUNT = models.FieldMetricTypeClass.UNIQUE_COUNT
+    UNIQUE_PERCENTAGE = models.FieldMetricTypeClass.UNIQUE_PERCENTAGE
+    MAX_LENGTH = models.FieldMetricTypeClass.MAX_LENGTH
+    MIN_LENGTH = models.FieldMetricTypeClass.MIN_LENGTH
+    EMPTY_COUNT = models.FieldMetricTypeClass.EMPTY_COUNT
+    EMPTY_PERCENTAGE = models.FieldMetricTypeClass.EMPTY_PERCENTAGE
+    MIN = models.FieldMetricTypeClass.MIN
+    MAX = models.FieldMetricTypeClass.MAX
+    MEAN = models.FieldMetricTypeClass.MEAN
+    MEDIAN = models.FieldMetricTypeClass.MEDIAN
+    STDDEV = models.FieldMetricTypeClass.STDDEV
+    NEGATIVE_COUNT = models.FieldMetricTypeClass.NEGATIVE_COUNT
+    NEGATIVE_PERCENTAGE = models.FieldMetricTypeClass.NEGATIVE_PERCENTAGE
+    ZERO_COUNT = models.FieldMetricTypeClass.ZERO_COUNT
+    ZERO_PERCENTAGE = models.FieldMetricTypeClass.ZERO_PERCENTAGE
+
+
+class OperatorType(str, Enum):
+    EQUAL_TO = models.AssertionStdOperatorClass.EQUAL_TO
+    NOT_EQUAL_TO = models.AssertionStdOperatorClass.NOT_EQUAL_TO
+    GREATER_THAN = models.AssertionStdOperatorClass.GREATER_THAN
+    GREATER_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+    LESS_THAN = models.AssertionStdOperatorClass.LESS_THAN
+    LESS_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+    BETWEEN = models.AssertionStdOperatorClass.BETWEEN
+    IN = models.AssertionStdOperatorClass.IN
+    NOT_IN = models.AssertionStdOperatorClass.NOT_IN
+    NULL = models.AssertionStdOperatorClass.NULL
+    NOT_NULL = models.AssertionStdOperatorClass.NOT_NULL
+    IS_TRUE = models.AssertionStdOperatorClass.IS_TRUE
+    IS_FALSE = models.AssertionStdOperatorClass.IS_FALSE
+    CONTAIN = models.AssertionStdOperatorClass.CONTAIN
+    END_WITH = models.AssertionStdOperatorClass.END_WITH
+    START_WITH = models.AssertionStdOperatorClass.START_WITH
+    REGEX_MATCH = models.AssertionStdOperatorClass.REGEX_MATCH
+
+
+class ValueType(str, Enum):
+    STRING = models.AssertionStdParameterTypeClass.STRING
+    NUMBER = models.AssertionStdParameterTypeClass.NUMBER
+    UNKNOWN = models.AssertionStdParameterTypeClass.UNKNOWN
+    # Note: LIST and SET are intentionally excluded as they are not yet supported
+    # LIST = models.AssertionStdParameterTypeClass.LIST
+    # SET = models.AssertionStdParameterTypeClass.SET
+
+
+MetricInputType = Union[MetricType, models.FieldMetricTypeClass, str]
 ValueInputType = Union[str, int, float]
-ValueTypeInputType = Union[str, models.AssertionStdParameterTypeClass]
+ValueTypeInputType = Union[ValueType, models.AssertionStdParameterTypeClass, str]
 RangeInputType = tuple[ValueInputType, ValueInputType]
 RangeTypeInputType = Union[
     str,
@@ -154,7 +204,14 @@ RangeTypeInputType = Union[
     tuple[ValueTypeInputType, ValueTypeInputType],
 ]
 RangeTypeParsedType = tuple[ValueTypeInputType, ValueTypeInputType]
-OperatorInputType = Union[str, models.AssertionStdOperatorClass]
+OperatorInputType = Union[OperatorType, models.AssertionStdOperatorClass, str]
+
+# New unified criteria parameters type
+SmartColumnMetricAssertionParameters = Union[
+    None,  # For operators that don't require parameters (NULL, NOT_NULL)
+    ValueInputType,  # Single value
+    RangeInputType,  # Range as tuple
+]
 
 DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION: _AllRowsQuery = (
     _AllRowsQuery()
@@ -269,11 +326,9 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        # Optional parameters
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[ValueTypeInputType] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeInputType] = None,
+        # Criteria parameters
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
@@ -298,10 +353,8 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             column_name: The name of the column to validate.
             metric_type: The metric type to validate.
             operator: The operator to use.
-            value: The value to validate.
-            value_type: The type of the value.
-            range: The range to validate.
-            range_type: The type of the range.  If single value, we assume the same type for start and end.
+            criteria_parameters: The criteria parameters (single value, range tuple, or None).
+            criteria_type: The type of the criteria parameters.
             urn: The urn of the assertion.
             display_name: The display name of the assertion.
             enabled: Whether the assertion is enabled.
@@ -354,41 +407,14 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             operator, models.AssertionStdOperatorClass
         )
 
-        # Set type annotations for both raw input or parsed parameters
-        self.value_type: Optional[ValueTypeInputType] = None
-        self.value: Optional[ValueInputType] = None
-        if _is_value_required_for_operator(self.operator):
-            self.value_type = _try_parse_and_validate_value_type(value_type)
-            self.value = _try_parse_and_validate_value(value, self.value_type)
-        else:
-            # Set these to what was input for later validation, and skip parsing and validation
-            self.value_type = value_type
-            self.value = value
-
-        # Set type annotations for both raw input or parsed parameters
-        self.range_type: Optional[Union[RangeTypeInputType, RangeTypeParsedType]] = None
-        self.range: Optional[RangeInputType] = None
-        if _is_range_required_for_operator(self.operator):
-            self.range_type = _try_parse_and_validate_range_type(range_type)
-            self.range = _try_parse_and_validate_range(
-                range, self.range_type, self.operator
-            )
-        else:
-            # Set these to what was input for later validation, and skip parsing and validation
-            self.range_type = range_type
-            self.range = range
-
-        _validate_operator_and_input_parameters(
-            operator=self.operator,
-            value=self.value,
-            value_type=_try_parse_and_validate_value_type(self.value_type)
-            if self.value_type is not None
-            else None,
-            range=self.range,
-            range_type=_try_parse_and_validate_range_type(self.range_type)
-            if self.range_type is not None
-            else None,
+        # Initialize instance variables with proper type annotations
+        self.criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None
+        self.criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = (
+            None
         )
+
+        # Process criteria parameters
+        self._process_criteria_parameters(criteria_parameters, criteria_type)
 
         # Validate compatibility:
         self._validate_field_type_and_operator_compatibility(
@@ -397,17 +423,107 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         self._validate_field_type_and_metric_type_compatibility(
             self.column_name, self.metric_type
         )
-        self._validate_operator_and_range_or_value_compatibility(
-            self.operator,
-            self.value,
-            _try_parse_and_validate_value_type(self.value_type)
-            if self.value_type is not None
-            else None,
-            self.range,
-            _try_parse_and_validate_range_type(self.range_type)
-            if self.range_type is not None
-            else None,
-        )
+
+    def _process_criteria_parameters(
+        self,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
+    ) -> None:
+        """Process the new consolidated criteria_parameters."""
+
+        if criteria_parameters is None:
+            # No parameters - validate this is appropriate for the operator
+            if _is_value_required_for_operator(self.operator):
+                raise SDKUsageError(f"Value is required for operator {self.operator}")
+            if _is_range_required_for_operator(self.operator):
+                raise SDKUsageError(f"Range is required for operator {self.operator}")
+
+            # No parameters (for operators like NULL, NOT_NULL)
+            self.criteria_parameters = None
+            self.criteria_type = None
+        elif isinstance(criteria_parameters, tuple):
+            # Range parameters
+            if not _is_range_required_for_operator(self.operator):
+                raise SDKUsageError(
+                    f"Operator {self.operator} does not support range parameters. "
+                    "Provide a single value instead of a tuple."
+                )
+
+            # Get inferred range type
+            inferred_range_type = self._infer_or_use_criteria_type(
+                criteria_type, is_range=True
+            )
+
+            # Validate and parse the range type
+            validated_range_type = _try_parse_and_validate_range_type(
+                inferred_range_type
+            )
+
+            # Validate and parse the range values
+            validated_range = _try_parse_and_validate_range(
+                criteria_parameters, validated_range_type, self.operator
+            )
+
+            # Store validated parameters
+            self.criteria_parameters = validated_range
+            self.criteria_type = validated_range_type
+        else:
+            # Single value parameters
+            if _is_no_parameter_operator(self.operator):
+                raise SDKUsageError(
+                    f"Value parameters should not be provided for operator {self.operator}"
+                )
+            if not _is_value_required_for_operator(self.operator):
+                raise SDKUsageError(
+                    f"Operator {self.operator} does not support value parameters. "
+                    "Use criteria_parameters=None or omit criteria_parameters."
+                )
+
+            # Get inferred value type
+            inferred_value_type = self._infer_or_use_criteria_type(
+                criteria_type, is_range=False
+            )
+
+            # Validate value if required
+            if _is_value_required_for_operator(self.operator):
+                # Validate and parse the value type - make sure it's a single type, not a tuple
+                if isinstance(inferred_value_type, tuple):
+                    raise SDKUsageError("Single value type expected, not a tuple type")
+
+                validated_value_type = _try_parse_and_validate_value_type(
+                    inferred_value_type
+                )
+                validated_value = _try_parse_and_validate_value(
+                    criteria_parameters, validated_value_type
+                )
+
+                # Store validated parameters
+                self.criteria_parameters = validated_value
+                self.criteria_type = validated_value_type
+            else:
+                # Store raw parameters for operators that don't require validation
+                self.criteria_parameters = criteria_parameters
+                self.criteria_type = inferred_value_type
+
+    def _infer_or_use_criteria_type(
+        self,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
+        is_range: bool,
+    ) -> Union[ValueTypeInputType, RangeTypeInputType]:
+        """Infer type from value or use provided criteria_type."""
+
+        if criteria_type is not None:
+            return criteria_type
+
+        # Auto-infer type based on Python type
+        if is_range:
+            # For ranges, default to NUMBER type for both values
+            return (ValueType.NUMBER, ValueType.NUMBER)
+        else:
+            # For single values, infer from the actual value
+            return (
+                ValueType.NUMBER
+            )  # Default fallback, will be inferred more specifically in validation
 
     def _create_monitor_info(
         self,
@@ -574,96 +690,6 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
 
         return source_type, field
 
-    def _validate_single_value_operator(
-        self,
-        operator: models.AssertionStdOperatorClass,
-        value: Optional[ValueInputType],
-        value_type: Optional[models.AssertionStdParameterTypeClass],
-        range: Optional[RangeInputType],
-        range_type: Optional[RangeTypeParsedType],
-    ) -> None:
-        """Validate parameters for a single value operator."""
-        if value is None:
-            raise SDKUsageError(f"Value is required for operator {operator}")
-        if value_type is None:
-            raise SDKUsageError(f"Value type is required for operator {operator}")
-        if range is not None or range_type is not None:
-            raise SDKUsageError(
-                f"Range parameters should not be provided for operator {operator}"
-            )
-
-    def _validate_range_operator(
-        self,
-        operator: models.AssertionStdOperatorClass,
-        value: Optional[ValueInputType],
-        value_type: Optional[models.AssertionStdParameterTypeClass],
-        range: Optional[RangeInputType],
-        range_type: Optional[RangeTypeParsedType],
-    ) -> None:
-        """Validate parameters for a range operator."""
-        if range is None:
-            raise SDKUsageError(f"Range is required for operator {operator}")
-        if range_type is None:
-            raise SDKUsageError(f"Range type is required for operator {operator}")
-        if value is not None or value_type is not None:
-            raise SDKUsageError(
-                f"Value parameters should not be provided for operator {operator}"
-            )
-
-    def _validate_no_parameter_operator(
-        self,
-        operator: models.AssertionStdOperatorClass,
-        value: Optional[ValueInputType],
-        value_type: Optional[models.AssertionStdParameterTypeClass],
-        range: Optional[RangeInputType],
-        range_type: Optional[RangeTypeParsedType],
-    ) -> None:
-        """Validate parameters for a no-parameter operator."""
-        if value is not None or value_type is not None:
-            raise SDKUsageError(
-                f"Value parameters should not be provided for operator {operator}"
-            )
-        if range is not None or range_type is not None:
-            raise SDKUsageError(
-                f"Range parameters should not be provided for operator {operator}"
-            )
-
-    def _validate_operator_and_range_or_value_compatibility(
-        self,
-        operator: models.AssertionStdOperatorClass,
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[models.AssertionStdParameterTypeClass] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeParsedType] = None,
-    ) -> None:
-        """
-        Validate that the operator has the appropriate parameters (range or value) based on its type.
-
-        Args:
-            operator: The operator to validate.
-            value: Optional value parameter.
-            value_type: Optional value type parameter.
-            range: Optional range parameter.
-            range_type: Optional range type parameter.
-
-        Raises:
-            SDKUsageError: If the operator parameters are not compatible with the operator type.
-        """
-        if operator in SINGLE_VALUE_OPERATORS:
-            self._validate_single_value_operator(
-                operator, value, value_type, range, range_type
-            )
-        elif operator in RANGE_OPERATORS:
-            self._validate_range_operator(
-                operator, value, value_type, range, range_type
-            )
-        elif operator in NO_PARAMETER_OPERATORS:
-            self._validate_no_parameter_operator(
-                operator, value, value_type, range, range_type
-            )
-        else:
-            raise SDKUsageError(f"Unsupported operator type: {operator}")
-
     def _create_assertion_parameters(self) -> models.AssertionStdParametersClass:
         """
         Create assertion parameters based on the operator type and provided values.
@@ -675,35 +701,39 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             SDKUsageError: If the parameters are invalid for the operator type.
         """
         if self.operator in SINGLE_VALUE_OPERATORS:
-            if self.value is None:
-                raise SDKUsageError(f"Value is required for operator {self.operator}")
-            if self.value_type is None:
+            if self.criteria_parameters is None or isinstance(
+                self.criteria_parameters, tuple
+            ):
                 raise SDKUsageError(
-                    f"Value type is required for operator {self.operator}"
+                    f"Single value is required for operator {self.operator}"
+                )
+            if self.criteria_type is None or isinstance(self.criteria_type, tuple):
+                raise SDKUsageError(
+                    f"Single value type is required for operator {self.operator}"
                 )
             return models.AssertionStdParametersClass(
                 value=models.AssertionStdParameterClass(
-                    value=str(self.value),
-                    type=self.value_type,
+                    value=str(self.criteria_parameters),
+                    type=self.criteria_type,
                 ),
             )
         elif self.operator in RANGE_OPERATORS:
-            if self.range is None:
-                raise SDKUsageError(f"Range is required for operator {self.operator}")
-            if self.range_type is None:
+            if not isinstance(self.criteria_parameters, tuple):
+                raise SDKUsageError(
+                    f"Range parameters are required for operator {self.operator}"
+                )
+            if not isinstance(self.criteria_type, tuple):
                 raise SDKUsageError(
                     f"Range type is required for operator {self.operator}"
                 )
-            # Ensure we have the parsed range type
-            parsed_range_type = _try_parse_and_validate_range_type(self.range_type)
             return models.AssertionStdParametersClass(
                 minValue=models.AssertionStdParameterClass(
-                    value=str(self.range[0]),
-                    type=parsed_range_type[0],
+                    value=str(self.criteria_parameters[0]),
+                    type=self.criteria_type[0],
                 ),
                 maxValue=models.AssertionStdParameterClass(
-                    value=str(self.range[1]),
-                    type=parsed_range_type[1],
+                    value=str(self.criteria_parameters[1]),
+                    type=self.criteria_type[1],
                 ),
             )
         elif self.operator in NO_PARAMETER_OPERATORS:
@@ -844,36 +874,6 @@ def _is_value_required_for_operator(operator: models.AssertionStdOperatorClass) 
 
 def _is_no_parameter_operator(operator: models.AssertionStdOperatorClass) -> bool:
     return operator in NO_PARAMETER_OPERATORS
-
-
-def _validate_operator_and_input_parameters(
-    operator: models.AssertionStdOperatorClass,
-    value: Optional[ValueInputType] = None,
-    value_type: Optional[models.AssertionStdParameterTypeClass] = None,
-    range: Optional[RangeInputType] = None,
-    range_type: Optional[RangeTypeParsedType] = None,
-) -> None:
-    if _is_value_required_for_operator(operator):
-        if value is None:
-            raise SDKUsageError(f"Value is required for operator {operator}")
-        if value_type is None:
-            raise SDKUsageError(f"Value type is required for operator {operator}")
-    elif _is_range_required_for_operator(operator):
-        if range is None:
-            raise SDKUsageError(f"Range is required for operator {operator}")
-        if range_type is None:
-            raise SDKUsageError(f"Range type is required for operator {operator}")
-    elif _is_no_parameter_operator(operator):
-        if value is not None or value_type is not None:
-            raise SDKUsageError(
-                f"Value parameters should not be provided for operator {operator}"
-            )
-        if range is not None or range_type is not None:
-            raise SDKUsageError(
-                f"Range parameters should not be provided for operator {operator}"
-            )
-    else:
-        raise SDKUsageError(f"Unsupported operator type: {operator}")
 
 
 def _try_parse_and_validate_range_type(

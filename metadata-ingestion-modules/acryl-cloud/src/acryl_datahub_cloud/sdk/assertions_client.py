@@ -32,9 +32,8 @@ from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricInputType,
     OperatorInputType,
-    RangeInputType,
     RangeTypeInputType,
-    ValueInputType,
+    SmartColumnMetricAssertionParameters,
     ValueTypeInputType,
     _SmartColumnMetricAssertionInput,
 )
@@ -1983,10 +1982,8 @@ class AssertionsClient:
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[ValueTypeInputType] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeInputType] = None,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
@@ -2015,15 +2012,67 @@ class AssertionsClient:
             - Create case: Uses default schedule of every 6 hours or provided schedule
             - Update case: Uses existing schedule or provided schedule.
 
+        Examples:
+            # Using enum values (recommended for type safety)
+            client.sync_smart_column_metric_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="user_id",
+                metric_type=MetricType.NULL_COUNT,
+                operator=OperatorType.EQUAL_TO,
+                criteria_parameters="0",
+                criteria_type=ValueType.NUMBER
+            )
+
+            # Using case-insensitive strings (more flexible)
+            client.sync_smart_column_metric_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="price",
+                metric_type="mean",
+                operator="greater_than",
+                criteria_parameters="100.0",
+                criteria_type="number"
+            )
+
+            # Using range parameters
+            client.sync_smart_column_metric_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="price",
+                metric_type="mean",
+                operator="between",
+                criteria_parameters=("50.0", "200.0"),
+                criteria_type="number"
+            )
+
         Args:
             dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
             column_name (str): The name of the column to be monitored.
-            metric_type (MetricInputType): The type of the metric to be monitored.
-            operator (OperatorInputType): The operator to be used for the assertion.
-            value (Optional[ValueInputType]): The value to be used for the assertion. Required if operator requires a value.
-            value_type (Optional[ValueTypeInputType]): The type of the value to be used for the assertion. Required if operator requires a value.
-            range (Optional[RangeInputType]): The range to be used for the assertion. Required if operator requires a range.
-            range_type (Optional[RangeTypeInputType]): The type of the range to be used for the assertion. Required if operator requires a range.
+            metric_type (MetricInputType): The type of the metric to be monitored. Valid values are:
+                - Using MetricType enum: MetricType.NULL_COUNT, MetricType.NULL_PERCENTAGE, MetricType.UNIQUE_COUNT,
+                  MetricType.UNIQUE_PERCENTAGE, MetricType.MAX_LENGTH, MetricType.MIN_LENGTH, MetricType.EMPTY_COUNT,
+                  MetricType.EMPTY_PERCENTAGE, MetricType.MIN, MetricType.MAX, MetricType.MEAN, MetricType.MEDIAN,
+                  MetricType.STDDEV, MetricType.NEGATIVE_COUNT, MetricType.NEGATIVE_PERCENTAGE, MetricType.ZERO_COUNT,
+                  MetricType.ZERO_PERCENTAGE
+                - Using case-insensitive strings: "null_count", "MEAN", "Max_Length", etc.
+                - Using models enum: models.FieldMetricTypeClass.NULL_COUNT, etc. (import with: from datahub.metadata import schema_classes as models)
+            operator (OperatorInputType): The operator to be used for the assertion. Valid values are:
+                - Using OperatorType enum: OperatorType.EQUAL_TO, OperatorType.NOT_EQUAL_TO, OperatorType.GREATER_THAN,
+                  OperatorType.GREATER_THAN_OR_EQUAL_TO, OperatorType.LESS_THAN, OperatorType.LESS_THAN_OR_EQUAL_TO,
+                  OperatorType.BETWEEN, OperatorType.IN, OperatorType.NOT_IN, OperatorType.NULL, OperatorType.NOT_NULL,
+                  OperatorType.IS_TRUE, OperatorType.IS_FALSE, OperatorType.CONTAIN, OperatorType.END_WITH,
+                  OperatorType.START_WITH, OperatorType.REGEX_MATCH
+                - Using case-insensitive strings: "greater_than", "BETWEEN", "Equal_To", etc.
+                - Using models enum: models.AssertionStdOperatorClass.GREATER_THAN, etc. (import with: from datahub.metadata import schema_classes as models)
+            criteria_parameters (Optional[SmartColumnMetricAssertionParameters]): The criteria parameters to be used for the assertion. Can be:
+                - Single value: "100", 42.5, "test_string" (for operators requiring a single value)
+                - Range tuple: (0, 100), ("min_val", "max_val") (for operators requiring a range)
+                - None (for operators that don't require parameters like NULL, NOT_NULL)
+            criteria_type (Optional[Union[ValueTypeInputType, RangeTypeInputType]]): The type of the criteria parameters. Can be:
+                - For single values: ValueType.STRING, ValueType.NUMBER, ValueType.UNKNOWN, "number", "string", etc.
+                - For ranges: Single type applied to both values or tuple of types for each value
+                Examples:
+                - Single type: ValueType.NUMBER, "string", models.AssertionStdParameterTypeClass.NUMBER
+                - Tuple with same types: (ValueType.NUMBER, ValueType.NUMBER), ("string", "string")
+                - Tuple with different types: (ValueType.NUMBER, "string"), ("NUMBER", models.AssertionStdParameterTypeClass.STRING)
             urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
             display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
             enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
@@ -2059,10 +2108,8 @@ class AssertionsClient:
                 column_name=column_name,
                 metric_type=metric_type,
                 operator=operator,
-                value=value,
-                value_type=value_type,
-                range=range,
-                range_type=range_type,
+                criteria_parameters=criteria_parameters,
+                criteria_type=criteria_type,
                 display_name=display_name,
                 enabled=enabled if enabled is not None else True,
                 detection_mechanism=detection_mechanism,
@@ -2083,10 +2130,8 @@ class AssertionsClient:
             column_name=column_name,
             metric_type=metric_type,
             operator=operator,
-            value=value,
-            value_type=value_type,
-            range=range,
-            range_type=range_type,
+            criteria_parameters=criteria_parameters,
+            criteria_type=criteria_type,
             display_name=display_name,
             detection_mechanism=detection_mechanism,
             sensitivity=sensitivity,
@@ -2110,10 +2155,8 @@ class AssertionsClient:
                 column_name=column_name,
                 metric_type=metric_type,
                 operator=operator,
-                value=value,
-                value_type=value_type,
-                range=range,
-                range_type=range_type,
+                criteria_parameters=criteria_parameters,
+                criteria_type=criteria_type,
                 urn=urn,
                 display_name=display_name,
                 enabled=enabled,
@@ -2162,10 +2205,8 @@ class AssertionsClient:
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        value: Optional[ValueInputType] = None,
-        value_type: Optional[ValueTypeInputType] = None,
-        range: Optional[RangeInputType] = None,
-        range_type: Optional[RangeTypeInputType] = None,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
@@ -2266,10 +2307,8 @@ class AssertionsClient:
             column_name=column_name,
             metric_type=metric_type,
             operator=operator,
-            value=value,
-            value_type=value_type,
-            range=range,
-            range_type=range_type,
+            criteria_parameters=criteria_parameters,
+            criteria_type=criteria_type,
             display_name=display_name,
             enabled=enabled,
             detection_mechanism=detection_mechanism,
@@ -2307,10 +2346,8 @@ class AssertionsClient:
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        value: Optional[ValueInputType],
-        value_type: Optional[ValueTypeInputType],
-        range: Optional[RangeInputType],
-        range_type: Optional[RangeTypeInputType],
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
         urn: Union[str, AssertionUrn],
         display_name: Optional[str],
         enabled: Optional[bool],
@@ -2353,10 +2390,8 @@ class AssertionsClient:
                 column_name=column_name,
                 metric_type=metric_type,
                 operator=operator,
-                value=value,
-                value_type=value_type,
-                range=range,
-                range_type=range_type,
+                criteria_parameters=criteria_parameters,
+                criteria_type=criteria_type,
                 schedule=schedule,
                 display_name=display_name,
                 detection_mechanism=detection_mechanism,
@@ -2384,10 +2419,8 @@ class AssertionsClient:
             column_name=column_name,
             metric_type=metric_type,
             operator=operator,
-            value=value,
-            value_type=value_type,
-            range=range,
-            range_type=range_type,
+            criteria_parameters=criteria_parameters,
+            criteria_type=criteria_type,
             urn=urn,
             display_name=display_name,
             enabled=enabled,
@@ -2413,10 +2446,8 @@ class AssertionsClient:
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
-        value: Optional[ValueInputType],
-        value_type: Optional[ValueTypeInputType],
-        range: Optional[RangeInputType],
-        range_type: Optional[RangeTypeInputType],
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
         urn: Union[str, AssertionUrn],
         display_name: Optional[str],
         enabled: Optional[bool],
@@ -2440,10 +2471,8 @@ class AssertionsClient:
             column_name: The name of the column to be monitored.
             metric_type: The type of the metric to be monitored.
             operator: The operator to be used for the assertion.
-            value: The value to be used for the assertion.
-            value_type: The type of the value to be used for the assertion.
-            range: The range to be used for the assertion.
-            range_type: The type of the range to be used for the assertion.
+            criteria_parameters: The criteria parameters to be used for the assertion.
+            criteria_type: The type of the criteria parameters.
             urn: The urn of the assertion.
             display_name: The display name of the assertion.
             enabled: Whether the assertion is enabled.
@@ -2499,47 +2528,23 @@ class AssertionsClient:
                 if maybe_assertion_entity
                 else None,
             ),
-            value=_merge_field(
-                input_field_value=value,
-                input_field_name="value",
+            criteria_parameters=_merge_field(
+                input_field_value=criteria_parameters,
+                input_field_name="criteria_parameters",
                 validated_assertion_input=assertion_input,
                 validated_existing_assertion=existing_assertion,
-                existing_entity_value=SmartColumnMetricAssertion._get_value(
-                    maybe_assertion_entity
-                )
+                # Extract criteria parameters from existing assertion
+                existing_entity_value=assertion_input.criteria_parameters
                 if maybe_assertion_entity
                 else None,
             ),
-            value_type=_merge_field(
-                input_field_value=value_type,
-                input_field_name="value_type",
+            criteria_type=_merge_field(
+                input_field_value=criteria_type,
+                input_field_name="criteria_type",
                 validated_assertion_input=assertion_input,
                 validated_existing_assertion=existing_assertion,
-                existing_entity_value=SmartColumnMetricAssertion._get_value_type(
-                    maybe_assertion_entity
-                )
-                if maybe_assertion_entity
-                else None,
-            ),
-            range=_merge_field(
-                input_field_value=range,
-                input_field_name="range",
-                validated_assertion_input=assertion_input,
-                validated_existing_assertion=existing_assertion,
-                existing_entity_value=SmartColumnMetricAssertion._get_range(
-                    maybe_assertion_entity
-                )
-                if maybe_assertion_entity
-                else None,
-            ),
-            range_type=_merge_field(
-                input_field_value=range_type,
-                input_field_name="range_type",
-                validated_assertion_input=assertion_input,
-                validated_existing_assertion=existing_assertion,
-                existing_entity_value=SmartColumnMetricAssertion._get_range_type(
-                    maybe_assertion_entity
-                )
+                # Extract criteria type from existing assertion
+                existing_entity_value=assertion_input.criteria_type
                 if maybe_assertion_entity
                 else None,
             ),

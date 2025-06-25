@@ -46,8 +46,8 @@ def test_smart_column_metric_assertion_creation_min_fields(
         column_name="test_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
         operator=models.AssertionStdOperatorClass.GREATER_THAN,
-        value=10,
-        value_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=10,
+        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
         sensitivity=InferenceSensitivity.LOW,
         exclusion_windows=[
             FixedRangeExclusionWindow(
@@ -76,8 +76,8 @@ def test_smart_column_metric_assertion_all_attributes_are_readonly(
         column_name="test_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
         operator=models.AssertionStdOperatorClass.GREATER_THAN,
-        value=10,
-        value_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=10,
+        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
         sensitivity=InferenceSensitivity.LOW,
         exclusion_windows=[
             FixedRangeExclusionWindow(
@@ -319,9 +319,9 @@ def test_smart_column_metric_assertion_from_entities_all_fields(
         smart_column_metric_assertion.operator
         == models.AssertionStdOperatorClass.GREATER_THAN
     )
-    assert smart_column_metric_assertion.value == "10"
+    assert smart_column_metric_assertion.criteria_parameters == "10"
     assert (
-        smart_column_metric_assertion.value_type
+        smart_column_metric_assertion.criteria_type
         == models.AssertionStdParameterTypeClass.NUMBER
     )
 
@@ -423,9 +423,9 @@ def test_smart_column_metric_assertion_from_entities_minimal(
         smart_column_metric_assertion.operator
         == models.AssertionStdOperatorClass.GREATER_THAN
     )
-    assert smart_column_metric_assertion.value == "5"
+    assert smart_column_metric_assertion.criteria_parameters == "5"
     assert (
-        smart_column_metric_assertion.value_type
+        smart_column_metric_assertion.criteria_type
         == models.AssertionStdParameterTypeClass.NUMBER
     )
 
@@ -505,14 +505,9 @@ def test_column_metric_assertion_with_range_values() -> None:
         smart_column_metric_assertion.operator
         == models.AssertionStdOperatorClass.BETWEEN
     )
-    assert (
-        smart_column_metric_assertion.value is None
-    )  # No single value for BETWEEN operator
-    assert (
-        smart_column_metric_assertion.value_type is None
-    )  # No single value type for BETWEEN operator
-    assert smart_column_metric_assertion.range == ("5", "10")
-    assert smart_column_metric_assertion.range_type == (
+    # Should have range parameters for BETWEEN operator
+    assert smart_column_metric_assertion.criteria_parameters == ("5", "10")
+    assert smart_column_metric_assertion.criteria_type == (
         models.AssertionStdParameterTypeClass.NUMBER,
         models.AssertionStdParameterTypeClass.NUMBER,
     )
@@ -566,14 +561,9 @@ def test_column_metric_assertion_with_no_parameter_operator() -> None:
     assert (
         smart_column_metric_assertion.operator == models.AssertionStdOperatorClass.NULL
     )
-    assert smart_column_metric_assertion.value is None  # No value for NULL operator
-    assert (
-        smart_column_metric_assertion.value_type is None
-    )  # No value type for NULL operator
-    assert smart_column_metric_assertion.range is None  # No range for NULL operator
-    assert (
-        smart_column_metric_assertion.range_type is None
-    )  # No range type for NULL operator
+    # No parameters for NULL operator
+    assert smart_column_metric_assertion.criteria_parameters is None
+    assert smart_column_metric_assertion.criteria_type is None
 
 
 def test_column_metric_assertion_with_changed_rows_detection_mechanism() -> None:

@@ -2353,10 +2353,8 @@ class SmartColumnMetricAssertionInputParams:
     column_name: str
     metric_type: MetricInputType
     operator: OperatorInputType
-    value: Optional[ValueInputType] = None
-    value_type: Optional[ValueTypeInputType] = None
-    range: Optional[RangeInputType] = None
-    range_type: Optional[RangeTypeInputType] = None
+    criteria_parameters: Optional[Union[ValueInputType, RangeInputType]] = None
+    criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None
     display_name: Optional[str] = None
     detection_mechanism: Optional[DetectionMechanismInputTypes] = None
     sensitivity: Optional[InferenceSensitivity] = None
@@ -2374,10 +2372,8 @@ class SmartColumnMetricAssertionOutputParams:
     column_name: str
     metric_type: MetricInputType
     operator: OperatorInputType
-    value: Optional[str]
-    value_type: Optional[ValueTypeInputType]
-    range: Optional[tuple[str, str]]
-    range_type: Optional[RangeTypeInputType]
+    criteria_parameters: Optional[Union[str, tuple[str, str]]]
+    criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]]
     display_name: str
     detection_mechanism: _DetectionMechanismTypes
     sensitivity: InferenceSensitivity
@@ -2402,18 +2398,16 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="100",
-                value_type="number",
+                criteria_parameters="100",
+                criteria_type="number",
             ),
             SmartColumnMetricAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="100",
-                value_type="number",
-                range=None,
-                range_type=None,
+                criteria_parameters="100",
+                criteria_type="number",
                 display_name=DEFAULT_NAME_PREFIX,
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=DEFAULT_SENSITIVITY,
@@ -2435,18 +2429,16 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="between",
-                range=("0", "100"),
-                range_type=("number", "number"),
+                criteria_parameters=("0", "100"),
+                criteria_type=("number", "number"),
             ),
             SmartColumnMetricAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
                 column_name="amount",
                 metric_type="null_count",
                 operator="between",
-                value=None,
-                value_type=None,
-                range=("0", "100"),
-                range_type=("number", "number"),
+                criteria_parameters=("0", "100"),
+                criteria_type=("number", "number"),
                 display_name=DEFAULT_NAME_PREFIX,
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=DEFAULT_SENSITIVITY,
@@ -2468,8 +2460,8 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="100",
-                value_type="number",
+                criteria_parameters="100",
+                criteria_type="number",
                 display_name="Test Assertion",
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=InferenceSensitivity.LOW,
@@ -2490,10 +2482,8 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="100",
-                value_type="number",
-                range=None,
-                range_type=None,
+                criteria_parameters="100",
+                criteria_type="number",
                 display_name="Test Assertion",
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=InferenceSensitivity.LOW,
@@ -2521,8 +2511,8 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="10",
-                value_type="number",
+                criteria_parameters="10",
+                criteria_type="number",
                 display_name="Test Smart Column Metric Assertion String Incident Behavior",
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=InferenceSensitivity.LOW,
@@ -2537,10 +2527,8 @@ class SmartColumnMetricAssertionOutputParams:
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value="10",
-                value_type="number",
-                range=None,
-                range_type=None,
+                criteria_parameters="10",
+                criteria_type="number",
                 display_name="Test Smart Column Metric Assertion String Incident Behavior",
                 detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
                 sensitivity=InferenceSensitivity.LOW,
@@ -2628,8 +2616,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
         column_name="amount",
         metric_type="null_count",
         operator="less_than",
-        value=100,
-        value_type="number",
+        criteria_parameters=100,
+        criteria_type="number",
         detection_mechanism=detection_mechanism,
     )
 
@@ -2646,8 +2634,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="invalid_metric_type",  # type: ignore[arg-type] # Test invalid input
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
             ),
             SDKUsageError,
             "Invalid value for FieldMetricTypeClass: invalid_metric_type, valid options are",
@@ -2659,8 +2647,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="invalid_operator",  # type: ignore[arg-type] # Test invalid input
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
             ),
             SDKUsageError,
             "Invalid value for AssertionStdOperatorClass: invalid_operator, valid options are",
@@ -2672,8 +2660,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="invalid_value_type",  # type: ignore[arg-type] # Test invalid input
+                criteria_parameters=100,
+                criteria_type="invalid_value_type",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageError,
             "Invalid value for AssertionStdParameterTypeClass: invalid_value_type, valid options are",
@@ -2685,8 +2673,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="between",
-                range=(0, 100),
-                range_type=("invalid_type", "number"),  # type: ignore[arg-type] # Test invalid input
+                criteria_parameters=(0, 100),
+                criteria_type=("invalid_type", "number"),  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageError,
             "Invalid value for AssertionStdParameterTypeClass: invalid_type, valid options are",
@@ -2698,8 +2686,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 detection_mechanism="invalid_detection_mechanism",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageErrorWithExamples,
@@ -2712,8 +2700,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 sensitivity="invalid_sensitivity",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageErrorWithExamples,
@@ -2726,8 +2714,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 exclusion_windows="invalid_exclusion_windows",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageErrorWithExamples,
@@ -2740,8 +2728,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 training_data_lookback_days=-1,
             ),
             SDKUsageError,
@@ -2754,8 +2742,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 incident_behavior="invalid_incident_behavior",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageErrorWithExamples,
@@ -2768,8 +2756,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 tags="invalid_tags",  # type: ignore[arg-type] # Test invalid input
             ),
             InvalidUrnError,
@@ -2782,8 +2770,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 updated_by="invalid_updated_by",  # type: ignore[arg-type] # Test invalid input
             ),
             SdkUsageError,
@@ -2798,8 +2786,8 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 column_name="amount",
                 metric_type="null_count",
                 operator="less_than",
-                value=100,
-                value_type="number",
+                criteria_parameters=100,
+                criteria_type="number",
                 schedule="invalid_cron",  # type: ignore[arg-type] # Test invalid input
             ),
             SDKUsageError,
@@ -2837,8 +2825,8 @@ def test_create_smart_column_metric_assertion_uses_string_incident_behavior(
         column_name="amount",
         metric_type="null_count",
         operator="less_than",
-        value="10",
-        value_type="number",
+        criteria_parameters="10",
+        criteria_type="number",
         incident_behavior="resolve_on_pass",  # String input
         created_by="urn:li:corpuser:test_user",
     )
@@ -2869,19 +2857,27 @@ def _validate_column_metric_assertion_vs_input(
         if expected_output_params.operator is not None
         else None
     )
-    assert assertion.value == expected_output_params.value
-    assert assertion.range == expected_output_params.range
+    assert assertion.criteria_parameters == expected_output_params.criteria_parameters
     if (
-        assertion.range_type is not None
-        and isinstance(assertion.range_type, tuple)
-        and expected_output_params.range_type is not None
-        and isinstance(expected_output_params.range_type, tuple)
+        assertion.criteria_type is not None
+        and isinstance(assertion.criteria_type, tuple)
+        and expected_output_params.criteria_type is not None
+        and isinstance(expected_output_params.criteria_type, tuple)
     ):
-        assert [str(val).upper() for val in assertion.range_type] == [
-            str(val).upper() for val in expected_output_params.range_type
+        assert [str(val).upper() for val in assertion.criteria_type] == [
+            str(val).upper() for val in expected_output_params.criteria_type
         ]
     else:
-        assert expected_output_params.range_type is None
+        # For single values, compare case-insensitively if both are strings
+        if isinstance(assertion.criteria_type, str) and isinstance(
+            expected_output_params.criteria_type, str
+        ):
+            assert (
+                assertion.criteria_type.upper()
+                == expected_output_params.criteria_type.upper()
+            )
+        else:
+            assert assertion.criteria_type == expected_output_params.criteria_type
     assert assertion.display_name.startswith(expected_output_params.display_name)
     assert assertion.detection_mechanism == expected_output_params.detection_mechanism
     assert assertion.sensitivity == expected_output_params.sensitivity
