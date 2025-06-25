@@ -1,15 +1,2179 @@
 {
   "total_plugins": 79,
   "plugins_with_capabilities": 74,
-  "plugins_skipped": 5,
-  "skipped_plugin_names": [
-    "datahub-apply",
-    "datahub-business-glossary",
-    "datahub-debug",
-    "datahub-gc",
-    "demo-data"
-  ],
+  "plugins_skipped": 0,
+  "skipped_plugin_names": [],
   "total_capabilities": 442,
+  "capability_breakdown": {
+    "Platform Instance": {
+      "supported": 38,
+      "unsupported": 2
+    },
+    "Domains": {
+      "supported": 29,
+      "unsupported": 2
+    },
+    "Data Profiling": {
+      "supported": 24,
+      "unsupported": 4
+    },
+    "Dataset Usage": {
+      "supported": 10,
+      "unsupported": 0
+    },
+    "Partition Support": {
+      "supported": 1,
+      "unsupported": 1
+    },
+    "Descriptions": {
+      "supported": 39,
+      "unsupported": 0
+    },
+    "Table-Level Lineage": {
+      "supported": 42,
+      "unsupported": 3
+    },
+    "Column-level Lineage": {
+      "supported": 34,
+      "unsupported": 1
+    },
+    "Extract Ownership": {
+      "supported": 12,
+      "unsupported": 1
+    },
+    "Detect Deleted Entities": {
+      "supported": 67,
+      "unsupported": 1
+    },
+    "Extract Tags": {
+      "supported": 10,
+      "unsupported": 1
+    },
+    "Schema Metadata": {
+      "supported": 36,
+      "unsupported": 0
+    },
+    "Asset Containers": {
+      "supported": 31,
+      "unsupported": 0
+    },
+    "Classification": {
+      "supported": 20,
+      "unsupported": 2
+    },
+    "Test Connection": {
+      "supported": 31,
+      "unsupported": 0
+    }
+  },
+  "capabilities_dict": {
+    "Data Profiling": "Optionally enabled via configuration",
+    "Detect Deleted Entities": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Extract Tags": "Can extract ABS object/container tags if enabled",
+    "Asset Containers": "Enabled by default",
+    "Classification": "Optionally enabled via `classification.enabled`",
+    "Column-level Lineage": "Supported for S3 tables",
+    "Descriptions": "Enabled by default",
+    "Domains": "Supported via the `domain` config field",
+    "Platform Instance": "Enabled by default",
+    "Schema Metadata": "Enabled by default",
+    "Table-Level Lineage": "Supported for S3 tables",
+    "Test Connection": "Enabled by default",
+    "Dataset Usage": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+    "Partition Support": "Enabled by default, partition keys and clustering keys are supported.",
+    "Extract Ownership": "Supported by default"
+  },
+  "platform_summary": {
+    "abs": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [
+        "abs"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "abs"
+      ],
+      "Extract Tags": [
+        "abs"
+      ],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "athena": {
+      "Platform Instance": [
+        "athena"
+      ],
+      "Domains": [
+        "athena"
+      ],
+      "Data Profiling": [
+        "athena"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "athena"
+      ],
+      "Table-Level Lineage": [
+        "athena"
+      ],
+      "Column-level Lineage": [
+        "athena"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "athena"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "athena"
+      ],
+      "Asset Containers": [
+        "athena"
+      ],
+      "Classification": [
+        "athena"
+      ],
+      "Test Connection": [
+        "athena"
+      ]
+    },
+    "azure-ad": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "azure-ad"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "bigquery": {
+      "Platform Instance": [],
+      "Domains": [
+        "bigquery"
+      ],
+      "Data Profiling": [
+        "bigquery"
+      ],
+      "Dataset Usage": [
+        "bigquery"
+      ],
+      "Partition Support": [
+        "bigquery"
+      ],
+      "Descriptions": [
+        "bigquery"
+      ],
+      "Table-Level Lineage": [
+        "bigquery"
+      ],
+      "Column-level Lineage": [
+        "bigquery"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "bigquery"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "bigquery"
+      ],
+      "Asset Containers": [
+        "bigquery"
+      ],
+      "Classification": [
+        "bigquery"
+      ],
+      "Test Connection": [
+        "bigquery"
+      ]
+    },
+    "cassandra": {
+      "Platform Instance": [
+        "cassandra"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "cassandra"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "cassandra"
+      ],
+      "Asset Containers": [
+        "cassandra"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "clickhouse": {
+      "Platform Instance": [],
+      "Domains": [
+        "clickhouse"
+      ],
+      "Data Profiling": [
+        "clickhouse",
+        "clickhouse-usage"
+      ],
+      "Dataset Usage": [
+        "clickhouse-usage"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "clickhouse"
+      ],
+      "Table-Level Lineage": [
+        "clickhouse"
+      ],
+      "Column-level Lineage": [
+        "clickhouse"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "clickhouse",
+        "clickhouse-usage"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "clickhouse"
+      ],
+      "Asset Containers": [
+        "clickhouse"
+      ],
+      "Classification": [
+        "clickhouse"
+      ],
+      "Test Connection": [
+        "clickhouse"
+      ]
+    },
+    "cockroachdb": {
+      "Platform Instance": [
+        "cockroachdb"
+      ],
+      "Domains": [
+        "cockroachdb"
+      ],
+      "Data Profiling": [
+        "cockroachdb"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "cockroachdb"
+      ],
+      "Table-Level Lineage": [
+        "cockroachdb"
+      ],
+      "Column-level Lineage": [
+        "cockroachdb"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "cockroachdb"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "cockroachdb"
+      ],
+      "Asset Containers": [
+        "cockroachdb"
+      ],
+      "Classification": [
+        "cockroachdb"
+      ],
+      "Test Connection": [
+        "cockroachdb"
+      ]
+    },
+    "csv-enricher": {
+      "Platform Instance": [],
+      "Domains": [
+        "csv-enricher"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "csv-enricher"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "csv-enricher"
+      ],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [
+        "csv-enricher"
+      ],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "datahub": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "datahub"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "datahubapply": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "business-glossary": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "datahubdebug": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "datahubgc": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "file-based-lineage": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "datahub-lineage-file"
+      ],
+      "Column-level Lineage": [
+        "datahub-lineage-file"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "dbt": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "dbt",
+        "dbt-cloud"
+      ],
+      "Column-level Lineage": [
+        "dbt",
+        "dbt-cloud"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "dbt",
+        "dbt-cloud"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": [
+        "dbt",
+        "dbt-cloud"
+      ]
+    },
+    "delta-lake": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "delta-lake"
+      ],
+      "Extract Tags": [
+        "delta-lake"
+      ],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "demo-data": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "dremio": {
+      "Platform Instance": [
+        "dremio"
+      ],
+      "Domains": [
+        "dremio"
+      ],
+      "Data Profiling": [
+        "dremio"
+      ],
+      "Dataset Usage": [
+        "dremio"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "dremio"
+      ],
+      "Table-Level Lineage": [
+        "dremio"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "dremio"
+      ],
+      "Detect Deleted Entities": [
+        "dremio"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [
+        "dremio"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "druid": {
+      "Platform Instance": [
+        "druid"
+      ],
+      "Domains": [
+        "druid"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "druid"
+      ],
+      "Table-Level Lineage": [
+        "druid"
+      ],
+      "Column-level Lineage": [
+        "druid"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "druid"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "druid"
+      ],
+      "Asset Containers": [
+        "druid"
+      ],
+      "Classification": [
+        "druid"
+      ],
+      "Test Connection": [
+        "druid"
+      ]
+    },
+    "dynamodb": {
+      "Platform Instance": [
+        "dynamodb"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "dynamodb"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [
+        "dynamodb"
+      ],
+      "Test Connection": []
+    },
+    "elasticsearch": {
+      "Platform Instance": [
+        "elasticsearch"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "elasticsearch"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "feast": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "feast"
+      ],
+      "Table-Level Lineage": [
+        "feast"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "feast"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "feast"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "metadata-file": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "file"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": [
+        "file"
+      ]
+    },
+    "fivetran": {
+      "Platform Instance": [
+        "fivetran"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [
+        "fivetran"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "fivetran"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "gcs": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "gcs"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "gcs"
+      ],
+      "Asset Containers": [
+        "gcs"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "glue": {
+      "Platform Instance": [
+        "glue"
+      ],
+      "Domains": [
+        "glue"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "glue"
+      ],
+      "Column-level Lineage": [
+        "glue"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "glue"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "grafana": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "grafana"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "hana": {
+      "Platform Instance": [
+        "hana"
+      ],
+      "Domains": [
+        "hana"
+      ],
+      "Data Profiling": [
+        "hana"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "hana"
+      ],
+      "Table-Level Lineage": [
+        "hana"
+      ],
+      "Column-level Lineage": [
+        "hana"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "hana"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "hana"
+      ],
+      "Asset Containers": [
+        "hana"
+      ],
+      "Classification": [
+        "hana"
+      ],
+      "Test Connection": [
+        "hana"
+      ]
+    },
+    "hex": {
+      "Platform Instance": [
+        "hex"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "hex"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "hex"
+      ],
+      "Detect Deleted Entities": [
+        "hex"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [
+        "hex"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "hive": {
+      "Platform Instance": [
+        "hive"
+      ],
+      "Domains": [
+        "hive"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "hive"
+      ],
+      "Table-Level Lineage": [
+        "hive"
+      ],
+      "Column-level Lineage": [
+        "hive"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "hive"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "hive"
+      ],
+      "Asset Containers": [
+        "hive"
+      ],
+      "Classification": [
+        "hive"
+      ],
+      "Test Connection": [
+        "hive"
+      ]
+    },
+    "hive-metastore": {
+      "Platform Instance": [],
+      "Domains": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Asset Containers": [
+        "hive-metastore",
+        "presto-on-hive"
+      ],
+      "Classification": [],
+      "Test Connection": [
+        "hive-metastore",
+        "presto-on-hive"
+      ]
+    },
+    "iceberg": {
+      "Platform Instance": [
+        "iceberg"
+      ],
+      "Domains": [],
+      "Data Profiling": [
+        "iceberg"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "iceberg"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "iceberg"
+      ],
+      "Detect Deleted Entities": [
+        "iceberg"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "json-schema": {
+      "Platform Instance": [
+        "json-schema"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "json-schema"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "json-schema"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "json-schema"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "kafka": {
+      "Platform Instance": [
+        "kafka"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "kafka"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "kafka"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "kafka"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": [
+        "kafka"
+      ]
+    },
+    "kafka-connect": {
+      "Platform Instance": [
+        "kafka-connect"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "kafka-connect"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "kafka-connect"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "kafka-connect"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "ldap": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "ldap"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "looker": {
+      "Platform Instance": [
+        "looker",
+        "lookml"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [
+        "looker"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "looker"
+      ],
+      "Table-Level Lineage": [
+        "looker",
+        "lookml"
+      ],
+      "Column-level Lineage": [
+        "looker",
+        "lookml"
+      ],
+      "Extract Ownership": [
+        "looker"
+      ],
+      "Detect Deleted Entities": [
+        "looker",
+        "lookml"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": [
+        "looker"
+      ]
+    },
+    "mariadb": {
+      "Platform Instance": [
+        "mariadb"
+      ],
+      "Domains": [
+        "mariadb"
+      ],
+      "Data Profiling": [
+        "mariadb"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "mariadb"
+      ],
+      "Table-Level Lineage": [
+        "mariadb"
+      ],
+      "Column-level Lineage": [
+        "mariadb"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "mariadb"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "mariadb"
+      ],
+      "Asset Containers": [
+        "mariadb"
+      ],
+      "Classification": [
+        "mariadb"
+      ],
+      "Test Connection": [
+        "mariadb"
+      ]
+    },
+    "metabase": {
+      "Platform Instance": [
+        "metabase"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "metabase"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "metabase"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "mlflow": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "mlflow"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "mlflow"
+      ],
+      "Extract Tags": [
+        "mlflow"
+      ],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "mode": {
+      "Platform Instance": [
+        "mode"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "mode"
+      ],
+      "Table-Level Lineage": [
+        "mode"
+      ],
+      "Column-level Lineage": [
+        "mode"
+      ],
+      "Extract Ownership": [
+        "mode"
+      ],
+      "Detect Deleted Entities": [
+        "mode"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [
+        "mode"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "mongodb": {
+      "Platform Instance": [
+        "mongodb"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "mongodb"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "mongodb"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "mssql": {
+      "Platform Instance": [
+        "mssql"
+      ],
+      "Domains": [
+        "mssql"
+      ],
+      "Data Profiling": [
+        "mssql"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "mssql"
+      ],
+      "Table-Level Lineage": [
+        "mssql"
+      ],
+      "Column-level Lineage": [
+        "mssql"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "mssql"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "mssql"
+      ],
+      "Asset Containers": [
+        "mssql"
+      ],
+      "Classification": [
+        "mssql"
+      ],
+      "Test Connection": [
+        "mssql"
+      ]
+    },
+    "mysql": {
+      "Platform Instance": [
+        "mysql"
+      ],
+      "Domains": [
+        "mysql"
+      ],
+      "Data Profiling": [
+        "mysql"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "mysql"
+      ],
+      "Table-Level Lineage": [
+        "mysql"
+      ],
+      "Column-level Lineage": [
+        "mysql"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "mysql"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "mysql"
+      ],
+      "Asset Containers": [
+        "mysql"
+      ],
+      "Classification": [
+        "mysql"
+      ],
+      "Test Connection": [
+        "mysql"
+      ]
+    },
+    "neo4j": {
+      "Platform Instance": [
+        "neo4j"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "neo4j"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "nifi": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "nifi"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "nifi"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "okta": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "okta"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "okta"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "openapi": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "oracle": {
+      "Platform Instance": [],
+      "Domains": [
+        "oracle"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "oracle"
+      ],
+      "Table-Level Lineage": [
+        "oracle"
+      ],
+      "Column-level Lineage": [
+        "oracle"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "oracle"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "oracle"
+      ],
+      "Asset Containers": [
+        "oracle"
+      ],
+      "Classification": [
+        "oracle"
+      ],
+      "Test Connection": [
+        "oracle"
+      ]
+    },
+    "postgres": {
+      "Platform Instance": [
+        "postgres"
+      ],
+      "Domains": [
+        "postgres"
+      ],
+      "Data Profiling": [
+        "postgres"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "postgres"
+      ],
+      "Table-Level Lineage": [
+        "postgres"
+      ],
+      "Column-level Lineage": [
+        "postgres"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "postgres"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "postgres"
+      ],
+      "Asset Containers": [
+        "postgres"
+      ],
+      "Classification": [
+        "postgres"
+      ],
+      "Test Connection": [
+        "postgres"
+      ]
+    },
+    "powerbi": {
+      "Platform Instance": [
+        "powerbi"
+      ],
+      "Domains": [],
+      "Data Profiling": [
+        "powerbi"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "powerbi"
+      ],
+      "Table-Level Lineage": [
+        "powerbi"
+      ],
+      "Column-level Lineage": [
+        "powerbi"
+      ],
+      "Extract Ownership": [
+        "powerbi"
+      ],
+      "Detect Deleted Entities": [
+        "powerbi"
+      ],
+      "Extract Tags": [
+        "powerbi"
+      ],
+      "Schema Metadata": [
+        "powerbi"
+      ],
+      "Asset Containers": [
+        "powerbi"
+      ],
+      "Classification": [],
+      "Test Connection": [
+        "powerbi"
+      ]
+    },
+    "powerbi-report-server": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "powerbi-report-server"
+      ],
+      "Detect Deleted Entities": [
+        "powerbi-report-server"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "preset": {
+      "Platform Instance": [],
+      "Domains": [
+        "preset"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "preset"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "preset"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "presto": {
+      "Platform Instance": [],
+      "Domains": [
+        "presto"
+      ],
+      "Data Profiling": [
+        "presto"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "presto"
+      ],
+      "Table-Level Lineage": [
+        "presto"
+      ],
+      "Column-level Lineage": [
+        "presto"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "presto"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "presto"
+      ],
+      "Asset Containers": [
+        "presto"
+      ],
+      "Classification": [
+        "presto"
+      ],
+      "Test Connection": [
+        "presto"
+      ]
+    },
+    "pulsar": {
+      "Platform Instance": [
+        "pulsar"
+      ],
+      "Domains": [
+        "pulsar"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "pulsar"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "pulsar"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "qlik-sense": {
+      "Platform Instance": [
+        "qlik-sense"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "qlik-sense"
+      ],
+      "Table-Level Lineage": [
+        "qlik-sense"
+      ],
+      "Column-level Lineage": [
+        "qlik-sense"
+      ],
+      "Extract Ownership": [
+        "qlik-sense"
+      ],
+      "Detect Deleted Entities": [
+        "qlik-sense"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "qlik-sense"
+      ],
+      "Asset Containers": [
+        "qlik-sense"
+      ],
+      "Classification": [],
+      "Test Connection": [
+        "qlik-sense"
+      ]
+    },
+    "redash": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "redash"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "redash"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "redshift": {
+      "Platform Instance": [
+        "redshift"
+      ],
+      "Domains": [
+        "redshift"
+      ],
+      "Data Profiling": [
+        "redshift"
+      ],
+      "Dataset Usage": [
+        "redshift"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "redshift"
+      ],
+      "Table-Level Lineage": [
+        "redshift"
+      ],
+      "Column-level Lineage": [
+        "redshift"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "redshift"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "redshift"
+      ],
+      "Asset Containers": [
+        "redshift"
+      ],
+      "Classification": [
+        "redshift"
+      ],
+      "Test Connection": [
+        "redshift"
+      ]
+    },
+    "s3": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [
+        "s3"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "s3"
+      ],
+      "Extract Tags": [
+        "s3"
+      ],
+      "Schema Metadata": [
+        "s3"
+      ],
+      "Asset Containers": [
+        "s3"
+      ],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "sac": {
+      "Platform Instance": [
+        "sac"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "sac"
+      ],
+      "Table-Level Lineage": [
+        "sac"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "sac"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "sac"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "sagemaker": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "sagemaker"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "sagemaker"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "salesforce": {
+      "Platform Instance": [
+        "salesforce"
+      ],
+      "Domains": [
+        "salesforce"
+      ],
+      "Data Profiling": [
+        "salesforce"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [
+        "salesforce"
+      ],
+      "Schema Metadata": [
+        "salesforce"
+      ],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "sigma": {
+      "Platform Instance": [
+        "sigma"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "sigma"
+      ],
+      "Table-Level Lineage": [
+        "sigma"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [
+        "sigma"
+      ],
+      "Detect Deleted Entities": [
+        "sigma"
+      ],
+      "Extract Tags": [
+        "sigma"
+      ],
+      "Schema Metadata": [
+        "sigma"
+      ],
+      "Asset Containers": [
+        "sigma"
+      ],
+      "Classification": [],
+      "Test Connection": [
+        "sigma"
+      ]
+    },
+    "slack": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "slack"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "snowflake": {
+      "Platform Instance": [
+        "snowflake"
+      ],
+      "Domains": [
+        "snowflake"
+      ],
+      "Data Profiling": [
+        "snowflake"
+      ],
+      "Dataset Usage": [
+        "snowflake"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "snowflake"
+      ],
+      "Table-Level Lineage": [
+        "snowflake"
+      ],
+      "Column-level Lineage": [
+        "snowflake"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "snowflake"
+      ],
+      "Extract Tags": [
+        "snowflake"
+      ],
+      "Schema Metadata": [
+        "snowflake"
+      ],
+      "Asset Containers": [
+        "snowflake"
+      ],
+      "Classification": [
+        "snowflake"
+      ],
+      "Test Connection": [
+        "snowflake"
+      ]
+    },
+    "sql-queries": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "sql-queries"
+      ],
+      "Column-level Lineage": [
+        "sql-queries"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "sqlalchemy": {
+      "Platform Instance": [],
+      "Domains": [
+        "sqlalchemy"
+      ],
+      "Data Profiling": [
+        "sqlalchemy"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "sqlalchemy"
+      ],
+      "Table-Level Lineage": [
+        "sqlalchemy"
+      ],
+      "Column-level Lineage": [
+        "sqlalchemy"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "sqlalchemy"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "sqlalchemy"
+      ],
+      "Asset Containers": [
+        "sqlalchemy"
+      ],
+      "Classification": [
+        "sqlalchemy"
+      ],
+      "Test Connection": [
+        "sqlalchemy"
+      ]
+    },
+    "trino": {
+      "Platform Instance": [],
+      "Domains": [
+        "trino"
+      ],
+      "Data Profiling": [
+        "trino"
+      ],
+      "Dataset Usage": [
+        "starburst-trino-usage"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "trino"
+      ],
+      "Table-Level Lineage": [
+        "trino"
+      ],
+      "Column-level Lineage": [
+        "trino"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "trino"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "trino"
+      ],
+      "Asset Containers": [
+        "trino"
+      ],
+      "Classification": [
+        "trino"
+      ],
+      "Test Connection": [
+        "trino"
+      ]
+    },
+    "superset": {
+      "Platform Instance": [],
+      "Domains": [
+        "superset"
+      ],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [],
+      "Table-Level Lineage": [
+        "superset"
+      ],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "superset"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "tableau": {
+      "Platform Instance": [
+        "tableau"
+      ],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [
+        "tableau"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "tableau"
+      ],
+      "Table-Level Lineage": [
+        "tableau"
+      ],
+      "Column-level Lineage": [
+        "tableau"
+      ],
+      "Extract Ownership": [
+        "tableau"
+      ],
+      "Detect Deleted Entities": [
+        "tableau"
+      ],
+      "Extract Tags": [
+        "tableau"
+      ],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": [
+        "tableau"
+      ]
+    },
+    "teradata": {
+      "Platform Instance": [
+        "teradata"
+      ],
+      "Domains": [
+        "teradata"
+      ],
+      "Data Profiling": [
+        "teradata"
+      ],
+      "Dataset Usage": [
+        "teradata"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "teradata"
+      ],
+      "Table-Level Lineage": [
+        "teradata"
+      ],
+      "Column-level Lineage": [
+        "teradata"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "teradata"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "teradata"
+      ],
+      "Asset Containers": [
+        "teradata"
+      ],
+      "Classification": [
+        "teradata"
+      ],
+      "Test Connection": [
+        "teradata"
+      ]
+    },
+    "databricks": {
+      "Platform Instance": [
+        "unity-catalog"
+      ],
+      "Domains": [
+        "unity-catalog"
+      ],
+      "Data Profiling": [
+        "unity-catalog"
+      ],
+      "Dataset Usage": [
+        "unity-catalog"
+      ],
+      "Partition Support": [],
+      "Descriptions": [
+        "unity-catalog"
+      ],
+      "Table-Level Lineage": [
+        "unity-catalog"
+      ],
+      "Column-level Lineage": [
+        "unity-catalog"
+      ],
+      "Extract Ownership": [
+        "unity-catalog"
+      ],
+      "Detect Deleted Entities": [
+        "unity-catalog"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "unity-catalog"
+      ],
+      "Asset Containers": [
+        "unity-catalog"
+      ],
+      "Classification": [],
+      "Test Connection": [
+        "unity-catalog"
+      ]
+    },
+    "vertexai": {
+      "Platform Instance": [],
+      "Domains": [],
+      "Data Profiling": [],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "vertexai"
+      ],
+      "Table-Level Lineage": [],
+      "Column-level Lineage": [],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [],
+      "Extract Tags": [],
+      "Schema Metadata": [],
+      "Asset Containers": [],
+      "Classification": [],
+      "Test Connection": []
+    },
+    "vertica": {
+      "Platform Instance": [
+        "vertica"
+      ],
+      "Domains": [
+        "vertica"
+      ],
+      "Data Profiling": [
+        "vertica"
+      ],
+      "Dataset Usage": [],
+      "Partition Support": [],
+      "Descriptions": [
+        "vertica"
+      ],
+      "Table-Level Lineage": [
+        "vertica"
+      ],
+      "Column-level Lineage": [
+        "vertica"
+      ],
+      "Extract Ownership": [],
+      "Detect Deleted Entities": [
+        "vertica"
+      ],
+      "Extract Tags": [],
+      "Schema Metadata": [
+        "vertica"
+      ],
+      "Asset Containers": [
+        "vertica"
+      ],
+      "Classification": [
+        "vertica"
+      ],
+      "Test Connection": [
+        "vertica"
+      ]
+    }
+  },
   "plugin_details": {
     "abs": {
       "platform_id": "abs",
@@ -396,6 +2560,34 @@
         }
       ]
     },
+    "datahub-apply": {
+      "platform_id": "datahubapply",
+      "platform_name": "DataHubApply",
+      "classname": "datahub.ingestion.source.apply.datahub_apply.DataHubApplySource",
+      "support_status": "TESTING",
+      "capabilities": []
+    },
+    "datahub-business-glossary": {
+      "platform_id": "business-glossary",
+      "platform_name": "Business Glossary",
+      "classname": "datahub.ingestion.source.metadata.business_glossary.BusinessGlossaryFileSource",
+      "support_status": "CERTIFIED",
+      "capabilities": []
+    },
+    "datahub-debug": {
+      "platform_id": "datahubdebug",
+      "platform_name": "DataHubDebug",
+      "classname": "datahub.ingestion.source.debug.datahub_debug.DataHubDebugSource",
+      "support_status": "TESTING",
+      "capabilities": []
+    },
+    "datahub-gc": {
+      "platform_id": "datahubgc",
+      "platform_name": "DataHubGc",
+      "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
+      "support_status": "TESTING",
+      "capabilities": []
+    },
     "datahub-lineage-file": {
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
@@ -487,6 +2679,13 @@
           "description": "Can extract S3 object/bucket tags if enabled"
         }
       ]
+    },
+    "demo-data": {
+      "platform_id": "demo-data",
+      "platform_name": "Demo Data",
+      "classname": "datahub.ingestion.source.demo_data.DemoDataSource",
+      "support_status": null,
+      "capabilities": []
     },
     "dremio": {
       "platform_id": "dremio",
