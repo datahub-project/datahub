@@ -93,7 +93,7 @@ class DremioSourceMapEntry:
 class DremioSource(StatefulIngestionSourceBase):
     """
     This plugin integrates with Dremio to extract and ingest metadata into DataHub.
-    The following types of metada   ta are extracted:
+    The following types of metadata are extracted:
 
     - Metadata for Spaces, Folders, Sources, and Datasets:
         - Includes physical and virtual datasets, with detailed information about each dataset.
