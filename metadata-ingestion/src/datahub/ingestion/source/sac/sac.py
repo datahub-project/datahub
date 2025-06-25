@@ -178,7 +178,9 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default (only for Live Data Models)",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default (only for Import Data Models)",
