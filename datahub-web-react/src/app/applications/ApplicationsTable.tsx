@@ -1,7 +1,9 @@
 import { NetworkStatus } from '@apollo/client';
-import { Modal, Table } from '@components';
+import { Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
+
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import {
     ApplicationActionsColumn,
@@ -97,11 +99,19 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 refetch(); // Refresh the application list
             })
             .catch((e: any) => {
-                message.error(`Failed to delete tag: ${e.message}`);
+                message.error(`Failed to delete application: ${e.message}`);
             });
 
         setShowDeleteModal(false);
+        setApplicationUrnToDelete('');
+        setApplicationDisplayName('');
     }, [deleteApplicationMutation, refetch, applicationUrnToDelete, applicationDisplayName]);
+
+    const handleDeleteClose = useCallback(() => {
+        setShowDeleteModal(false);
+        setApplicationUrnToDelete('');
+        setApplicationDisplayName('');
+    }, []);
 
     const columns = useMemo(
         () => [
@@ -190,29 +200,15 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 onChange={handleTableChange as any}
             />
 
-            {/* Delete confirmation modal - simplified */}
-            <Modal
-                title={`Delete application ${applicationDisplayName}`}
-                onCancel={() => setShowDeleteModal(false)}
-                open={showDeleteModal}
-                centered
-                buttons={[
-                    {
-                        text: 'Cancel',
-                        color: 'violet',
-                        variant: 'text',
-                        onClick: () => setShowDeleteModal(false),
-                    },
-                    {
-                        text: 'Delete',
-                        color: 'red',
-                        variant: 'filled',
-                        onClick: handleDeleteApplication,
-                    },
-                ]}
-            >
-                <p>Are you sure you want to delete this application? This action cannot be undone.</p>
-            </Modal>
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                handleClose={handleDeleteClose}
+                handleConfirm={handleDeleteApplication}
+                modalTitle="Delete Application"
+                modalText={`Are you sure you want to delete the application "${applicationDisplayName}"? This action cannot be undone.`}
+                closeButtonText="Cancel"
+                confirmButtonText="Delete"
+            />
         </>
     );
 };

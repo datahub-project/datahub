@@ -80,13 +80,13 @@ export const Preferences = () => {
 
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
-    const canManageApplications = userContext?.platformPrivileges?.manageApplications;
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
+    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageApplications;
 
     return (
         <Page>
@@ -167,7 +167,7 @@ export const Preferences = () => {
                         </StyledCard>
                     </>
                 )}
-                {canManageApplications && (
+                {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
@@ -195,7 +195,7 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplications && (
+                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplicationAppearance && (
                     <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
                 )}
             </SourceContainer>

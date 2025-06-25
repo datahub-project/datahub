@@ -45,7 +45,7 @@ public class UpdateApplicationsSettingsResolver implements DataFetcher<Completab
               final com.linkedin.settings.global.ApplicationsSettings newApplicationsSettings =
                   newGlobalSettings.hasApplications()
                       ? newGlobalSettings.getApplications()
-                      : new com.linkedin.settings.global.ApplicationsSettings().setEnabled(true);
+                      : new com.linkedin.settings.global.ApplicationsSettings().setEnabled(false);
 
               // Next, patch the actions settings.
               updateApplicationsSettings(newApplicationsSettings, input);
