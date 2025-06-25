@@ -79,7 +79,7 @@ class DataHubMockDataConfig(ConfigModel):
         description="Whether this source is enabled",
     )
 
-    lineage_gen_1: LineageConfigGen1 = Field(
+    gen_1: LineageConfigGen1 = Field(
         default_factory=LineageConfigGen1,
         description="Configuration for lineage data generation",
     )
@@ -100,8 +100,8 @@ class DataHubMockDataSource(Source):
         self.report = SourceReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self.config.lineage_gen_1.emit_lineage:
-            yield from self._generate_lineage_data_gen_1()
+        if self.config.gen_1.emit_lineage:
+            yield from self._data_gen_1()
 
         yield from []
 
@@ -165,12 +165,12 @@ class DataHubMockDataSource(Source):
             # Level 1+: use fan_out_after_first if set, otherwise use fan_out
             return fan_out_after_first if fan_out_after_first is not None else fan_out
 
-    def _generate_lineage_data_gen_1(self) -> Iterable[MetadataWorkUnit]:
+    def _data_gen_1(self) -> Iterable[MetadataWorkUnit]:
         """Generate mock lineage data for testing purposes."""
-        lineage_gen_1 = self.config.lineage_gen_1
-        fan_out = lineage_gen_1.lineage_fan_out
-        hops = lineage_gen_1.lineage_hops
-        fan_out_after_first = lineage_gen_1.lineage_fan_out_after_first_hop
+        gen_1 = self.config.gen_1
+        fan_out = gen_1.lineage_fan_out
+        hops = gen_1.lineage_hops
+        fan_out_after_first = gen_1.lineage_fan_out_after_first_hop
 
         logger.info(
             f"Generating lineage data with fan_out={fan_out}, hops={hops}, fan_out_after_first={fan_out_after_first}"

@@ -176,12 +176,10 @@ def test_generate_lineage_data_gen1_workunit_counts():
 
     # Test basic configuration: fan_out=2, hops=1
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=True, lineage_fan_out=2, lineage_hops=1
-        )
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=2, lineage_hops=1)
     )
     source = DataHubMockDataSource(ctx, config)
-    workunits = list(source._generate_lineage_data_gen_1())
+    workunits = list(source._data_gen_1())
 
     # With fan_out=2, hops=1, we expect:
     # - Level 0: 1 table (2^0)
@@ -194,12 +192,10 @@ def test_generate_lineage_data_gen1_workunit_counts():
 
     # Test large fan out: fan_out=4, hops=1
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=True, lineage_fan_out=4, lineage_hops=1
-        )
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=4, lineage_hops=1)
     )
     source = DataHubMockDataSource(ctx, config)
-    workunits = list(source._generate_lineage_data_gen_1())
+    workunits = list(source._data_gen_1())
 
     # With fan_out=4, hops=1:
     # - Level 0: 1 table
@@ -211,14 +207,12 @@ def test_generate_lineage_data_gen1_workunit_counts():
 def test_generate_lineage_data_gen1_no_hops():
     """Test lineage data generation with 0 hops."""
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=True, lineage_fan_out=3, lineage_hops=0
-        )
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=3, lineage_hops=0)
     )
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
-    workunits = list(source._generate_lineage_data_gen_1())
+    workunits = list(source._data_gen_1())
 
     # With hops=0, we expect only 1 table with no lineage
     assert len(workunits) == 1
@@ -232,14 +226,12 @@ def test_generate_lineage_data_gen1_no_hops():
 def test_generate_lineage_data_gen1_table_naming():
     """Test that generated tables have correct naming pattern."""
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=True, lineage_fan_out=2, lineage_hops=1
-        )
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=2, lineage_hops=1)
     )
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
-    workunits = list(source._generate_lineage_data_gen_1())
+    workunits = list(source._data_gen_1())
 
     # Check that we have tables with expected naming pattern
     table_names = set()
@@ -264,14 +256,12 @@ def test_generate_lineage_data_gen1_table_naming():
 def test_generate_lineage_data_gen1_lineage_relationships():
     """Test that lineage relationships are correctly established."""
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=True, lineage_fan_out=2, lineage_hops=1
-        )
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=2, lineage_hops=1)
     )
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
-    workunits = list(source._generate_lineage_data_gen_1())
+    workunits = list(source._data_gen_1())
 
     # Find lineage workunits
     lineage_workunits = [
@@ -314,9 +304,7 @@ def test_generate_lineage_data_gen1_lineage_relationships():
 def test_generate_lineage_data_gen1_disabled():
     """Test that no lineage data is generated when lineage is disabled."""
     config = DataHubMockDataConfig(
-        lineage_gen_1=LineageConfigGen1(
-            emit_lineage=False, lineage_fan_out=3, lineage_hops=2
-        )
+        gen_1=LineageConfigGen1(emit_lineage=False, lineage_fan_out=3, lineage_hops=2)
     )
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
