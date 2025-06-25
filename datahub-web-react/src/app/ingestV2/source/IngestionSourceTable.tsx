@@ -10,6 +10,7 @@ import { getDisplayablePoolId } from '@app/ingestV2/executor_saas/utils';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
+import { EXECUTOR_TYPE_ALL_VALUE } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 import {
     ActionsColumn,
     NameColumn,
@@ -99,7 +100,10 @@ function IngestionSourceTable({
 
     const navigateToRunHistory = (record) => {
         setSelectedTab(TabType.RunHistory);
-        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+        const selectedSourceNameFilter = [
+            { field: 'executorType', values: [EXECUTOR_TYPE_ALL_VALUE] },
+            { field: 'ingestionSource', values: [record.urn] },
+        ];
         const preserveParams = shouldPreserveParams;
         preserveParams.current = true;
 

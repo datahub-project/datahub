@@ -2,7 +2,7 @@ import { Button, Pagination, SearchBar, SimpleSelect, colors } from '@components
 import { InputRef, message } from 'antd';
 import { X } from 'phosphor-react';
 import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -157,24 +157,18 @@ export const IngestionSourceList = ({
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
-    const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
+
+    const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location]);
+    const paramsQuery = useMemo(() => (params?.query as string) || undefined, [params]);
+    const paramsPoolFilter = useMemo(
+        () => (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined,
+        [params],
+    ); // SaaS only
     const history = useHistory();
 
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
-    // highlight search input if user arrives with a query preset for salience
-    useEffect(() => {
-        if (paramsQuery?.length) {
-            setQuery(paramsQuery);
-            setSearchInput(paramsQuery);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [paramsQuery]);
 
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
@@ -208,6 +202,31 @@ export const IngestionSourceList = ({
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
+
+    // highlight search input if user arrives with a query preset for salience
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            setSearchInput(paramsQuery);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
+        }
+    }, [paramsQuery]);
+
+    // Reset the source type filter in the case of applying filters by links from another tabs
+    // Query params should be changed
+    useEffect(() => {
+        if (paramsQuery?.length || paramsPoolFilter) {
+            setSourceFilter(IngestionSourceType.ALL);
+
+            // Saas only (reset query in the search input additionally)
+            if (paramsPoolFilter) {
+                setQuery('');
+                setSearchInput('');
+            }
+        }
+    }, [paramsQuery, paramsPoolFilter]);
 
     // Debounce the search query
     useDebounce(

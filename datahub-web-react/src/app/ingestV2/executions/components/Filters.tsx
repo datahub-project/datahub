@@ -3,7 +3,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import ExecutorTypeFilter from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import ExecutorTypeFilter, {
+    EXECUTOR_TYPE_ALL_VALUE,
+} from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 import SourceFilter from '@app/ingestV2/shared/components/filters/SourceFilter';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import useFilters from '@app/searchV2/utils/useFilters';
@@ -33,11 +35,11 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
     // initialization of query params from location
     const queryParams = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
     const paramFilters: Array<FacetFilterInput> = useFilters(queryParams);
-    const defaultValues = useMemo(
+    const queryParamsValues = useMemo(
         () => new Map<string, string[]>(paramFilters.map((item) => [item.field, item.values ?? []])),
         [paramFilters],
     );
-    const [valuesMap, setValuesMap] = useState<FiltersState>(defaultValues);
+    const [valuesMap, setValuesMap] = useState<FiltersState>(queryParamsValues);
 
     const [isInitialized, setIsInitialised] = useState<boolean>(false);
 
@@ -49,16 +51,16 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
 
     useEffect(() => {
         if (shouldPreserveParams.current) {
-            setValuesMap(defaultValues);
+            setValuesMap(queryParamsValues);
         }
-    }, [defaultValues, shouldPreserveParams]);
+    }, [queryParamsValues, shouldPreserveParams]);
 
     useEffect(() => {
         if (!isInitialized) {
-            onFiltersApplied?.(defaultValues);
+            onFiltersApplied?.(queryParamsValues);
             setIsInitialised(true);
         }
-    }, [defaultValues, onFiltersApplied, isInitialized]);
+    }, [queryParamsValues, onFiltersApplied, isInitialized]);
 
     const onUpdate = useCallback(
         (field: string, values: string[]) => {
@@ -78,6 +80,7 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
                 },
                 { arrayFormat: 'comma' },
             );
+            console.log('>>> onUpdate', search);
 
             history.push({
                 pathname: location.pathname,
@@ -87,15 +90,31 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
         [valuesMap, onFiltersApplied, history, location.pathname],
     );
 
+    const sourceDefaultValues = useMemo(() => queryParamsValues.get(INGESTION_SOURCE_FIELD), [queryParamsValues]);
+
+    const executorTypeValues = useMemo(() => {
+        const queryParamsExecutorTypeValues = queryParamsValues.get(EXECUTOR_TYPE_FIELD);
+        if (queryParamsExecutorTypeValues && queryParamsExecutorTypeValues.length > 0)
+            return queryParamsExecutorTypeValues;
+
+        const values = valuesMap.get(EXECUTOR_TYPE_FIELD);
+        if (values && values.length > 0) return values;
+
+        return [EXECUTOR_TYPE_ALL_VALUE];
+    }, [queryParamsValues, valuesMap]);
+
     return (
         <Container>
             <SourceFilter
-                defaultValues={defaultValues.get(INGESTION_SOURCE_FIELD)}
+                defaultValues={sourceDefaultValues}
                 onUpdate={(values) => onUpdate(INGESTION_SOURCE_FIELD, values)}
                 hideSystemSources={!!hideSystemSources}
                 shouldPreserveParams={shouldPreserveParams}
             />
-            <ExecutorTypeFilter onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)} />
+            <ExecutorTypeFilter
+                values={executorTypeValues}
+                onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)}
+            />
         </Container>
     );
 }
