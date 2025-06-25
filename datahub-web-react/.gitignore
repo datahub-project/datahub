@@ -31,3 +31,4 @@ yarn-error.log*
 
 .yarn-test-sentinel
 .yarn-lint-sentinel
+assets/ingestion/capability_summary.json
