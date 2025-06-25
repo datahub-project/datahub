@@ -5,7 +5,7 @@ import {
 
 import { CorpGroup, CorpUser, Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
-export function mapEntityToOwnerEntityType(entity: Entity | undefined): OwnerEntityType {
+export function mapEntityToOwnerEntityType(entity: Partial<Entity> | undefined): OwnerEntityType {
     switch (entity?.type) {
         case EntityType.CorpUser:
             return OwnerEntityType.CorpUser;
@@ -26,7 +26,7 @@ export function isCorpUserOrCorpGroup(entity: Entity): entity is CorpUser | Corp
 export function getOwnershipTypeNameFromOwner(owner: Partial<Owner>): string | null | undefined {
     if (owner.ownershipType && owner.ownershipType.info) return owner.ownershipType.info.name;
 
-    if (owner.type) getNameFromType(owner.type);
+    if (owner.type) return getNameFromType(owner.type);
 
     return undefined;
 }
@@ -34,7 +34,7 @@ export function getOwnershipTypeNameFromOwner(owner: Partial<Owner>): string | n
 export function getOwnershipTypeDescriptionFromOwner(owner: Partial<Owner>): string | null | undefined {
     if (owner.ownershipType && owner.ownershipType.info) return owner.ownershipType.info.description;
 
-    if (owner.type) getDescriptionFromType(owner.type);
+    if (owner.type) return getDescriptionFromType(owner.type);
 
     return undefined;
 }
