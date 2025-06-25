@@ -17,6 +17,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -44,6 +45,9 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -89,7 +93,7 @@ class DremioSourceMapEntry:
 class DremioSource(StatefulIngestionSourceBase):
     """
     This plugin integrates with Dremio to extract and ingest metadata into DataHub.
-    The following types of metadata are extracted:
+    The following types of metada   ta are extracted:
 
     - Metadata for Spaces, Folders, Sources, and Datasets:
         - Includes physical and virtual datasets, with detailed information about each dataset.
@@ -171,6 +175,14 @@ class DremioSource(StatefulIngestionSourceBase):
         logger.info(f"Full source map: {source_map}")
 
         return source_map
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
