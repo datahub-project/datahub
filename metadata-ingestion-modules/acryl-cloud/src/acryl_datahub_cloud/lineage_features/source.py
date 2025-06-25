@@ -45,6 +45,7 @@ SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
 
 class LineageFeaturesSourceConfig(ConfigModel):
     enabled: bool = True
+    materialize_entities: bool = False
     search_index: ElasticSearchClientConfig = ElasticSearchClientConfig()
     query_timeout: int = 30
     extract_batch_size: int = 3000
@@ -77,6 +78,7 @@ class LineageExtractGraphSourceReport(SourceReport, IngestionStageReport):
     upstream_count: int = 0
     downstream_count: int = 0
     edges_scanned: int = 0
+    skipped_materialized_urns_count: int = 0
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -321,15 +323,17 @@ class DataHubLineageFeaturesSource(Source):
                         f"Failed to cleanup PIT after error: {cleanup_error}"
                     )
                 raise
-        # So previous stage's calculations are done
-        self.report.new_stage("Extract lineage features End")
         self._update_report()
         self._delete_pit_with_retry(server, pit)
 
+        self.report.new_stage("start emission of lineage features")
         # In Python 3.9, can be replaced by `self.self.upstream_counts.keys() | self.downstream_counts.keys()`
         for urn in set(self.upstream_counts.keys()).union(
             self.downstream_counts.keys()
         ):
+            if (not self.config.materialize_entities) and urn not in self.valid_urns:
+                self.report.skipped_materialized_urns_count += 1
+                continue
             logger.debug(
                 f"{urn}: {self.upstream_counts[urn]}, {self.downstream_counts[urn]}"
             )
@@ -346,6 +350,8 @@ class DataHubLineageFeaturesSource(Source):
             ).as_workunit()
             self.report.report_workunit(wu)
             yield wu
+        # So previous stage's calculations are done
+        self.report.new_stage("end emission of lineage features")
 
     def get_report(self) -> SourceReport:
         return self.report
