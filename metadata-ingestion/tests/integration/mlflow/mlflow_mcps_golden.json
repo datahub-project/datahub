@@ -262,20 +262,10 @@
                 "model_env": "test",
                 "model_id": "1"
             },
+            "name": "test-model",
             "description": "This a test registered model",
             "created": {
                 "time": 1615443388097
-            },
-            "lastModified": {
-                "time": 1615443388097
-            },
-            "version": {
-                "versionTag": "1",
-                "metadataAttribution": {
-                    "time": 1615443388097,
-                    "actor": "urn:li:corpuser:datahub",
-                    "sourceDetail": {}
-                }
             }
         }
     },
@@ -358,38 +348,13 @@
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "mlModelProperties",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "customProperties": {
-                "model_version_id": "1"
-            },
-            "trainingJobs": [
-                "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca"
-            ],
-            "created": {
-                "time": 1615443388097
-            },
-            "lastModified": {
-                "time": 1615443388097
-            },
-            "hyperParams": [
-                {
-                    "name": "p",
-                    "value": "1"
-                }
-            ],
-            "trainingMetrics": [
-                {
-                    "name": "m",
-                    "value": "0.85"
-                }
-            ],
             "tags": [
-                "model_version_id:1"
-            ],
-            "groups": [
-                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)"
+                {
+                    "tag": "urn:li:tag:mlflow_archived"
+                }
             ]
         }
     },
@@ -400,17 +365,13 @@
     }
 },
 {
-    "entityType": "mlModel",
-    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:mlflow_archived"
-                }
-            ]
+            "platform": "urn:li:dataPlatform:mlflow"
         }
     },
     "systemMetadata": {
@@ -439,21 +400,10 @@
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "versionProperties",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(658730e7177b283e4f94410fe4b41519,mlModel)",
-            "version": {
-                "versionTag": "1",
-                "metadataAttribution": {
-                    "time": 1615443388097,
-                    "actor": "urn:li:corpuser:datahub",
-                    "sourceDetail": {}
-                }
-            },
-            "aliases": [],
-            "sortId": "0000000001",
-            "versioningScheme": "LEXICOGRAPHIC_STRING"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -464,12 +414,56 @@
 },
 {
     "entityType": "mlModel",
-    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:mlflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_version_id": "1"
+            },
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:2666299269d6ebea994d5ec0c29e3aca"
+            ],
+            "name": "test-model",
+            "created": {
+                "time": 1615443388097
+            },
+            "lastModified": {
+                "time": 1615443388097
+            },
+            "hyperParams": [
+                {
+                    "name": "p",
+                    "value": "1"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "m",
+                    "value": "0.85"
+                }
+            ],
+            "tags": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)"
+            ]
         }
     },
     "systemMetadata": {
@@ -497,6 +491,26 @@
     }
 },
 {
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:model_version_id:1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "mlModelGroup",
     "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)",
     "changeType": "UPSERT",
@@ -504,6 +518,28 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(a6864f532c6524290dde9578d2af5bb0,mlModel)",
+            "version": {
+                "versionTag": "1"
+            },
+            "aliases": [],
+            "sortId": "0000000001",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
         }
     },
     "systemMetadata": {
@@ -593,6 +629,22 @@
     }
 },
 {
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:e37dbaee9481246e0997d7d8fefd8815",
     "changeType": "UPSERT",
@@ -632,6 +684,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:model_version_id:1",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "model_version_id:1"
         }
     },
     "systemMetadata": {

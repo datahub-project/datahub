@@ -2,6 +2,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from mlflow import MlflowClient
@@ -55,26 +56,28 @@ from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     EdgeClass,
     GlobalTagsClass,
-    MetadataAttributionClass,
     MLHyperParamClass,
     MLMetricClass,
-    MLModelGroupPropertiesClass,
-    MLModelPropertiesClass,
     MLTrainingRunPropertiesClass,
     PlatformResourceInfoClass,
     SubTypesClass,
     TagAssociationClass,
     TagPropertiesClass,
-    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
-    VersionPropertiesClass,
-    VersionTagClass,
     _Aspect,
 )
-from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, MlModelUrn, VersionSetUrn
+from datahub.metadata.urns import (
+    DataPlatformUrn,
+    DatasetUrn,
+    MlModelUrn,
+    TagUrn,
+    VersionSetUrn,
+)
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.mlmodel import MLModel
+from datahub.sdk.mlmodelgroup import MLModelGroup
 
 T = TypeVar("T")
 
@@ -628,34 +631,19 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_ml_group_workunit(
         self,
         registered_model: RegisteredModel,
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate an MLModelGroup workunit for an MLflow Registered Model.
         """
-        ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
-        ml_model_group_properties = MLModelGroupPropertiesClass(
-            customProperties=registered_model.tags,
+        ml_model_group = MLModelGroup(
+            id=registered_model.name,
+            name=registered_model.name,
+            platform=self.platform,
             description=registered_model.description,
-            created=TimeStampClass(
-                time=registered_model.creation_timestamp, actor=None
-            ),
-            lastModified=TimeStampClass(
-                time=registered_model.last_updated_timestamp,
-                actor=None,
-            ),
-            version=VersionTagClass(
-                versionTag=self._get_latest_version(registered_model),
-                metadataAttribution=MetadataAttributionClass(
-                    time=registered_model.last_updated_timestamp,
-                    actor="urn:li:corpuser:datahub",
-                ),
-            ),
+            created=datetime.fromtimestamp(registered_model.creation_timestamp / 1000),
+            custom_properties=registered_model.tags,
         )
-        wu = self._create_workunit(
-            urn=ml_model_group_urn,
-            aspect=ml_model_group_properties,
-        )
-        return wu
+        yield from ml_model_group.as_workunits()
 
     def _make_ml_model_group_urn(self, registered_model: RegisteredModel) -> str:
         urn = builder.make_ml_model_group_urn(
@@ -705,19 +693,14 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
-            version_set_urn = self._get_version_set_urn(registered_model)
-            yield self._get_ml_group_workunit(registered_model)
+            yield from self._get_ml_group_workunit(registered_model)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                yield self._get_ml_model_properties_workunit(
+                yield from self._get_ml_model_properties_workunit(
                     registered_model=registered_model,
                     model_version=model_version,
                     run=run,
-                )
-                yield self._get_ml_model_version_properties_workunit(
-                    model_version=model_version,
-                    version_set_urn=version_set_urn,
                 )
                 yield self._get_global_tags_workunit(model_version=model_version)
 
@@ -730,54 +713,23 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         return version_set_urn
 
-    def _get_ml_model_version_properties_workunit(
-        self,
-        model_version: ModelVersion,
-        version_set_urn: VersionSetUrn,
-    ) -> MetadataWorkUnit:
-        ml_model_urn = self._make_ml_model_urn(model_version)
-
-        # get mlmodel name from ml model urn
-        ml_model_version_properties = VersionPropertiesClass(
-            version=VersionTagClass(
-                versionTag=str(model_version.version),
-                metadataAttribution=MetadataAttributionClass(
-                    time=model_version.creation_timestamp,
-                    actor="urn:li:corpuser:datahub",
-                ),
-            ),
-            versionSet=str(version_set_urn),
-            sortId=str(model_version.version).zfill(10),
-            aliases=[
-                VersionTagClass(versionTag=alias) for alias in model_version.aliases
-            ],
-        )
-
-        wu = MetadataChangeProposalWrapper(
-            entityUrn=str(ml_model_urn),
-            aspect=ml_model_version_properties,
-        ).as_workunit()
-
-        return wu
-
     def _get_ml_model_properties_workunit(
         self,
         registered_model: RegisteredModel,
         model_version: ModelVersion,
         run: Union[None, Run],
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate an MLModel workunit for an MLflow Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
         If a model was registered without an associated Run then hyperparams and metrics are not available.
         """
         ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
-        ml_model_urn = self._make_ml_model_urn(model_version)
 
         if run:
             # Use the same metrics and hyperparams from the run
-            hyperparams = self._get_run_params(run)
-            training_metrics = self._get_run_metrics(run)
+            hyperparams = {k: v for k, v in run.data.params.items()}
+            training_metrics = {k: v for k, v in run.data.metrics.items()}
             run_urn = DataProcessInstance(
                 id=run.info.run_id,
                 orchestrator=self.platform,
@@ -789,34 +741,30 @@ class MLflowSource(StatefulIngestionSourceBase):
             training_metrics = None
             training_jobs = []
 
-        created_time = model_version.creation_timestamp
-        created_actor = (
-            f"urn:li:platformResource:{model_version.user_id}"
-            if model_version.user_id
-            else None
+        created_time = datetime.fromtimestamp(model_version.creation_timestamp / 1000)
+        last_modified_time = datetime.fromtimestamp(
+            model_version.last_updated_timestamp / 1000
         )
-        model_version_tags = [f"{k}:{v}" for k, v in model_version.tags.items()]
-
-        ml_model_properties = MLModelPropertiesClass(
-            customProperties=model_version.tags,
-            externalUrl=self._make_external_url(model_version),
-            lastModified=TimeStampClass(
-                time=model_version.last_updated_timestamp,
-                actor=None,
-            ),
+        model_version_tags: List[Union[str, TagUrn, TagAssociationClass]] = [
+            TagUrn(f"{k}:{v}") for k, v in model_version.tags.items()
+        ]
+        ml_model = MLModel(
+            id=model_version.name,
+            name=model_version.name,
+            platform=self.platform,
             description=model_version.description,
-            created=TimeStampClass(
-                time=created_time,
-                actor=created_actor,
-            ),
-            hyperParams=hyperparams,
-            trainingMetrics=training_metrics,
+            external_url=self._make_external_url(model_version),
+            last_modified=last_modified_time,
+            created=created_time,
+            hyper_params=hyperparams,
+            training_metrics=training_metrics,
+            version=str(model_version.version),
+            custom_properties=model_version.tags,
             tags=model_version_tags,
-            groups=[ml_model_group_urn],
-            trainingJobs=training_jobs,
+            model_group=ml_model_group_urn,
+            training_jobs=training_jobs,
         )
-        wu = self._create_workunit(urn=ml_model_urn, aspect=ml_model_properties)
-        return wu
+        yield from ml_model.as_workunits()
 
     def _make_ml_model_urn(self, model_version: ModelVersion) -> str:
         urn = builder.make_ml_model_urn(
