@@ -115,7 +115,8 @@ def preserve_unicode_escapes(obj):
         # Convert non-ASCII characters back to \u escapes
         def escape_unicode(match):
             return f"\\u{ord(match.group(0)):04x}"
-        return re.sub(r'[^\x00-\x7F]', escape_unicode, obj)
+
+        return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
     else:
         return obj
 
