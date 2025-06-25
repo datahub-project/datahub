@@ -2,16 +2,14 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { StyledRightOutlined } from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 
-import { Entity, Container } from '@types';
-import {
-    StyledRightOutlined,
-} from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import { Container, Entity } from '@types';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -50,12 +48,12 @@ interface DbSchemaPair {
     schema?: string;
 }
 
-function extractDbSchema(containers?: Container[]) : DbSchemaPair | undefined {
+function extractDbSchema(containers?: Container[]): DbSchemaPair | undefined {
     if (containers && containers.length === 2 && containers[0]?.properties?.name && containers[1]?.properties?.name) {
         return {
             db: containers[1]?.properties?.name,
             schema: containers[0]?.properties?.name,
-        }
+        };
     }
     return undefined;
 }
@@ -82,13 +80,15 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                 {platformLogoUrl && (
                     <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
                 )}
-                 <span>{platformName}</span>
-                {dbSchema && <>
-                    <StyledRightOutlined data-testid="right-arrow" />
-                    <span>{dbSchema.schema}</span>
-                    <StyledRightOutlined data-testid="right-arrow" />
-                    <span>{dbSchema.schema}</span>
-                </>}
+                <span>{platformName}</span>
+                {dbSchema && (
+                    <>
+                        <StyledRightOutlined data-testid="right-arrow" />
+                        <span>{dbSchema.schema}</span>
+                        <StyledRightOutlined data-testid="right-arrow" />
+                        <span>{dbSchema.schema}</span>
+                    </>
+                )}
             </PlatformContent>
             <EntityName shrinkSize={displaySearchResult}>
                 {entityRegistry.getDisplayName(entity.type, entity)}
