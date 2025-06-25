@@ -637,6 +637,41 @@ public class OpenLineageToDataHub {
     return customProperties;
   }
 
+  // Helper method to check for RDD transformations that don't create new datasets
+  private static boolean isNonMaterializingRddTransformation(String jobName) {
+    // These transformations work on the same logical dataset without materializing new ones
+    String[] nonMaterializingTransformations = {
+      // Element-wise transformations (1-to-1 mapping)
+      "map_parallel_collection",
+      "map_text_file",
+      "map_hadoopfile",
+      "map_partitions_parallel_collection",
+      "map_partitions_text_file",
+      "map_partitions_hadoopfile",
+      "flatmap_parallel_collection",
+      "flatmap_text_file",
+      "flatmap_hadoopfile",
+
+      // Filtering operations (subset of same dataset)
+      "filter_parallel_collection",
+      "filter_text_file",
+      "filter_hadoopfile",
+
+      // Deduplication (subset of same dataset)
+      "distinct_parallel_collection",
+      "distinct_text_file",
+      "distinct_hadoopfile"
+    };
+
+    for (String transformation : nonMaterializingTransformations) {
+      if (jobName.endsWith(transformation)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private static void convertJobToDataJob(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf)
       throws URISyntaxException, IOException {
@@ -820,7 +855,9 @@ public class OpenLineageToDataHub {
                   event.getOutputs().stream()
                       .map(OpenLineage.Dataset::getName)
                       .collect(Collectors.toSet()));
-      if (inputsEqualOutputs) {
+      if ((inputsEqualOutputs)
+          && ("RDD_JOB".equals(job.getFacets().getJobType().getJobType()))
+          && isNonMaterializingRddTransformation(job.getName())) {
         log.info(
             "Inputs equals Outputs: {}. This is most probably because of an rdd map operation and we only process Inputs",
             inputsEqualOutputs);

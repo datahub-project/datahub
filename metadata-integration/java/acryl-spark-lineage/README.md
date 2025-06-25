@@ -395,6 +395,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - Add proper support for Spark Streaming
   - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
   - Option for Enhanced Merge Into Extraction
+  - Fix rdd map detection to correctly handle map transformations in the lineage.
   
 ### Version 0.2.17
 
