@@ -1,4 +1,3 @@
-import datetime
 from pathlib import Path
 from typing import Any, Union
 
@@ -50,7 +49,7 @@ def model_version(
     return ModelVersion(
         name=registered_model.name,
         version=version,
-        creation_timestamp=datetime.datetime.now(),
+        creation_timestamp=1660000000000,
     )
 
 
@@ -141,7 +140,10 @@ def test_model_without_run(source, registered_model, model_version):
         model_version=model_version,
         run=run,
     )
-    aspect = wu.metadata.aspect
+    wu_list = list(wu)
+    assert len(wu_list) > 0
+
+    aspect = wu_list[1].metadata.aspect
 
     assert aspect.hyperParams is None
     assert aspect.trainingMetrics is None

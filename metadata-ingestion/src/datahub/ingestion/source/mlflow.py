@@ -640,7 +640,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             name=registered_model.name,
             platform=self.platform,
             description=registered_model.description,
-            created=datetime.fromtimestamp(registered_model.creation_timestamp / 1000),
+            created=datetime.fromtimestamp(registered_model.creation_timestamp / 1000)
+            if registered_model.creation_timestamp
+            else None,
             custom_properties=registered_model.tags,
         )
         yield from ml_model_group.as_workunits()
@@ -741,9 +743,15 @@ class MLflowSource(StatefulIngestionSourceBase):
             training_metrics = None
             training_jobs = []
 
-        created_time = datetime.fromtimestamp(model_version.creation_timestamp / 1000)
-        last_modified_time = datetime.fromtimestamp(
-            model_version.last_updated_timestamp / 1000
+        created_time = (
+            datetime.fromtimestamp(model_version.creation_timestamp / 1000)
+            if model_version.creation_timestamp
+            else None
+        )
+        last_modified_time = (
+            datetime.fromtimestamp(model_version.last_updated_timestamp / 1000)
+            if model_version.last_updated_timestamp
+            else None
         )
         model_version_tags: List[Union[str, TagUrn, TagAssociationClass]] = [
             TagUrn(f"{k}:{v}") for k, v in model_version.tags.items()
