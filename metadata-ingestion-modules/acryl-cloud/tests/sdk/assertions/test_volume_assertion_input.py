@@ -1,13 +1,28 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional, Type
 from unittest.mock import Mock
 
 import pytest
 
+from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+    _AllRowsQuery,
+    _AllRowsQueryDataHubDatasetProfile,
+    _AuditLog,
+    _ChangedRowsQuery,
+    _DataHubOperation,
+    _DatasetProfile,
+    _DetectionMechanismTypes,
+    _HighWatermarkColumn,
+    _InformationSchema,
+    _LastModifiedColumn,
+    _Query,
+)
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     VolumeAssertionCondition,
     VolumeAssertionCriteria,
     VolumeAssertionCriteriaInputTypes,
+    _VolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
@@ -1629,3 +1644,227 @@ def test_parse_volume_assertion_definition_no_mutate_input_dict() -> None:
 
     # Verify the original dict was not mutated
     assert definition_dict == original_dict, "Original dictionary should not be mutated"
+
+
+@dataclass
+class VolumeAssertionDetectionMechanismTestParams:
+    """Test parameters for volume assertion detection mechanism conversion."""
+
+    detection_mechanism: Optional["_DetectionMechanismTypes"]
+    expected_source_type: str
+    expected_error: Optional[str] = None
+    should_succeed: bool = True
+
+
+class TestVolumeAssertionDetectionMechanism:
+    """Test suite for volume assertion detection mechanism conversion."""
+
+    @pytest.mark.parametrize(
+        "test_params",
+        [
+            # ============ SUCCESSFUL CASES ============
+            # Test each of the three supported detection mechanism types
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_Query(additional_filter="id > 100"),
+                    expected_source_type=models.DatasetVolumeSourceTypeClass.QUERY,
+                    should_succeed=True,
+                ),
+                id="query_detection_mechanism_with_filter",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_Query(additional_filter=None),
+                    expected_source_type=models.DatasetVolumeSourceTypeClass.QUERY,
+                    should_succeed=True,
+                ),
+                id="query_detection_mechanism_without_filter",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_InformationSchema(),
+                    expected_source_type=models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA,
+                    should_succeed=True,
+                ),
+                id="information_schema_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_DatasetProfile(),
+                    expected_source_type=models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE,
+                    should_succeed=True,
+                ),
+                id="dataset_profile_detection_mechanism",
+            ),
+            # Test default behavior when no detection mechanism is provided
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=None,
+                    expected_source_type=models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA,
+                    should_succeed=True,
+                ),
+                id="no_detection_mechanism_defaults_to_information_schema",
+            ),
+            # ============ ERROR CASES ============
+            # Test unsupported detection mechanism types
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_AuditLog(),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='audit_log' not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_audit_log_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_LastModifiedColumn(column_name="updated_at"),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='last_modified_column' column_name='updated_at' additional_filter=None not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_last_modified_column_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_HighWatermarkColumn(column_name="id"),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='high_watermark_column' column_name='id' additional_filter=None not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_high_watermark_column_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_DataHubOperation(),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='datahub_operation' not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_datahub_operation_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_AllRowsQuery(),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='all_rows_query' additional_filter=None not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_all_rows_query_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_ChangedRowsQuery(column_name="status"),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='changed_rows_query' column_name='status' additional_filter=None not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_changed_rows_query_detection_mechanism",
+            ),
+            pytest.param(
+                VolumeAssertionDetectionMechanismTestParams(
+                    detection_mechanism=_AllRowsQueryDataHubDatasetProfile(),
+                    expected_source_type="",  # Not used for error cases
+                    expected_error="Detection mechanism type='all_rows_query_datahub_dataset_profile' not yet supported for volume assertions",
+                    should_succeed=False,
+                ),
+                id="unsupported_all_rows_query_datahub_dataset_profile_detection_mechanism",
+            ),
+        ],
+    )
+    def test_convert_assertion_source_type_and_field(
+        self, test_params: VolumeAssertionDetectionMechanismTestParams
+    ) -> None:
+        """Test that volume assertion detection mechanisms are correctly converted to source types."""
+        # Create a mock entity client
+        mock_entity_client = Mock()
+
+        # Create a volume assertion input with the test detection mechanism
+        volume_assertion_input = _VolumeAssertionInput(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+            entity_client=mock_entity_client,
+            criteria=VolumeAssertionCriteria(
+                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                parameters=100,
+            ),
+            detection_mechanism=test_params.detection_mechanism,
+            created_by="urn:li:corpuser:test_user",
+            created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            updated_by="urn:li:corpuser:test_user",
+            updated_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        )
+
+        if test_params.should_succeed:
+            # Test successful cases
+            source_type, field = (
+                volume_assertion_input._convert_assertion_source_type_and_field()
+            )
+
+            assert source_type == test_params.expected_source_type
+            assert field is None  # Volume assertions don't use field specifications
+        else:
+            # Test failure cases
+            with pytest.raises(SDKNotYetSupportedError) as exc_info:
+                volume_assertion_input._convert_assertion_source_type_and_field()
+
+            if test_params.expected_error:
+                assert test_params.expected_error in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "detection_mechanism, expected_source_type",
+        [
+            (
+                _Query(additional_filter="id > 100"),
+                models.DatasetVolumeSourceTypeClass.QUERY,
+            ),
+            (
+                _InformationSchema(),
+                models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA,
+            ),
+            (
+                _DatasetProfile(),
+                models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE,
+            ),
+        ],
+    )
+    def test_volume_assertion_evaluation_parameters_with_detection_mechanisms(
+        self, detection_mechanism: _DetectionMechanismTypes, expected_source_type: str
+    ) -> None:
+        """Test that volume assertion evaluation parameters are correctly set for different detection mechanisms."""
+        # Create a mock entity client
+        mock_entity_client = Mock()
+
+        # Create a volume assertion input with the test detection mechanism
+        volume_assertion_input = _VolumeAssertionInput(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+            entity_client=mock_entity_client,
+            criteria=VolumeAssertionCriteria(
+                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+                parameters=100,
+            ),
+            detection_mechanism=detection_mechanism,
+            created_by="urn:li:corpuser:test_user",
+            created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            updated_by="urn:li:corpuser:test_user",
+            updated_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+        )
+
+        # Get the source type and field
+        source_type, field = (
+            volume_assertion_input._convert_assertion_source_type_and_field()
+        )
+
+        # Get the evaluation parameters
+        evaluation_params = volume_assertion_input._get_assertion_evaluation_parameters(
+            source_type, field
+        )
+
+        # Verify the evaluation parameters
+        assert (
+            evaluation_params.type
+            == models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME
+        )
+        assert evaluation_params.datasetVolumeParameters is not None
+        assert (
+            evaluation_params.datasetVolumeParameters.sourceType == expected_source_type
+        )

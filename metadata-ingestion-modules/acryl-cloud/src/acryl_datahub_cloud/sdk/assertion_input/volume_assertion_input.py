@@ -10,6 +10,9 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DetectionMechanismInputTypes,
     FieldSpecType,
     _AssertionInput,
+    _DatasetProfile,
+    _InformationSchema,
+    _Query,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
     Assertion,
@@ -614,19 +617,21 @@ class _VolumeAssertionInput(_AssertionInput):
         self,
     ) -> tuple[str, Optional[FieldSpecType]]:
         """Convert the detection mechanism to source type and field."""
-        default_source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        field = None
 
         if self.detection_mechanism is None:
-            return default_source_type, None
+            return source_type, field
 
-        # Convert detection mechanism to volume source type
-        if isinstance(self.detection_mechanism, str):
-            if self.detection_mechanism == "information_schema":
-                return models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA, None
-            elif self.detection_mechanism == "datahub_operation":
-                return models.DatasetVolumeSourceTypeClass.OPERATION, None
-            else:
-                return default_source_type, None
+        if isinstance(self.detection_mechanism, _Query):
+            source_type = models.DatasetVolumeSourceTypeClass.QUERY
+        elif isinstance(self.detection_mechanism, _InformationSchema):
+            source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        elif isinstance(self.detection_mechanism, _DatasetProfile):
+            source_type = models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE
+        else:
+            raise SDKNotYetSupportedError(
+                f"Detection mechanism {self.detection_mechanism} not yet supported for volume assertions"
+            )
 
-        # For more complex detection mechanisms, we might need additional logic
-        return default_source_type, None
+        return source_type, field
