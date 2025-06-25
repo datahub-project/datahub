@@ -2,6 +2,7 @@ import dataclasses
 import json
 import logging
 import pathlib
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import click
@@ -171,19 +172,44 @@ def generate_capability_summary() -> CapabilitySummary:
 
 
 def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
-    """Save the capability summary as JSON files."""
+    """Save the capability summary as JSON files, but only write if contents have changed."""
 
     output_path = pathlib.Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     summary_dict = dataclasses.asdict(summary)
+    summary_dict["generated_by"] = "metadata-ingestion/scripts/capability_summary.py"
+    summary_dict["generated_at"] = datetime.now(timezone.utc).isoformat()
+    # Remove unwanted keys from the output
+    summary_dict.pop("capability_breakdown", None)
+    summary_dict.pop("capabilities_dict", None)
+    summary_dict.pop("platform_summary", None)
+    summary_json = json.dumps(summary_dict, indent=2, sort_keys=True)
 
-    # Save the main summary file
     summary_file = output_path / "capability_summary.json"
-    with open(summary_file, "w") as f:
-        json.dump(summary_dict, f, indent=2)
+    write_file = True
+    if summary_file.exists():
+        try:
+            with open(summary_file, "r") as f:
+                existing_data = json.load(f)
 
-    logger.info(f"Capability summary saved to {summary_file}")
+            # Create copies without generated_at for comparison
+            existing_for_comparison = existing_data.copy()
+            new_for_comparison = summary_dict.copy()
+            existing_for_comparison.pop("generated_at", None)
+            new_for_comparison.pop("generated_at", None)
+
+            if json.dumps(
+                existing_for_comparison, indent=2, sort_keys=True
+            ) == json.dumps(new_for_comparison, indent=2, sort_keys=True):
+                logger.info(f"No changes detected in {summary_file}, skipping write.")
+                write_file = False
+        except Exception as e:
+            logger.warning(f"Could not read existing summary file: {e}")
+    if write_file:
+        with open(summary_file, "w") as f:
+            f.write(summary_json)
+        logger.info(f"Capability summary saved to {summary_file}")
 
 
 @click.command()
