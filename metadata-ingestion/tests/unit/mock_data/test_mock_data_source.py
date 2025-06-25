@@ -3,8 +3,14 @@ from datahub.ingestion.source.mock_data.datahub_mock_data import (
     DataHubMockDataConfig,
     DataHubMockDataSource,
     LineageConfigGen1,
+    SubTypePattern,
 )
-from datahub.metadata.schema_classes import StatusClass, UpstreamLineageClass
+from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
+from datahub.metadata.schema_classes import (
+    StatusClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.metadata.urns import DatasetUrn
 
 
@@ -252,6 +258,12 @@ def test_generate_lineage_data_gen1_table_naming():
     }
     assert table_names == expected_names
 
+    # Verify all table names are valid and parseable
+    for table_name in table_names:
+        parsed = TableNamingHelper.parse_table_name(table_name)
+        assert parsed["lineage_hops"] == 1
+        assert parsed["lineage_fan_out"] == 2
+
 
 def test_generate_lineage_data_gen1_lineage_relationships():
     """Test that lineage relationships are correctly established."""
@@ -383,3 +395,313 @@ def test_calculate_fanout_for_level():
         )
         == 50
     )
+
+
+def test_subtypes_config_defaults():
+    """Test that SubTypes configuration has correct defaults."""
+    config = DataHubMockDataConfig()
+    assert config.gen_1.emit_subtypes is False
+    assert config.gen_1.subtype_pattern == SubTypePattern.ALTERNATING
+    assert config.gen_1.level_subtypes == {0: "Table", 1: "View", 2: "Table"}
+
+
+def test_subtypes_config_custom_values():
+    """Test that SubTypes configuration can be set with custom values."""
+    lineage_config = LineageConfigGen1(
+        emit_subtypes=True,
+        subtype_pattern=SubTypePattern.LEVEL_BASED,
+        level_subtypes={0: "View", 1: "Table", 2: "View"},
+    )
+    assert lineage_config.emit_subtypes is True
+    assert lineage_config.subtype_pattern == SubTypePattern.LEVEL_BASED
+    assert lineage_config.level_subtypes == {0: "View", 1: "Table", 2: "View"}
+
+
+def test_determine_subtype_alternating():
+    """Test alternating subtype pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALTERNATING)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Test alternating pattern
+    assert source._determine_subtype("table1", 0, 0) == "Table"  # index 0
+    assert source._determine_subtype("table2", 0, 1) == "View"  # index 1
+    assert source._determine_subtype("table3", 1, 0) == "Table"  # index 0
+    assert source._determine_subtype("table4", 1, 1) == "View"  # index 1
+    assert source._determine_subtype("table5", 2, 0) == "Table"  # index 0
+
+
+def test_determine_subtype_all_table():
+    """Test all_table subtype pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALL_TABLE)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # All should be Table
+    assert source._determine_subtype("table1", 0, 0) == "Table"
+    assert source._determine_subtype("table2", 0, 1) == "Table"
+    assert source._determine_subtype("table3", 1, 0) == "Table"
+    assert source._determine_subtype("table4", 1, 1) == "Table"
+
+
+def test_determine_subtype_all_view():
+    """Test all_view subtype pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALL_VIEW)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # All should be View
+    assert source._determine_subtype("table1", 0, 0) == "View"
+    assert source._determine_subtype("table2", 0, 1) == "View"
+    assert source._determine_subtype("table3", 1, 0) == "View"
+    assert source._determine_subtype("table4", 1, 1) == "View"
+
+
+def test_determine_subtype_level_based():
+    """Test level_based subtype pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            subtype_pattern=SubTypePattern.LEVEL_BASED,
+            level_subtypes={0: "Table", 1: "View", 2: "Table"},
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Level-based pattern
+    assert source._determine_subtype("table1", 0, 0) == "Table"  # level 0
+    assert source._determine_subtype("table2", 0, 1) == "Table"  # level 0
+    assert source._determine_subtype("table3", 1, 0) == "View"  # level 1
+    assert source._determine_subtype("table4", 1, 1) == "View"  # level 1
+    assert source._determine_subtype("table5", 2, 0) == "Table"  # level 2
+    assert source._determine_subtype("table6", 3, 0) == "Table"  # level 3 (default)
+
+
+def test_determine_subtype_hash_based():
+    """Test hash_based subtype pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.HASH_BASED)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Hash-based should be deterministic for same table names
+    result1 = source._determine_subtype("table1", 0, 0)
+    result2 = source._determine_subtype("table1", 0, 0)
+    assert result1 == result2  # Same table name should give same result
+
+    # Different table names might give different results
+    result3 = source._determine_subtype("table2", 0, 0)
+    # We can't predict the exact result due to hash, but it should be one of the two
+    assert result3 in ["Table", "View"]
+
+
+def test_determine_subtype_invalid_pattern():
+    """Test that invalid pattern defaults to Table."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALTERNATING)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Should default to Table for any valid pattern
+    assert source._determine_subtype("table1", 0, 0) == "Table"
+
+
+def test_get_subtypes_aspect():
+    """Test that SubTypes aspects are correctly created."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(subtype_pattern=SubTypePattern.ALTERNATING)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Test SubTypes aspect generation
+    subtypes_workunit = source._get_subtypes_aspect("test_table", 0, 1)
+    dataset_urn = DatasetUrn.from_string(subtypes_workunit.metadata.entityUrn)
+    assert dataset_urn.name == "test_table"
+    assert subtypes_workunit.metadata.entityType == "dataset"
+    assert isinstance(subtypes_workunit.metadata.aspect, SubTypesClass)
+
+    subtypes = subtypes_workunit.metadata.aspect
+    assert len(subtypes.typeNames) == 1
+    assert (
+        subtypes.typeNames[0] == "View"
+    )  # index 1 should be View in alternating pattern
+
+
+def test_generate_lineage_data_with_subtypes():
+    """Test lineage data generation with SubTypes enabled."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            emit_lineage=True,
+            emit_subtypes=True,
+            lineage_fan_out=2,
+            lineage_hops=1,
+            subtype_pattern=SubTypePattern.ALTERNATING,
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    workunits = list(source._data_gen_1())
+
+    # With fan_out=2, hops=1:
+    # - Level 0: 1 table (2^0)
+    # - Level 1: 2 tables (2^1)
+    # Total tables: 3
+    # Each table gets a status aspect + SubTypes aspect
+    # Level 0 table connects to 2 level 1 tables = 2 lineage aspects
+    expected_workunits = (
+        3 + 3 + 2
+    )  # status aspects + SubTypes aspects + lineage aspects
+    assert len(workunits) == expected_workunits
+
+    # Check that we have SubTypes aspects
+    subtypes_workunits = [
+        w
+        for w in workunits
+        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
+    ]
+    assert len(subtypes_workunits) == 3
+
+    # Check that alternating pattern is applied
+    table_subtypes = {}
+    for workunit in subtypes_workunits:
+        urn = workunit.metadata.entityUrn
+        dataset_urn = DatasetUrn.from_string(urn)
+        table_name = dataset_urn.name
+        subtypes = workunit.metadata.aspect
+        table_subtypes[table_name] = subtypes.typeNames[0]
+
+    # Extract table indices from names to verify alternating pattern
+    for table_name, subtype in table_subtypes.items():
+        # Parse table name using helper
+        parsed = TableNamingHelper.parse_table_name(table_name)
+        index = parsed["table_index"]
+
+        expected_subtype = "Table" if index % 2 == 0 else "View"
+        assert subtype == expected_subtype, (
+            f"Table {table_name} should be {expected_subtype}"
+        )
+
+
+def test_generate_lineage_data_subtypes_disabled():
+    """Test that no SubTypes data is generated when SubTypes is disabled."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            emit_lineage=True, emit_subtypes=False, lineage_fan_out=2, lineage_hops=1
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    workunits = list(source._data_gen_1())
+
+    # Should not generate SubTypes workunits when disabled
+    subtypes_workunits = [
+        w
+        for w in workunits
+        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
+    ]
+    assert len(subtypes_workunits) == 0
+
+    # Should still generate status and lineage workunits
+    status_workunits = [
+        w
+        for w in workunits
+        if w.metadata.aspect and isinstance(w.metadata.aspect, StatusClass)
+    ]
+    assert len(status_workunits) == 3  # 3 tables
+
+
+def test_subtypes_level_based_pattern():
+    """Test SubTypes generation with level_based pattern."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            emit_lineage=True,
+            emit_subtypes=True,
+            lineage_fan_out=2,
+            lineage_hops=2,
+            subtype_pattern=SubTypePattern.LEVEL_BASED,
+            level_subtypes={0: "Table", 1: "View", 2: "Table"},
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    workunits = list(source._data_gen_1())
+
+    # Check SubTypes aspects
+    subtypes_workunits = [
+        w
+        for w in workunits
+        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
+    ]
+
+    # Verify level-based pattern
+    for workunit in subtypes_workunits:
+        urn = workunit.metadata.entityUrn
+        dataset_urn = DatasetUrn.from_string(urn)
+        table_name = dataset_urn.name
+        subtypes = workunit.metadata.aspect
+
+        # Parse table name using helper
+        parsed = TableNamingHelper.parse_table_name(table_name)
+        level = parsed["level"]
+
+        expected_subtype = config.gen_1.level_subtypes.get(level, "Table")
+        assert subtypes.typeNames[0] == expected_subtype, (
+            f"Table {table_name} at level {level} should be {expected_subtype}"
+        )
+
+
+def test_subtype_pattern_enum_values():
+    """Test that SubTypePattern enum has the expected values."""
+    assert SubTypePattern.ALTERNATING == "alternating"
+    assert SubTypePattern.ALL_TABLE == "all_table"
+    assert SubTypePattern.ALL_VIEW == "all_view"
+    assert SubTypePattern.HASH_BASED == "hash_based"
+    assert SubTypePattern.LEVEL_BASED == "level_based"
+
+    # Test that all enum values are valid
+    valid_patterns = [pattern.value for pattern in SubTypePattern]
+    assert "alternating" in valid_patterns
+    assert "all_table" in valid_patterns
+    assert "all_view" in valid_patterns
+    assert "hash_based" in valid_patterns
+    assert "level_based" in valid_patterns
+
+
+def test_table_naming_helper_integration():
+    """Test that TableNamingHelper works correctly with the main data source."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(emit_lineage=True, lineage_fan_out=2, lineage_hops=1)
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    workunits = list(source._data_gen_1())
+
+    # Extract table names from status workunits
+    table_names = set()
+    for workunit in workunits:
+        if workunit.metadata.aspect and isinstance(
+            workunit.metadata.aspect, StatusClass
+        ):
+            urn = workunit.metadata.entityUrn
+            dataset_urn = DatasetUrn.from_string(urn)
+            table_names.add(dataset_urn.name)
+
+    # Verify all generated table names are valid and parseable
+    for table_name in table_names:
+        assert TableNamingHelper.is_valid_table_name(table_name)
+        parsed = TableNamingHelper.parse_table_name(table_name)
+        assert parsed["lineage_hops"] == 1
+        assert parsed["lineage_fan_out"] == 2

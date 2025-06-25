@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) or any other agent w
 - Keep code maintainable. This is not throw-away code. This goes to production. 
 - Generate unit tests where appropriate. 
 - Do not start generating random scripts to run the code you generated unless asked for.
-- Do not add comments for obvious things. Rather than that add unit tests that are maintainable.
+- Do not add comments which are redundant given the function names
 
 ## Core concept docs
 

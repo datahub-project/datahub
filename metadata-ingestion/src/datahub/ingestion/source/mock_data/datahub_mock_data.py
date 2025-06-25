@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from typing import Iterable
 
 from pydantic import Field
@@ -15,14 +16,24 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     StatusClass,
+    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class SubTypePattern(str, Enum):
+    ALTERNATING = "alternating"
+    ALL_TABLE = "all_table"
+    ALL_VIEW = "all_view"
+    HASH_BASED = "hash_based"
+    LEVEL_BASED = "level_based"
 
 
 class LineageConfigGen1(ConfigModel):
@@ -70,6 +81,21 @@ class LineageConfigGen1(ConfigModel):
     lineage_fan_out_after_first_hop: int = Field(
         default=None,
         description="Optional limit on fanout for hops after the first hop. When set, prevents exponential growth by limiting the number of downstream tables per upstream table at levels 2 and beyond. When None, uses the standard exponential growth (lineage_fan_out^level).",
+    )
+
+    emit_subtypes: bool = Field(
+        default=False,
+        description="Whether to emit SubTypes aspects for testing purposes. When False, no SubTypes data is generated regardless of other settings.",
+    )
+
+    subtype_pattern: SubTypePattern = Field(
+        default=SubTypePattern.ALTERNATING,
+        description="Pattern for determining SubTypes. Options: 'alternating', 'all_table', 'all_view', 'hash_based', 'level_based'",
+    )
+
+    level_subtypes: dict[int, str] = Field(
+        default={0: "Table", 1: "View", 2: "Table"},
+        description="Mapping of level to subtype for level_based pattern",
     )
 
 
@@ -165,6 +191,60 @@ class DataHubMockDataSource(Source):
             # Level 1+: use fan_out_after_first if set, otherwise use fan_out
             return fan_out_after_first if fan_out_after_first is not None else fan_out
 
+    def _determine_subtype(
+        self, table_name: str, table_level: int, table_index: int
+    ) -> str:
+        """
+        Determine subtype based on configured pattern.
+
+        Args:
+            table_name: Name of the table
+            table_level: Level of the table in the lineage graph
+            table_index: Index of the table within its level
+
+        Returns:
+            The determined subtype ("Table" or "View")
+        """
+        pattern = self.config.gen_1.subtype_pattern
+
+        if pattern == SubTypePattern.ALTERNATING:
+            return "Table" if table_index % 2 == 0 else "View"
+        elif pattern == SubTypePattern.LEVEL_BASED:
+            return self.config.gen_1.level_subtypes.get(table_level, "Table")
+        elif pattern == SubTypePattern.ALL_TABLE:
+            return "Table"
+        elif pattern == SubTypePattern.ALL_VIEW:
+            return "View"
+        elif pattern == SubTypePattern.HASH_BASED:
+            return "Table" if hash(table_name) % 2 == 0 else "View"
+        else:
+            return "Table"  # default
+
+    def _get_subtypes_aspect(
+        self, table_name: str, table_level: int, table_index: int
+    ) -> MetadataWorkUnit:
+        """
+        Create a SubTypes aspect for a table based on deterministic pattern.
+
+        Args:
+            table_name: Name of the table
+            table_level: Level of the table in the lineage graph
+            table_index: Index of the table within its level
+
+        Returns:
+            MetadataWorkUnit containing the SubTypes aspect
+        """
+        # Determine subtype based on pattern
+        subtype = self._determine_subtype(table_name, table_level, table_index)
+
+        urn = make_dataset_urn(platform="fake", name=table_name)
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            entityType="dataset",
+            aspect=SubTypesClass(typeNames=[subtype]),
+        )
+        return mcp.as_workunit()
+
     def _data_gen_1(self) -> Iterable[MetadataWorkUnit]:
         """Generate mock lineage data for testing purposes."""
         gen_1 = self.config.gen_1
@@ -189,9 +269,13 @@ class DataHubMockDataSource(Source):
             tables_at_level = tables_at_levels[i]
 
             for j in range(tables_at_level):
-                table_name = f"hops_{hops}_f_{fan_out}_h{i}_t{j}"
+                table_name = TableNamingHelper.generate_table_name(hops, fan_out, i, j)
 
                 yield self._get_status_aspect(table_name)
+
+                # Emit SubTypes aspect if enabled
+                if self.config.gen_1.emit_subtypes:
+                    yield self._get_subtypes_aspect(table_name, i, j)
 
                 yield from self._generate_lineage_for_table(
                     table_name=table_name,
@@ -259,8 +343,8 @@ class DataHubMockDataSource(Source):
         )
 
         for downstream_index in range(start_downstream, end_downstream):
-            downstream_table_name = (
-                f"hops_{hops}_f_{fan_out}_h{downstream_level}_t{downstream_index}"
+            downstream_table_name = TableNamingHelper.generate_table_name(
+                hops, fan_out, downstream_level, downstream_index
             )
             yield self._get_upstream_aspect(
                 upstream_table=upstream_table_name,
@@ -268,7 +352,6 @@ class DataHubMockDataSource(Source):
             )
 
     def _get_status_aspect(self, table: str) -> MetadataWorkUnit:
-        """Create a status aspect for a table."""
         urn = make_dataset_urn(
             platform="fake",
             name=table,
@@ -283,7 +366,6 @@ class DataHubMockDataSource(Source):
     def _get_upstream_aspect(
         self, upstream_table: str, downstream_table: str
     ) -> MetadataWorkUnit:
-        """Create an upstream lineage aspect between two tables."""
         mcp = MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
                 platform="fake",
