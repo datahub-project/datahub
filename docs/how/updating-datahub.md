@@ -33,6 +33,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
+
 ### Other Notable Changes
 
 ## 1.1.0
