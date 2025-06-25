@@ -46,12 +46,12 @@ interface Props {
 }
 
 interface DbSchemaPair {
-    db?: String;
-    schema?: String;
+    db?: string;
+    schema?: string;
 }
 
 function extractDbSchema(containers?: Container[]) : DbSchemaPair | undefined {
-    if (containers && containers.length == 2 && containers[0]?.properties?.name && containers[1]?.properties?.name) {
+    if (containers && containers.length === 2 && containers[0]?.properties?.name && containers[1]?.properties?.name) {
         return {
             db: containers[1]?.properties?.name,
             schema: containers[0]?.properties?.name,
