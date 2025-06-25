@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Type
 
 from typing_extensions import Self
 
+import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.errors import IngestionAttributionWarning
@@ -152,6 +153,7 @@ class DataJob(
         custom_properties: Optional[Dict[str, str]],
         created: Optional[datetime],
         last_modified: Optional[datetime],
+        env: Optional[str] = None,
     ) -> None:
         if description is not None:
             self.set_description(description)
@@ -163,6 +165,7 @@ class DataJob(
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        self.set_env(env)
 
     def _init_metadata_props(
         self,
@@ -390,3 +393,13 @@ class DataJob(
         if io_aspect.fineGrainedLineages is None:
             io_aspect.fineGrainedLineages = []
         io_aspect.fineGrainedLineages.extend(lineages)
+
+    @property
+    def env(self) -> Optional[str]:
+        """Get the environment of the data job."""
+        return str(self._ensure_datajob_props().env)
+
+    def set_env(self, env: Optional[str]) -> None:
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
+        self._ensure_datajob_props().env = env

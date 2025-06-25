@@ -75,7 +75,8 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)"
+            "flowUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -695,7 +696,8 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)"
+            "flowUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
