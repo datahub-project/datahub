@@ -1,0 +1,2817 @@
+{
+  "total_plugins": 79,
+  "plugins_with_capabilities": 74,
+  "plugins_skipped": 5,
+  "skipped_plugin_names": [
+    "datahub-apply",
+    "datahub-business-glossary",
+    "datahub-debug",
+    "datahub-gc",
+    "demo-data"
+  ],
+  "total_capabilities": 442,
+  "plugin_details": {
+    "abs": {
+      "platform_id": "abs",
+      "platform_name": "ABS Data Lake",
+      "classname": "datahub.ingestion.source.abs.source.ABSSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Can extract ABS object/container tags if enabled"
+        }
+      ]
+    },
+    "athena": {
+      "platform_id": "athena",
+      "platform_name": "Athena",
+      "classname": "datahub.ingestion.source.sql.athena.AthenaSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Supported for S3 tables"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation."
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported for S3 tables"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "azure-ad": {
+      "platform_id": "azure-ad",
+      "platform_name": "Azure AD",
+      "classname": "datahub.ingestion.source.identity.azure_ad.AzureADSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via stateful_ingestion"
+        }
+      ]
+    },
+    "bigquery": {
+      "platform_id": "bigquery",
+      "platform_name": "BigQuery",
+      "classname": "datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Partition Support",
+          "supported": true,
+          "description": "Enabled by default, partition keys and clustering keys are supported."
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": false,
+          "description": "Platform instance is pre-set to the BigQuery project id"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "cassandra": {
+      "platform_id": "cassandra",
+      "platform_name": "Cassandra",
+      "classname": "datahub.ingestion.source.cassandra.cassandra.CassandraSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "clickhouse": {
+      "platform_id": "clickhouse",
+      "platform_name": "ClickHouse",
+      "classname": "datahub.ingestion.source.sql.clickhouse.ClickHouseSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "clickhouse-usage": {
+      "platform_id": "clickhouse",
+      "platform_name": "ClickHouse",
+      "classname": "datahub.ingestion.source.usage.clickhouse_usage.ClickHouseUsageSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default to get usage stats"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        }
+      ]
+    },
+    "cockroachdb": {
+      "platform_id": "cockroachdb",
+      "platform_name": "CockroachDB",
+      "classname": "datahub.ingestion.source.sql.cockroachdb.CockroachDBSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "csv-enricher": {
+      "platform_id": "csv-enricher",
+      "platform_name": "CSV Enricher",
+      "classname": "datahub.ingestion.source.csv_enricher.CSVEnricherSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "datahub": {
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "classname": "datahub.ingestion.source.datahub.datahub_source.DataHubSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        }
+      ]
+    },
+    "datahub-lineage-file": {
+      "platform_id": "file-based-lineage",
+      "platform_name": "File Based Lineage",
+      "classname": "datahub.ingestion.source.metadata.lineage.LineageFileSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Specified in the lineage file."
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Specified in the lineage file."
+        }
+      ]
+    },
+    "dbt": {
+      "platform_id": "dbt",
+      "platform_name": "dbt",
+      "classname": "datahub.ingestion.source.dbt.dbt_core.DBTCoreSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configure using `include_column_lineage`"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "dbt-cloud": {
+      "platform_id": "dbt",
+      "platform_name": "dbt",
+      "classname": "datahub.ingestion.source.dbt.dbt_cloud.DBTCloudSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configure using `include_column_lineage`"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "delta-lake": {
+      "platform_id": "delta-lake",
+      "platform_name": "Delta Lake",
+      "classname": "datahub.ingestion.source.delta_lake.source.DeltaLakeSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Can extract S3 object/bucket tags if enabled"
+        }
+      ]
+    },
+    "dremio": {
+      "platform_id": "dremio",
+      "platform_name": "Dremio",
+      "classname": "datahub.ingestion.source.dremio.dremio_source.DremioSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default to get usage stats"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "druid": {
+      "platform_id": "druid",
+      "platform_name": "Druid",
+      "classname": "datahub.ingestion.source.sql.druid.DruidSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "dynamodb": {
+      "platform_id": "dynamodb",
+      "platform_name": "DynamoDB",
+      "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "By default, platform_instance will use the AWS account id"
+        }
+      ]
+    },
+    "elasticsearch": {
+      "platform_id": "elasticsearch",
+      "platform_name": "Elasticsearch",
+      "classname": "datahub.ingestion.source.elastic_search.ElasticsearchSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "feast": {
+      "platform_id": "feast",
+      "platform_name": "Feast",
+      "classname": "datahub.ingestion.source.feast.FeastRepositorySource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "file": {
+      "platform_id": "metadata-file",
+      "platform_name": "Metadata File",
+      "classname": "datahub.ingestion.source.file.GenericFileSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "fivetran": {
+      "platform_id": "fivetran",
+      "platform_name": "Fivetran",
+      "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "gcs": {
+      "platform_id": "gcs",
+      "platform_name": "Google Cloud Storage",
+      "classname": "datahub.ingestion.source.gcs.gcs_source.GCSSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": false,
+          "description": "Not supported"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "glue": {
+      "platform_id": "glue",
+      "platform_name": "Glue",
+      "classname": "datahub.ingestion.source.aws.glue.GlueSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Support via the `emit_s3_lineage` config field"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default when stateful ingestion is turned on."
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "grafana": {
+      "platform_id": "grafana",
+      "platform_name": "Grafana",
+      "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        }
+      ]
+    },
+    "hana": {
+      "platform_id": "hana",
+      "platform_name": "SAP HANA",
+      "classname": "datahub.ingestion.source.sql.hana.HanaSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "hex": {
+      "platform_id": "hex",
+      "platform_name": "Hex",
+      "classname": "datahub.ingestion.source.hex.hex.HexSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "hive": {
+      "platform_id": "hive",
+      "platform_name": "Hive",
+      "classname": "datahub.ingestion.source.sql.hive.HiveSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "hive-metastore": {
+      "platform_id": "hive-metastore",
+      "platform_name": "Hive Metastore",
+      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": false,
+          "description": "Not Supported"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": false,
+          "description": "Not Supported"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": false,
+          "description": "View lineage is not supported"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "iceberg": {
+      "platform_id": "iceberg",
+      "platform_name": "Iceberg",
+      "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration."
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default."
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": false,
+          "description": "Currently not supported."
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`"
+        },
+        {
+          "capability": "Partition Support",
+          "supported": false,
+          "description": "Currently not supported."
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored."
+        }
+      ]
+    },
+    "json-schema": {
+      "platform_id": "json-schema",
+      "platform_name": "JSON Schemas",
+      "classname": "datahub.ingestion.source.schema.json_schema.JsonSchemaSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Extracts descriptions at top level and field level"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "With stateful ingestion enabled, will remove entities from DataHub if they are no longer present in the source"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": false,
+          "description": "Does not currently support extracting ownership"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": false,
+          "description": "Does not currently support extracting tags"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Supports platform instance via config"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Extracts schemas, following references"
+        }
+      ]
+    },
+    "kafka": {
+      "platform_id": "kafka",
+      "platform_name": "Kafka",
+      "classname": "datahub.ingestion.source.kafka.kafka.KafkaSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": false,
+          "description": "Not supported"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": false,
+          "description": "Not supported"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Set dataset description to top level doc field for Avro schema"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "For multiple Kafka clusters, use the platform_instance configuration"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported."
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": false,
+          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage."
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "kafka-connect": {
+      "platform_id": "kafka-connect",
+      "platform_name": "Kafka Connect",
+      "classname": "datahub.ingestion.source.kafka_connect.kafka_connect.KafkaConnectSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "ldap": {
+      "platform_id": "ldap",
+      "platform_name": "LDAP",
+      "classname": "datahub.ingestion.source.ldap.LDAPSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        }
+      ]
+    },
+    "looker": {
+      "platform_id": "looker",
+      "platform_name": "Looker",
+      "classname": "datahub.ingestion.source.looker.looker_source.LookerDashboardSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configured using `extract_column_level_lineage`"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default, configured using `extract_usage_history`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default, configured using `extract_owners`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Use the `platform_instance` field"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "lookml": {
+      "platform_id": "looker",
+      "platform_name": "Looker",
+      "classname": "datahub.ingestion.source.looker.lookml_source.LookMLSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configured using `extract_column_level_lineage`"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Use the `platform_instance` and `connection_to_platform_map` fields"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "mariadb": {
+      "platform_id": "mariadb",
+      "platform_name": "MariaDB",
+      "classname": "datahub.ingestion.source.sql.mariadb.MariaDBSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "metabase": {
+      "platform_id": "metabase",
+      "platform_name": "Metabase",
+      "classname": "datahub.ingestion.source.metabase.MetabaseSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "mlflow": {
+      "platform_id": "mlflow",
+      "platform_name": "MLflow",
+      "classname": "datahub.ingestion.source.mlflow.MLflowSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Extract descriptions for MLflow Registered Models and Model Versions"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Extract tags for MLflow Registered Model Stages"
+        }
+      ]
+    },
+    "mode": {
+      "platform_id": "mode",
+      "platform_name": "Mode",
+      "classname": "datahub.ingestion.source.mode.ModeSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "mongodb": {
+      "platform_id": "mongodb",
+      "platform_name": "MongoDB",
+      "classname": "datahub.ingestion.source.mongodb.MongoDBSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "mssql": {
+      "platform_id": "mssql",
+      "platform_name": "Microsoft SQL Server",
+      "classname": "datahub.ingestion.source.sql.mssql.source.SQLServerSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "mysql": {
+      "platform_id": "mysql",
+      "platform_name": "MySQL",
+      "classname": "datahub.ingestion.source.sql.mysql.MySQLSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "neo4j": {
+      "platform_id": "neo4j",
+      "platform_name": "Neo4j",
+      "classname": "datahub.ingestion.source.neo4j.neo4j_source.Neo4jSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Supported via the `platform_instance` config"
+        }
+      ]
+    },
+    "nifi": {
+      "platform_id": "nifi",
+      "platform_name": "NiFi",
+      "classname": "datahub.ingestion.source.nifi.NifiSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported. See docs for limitations"
+        }
+      ]
+    },
+    "okta": {
+      "platform_id": "okta",
+      "platform_name": "Okta",
+      "classname": "datahub.ingestion.source.identity.okta.OktaSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via stateful_ingestion"
+        }
+      ]
+    },
+    "openapi": {
+      "platform_id": "openapi",
+      "platform_name": "OpenAPI",
+      "classname": "datahub.ingestion.source.openapi.OpenApiSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Platform Instance",
+          "supported": false,
+          "description": ""
+        }
+      ]
+    },
+    "oracle": {
+      "platform_id": "oracle",
+      "platform_name": "Oracle",
+      "classname": "datahub.ingestion.source.sql.oracle.OracleSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "postgres": {
+      "platform_id": "postgres",
+      "platform_name": "Postgres",
+      "classname": "datahub.ingestion.source.sql.postgres.PostgresSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "powerbi": {
+      "platform_id": "powerbi",
+      "platform_name": "PowerBI",
+      "classname": "datahub.ingestion.source.powerbi.powerbi.PowerBiDashboardSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Disabled by default, configured using `extract_column_level_lineage`. "
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration profiling.enabled"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configured using `extract_lineage`."
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "powerbi-report-server": {
+      "platform_id": "powerbi-report-server",
+      "platform_name": "PowerBI Report Server",
+      "classname": "datahub.ingestion.source.powerbi_report_server.report_server.PowerBiReportServerDashboardSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "preset": {
+      "platform_id": "preset",
+      "platform_name": "Preset",
+      "classname": "datahub.ingestion.source.preset.PresetSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via stateful_ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by `domain` config to assign domain_key"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "presto": {
+      "platform_id": "presto",
+      "platform_name": "Presto",
+      "classname": "datahub.ingestion.source.sql.presto.PrestoSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "presto-on-hive": {
+      "platform_id": "hive-metastore",
+      "platform_name": "Hive Metastore",
+      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": false,
+          "description": "Not Supported"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": false,
+          "description": "Not Supported"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": false,
+          "description": "View lineage is not supported"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "pulsar": {
+      "platform_id": "pulsar",
+      "platform_name": "Pulsar",
+      "classname": "datahub.ingestion.source.pulsar.PulsarSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "qlik-sense": {
+      "platform_id": "qlik-sense",
+      "platform_name": "Qlik Sense",
+      "classname": "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Disabled by default. "
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default, configured using `ingest_owner`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default."
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "redash": {
+      "platform_id": "redash",
+      "platform_name": "Redash",
+      "classname": "datahub.ingestion.source.redash.RedashSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "redshift": {
+      "platform_id": "redshift",
+      "platform_name": "Redshift",
+      "classname": "datahub.ingestion.source.redshift.redshift.RedshiftSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "s3": {
+      "platform_id": "s3",
+      "platform_name": "S3 / Local Files",
+      "classname": "datahub.ingestion.source.s3.source.S3Source",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Can extract S3 object/bucket tags if enabled"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Can infer schema from supported file types"
+        }
+      ]
+    },
+    "sac": {
+      "platform_id": "sac",
+      "platform_name": "SAP Analytics Cloud",
+      "classname": "datahub.ingestion.source.sac.sac.SACSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default (only for Import Data Models)"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default (only for Live Data Models)"
+        }
+      ]
+    },
+    "sagemaker": {
+      "platform_id": "sagemaker",
+      "platform_name": "SageMaker",
+      "classname": "datahub.ingestion.source.aws.sagemaker.SagemakerSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "salesforce": {
+      "platform_id": "salesforce",
+      "platform_name": "Salesforce",
+      "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Only table level profiling is supported via `profiling.enabled` config field"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": false,
+          "description": "Not supported yet"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Can be equivalent to Salesforce organization"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "sigma": {
+      "platform_id": "sigma",
+      "platform_name": "Sigma",
+      "classname": "datahub.ingestion.source.sigma.sigma.SigmaSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Enabled by default, configured using `ingest_owner`"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default."
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "slack": {
+      "platform_id": "slack",
+      "platform_name": "Slack",
+      "classname": "datahub.ingestion.source.slack.slack.SlackSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        }
+      ]
+    },
+    "snowflake": {
+      "platform_id": "snowflake",
+      "platform_name": "Snowflake",
+      "classname": "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration `profiling.enabled`"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_usage_stats`"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Optionally enabled via `extract_tags`"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_table_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "sql-queries": {
+      "platform_id": "sql-queries",
+      "platform_name": "SQL Queries",
+      "classname": "datahub.ingestion.source.sql_queries.SqlQueriesSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Parsed from SQL queries"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Parsed from SQL queries"
+        }
+      ]
+    },
+    "sqlalchemy": {
+      "platform_id": "sqlalchemy",
+      "platform_name": "SQLAlchemy",
+      "classname": "datahub.ingestion.source.sql.sql_generic.SQLAlchemyGenericSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "starburst-trino-usage": {
+      "platform_id": "trino",
+      "platform_name": "Trino",
+      "classname": "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default to get usage stats"
+        }
+      ]
+    },
+    "superset": {
+      "platform_id": "superset",
+      "platform_name": "Superset",
+      "classname": "datahub.ingestion.source.superset.SupersetSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via stateful_ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by `domain` config to assign domain_key"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Supported by default"
+        }
+      ]
+    },
+    "tableau": {
+      "platform_id": "tableau",
+      "platform_name": "Tableau",
+      "classname": "datahub.ingestion.source.tableau.tableau.TableauSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default, configure using `extract_column_level_lineage`"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Dashboard/Chart view counts, enabled using extract_usage_stats config"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default when stateful ingestion is turned on."
+        },
+        {
+          "capability": "Domains",
+          "supported": false,
+          "description": "Requires transformer"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Requires recipe configuration"
+        },
+        {
+          "capability": "Extract Tags",
+          "supported": true,
+          "description": "Requires recipe configuration"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "teradata": {
+      "platform_id": "teradata",
+      "platform_name": "Teradata",
+      "classname": "datahub.ingestion.source.sql.teradata.TeradataSource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "trino": {
+      "platform_id": "trino",
+      "platform_name": "Trino",
+      "classname": "datahub.ingestion.source.sql.trino.TrinoSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Enabled by default via stateful ingestion"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "unity-catalog": {
+      "platform_id": "databricks",
+      "platform_name": "Databricks",
+      "classname": "datahub.ingestion.source.unity.source.UnityCatalogSource",
+      "support_status": "INCUBATING",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Supported via the `profiling.enabled` config"
+        },
+        {
+          "capability": "Dataset Usage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Extract Ownership",
+          "supported": true,
+          "description": "Supported via the `include_ownership` config"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    },
+    "vertexai": {
+      "platform_id": "vertexai",
+      "platform_name": "Vertex AI",
+      "classname": "datahub.ingestion.source.vertexai.vertexai.VertexAISource",
+      "support_status": "TESTING",
+      "capabilities": [
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Extract descriptions for Vertex AI Registered Models and Model Versions"
+        }
+      ]
+    },
+    "vertica": {
+      "platform_id": "vertica",
+      "platform_name": "Vertica",
+      "classname": "datahub.ingestion.source.sql.vertica.VerticaSource",
+      "support_status": "CERTIFIED",
+      "capabilities": [
+        {
+          "capability": "Asset Containers",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Classification",
+          "supported": true,
+          "description": "Optionally enabled via `classification.enabled`"
+        },
+        {
+          "capability": "Column-level Lineage",
+          "supported": true,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`"
+        },
+        {
+          "capability": "Data Profiling",
+          "supported": true,
+          "description": "Optionally enabled via configuration"
+        },
+        {
+          "capability": "Descriptions",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Detect Deleted Entities",
+          "supported": true,
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`"
+        },
+        {
+          "capability": "Domains",
+          "supported": true,
+          "description": "Supported via the `domain` config field"
+        },
+        {
+          "capability": "Platform Instance",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Schema Metadata",
+          "supported": true,
+          "description": "Enabled by default"
+        },
+        {
+          "capability": "Table-Level Lineage",
+          "supported": true,
+          "description": "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`"
+        },
+        {
+          "capability": "Test Connection",
+          "supported": true,
+          "description": "Enabled by default"
+        }
+      ]
+    }
+  }
+}
