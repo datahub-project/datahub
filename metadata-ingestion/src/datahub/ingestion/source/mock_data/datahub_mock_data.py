@@ -144,6 +144,27 @@ class DataHubMockDataSource(Source):
 
         return tables_to_be_created, tables_at_levels
 
+    def _calculate_fanout_for_level(
+        self, level: int, fan_out: int, fan_out_after_first: int = None
+    ) -> int:
+        """
+        Calculate the fanout (number of downstream tables) for a specific level.
+
+        Args:
+            level: The current level (0-based)
+            fan_out: Number of downstream tables per upstream table at level 1
+            fan_out_after_first: Optional limit on fanout for hops after the first hop
+
+        Returns:
+            The number of downstream tables that each table at this level should connect to
+        """
+        if level == 0:
+            # Level 0: uses the standard fan_out
+            return fan_out
+        else:
+            # Level 1+: use fan_out_after_first if set, otherwise use fan_out
+            return fan_out_after_first if fan_out_after_first is not None else fan_out
+
     def _generate_lineage_data_gen_1(self) -> Iterable[MetadataWorkUnit]:
         """Generate mock lineage data for testing purposes."""
         lineage_gen_1 = self.config.lineage_gen_1
@@ -155,7 +176,6 @@ class DataHubMockDataSource(Source):
             f"Generating lineage data with fan_out={fan_out}, hops={hops}, fan_out_after_first={fan_out_after_first}"
         )
 
-        # Calculate total tables to be created
         tables_to_be_created, tables_at_levels = self._calculate_lineage_tables(
             fan_out, hops, fan_out_after_first
         )
@@ -173,36 +193,79 @@ class DataHubMockDataSource(Source):
 
                 yield self._get_status_aspect(table_name)
 
-                # Emit upstream lineage for downstream tables
-                if i + 1 <= hops:  # Make sure we don't exceed the number of hops
-                    # Calculate fanout for this level
-                    current_fan_out = (
-                        fan_out
-                        if i == 0
-                        else (
-                            fan_out_after_first
-                            if fan_out_after_first is not None
-                            else fan_out
-                        )
-                    )
-
-                    for downstream in range(
-                        j * current_fan_out, (j + 1) * current_fan_out
-                    ):
-                        if downstream < tables_at_levels[i + 1]:
-                            downstream_table_name = (
-                                f"hops_{hops}_f_{fan_out}_h{i + 1}_t{downstream}"
-                            )
-                            yield self._get_upstream_aspect(
-                                upstream_table=table_name,
-                                downstream_table=downstream_table_name,
-                            )
+                yield from self._generate_lineage_for_table(
+                    table_name=table_name,
+                    table_level=i,
+                    table_index=j,
+                    hops=hops,
+                    fan_out=fan_out,
+                    fan_out_after_first=fan_out_after_first,
+                    tables_at_levels=tables_at_levels,
+                )
 
                 current_progress += 1
-                if current_progress % 10 == 0:
+                if current_progress % 1000 == 0:
                     logger.info(
                         f"Progress: {current_progress}/{tables_to_be_created} tables processed"
                     )
+
+    def _generate_lineage_for_table(
+        self,
+        table_name: str,
+        table_level: int,
+        table_index: int,
+        hops: int,
+        fan_out: int,
+        fan_out_after_first: int,
+        tables_at_levels: list[int],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate lineage relationships for a specific table."""
+        # Only generate lineage if there are downstream levels
+        if table_level + 1 > hops:
+            return
+
+        current_fan_out = self._calculate_fanout_for_level(
+            table_level, fan_out, fan_out_after_first
+        )
+
+        yield from self._generate_downstream_lineage(
+            upstream_table_name=table_name,
+            upstream_table_index=table_index,
+            upstream_table_level=table_level,
+            current_fan_out=current_fan_out,
+            hops=hops,
+            fan_out=fan_out,
+            tables_at_levels=tables_at_levels,
+        )
+
+    def _generate_downstream_lineage(
+        self,
+        upstream_table_name: str,
+        upstream_table_index: int,
+        upstream_table_level: int,
+        current_fan_out: int,
+        hops: int,
+        fan_out: int,
+        tables_at_levels: list[int],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate lineage relationships to downstream tables."""
+        downstream_level = upstream_table_level + 1
+        downstream_tables_count = tables_at_levels[downstream_level]
+
+        # Calculate range of downstream tables this upstream table connects to
+        start_downstream = upstream_table_index * current_fan_out
+        end_downstream = min(
+            (upstream_table_index + 1) * current_fan_out, downstream_tables_count
+        )
+
+        for downstream_index in range(start_downstream, end_downstream):
+            downstream_table_name = (
+                f"hops_{hops}_f_{fan_out}_h{downstream_level}_t{downstream_index}"
+            )
+            yield self._get_upstream_aspect(
+                upstream_table=upstream_table_name,
+                downstream_table=downstream_table_name,
+            )
 
     def _get_status_aspect(self, table: str) -> MetadataWorkUnit:
         """Create a status aspect for a table."""
