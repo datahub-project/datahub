@@ -86,6 +86,7 @@ class DataJob(
         domain: Optional[DomainInputType] = None,
         inlets: Optional[List[DatasetUrnOrStr]] = None,
         outlets: Optional[List[DatasetUrnOrStr]] = None,
+        fine_grained_lineages: Optional[List[models.FineGrainedLineageClass]] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
@@ -103,12 +104,14 @@ class DataJob(
             ValueError: If neither flow nor (flow_urn and platform_instance) are provided
         """
         if flow is None:
-            if flow_urn is None or platform_instance is None:
+            if flow_urn is None:
                 raise ValueError(
                     "You must provide either: 1. a DataFlow object, or 2. a DataFlowUrn (and a platform_instance config if required)"
                 )
             flow_urn = DataFlowUrn.from_string(flow_urn)
-            if flow_urn.flow_id.startswith(f"{platform_instance}."):
+            if platform_instance and flow_urn.flow_id.startswith(
+                f"{platform_instance}."
+            ):
                 flow_name = flow_urn.flow_id[len(platform_instance) + 1 :]
             else:
                 flow_name = flow_urn.flow_id
@@ -134,7 +137,22 @@ class DataJob(
         self._setdefault_aspect(job_info)
         self._ensure_datajob_props().flowUrn = str(flow.urn)
 
-        # Set properties if provided
+        self._init_basic_props(
+            description, external_url, custom_properties, created, last_modified
+        )
+        self._init_metadata_props(
+            subtype, owners, links, tags, terms, domain, structured_properties
+        )
+        self._init_io_props(inlets, outlets, fine_grained_lineages)
+
+    def _init_basic_props(
+        self,
+        description: Optional[str],
+        external_url: Optional[str],
+        custom_properties: Optional[Dict[str, str]],
+        created: Optional[datetime],
+        last_modified: Optional[datetime],
+    ) -> None:
         if description is not None:
             self.set_description(description)
         if external_url is not None:
@@ -146,7 +164,16 @@ class DataJob(
         if last_modified is not None:
             self.set_last_modified(last_modified)
 
-        # Set standard aspects
+    def _init_metadata_props(
+        self,
+        subtype: Optional[str],
+        owners: Optional[OwnersInputType],
+        links: Optional[LinksInputType],
+        tags: Optional[TagsInputType],
+        terms: Optional[TermsInputType],
+        domain: Optional[DomainInputType],
+        structured_properties: Optional[StructuredPropertyInputType],
+    ) -> None:
         if subtype is not None:
             self.set_subtype(subtype)
         if owners is not None:
@@ -159,13 +186,22 @@ class DataJob(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
+
+    def _init_io_props(
+        self,
+        inlets: Optional[List[DatasetUrnOrStr]],
+        outlets: Optional[List[DatasetUrnOrStr]],
+        fine_grained_lineages: Optional[List[models.FineGrainedLineageClass]],
+    ) -> None:
         if inlets is not None:
             self.set_inlets(inlets)
         if outlets is not None:
             self.set_outlets(outlets)
-        if structured_properties is not None:
-            for key, value in structured_properties.items():
-                self.set_structured_property(property_urn=key, values=value)
+        if fine_grained_lineages is not None:
+            self.set_fine_grained_lineages(fine_grained_lineages)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -201,9 +237,7 @@ class DataJob(
     ) -> Optional[models.DataJobInputOutputClass]:
         return self._get_aspect(models.DataJobInputOutputClass)
 
-    def _ensure_datajob_inputoutput_props(
-        self,
-    ) -> models.DataJobInputOutputClass:
+    def _ensure_datajob_inputoutput_props(self) -> models.DataJobInputOutputClass:
         return self._setdefault_aspect(
             models.DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
         )
@@ -302,13 +336,11 @@ class DataJob(
 
         # extend the flow's browse path with this job
         browse_path = []
-        if flow_browse_path is not None:
+        if flow_browse_path:
             for entry in flow_browse_path.path:
                 browse_path.append(
                     models.BrowsePathEntryClass(id=entry.id, urn=entry.urn)
                 )
-
-        # Add the job itself to the path
         browse_path.append(models.BrowsePathEntryClass(id=flow.name, urn=str(flow.urn)))
         # Set the browse path aspect
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
@@ -337,7 +369,24 @@ class DataJob(
     def set_outlets(self, outlets: List[DatasetUrnOrStr]) -> None:
         """Set the outlets of the data job."""
         for outlet in outlets:
-            outlet_urn = DatasetUrn.from_string(outlet)  # type checking
+            outlet_urn = DatasetUrn.from_string(outlet)
             self._ensure_datajob_inputoutput_props().outputDatasets.append(
                 str(outlet_urn)
             )
+
+    @property
+    def fine_grained_lineages(self) -> List[models.FineGrainedLineageClass]:
+        io_aspect = self._get_datajob_inputoutput_props()
+        return (
+            io_aspect.fineGrainedLineages
+            if io_aspect and io_aspect.fineGrainedLineages
+            else []
+        )
+
+    def set_fine_grained_lineages(
+        self, lineages: List[models.FineGrainedLineageClass]
+    ) -> None:
+        io_aspect = self._ensure_datajob_inputoutput_props()
+        if io_aspect.fineGrainedLineages is None:
+            io_aspect.fineGrainedLineages = []
+        io_aspect.fineGrainedLineages.extend(lineages)
