@@ -50,13 +50,14 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
             if capabilities:
                 capabilities.sort(key=lambda x: x.capability.value)
                 plugin.capabilities = capabilities
-                return plugin
             else:
-                logger.debug(f"Skipping {plugin_name} - no capabilities defined")
-                return None
+                logger.debug(f"No capabilities defined for {plugin_name}")
+                plugin.capabilities = []
         else:
-            logger.debug(f"Skipping {plugin_name} - no get_capabilities method")
-            return None
+            logger.debug(f"No get_capabilities method for {plugin_name}")
+            plugin.capabilities = []
+
+        return plugin
 
     except Exception as e:
         logger.error(f"Failed to load capabilities for {plugin_name}: {e}")
@@ -177,15 +178,7 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
 
     summary_dict = dataclasses.asdict(summary)
 
-    fields_to_exclude = [
-        "capability_breakdown",
-        "platform_summary",
-        "capabilities_dict",
-    ]
-    for field in fields_to_exclude:
-        if field in summary_dict:
-            del summary_dict[field]
-
+    # Save the main summary file
     summary_file = output_path / "capability_summary.json"
     with open(summary_file, "w") as f:
         json.dump(summary_dict, f, indent=2)
