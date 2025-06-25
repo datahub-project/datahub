@@ -1166,6 +1166,7 @@
                 },
                 {
                     "fieldPath": "tags",
+                    "uniqueCount": 0,
                     "nullCount": 3,
                     "nullProportion": 1,
                     "sampleValues": []
