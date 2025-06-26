@@ -1,17 +1,17 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Dataset
+# Container
 
 ## Why Would You Use Containers?
 
-The Container entity is used to represent a logical grouping of datasets, such as a database, schema, or folder. It allows users to organize and manage datasets in a hierarchical structure, making it easier to navigate and understand the relationships between different datasets.
+The Container entity represents a logical grouping of entities, such as datasets, data processing instances, or even other containers. It helps users organize and manage metadata in a hierarchical structure, making it easier to navigate and understand relationships between different entities.
 
 ### Goal Of This Guide
 
 This guide will show you how to
 
-- Create a container 
+- Create a container
 
 ## Prerequisites
 
@@ -24,16 +24,8 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/create_container.py show_path_as_comment }}
 ```
 
 </TabItem>
 </Tabs>
-
-### Expected Outcomes of Creating Container
-
-You can now see `realestate_db.sales` dataset has been created.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-created.png"/>
-</p>
