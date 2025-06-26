@@ -69,7 +69,7 @@ class PresetConfig(SupersetConfig):
 
 @platform_name("Preset")
 @config_class(PresetConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
