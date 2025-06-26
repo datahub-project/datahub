@@ -330,9 +330,9 @@ class MetricResolver:
 
         row_count = source.get_row_count(
             entity_urn,
-            database_params,  # type: ignore
+            database_params,
             DatasetVolumeAssertionParameters(source_type=volume_source_type),
-            filter_params,  # type: ignore
+            filter_params.__dict__ if filter_params is not None else None,
         )
         if row_count is None:
             raise InsufficientDataException(

@@ -867,3 +867,88 @@ class TestMetricResolver:
         assert isinstance(metric, Metric)
         assert metric.value == 50.0
         mock_source.get_field_metric_value.assert_called_once()
+
+    def test_filter_params_dict_conversion(
+        self,
+        resolver: MetricResolver,
+        entity_urn: str,
+        database_params: AssertionDatabaseParams,
+        filter_params: DatasetFilter,
+        mock_connection_provider: MagicMock,
+        mock_source_provider: MagicMock,
+        mock_source: MagicMock,
+    ) -> None:
+        """Test that filter_params are correctly converted to __dict__ when passed to source methods."""
+        # Setup mocks
+        mock_connection_provider.get_connection.return_value = MagicMock()
+        mock_source_provider.create_source_from_connection.return_value = mock_source
+
+        # Call with strategy to use INFORMATION_SCHEMA
+        strategy = MetricResolverStrategy(
+            source_type=MetricSourceType.INFORMATION_SCHEMA
+        )
+        metric = resolver.get_metric(
+            entity_urn=entity_urn,
+            metric_name="row_count",
+            database_params=database_params,
+            filter_params=filter_params,
+            strategy=strategy,
+        )
+
+        # Assert the result
+        assert isinstance(metric, Metric)
+        assert metric.value == 100
+
+        # Verify that filter_params.__dict__ was passed to get_row_count, not the raw filter_params object
+        mock_source.get_row_count.assert_called_once()
+        call_args = mock_source.get_row_count.call_args[0]
+
+        # The filter_params should be the 4th argument (after entity_urn, database_params, DatasetVolumeAssertionParameters)
+        actual_filter_params = call_args[3]
+        expected_filter_dict = filter_params.__dict__
+
+        # Verify that the actual filter_params passed is the dictionary representation, not the model object
+        assert actual_filter_params == expected_filter_dict
+        assert isinstance(actual_filter_params, dict)
+        assert actual_filter_params["type"] == filter_params.type
+        assert actual_filter_params["sql"] == filter_params.sql
+
+    def test_filter_params_none_handling(
+        self,
+        resolver: MetricResolver,
+        entity_urn: str,
+        database_params: AssertionDatabaseParams,
+        mock_connection_provider: MagicMock,
+        mock_source_provider: MagicMock,
+        mock_source: MagicMock,
+    ) -> None:
+        """Test that None filter_params are handled correctly."""
+        # Setup mocks
+        mock_connection_provider.get_connection.return_value = MagicMock()
+        mock_source_provider.create_source_from_connection.return_value = mock_source
+
+        # Call with strategy to use INFORMATION_SCHEMA and None filter_params
+        strategy = MetricResolverStrategy(
+            source_type=MetricSourceType.INFORMATION_SCHEMA
+        )
+        metric = resolver.get_metric(
+            entity_urn=entity_urn,
+            metric_name="row_count",
+            database_params=database_params,
+            filter_params=None,  # Explicitly pass None
+            strategy=strategy,
+        )
+
+        # Assert the result
+        assert isinstance(metric, Metric)
+        assert metric.value == 100
+
+        # Verify that None was passed to get_row_count for filter_params
+        mock_source.get_row_count.assert_called_once()
+        call_args = mock_source.get_row_count.call_args[0]
+
+        # The filter_params should be the 4th argument
+        actual_filter_params = call_args[3]
+
+        # Verify that None was passed correctly
+        assert actual_filter_params is None
