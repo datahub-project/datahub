@@ -262,7 +262,7 @@ services:
       test: echo srvr | nc zookeeper $${DATAHUB_ZK_PORT:-2181}
       timeout: 5s
     hostname: zookeeper
-    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
+    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
