@@ -641,6 +641,105 @@ def sql_stub_datahub_client(
 
 
 @pytest.fixture
+def column_metric_assertion_entity_with_all_fields(
+    any_assertion_urn: AssertionUrn,
+) -> Assertion:
+    """A column metric assertion entity for testing."""
+    return Assertion(
+        id=any_assertion_urn,
+        info=models.FieldAssertionInfoClass(
+            type=models.FieldAssertionTypeClass.FIELD_METRIC,
+            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+            fieldMetricAssertion=models.FieldMetricAssertionClass(
+                field=models.SchemaFieldSpecClass(
+                    path="amount", type="number", nativeType="NUMBER"
+                ),
+                metric=models.FieldMetricTypeClass.NULL_COUNT,
+                operator=models.AssertionStdOperatorClass.NOT_NULL,
+            ),
+        ),
+        description="Smart Column Metric Assertion",
+        source=models.AssertionSourceClass(
+            type=models.AssertionSourceTypeClass.NATIVE,
+            created=models.AuditStampClass(
+                actor="urn:li:corpuser:acryl-cloud-user-created",
+                time=1609459200000,  # 2021-01-01 00:00:00 UTC
+            ),
+        ),
+        last_updated=models.AuditStampClass(
+            actor="urn:li:corpuser:acryl-cloud-user-updated",
+            time=1609545600000,  # 2021-01-02 00:00:00 UTC
+        ),
+        tags=[
+            models.TagAssociationClass(
+                tag="urn:li:tag:smart_column_metric_assertion_tag",
+            )
+        ],
+        on_failure=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RAISE_INCIDENT,
+            )
+        ],
+        on_success=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RESOLVE_INCIDENT,
+            )
+        ],
+    )
+
+
+@pytest.fixture
+def column_metric_monitor_with_all_fields(
+    any_monitor_urn: MonitorUrn, any_assertion_urn: AssertionUrn
+) -> Monitor:
+    """A monitor with all fields set for column metric assertions."""
+    return Monitor(
+        id=any_monitor_urn,
+        info=models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=models.MonitorStatusClass(
+                mode=models.MonitorModeClass.ACTIVE,
+            ),
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(any_assertion_urn),
+                        schedule=models.CronScheduleClass(
+                            cron="0 0 * * *",  # Daily for column metric assertions
+                            timezone="UTC",
+                        ),
+                        parameters=models.AssertionEvaluationParametersClass(
+                            type=models.AssertionEvaluationParametersTypeClass.DATASET_FIELD,
+                            datasetFieldParameters=models.DatasetFieldAssertionParametersClass(
+                                sourceType=models.DatasetFieldAssertionSourceTypeClass.ALL_ROWS_QUERY,
+                            ),
+                        ),
+                    )
+                ],
+            ),
+        ),
+    )
+
+
+@pytest.fixture
+def column_metric_stub_entity_client(
+    column_metric_monitor_with_all_fields: Monitor,
+    column_metric_assertion_entity_with_all_fields: Assertion,
+) -> StubEntityClient:
+    return StubEntityClient(
+        monitor_entity=column_metric_monitor_with_all_fields,
+        assertion_entity=column_metric_assertion_entity_with_all_fields,
+    )
+
+
+@pytest.fixture
+def column_metric_stub_datahub_client(
+    column_metric_stub_entity_client: StubEntityClient,
+) -> StubDataHubClient:
+    return StubDataHubClient(entity_client=column_metric_stub_entity_client)
+
+
+@pytest.fixture
 def stub_entity_client() -> StubEntityClient:
     """A generic stub entity client that can be used for all types of assertions."""
     return StubEntityClient()

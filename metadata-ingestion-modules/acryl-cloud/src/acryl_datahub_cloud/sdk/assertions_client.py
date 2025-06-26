@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, Union
 
 from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     AssertionMode,
@@ -66,10 +66,54 @@ logger = logging.getLogger(__name__)
 DEFAULT_CREATED_BY = CorpUserUrn.from_string("urn:li:corpuser:__datahub_system")
 
 
+class _AssertionLookupInfo(TypedDict):
+    """Minimal info needed to look up an assertion and monitor."""
+
+    dataset_urn: Union[str, DatasetUrn]
+    urn: Union[str, AssertionUrn]
+
+
 class AssertionsClient:
     def __init__(self, client: "DataHubClient"):
         self.client = client
         _print_experimental_warning()
+
+    def _validate_required_field(
+        self, field_value: Optional[Any], field_name: str, context: str
+    ) -> None:
+        """Validate that a required field is not None and raise SDKUsageError if it is."""
+        if field_value is None:
+            raise SDKUsageError(f"{field_name} is required {context}")
+
+    def _validate_required_smart_column_fields_for_creation(
+        self,
+        column_name: Optional[str],
+        metric_type: Optional[MetricInputType],
+        operator: Optional[OperatorInputType],
+    ) -> None:
+        """Validate required fields for smart column metric assertion creation."""
+        self._validate_required_field(
+            column_name, "column_name", "when creating a new assertion (urn is None)"
+        )
+        self._validate_required_field(
+            metric_type, "metric_type", "when creating a new assertion (urn is None)"
+        )
+        self._validate_required_field(
+            operator, "operator", "when creating a new assertion (urn is None)"
+        )
+
+    def _validate_required_smart_column_fields_for_update(
+        self,
+        column_name: Optional[str],
+        metric_type: Optional[MetricInputType],
+        operator: Optional[OperatorInputType],
+        assertion_urn: Union[str, AssertionUrn],
+    ) -> None:
+        """Validate required fields after attempting to fetch from existing assertion."""
+        context = f"and not found in existing assertion {assertion_urn}. The existing assertion may be invalid or corrupted."
+        self._validate_required_field(column_name, "column_name", context)
+        self._validate_required_field(metric_type, "metric_type", context)
+        self._validate_required_field(operator, "operator", context)
 
     def sync_smart_freshness_assertion(
         self,
@@ -652,22 +696,40 @@ class AssertionsClient:
 
     def _retrieve_assertion_and_monitor(
         self,
-        assertion_input: _AssertionInput,
+        assertion_input: Union[_AssertionInput, _AssertionLookupInfo],
     ) -> tuple[Optional[Assertion], MonitorUrn, Optional[Monitor]]:
         """Retrieve the assertion and monitor entities from the DataHub instance.
 
         Args:
-            assertion_input: The validated input to the function.
+            assertion_input: The validated input to the function or minimal lookup info.
 
         Returns:
             The assertion and monitor entities.
         """
-        assert assertion_input.urn is not None, "URN is required"
+        # Extract URN and dataset URN from input
+        _urn: Union[str, AssertionUrn]
+        _dataset_urn: Union[str, DatasetUrn]
+        if isinstance(assertion_input, dict):
+            _urn = assertion_input["urn"]
+            _dataset_urn = assertion_input["dataset_urn"]
+        else:
+            assert assertion_input.urn is not None, "URN is required"
+            _urn = assertion_input.urn
+            _dataset_urn = assertion_input.dataset_urn
+
+        urn: AssertionUrn = (
+            _urn if isinstance(_urn, AssertionUrn) else AssertionUrn.from_string(_urn)
+        )
+        dataset_urn: DatasetUrn = (
+            _dataset_urn
+            if isinstance(_dataset_urn, DatasetUrn)
+            else DatasetUrn.from_string(_dataset_urn)
+        )
 
         # Get assertion entity
         maybe_assertion_entity: Optional[Assertion] = None
         try:
-            entity = self.client.entities.get(assertion_input.urn)
+            entity = self.client.entities.get(urn)
             if entity is not None:
                 assert isinstance(entity, Assertion)
                 maybe_assertion_entity = entity
@@ -675,9 +737,7 @@ class AssertionsClient:
             pass
 
         # Get monitor entity
-        monitor_urn = Monitor._ensure_id(
-            id=(assertion_input.dataset_urn, assertion_input.urn)
-        )
+        monitor_urn = Monitor._ensure_id(id=(dataset_urn, urn))
         maybe_monitor_entity: Optional[Monitor] = None
         try:
             entity = self.client.entities.get(monitor_urn)
@@ -1980,9 +2040,9 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
-        column_name: str,
-        metric_type: MetricInputType,
-        operator: OperatorInputType,
+        column_name: Optional[str] = None,
+        metric_type: Optional[MetricInputType] = None,
+        operator: Optional[OperatorInputType] = None,
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
         criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         urn: Optional[Union[str, AssertionUrn]] = None,
@@ -2046,8 +2106,8 @@ class AssertionsClient:
 
         Args:
             dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
-            column_name (str): The name of the column to be monitored.
-            metric_type (MetricInputType): The type of the metric to be monitored. Valid values are:
+            column_name (Optional[str]): The name of the column to be monitored. Required for creation, optional for updates.
+            metric_type (Optional[MetricInputType]): The type of the metric to be monitored. Required for creation, optional for updates. Valid values are:
                 - Using MetricType enum: MetricType.NULL_COUNT, MetricType.NULL_PERCENTAGE, MetricType.UNIQUE_COUNT,
                   MetricType.UNIQUE_PERCENTAGE, MetricType.MAX_LENGTH, MetricType.MIN_LENGTH, MetricType.EMPTY_COUNT,
                   MetricType.EMPTY_PERCENTAGE, MetricType.MIN, MetricType.MAX, MetricType.MEAN, MetricType.MEDIAN,
@@ -2055,7 +2115,7 @@ class AssertionsClient:
                   MetricType.ZERO_PERCENTAGE
                 - Using case-insensitive strings: "null_count", "MEAN", "Max_Length", etc.
                 - Using models enum: models.FieldMetricTypeClass.NULL_COUNT, etc. (import with: from datahub.metadata import schema_classes as models)
-            operator (OperatorInputType): The operator to be used for the assertion. Valid values are:
+            operator (Optional[OperatorInputType]): The operator to be used for the assertion. Required for creation, optional for updates. Valid values are:
                 - Using OperatorType enum: OperatorType.EQUAL_TO, OperatorType.NOT_EQUAL_TO, OperatorType.GREATER_THAN,
                   OperatorType.GREATER_THAN_OR_EQUAL_TO, OperatorType.LESS_THAN, OperatorType.LESS_THAN_OR_EQUAL_TO,
                   OperatorType.BETWEEN, OperatorType.IN, OperatorType.NOT_IN, OperatorType.NULL, OperatorType.NOT_NULL,
@@ -2103,6 +2163,14 @@ class AssertionsClient:
 
         # 1. If urn is not set, create a new assertion
         if urn is None:
+            self._validate_required_smart_column_fields_for_creation(
+                column_name, metric_type, operator
+            )
+            assert (
+                column_name is not None
+                and metric_type is not None
+                and operator is not None
+            ), "Fields guaranteed non-None after validation"
             logger.info("URN is not set, creating a new assertion")
             return self._create_smart_column_metric_assertion(
                 dataset_urn=dataset_urn,
@@ -2123,7 +2191,51 @@ class AssertionsClient:
                 schedule=schedule,
             )
 
-        # 2. If urn is set, first validate the input:
+        # 2.1 If urn is set, fetch missing required parameters from backend if needed:
+        # NOTE: This is a tactical solution. The problem is we fetch twice (once for validation,
+        # once for merge). Strategic solution would be to merge first, then validate after,
+        # but that requires heavy refactor and is skipped for now.
+        if urn is not None and (
+            column_name is None or metric_type is None or operator is None
+        ):
+            # Fetch existing assertion to get missing required parameters
+            maybe_assertion_entity, _, maybe_monitor_entity = (
+                self._retrieve_assertion_and_monitor(
+                    {"dataset_urn": dataset_urn, "urn": urn}
+                )
+            )
+
+            if maybe_assertion_entity is not None:
+                assertion_info = maybe_assertion_entity.info
+                if (
+                    hasattr(assertion_info, "fieldMetricAssertion")
+                    and assertion_info.fieldMetricAssertion
+                ):
+                    field_metric_assertion = assertion_info.fieldMetricAssertion
+                    # Use existing values for missing required parameters
+                    if (
+                        column_name is None
+                        and hasattr(field_metric_assertion, "field")
+                        and hasattr(field_metric_assertion.field, "path")
+                    ):
+                        column_name = field_metric_assertion.field.path
+                    if metric_type is None and hasattr(
+                        field_metric_assertion, "metric"
+                    ):
+                        metric_type = field_metric_assertion.metric
+                    if operator is None and hasattr(field_metric_assertion, "operator"):
+                        operator = field_metric_assertion.operator
+
+            self._validate_required_smart_column_fields_for_update(
+                column_name, metric_type, operator, urn
+            )
+            assert (
+                column_name is not None
+                and metric_type is not None
+                and operator is not None
+            ), "Fields guaranteed non-None after validation"
+
+        # 2.2 Now validate the input with all required parameters:
         assertion_input = _SmartColumnMetricAssertionInput(
             urn=urn,
             entity_client=self.client.entities,

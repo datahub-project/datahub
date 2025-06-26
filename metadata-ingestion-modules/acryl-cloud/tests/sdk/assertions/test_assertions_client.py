@@ -64,6 +64,10 @@ from acryl_datahub_cloud.sdk.errors import (
 )
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import ItemNotFoundError, SdkUsageError
+from datahub.metadata.schema_classes import (
+    AssertionStdOperatorClass,
+    FieldMetricTypeClass,
+)
 from datahub.metadata.urns import (
     AssertionUrn,
     CorpUserUrn,
@@ -2833,6 +2837,73 @@ def test_create_smart_column_metric_assertion_uses_string_incident_behavior(
 
     # Assert - should convert string to enum list
     assert assertion.incident_behavior == [AssertionIncidentBehavior.RESOLVE_ON_PASS]
+
+
+def test_sync_smart_column_metric_assertion_missing_required_params_for_creation(
+    column_metric_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that sync_smart_column_metric_assertion raises SDKUsageError when required params are missing for creation (urn=None)."""
+    client = AssertionsClient(column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Test missing column_name
+    with pytest.raises(
+        SDKUsageError, match="column_name is required when creating a new assertion"
+    ):
+        client.sync_smart_column_metric_assertion(
+            dataset_urn=_any_dataset_urn,
+            # column_name missing
+            metric_type="null_count",
+            operator="less_than",
+            criteria_parameters="10",
+            criteria_type="number",
+        )
+
+    # Test missing metric_type
+    with pytest.raises(
+        SDKUsageError, match="metric_type is required when creating a new assertion"
+    ):
+        client.sync_smart_column_metric_assertion(
+            dataset_urn=_any_dataset_urn,
+            column_name="amount",
+            # metric_type missing
+            operator="less_than",
+            criteria_parameters="10",
+            criteria_type="number",
+        )
+
+    # Test missing operator
+    with pytest.raises(
+        SDKUsageError, match="operator is required when creating a new assertion"
+    ):
+        client.sync_smart_column_metric_assertion(
+            dataset_urn=_any_dataset_urn,
+            column_name="amount",
+            metric_type="null_count",
+            # operator missing
+            criteria_parameters="10",
+            criteria_type="number",
+        )
+
+
+def test_sync_smart_column_metric_assertion_optional_params_for_merge(
+    column_metric_stub_datahub_client: StubDataHubClient,
+) -> None:
+    """Test that sync_smart_column_metric_assertion allows optional params when urn is provided (merge scenario)."""
+
+    client = AssertionsClient(column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # This should not raise an error since urn is provided and we can fetch missing params from existing assertion
+    result = client.sync_smart_column_metric_assertion(
+        dataset_urn=_any_dataset_urn,
+        urn="urn:li:assertion:smart_freshness_assertion",  # Use the URN from conftest fixtures
+        # column_name, metric_type, operator are optional in merge scenario
+    )
+
+    # Verify that the values were correctly fetched from the existing assertion
+    assert result.column_name == "amount"
+    assert result.metric_type == FieldMetricTypeClass.NULL_COUNT
+    assert result.operator == AssertionStdOperatorClass.NOT_NULL
 
 
 def _validate_column_metric_assertion_vs_input(
