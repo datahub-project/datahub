@@ -32,7 +32,6 @@ public class LineageRegistryControllerTest {
   private MockedStatic<AuthenticationContext> authContextMock;
 
   private static final String TEST_ENTITY_NAME = "dataset";
-  private static final String TEST_DOWNSTREAM_ENTITY = "chart";
 
   @BeforeMethod
   public void setup() {
