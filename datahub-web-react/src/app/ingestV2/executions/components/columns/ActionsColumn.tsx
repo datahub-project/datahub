@@ -1,15 +1,17 @@
+import { Icon } from '@components';
 import React from 'react';
 
-import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import { EXECUTION_REQUEST_STATUS_RUNNING, EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 
 interface ActionsColumnProps {
     record: ExecutionRequestRecord;
     setFocusExecutionUrn: (urn: string) => void;
+    handleRollback: (urn: string) => void;
 }
 
-export function ActionsColumn({ record, setFocusExecutionUrn }: ActionsColumnProps) {
+export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback }: ActionsColumnProps) {
     const items = [
         {
             key: '0',
@@ -42,5 +44,14 @@ export function ActionsColumn({ record, setFocusExecutionUrn }: ActionsColumnPro
             label: <MenuItem onClick={() => {}}>Cancel</MenuItem>,
         },
     ];
-    return <BaseActionsColumn dropdownItems={items} />;
+    return (
+        <BaseActionsColumn
+            dropdownItems={items}
+            extraActions={
+                record.status === EXECUTION_REQUEST_STATUS_SUCCESS && record.showRollback ? (
+                    <Icon icon="ArrowUUpLeft" source="phosphor" onClick={() => handleRollback(record.id)} />
+                ) : null
+            }
+        />
+    );
 }

@@ -1,16 +1,16 @@
+import { colors } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
 import { SearchSuggestion } from '@types';
 
 const TextWrapper = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY_V2[8]};
-    margin: -8px 0px 16px 24px;
+    color: ${colors.gray[1700]};
+    margin: 8px 0px 0px 12px;
 `;
 
 export const SuggestedText = styled.span`

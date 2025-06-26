@@ -131,6 +131,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -311,6 +312,7 @@ class SnowflakeV2Source(
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
+                SourceCapability.TEST_CONNECTION,
             )
         ]
 

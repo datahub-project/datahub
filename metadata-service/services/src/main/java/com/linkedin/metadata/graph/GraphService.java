@@ -4,24 +4,26 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import java.net.URISyntaxException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.collections.CollectionUtils;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public interface GraphService {
+
+  GraphServiceConfiguration getGraphServiceConfig();
+
   /** Return lineage registry to construct graph index */
   LineageRegistry getLineageRegistry();
 
@@ -101,7 +103,7 @@ public interface GraphService {
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     return findRelatedEntities(
         opContext,
         new GraphFilters(
@@ -129,7 +131,7 @@ public interface GraphService {
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count);
+      @Nullable Integer count);
 
   /**
    * Traverse from the entityUrn towards the input direction up to maxHops number of hops Abstracts
@@ -144,7 +146,7 @@ public interface GraphService {
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
     return getLineage(
         opContext,
@@ -156,125 +158,14 @@ public interface GraphService {
         maxHops);
   }
 
-  /**
-   * Note: Only used by Dgraph Traverse from the entityUrn towards the input direction up to maxHops
-   * number of hops. If entityTypes is not empty, will only return edges to entities that are within
-   * the entity types set. Abstracts away the concept of relationship types
-   *
-   * <p>Unless overridden, it uses the lineage registry to fetch valid edge types and queries for
-   * them
-   */
   @Nonnull
-  default EntityLineageResult getLineage(
+  EntityLineageResult getLineage(
       @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageGraphFilters graphFilters,
       int offset,
-      int count,
-      int maxHops) {
-    if (maxHops > 1) {
-      maxHops = 1;
-    }
-    Set<LineageRegistry.EdgeInfo> edgesToFetch =
-        graphFilters.getEdgeInfo(getLineageRegistry(), entityUrn.getEntityType());
-
-    Map<Boolean, List<LineageRegistry.EdgeInfo>> edgesByDirection =
-        edgesToFetch.stream()
-            .collect(
-                Collectors.partitioningBy(
-                    edgeInfo -> edgeInfo.getDirection() == RelationshipDirection.OUTGOING));
-
-    EntityLineageResult result =
-        new EntityLineageResult()
-            .setStart(offset)
-            .setCount(count)
-            .setRelationships(new LineageRelationshipArray())
-            .setTotal(0);
-    Set<String> visitedUrns = new HashSet<>();
-
-    // Outgoing edges
-    if (!CollectionUtils.isEmpty(edgesByDirection.get(true))) {
-      Set<String> relationshipTypes =
-          edgesByDirection.get(true).stream()
-              .map(LineageRegistry.EdgeInfo::getType)
-              .collect(Collectors.toSet());
-      // Fetch outgoing edges
-      RelatedEntitiesResult outgoingEdges =
-          findRelatedEntities(
-              opContext,
-              null,
-              QueryUtils.newFilter("urn", entityUrn.toString()),
-              graphFilters.getAllowedEntityTypes(),
-              QueryUtils.EMPTY_FILTER,
-              relationshipTypes,
-              QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
-              offset,
-              count);
-
-      // Update offset and count to fetch the correct number of incoming edges below
-      offset = Math.max(0, offset - outgoingEdges.getTotal());
-      count = Math.max(0, count - outgoingEdges.getEntities().size());
-
-      result.setTotal(result.getTotal() + outgoingEdges.getTotal());
-      outgoingEdges
-          .getEntities()
-          .forEach(
-              entity -> {
-                visitedUrns.add(entity.getUrn());
-                try {
-                  result
-                      .getRelationships()
-                      .add(
-                          new LineageRelationship()
-                              .setEntity(Urn.createFromString(entity.getUrn()))
-                              .setType(entity.getRelationshipType()));
-                } catch (URISyntaxException ignored) {
-                }
-              });
-    }
-
-    // Incoming edges
-    if (!CollectionUtils.isEmpty(edgesByDirection.get(false))) {
-      Set<String> relationshipTypes =
-          edgesByDirection.get(false).stream()
-              .map(LineageRegistry.EdgeInfo::getType)
-              .collect(Collectors.toSet());
-      RelatedEntitiesResult incomingEdges =
-          findRelatedEntities(
-              opContext,
-              null,
-              QueryUtils.newFilter("urn", entityUrn.toString()),
-              graphFilters.getAllowedEntityTypes(),
-              QueryUtils.EMPTY_FILTER,
-              relationshipTypes,
-              QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.INCOMING),
-              offset,
-              count);
-      result.setTotal(result.getTotal() + incomingEdges.getTotal());
-      incomingEdges
-          .getEntities()
-          .forEach(
-              entity -> {
-                if (visitedUrns.contains(entity.getUrn())) {
-                  return;
-                }
-                visitedUrns.add(entity.getUrn());
-                try {
-                  result
-                      .getRelationships()
-                      .add(
-                          new LineageRelationship()
-                              .setEntity(Urn.createFromString(entity.getUrn()))
-                              .setType(entity.getRelationshipType()));
-                } catch (URISyntaxException ignored) {
-                }
-              });
-    }
-
-    return result;
-  }
+      @Nullable Integer count,
+      int maxHops);
 
   /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.
@@ -344,7 +235,7 @@ public interface GraphService {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     return scrollRelatedEntities(
@@ -369,7 +260,25 @@ public interface GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
+
+  /**
+   * Returns list of edge documents for the given graph node and relationship tuples. Non-directed
+   *
+   * @param opContext operation context
+   * @param edgeTuples Non-directed nodes and relationship types
+   * @return list of documents matching the input criteria
+   */
+  List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples);
+
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @Data
+  class EdgeTuple {
+    String a;
+    String b;
+    String relationshipType;
+  }
 }

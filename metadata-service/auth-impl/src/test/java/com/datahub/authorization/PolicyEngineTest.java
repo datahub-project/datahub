@@ -155,7 +155,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertFalse(result.isGranted());
   }
@@ -188,7 +189,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_OWNERS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -217,7 +219,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "MANAGE_POLICIES",
-            Optional.empty());
+            Optional.empty(),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -257,7 +260,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertTrue(result1.isGranted());
 
@@ -298,7 +302,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             buildEntityResolvers(CORP_USER_ENTITY_NAME, "urn:li:corpuser:test"),
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertFalse(result2.isGranted());
 
@@ -339,7 +344,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Verify no network calls
@@ -379,7 +385,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedUnauthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result2.isGranted());
 
     // Verify no network calls
@@ -420,7 +427,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertTrue(authorizedResult.isGranted());
 
@@ -467,7 +475,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedUnauthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
 
     assertFalse(unauthorizedResult.isGranted());
 
@@ -510,7 +519,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Assert unauthorized user cannot edit entity tags.
@@ -520,7 +530,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedUnauthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result2.isGranted());
 
     // Verify no network calls
@@ -557,7 +568,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Assert unauthorized user cannot edit entity tags.
@@ -567,7 +579,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedUnauthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result2.isGranted());
 
     // Verify no network calls
@@ -625,7 +638,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Verify no network calls
@@ -686,7 +700,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Verify no network calls
@@ -748,7 +763,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result1.isGranted());
 
     // Verify no network calls
@@ -806,7 +822,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result1.isGranted());
 
     // Verify no network calls
@@ -842,7 +859,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedUnauthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result2.isGranted());
 
     // Verify no network calls
@@ -879,7 +897,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -915,7 +934,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -954,7 +974,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -988,7 +1009,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     StringArray resourceUrns = new StringArray();
@@ -1004,7 +1026,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1044,7 +1067,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1086,7 +1110,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1125,7 +1150,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     resourceFilter.setAllResources(true);
@@ -1140,7 +1166,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted()); // Due to allResources set to true
 
     // Verify no network calls
@@ -1183,7 +1210,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1226,7 +1254,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1274,7 +1303,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1322,7 +1352,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1370,7 +1401,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1418,7 +1450,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1469,7 +1502,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1520,7 +1554,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1571,7 +1606,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertFalse(result.isGranted());
 
     // Verify no network calls
@@ -1619,7 +1655,8 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "VIEW_ENTITY_PAGE",
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertTrue(result.isGranted());
 
     // Verify no network calls
@@ -1703,7 +1740,11 @@ public class PolicyEngineTest {
 
     PolicyEngine.PolicyGrantedPrivileges grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
-            systemOperationContext, policies, resolvedAuthorizedUserSpec, Optional.empty());
+            systemOperationContext,
+            policies,
+            resolvedAuthorizedUserSpec,
+            Optional.empty(),
+            Collections.emptyList());
     assertEquals(grantedPrivileges.getPrivileges(), Collections.emptyList());
 
     ResolvedEntitySpec resourceSpec =
@@ -1721,7 +1762,8 @@ public class PolicyEngineTest {
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertEquals(
         new HashSet<>(grantedPrivileges.getPrivileges()),
         ImmutableSet.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2"));
@@ -1741,7 +1783,8 @@ public class PolicyEngineTest {
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertEquals(
         new HashSet<>(grantedPrivileges.getPrivileges()),
         ImmutableSet.of("PRIVILEGE_2_1", "PRIVILEGE_2_2"));
@@ -1761,7 +1804,8 @@ public class PolicyEngineTest {
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertEquals(grantedPrivileges.getPrivileges(), ImmutableList.of("PRIVILEGE_1"));
 
     final EntityResponse entityResponse = new EntityResponse();
@@ -1791,7 +1835,8 @@ public class PolicyEngineTest {
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertEquals(
         new HashSet<>(grantedPrivileges.getPrivileges()),
         ImmutableSet.of("PRIVILEGE_1", "PRIVILEGE_2_1", "PRIVILEGE_2_2", "PRIVILEGE_3"));
@@ -1810,7 +1855,8 @@ public class PolicyEngineTest {
             systemOperationContext,
             policies,
             resolvedAuthorizedUserSpec,
-            Optional.of(resourceSpec));
+            Optional.of(resourceSpec),
+            Collections.emptyList());
     assertEquals(grantedPrivileges.getPrivileges(), Collections.emptyList());
   }
 
@@ -1997,6 +2043,406 @@ public class PolicyEngineTest {
             eq(CORP_USER_ENTITY_NAME),
             eq(Collections.singleton(authorizedUserUrn)),
             eq(null));
+  }
+
+  @Test
+  public void testEvaluatePolicyWithSubResourceTagsAllowed() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Tag modification policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts which tags can be added/removed");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints - only allow modification of tags starting with "urn:li:tag:public"
+    PolicyMatchCriterion tagCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:public"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Create sub-resources (tags being added) that match the constraint
+    List<ResolvedEntitySpec> allowedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:public_data"),
+            buildEntityResolvers("tag", "urn:li:tag:public_analytics"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            allowedTags);
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithSubResourceTagsDenied() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Tag modification policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts which tags can be added/removed");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints - only allow modification of tags starting with "urn:li:tag:public"
+    PolicyMatchCriterion tagCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:public"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Create sub-resources (tags being added) where some don't match the constraint
+    List<ResolvedEntitySpec> mixedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:public_data"), // Allowed
+            buildEntityResolvers("tag", "urn:li:tag:sensitive_pii") // Not allowed
+            );
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            mixedTags);
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithEmptySubResources() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Tag modification policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts which tags can be added/removed");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints for operation targets
+    PolicyMatchCriterion tagCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:public"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Empty sub-resources (no tags being modified) should be allowed
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithNoPrivilegeConstraints() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Unrestricted tag policy");
+    dataHubPolicyInfo.setDescription("Policy without operation target constraints");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    // No policy constraints set - any tags can be modified
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Any tags should be allowed when no constraints are defined
+    List<ResolvedEntitySpec> anyTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:sensitive_pii"),
+            buildEntityResolvers("tag", "urn:li:tag:public_data"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            anyTags);
+
+    assertTrue(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicySubResourcesWithNotEqualsCondition() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Restricted tag policy with NOT_EQUALS");
+    dataHubPolicyInfo.setDescription("Policy that prevents modification of specific tags");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints - exclude modification of specific restricted tags
+    PolicyMatchCriterion tagCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:restricted_pii"),
+            PolicyMatchCondition.NOT_EQUALS);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(tagCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Sub-resources (tags) that are allowed - not the restricted tag
+    List<ResolvedEntitySpec> allowedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:public_data"),
+            buildEntityResolvers("tag", "urn:li:tag:analytics"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            allowedTags);
+
+    assertTrue(result.isGranted());
+
+    // Sub-resources that include the restricted tag should be denied
+    List<ResolvedEntitySpec> restrictedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:public_data"), // Allowed
+            buildEntityResolvers("tag", "urn:li:tag:restricted_pii") // Not allowed
+            );
+
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            restrictedTags);
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicySubResourcesWithStartsWithCondition() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Prefix-based tag policy with STARTS_WITH");
+    dataHubPolicyInfo.setDescription(
+        "Policy that only allows modification of tags with specific prefix");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints - URN must start with specific prefix for tags
+    PolicyMatchCriterion urnCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:tag:department_"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(urnCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Sub-resources (tags) with allowed URN prefix
+    List<ResolvedEntitySpec> allowedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:department_finance"),
+            buildEntityResolvers("tag", "urn:li:tag:department_engineering"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            allowedTags);
+
+    assertTrue(result.isGranted());
+
+    // Sub-resources (tags) with disallowed URN prefix should be denied
+    List<ResolvedEntitySpec> disallowedTags =
+        Arrays.asList(
+            buildEntityResolvers("tag", "urn:li:tag:department_finance"), // Allowed
+            buildEntityResolvers(
+                "tag", "urn:li:tag:sensitive_pii") // Doesn't start with "department_"
+            );
+
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            disallowedTags);
+
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyOwnershipModificationConstraints() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_OWNERS"));
+    dataHubPolicyInfo.setDisplayName("Ownership modification policy");
+    dataHubPolicyInfo.setDescription("Policy that restricts which ownership types can be modified");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+
+    // Set policy constraints - only allow modification of business ownership types
+    PolicyMatchCriterion ownershipCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:ownershipType:business"),
+            PolicyMatchCondition.STARTS_WITH);
+    PolicyMatchFilter constraintFilter =
+        new PolicyMatchFilter()
+            .setCriteria(new PolicyMatchCriterionArray(Collections.singleton(ownershipCriterion)));
+    resourceFilter.setPrivilegeConstraints(constraintFilter);
+
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Sub-resources (ownership assignments) that are allowed
+    List<ResolvedEntitySpec> allowedOwnerships =
+        Arrays.asList(
+            buildEntityResolvers("ownershipType", "urn:li:ownershipType:business_owner"),
+            buildEntityResolvers("ownershipType", "urn:li:ownershipType:business_steward"));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            allowedOwnerships);
+
+    assertTrue(result.isGranted());
+
+    // Sub-resources that include technical ownership types should be denied
+    List<ResolvedEntitySpec> mixedOwnerships =
+        Arrays.asList(
+            buildEntityResolvers("ownershipType", "urn:li:ownershipType:business_owner"), // Allowed
+            buildEntityResolvers(
+                "ownershipType", "urn:li:ownershipType:technical_owner") // Not allowed
+            );
+
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            mixedOwnerships);
+
+    assertFalse(result.isGranted());
   }
 
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)

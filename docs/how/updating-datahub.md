@@ -6,6 +6,9 @@
 
 ### Breaking Changes
 
+- #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
+- #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
+
 ### Known Issues
 
 ### Potential Downtime
@@ -13,6 +16,8 @@
 ### Deprecations
 
 ### Other Notable Changes
+
+- #13726: Removed dgraph from tests
 
 -->
 
@@ -27,6 +32,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+
+- #13858 For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
 
 ### Other Notable Changes
 
@@ -45,6 +52,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13397: Ingestion Rest Emitter
   - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
   - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
 
 ### Potential Downtime
 

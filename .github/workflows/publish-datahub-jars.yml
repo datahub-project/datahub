@@ -27,8 +27,13 @@ jobs:
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo "Enable publish: ${{ env.SIGNING_KEY != '' }}"
-          echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.repository }}" == "acryldata/datahub" ]]; then
+            echo "Enable publish for main repository: ${{ env.SIGNING_KEY != '' }}"
+            echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          else
+            echo "Skipping publish for repository: ${{ github.repository }}"
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -39,6 +44,9 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
+        env:
+          GITHUB_REF_FALLBACK: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           source .github/scripts/docker_helpers.sh
           TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
