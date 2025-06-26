@@ -1,9 +1,6 @@
 package com.linkedin.metadata.boot.steps;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.datahub.util.RecordUtils;
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -46,14 +43,7 @@ public class IngestDefaultTagsStep implements BootstrapStep {
   public void execute(@Nonnull OperationContext systemOperationContext)
       throws IOException, URISyntaxException {
 
-    final ObjectMapper mapper = new ObjectMapper();
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    mapper
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    final ObjectMapper mapper = systemOperationContext.getObjectMapper();
 
     try {
 

@@ -3,6 +3,7 @@ package com.linkedin.metadata.boot.steps;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -29,7 +30,9 @@ public class IngestDefaultTagsStepTest {
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags.json");
 
-    step.execute(mock(OperationContext.class));
+    OperationContext operationContext = mock(OperationContext.class);
+    when(operationContext.getObjectMapper()).thenReturn(new ObjectMapper());
+    step.execute(operationContext);
 
     TagProperties expectedResult = new TagProperties();
     expectedResult.setName("Test Tag");
@@ -50,7 +53,9 @@ public class IngestDefaultTagsStepTest {
     final IngestDefaultTagsStep step =
         new IngestDefaultTagsStep(entityService, "/boot/test_tags.json");
 
-    step.execute(mock(OperationContext.class));
+    OperationContext operationContext = mock(OperationContext.class);
+    when(operationContext.getObjectMapper()).thenReturn(new ObjectMapper());
+    step.execute(operationContext);
 
     Mockito.verify(entityService, times(0))
         .ingestProposal(

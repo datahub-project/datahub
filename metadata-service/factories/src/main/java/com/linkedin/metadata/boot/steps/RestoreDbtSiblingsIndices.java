@@ -44,7 +44,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
       EntityKeyUtils.convertEntityKeyToUrn(
           new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
-  private static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService<?> _entityService;
 
@@ -62,7 +61,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   @Override
   public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
-    log.info(String.format("Waiting %s seconds..", SLEEP_SECONDS));
 
     EntityResponse response =
         _entityService.getEntityV2(
@@ -84,9 +82,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
         return;
       }
     }
-
-    // Sleep to ensure deployment process finishes.
-    Thread.sleep(SLEEP_SECONDS * 1000);
 
     log.info("Bootstrapping sibling aspects");
 
