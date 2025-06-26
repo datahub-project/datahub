@@ -1020,11 +1020,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
-                platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
-                    platform_instance=self.platform_instance_name,
-                    platform_resource_repository=self.platform_resource_repository,
-                    tag=tag,
-                )
+                try:
+                    platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
+                        platform_instance=self.platform_instance_name,
+                        platform_resource_repository=self.platform_resource_repository,
+                        tag=tag,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed creating UnityCatalogTagPlatformResourceId for tag: {tag}",
+                        exc_info=e,
+                    )
+                    continue
                 logger.debug(f"Created platform resource {platform_resource_id}")
 
                 unity_catalog_tag = UnityCatalogTagPlatformResource.get_from_datahub(
