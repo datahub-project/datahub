@@ -635,14 +635,23 @@ class MLflowSource(StatefulIngestionSourceBase):
         """
         Generate an MLModelGroup workunit for an MLflow Registered Model.
         """
+        created_time = (
+            datetime.fromtimestamp(registered_model.creation_timestamp / 1000)
+            if registered_model.creation_timestamp
+            else None
+        )
+        last_modified_time = (
+            datetime.fromtimestamp(registered_model.last_updated_timestamp / 1000)
+            if registered_model.last_updated_timestamp
+            else None
+        )
         ml_model_group = MLModelGroup(
             id=registered_model.name,
             name=registered_model.name,
             platform=self.platform,
             description=registered_model.description,
-            created=datetime.fromtimestamp(registered_model.creation_timestamp / 1000)
-            if registered_model.creation_timestamp
-            else None,
+            created=created_time,
+            last_modified=last_modified_time,
             custom_properties=registered_model.tags,
         )
         yield from ml_model_group.as_workunits()
