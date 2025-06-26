@@ -125,16 +125,18 @@ class DockerPluginExtension {
 def extension = project.extensions.create("docker", DockerPluginExtension)
 
 project.afterEvaluate {
-  def buildContext = "${rootProject.buildDir}/dockerBuildContext/${rootProject.relativePath(project.projectDir)}/docker"
+  //def buildContext = "${rootProject.buildDir}/dockerBuildContext/${rootProject.relativePath(project.projectDir)}/docker"
+  def buildContext = "${rootProject.projectDir}"
   // ensure this directory exists
-  new File(buildContext).mkdirs()
-  println("buildContext: ${buildContext}")
+  //new File(buildContext).mkdirs()
+  //println("buildContext: ${buildContext}")
 
-  tasks.register("dockerPrepare", Sync) {
+  tasks.register("dockerPrepare") {
     group "docker"
-    with extension.copySpec
+    /*with extension.copySpec
     from extension.dockerfile
     into buildContext
+    */
     dependsOn extension.dependencies.get()
   }
 
@@ -143,10 +145,10 @@ project.afterEvaluate {
     description "Builds the docker image and applies all tags defined"
     dependsOn dockerPrepare
 
-    def marker = "${buildContext}/../imageCreated-${name}.json"
+    def marker = "${project.buildDir}/imageCreated-${name}.json"
 
     inputs.file(extension.dockerfile)
-    inputs.dir(buildContext)
+    //inputs.dir(buildContext)
     inputs.property("tags", extension.tags)
     inputs.property("buildArgs", extension.buildArgs)
     outputs.file(marker)
