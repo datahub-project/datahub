@@ -189,7 +189,7 @@ services:
       interval: 1s
       retries: 5
       start_period: 1m0s
-    image: confluentinc/cp-kafka:7.9.1
+    image: confluentinc/cp-kafka:8.0.0
     networks:
       default: null
     ports:
