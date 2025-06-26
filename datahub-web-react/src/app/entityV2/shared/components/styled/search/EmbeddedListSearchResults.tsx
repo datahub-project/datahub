@@ -3,21 +3,21 @@ import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SearchCfg } from '../../../../../../conf';
+
+import { EntityAndType } from '@app/entity/shared/types';
 import {
-    DataHubView,
-    FacetFilterInput,
-    FacetMetadata,
-    SearchResults as SearchResultType,
-} from '../../../../../../types.generated';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
-import { UnionType } from '../../../../../search/utils/constants';
-import { combineSiblingsInSearchResults } from '../../../../../searchV2/utils/combineSiblingsInSearchResults';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { EntityActionProps, EntitySearchResults } from './EntitySearchResults';
-import MatchingViewsLabel from './MatchingViewsLabel';
+    EntityActionProps,
+    EntitySearchResults,
+} from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
+import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
+import { UnionType } from '@app/search/utils/constants';
+import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { SearchCfg } from '@src/conf';
+
+import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -59,7 +59,6 @@ const PaginationInfoContainer = styled.span`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    overflow: auto;
 `;
 
 const StyledPagination = styled(Pagination)`
@@ -91,11 +90,11 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : `#797F98`)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : `#797F98`)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
@@ -104,7 +103,7 @@ const Pill = styled.div<{ selected?: boolean }>`
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? REDESIGN_COLORS.HOVER_PURPLE : '#A3A7B9')};
+    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#A3A7B9')};
     color: ${REDESIGN_COLORS.WHITE};
     border-radius: 20px;
     min-width: 25px;
@@ -119,7 +118,7 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
 `;
 
 const ViewLabel = styled.span`

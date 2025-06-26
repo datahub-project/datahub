@@ -1,6 +1,7 @@
-import React from 'react';
 import { render } from '@testing-library/react';
-import UserHeader from '../UserHeader';
+import React from 'react';
+
+import UserHeader from '@app/entity/user/UserHeader';
 
 describe('UserHeader', () => {
     it('renders name, title, skills, teams and email', () => {

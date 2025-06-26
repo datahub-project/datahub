@@ -1,6 +1,7 @@
 import googleAnalytics from '@analytics/google-analytics';
-import { Event, EventType } from '../event';
-import analyticsConfig from '../../../conf/analytics';
+
+import { Event, EventType } from '@app/analytics/event';
+import analyticsConfig from '@conf/analytics';
 
 const ga4Configs = analyticsConfig.googleAnalytics;
 const isEnabled: boolean = ga4Configs || false;

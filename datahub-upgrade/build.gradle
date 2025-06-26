@@ -54,13 +54,15 @@ dependencies {
     implementation('dnsjava:dnsjava:3.6.1') {
       because("CVE-2024-25638")
     }
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
   }
 
 
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -71,6 +73,7 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  implementation externalDependency.kafkaClients
   runtimeOnly externalDependency.opentelemetryExporter
   runtimeOnly externalDependency.openTelemetryExporterLogging
   runtimeOnly externalDependency.openTelemetryExporterCommon
@@ -81,6 +84,11 @@ dependencies {
   runtimeOnly externalDependency.postgresql
 
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
+
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonJsr310
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
@@ -124,10 +132,54 @@ task run(type: Exec) {
   environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
   environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
           "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
+task runCron(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron"
+}
+
+task runCronDryRun(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "dryRun=true"
+}
+
+/**
+ * Runs RestoreIndices on locally running system.
+ * This is useful for debugging or special situations to reindex, the index to reindex is given in -u index= argument"
+ */
+task runReindexDebug(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate ReindexDebug"
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "ReindexDebug", "-a", "index=datahubpolicyindex_v2"
 }
 
 /**
@@ -158,21 +210,9 @@ task runRestoreIndicesUrn(type: Exec) {
           bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
 }
 
-task runNoCode(type: Exec) {
-  dependsOn bootJar
-  group = "Execution"
-  description = "Run the NoCodeDataMigration process locally."
-  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
-  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
-          "-jar",
-          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
-          "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "NoCodeDataMigration", "-a", "batchSize=100", "-a", "dbType=MYSQL"
-}
-
 docker {
   dependsOn(bootJar)
-  name "${docker_registry}/${docker_repo}:v${version}"
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -201,4 +241,3 @@ docker {
     buildArgs(dockerBuildArgs)
   }
 }
-

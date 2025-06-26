@@ -3,6 +3,9 @@ namespace com.linkedin.mxe
 /**
  * Metadata associated with each metadata change that is processed by the system
  */
+ @Aspect = {
+   "name": "systemMetadata"
+ }
 record SystemMetadata {
   /**
   * The timestamp the metadata was observed at

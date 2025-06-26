@@ -2,11 +2,13 @@ import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Divider, Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
-import { EntityType, TermRelationshipType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
-import useRemoveRelatedTerms from './useRemoveRelatedTerms';
+
+import { PreviewType } from '@app/entity/Entity';
+import useRemoveRelatedTerms from '@app/entity/glossaryTerm/profile/useRemoveRelatedTerms';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
+import { EntityType, TermRelationshipType } from '@types';
 
 const ListItem = styled.div`
     margin: 0 20px;

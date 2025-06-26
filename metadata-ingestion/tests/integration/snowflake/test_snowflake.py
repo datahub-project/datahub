@@ -26,8 +26,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     TagOption,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
-from tests.test_helpers import mce_helpers
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -121,7 +121,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
-                        email_as_user_identifier=True,
                         incremental_lineage=False,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
@@ -209,6 +208,9 @@ def test_snowflake_tags_as_structured_properties(
                     type="snowflake",
                     config=SnowflakeV2Config(
                         extract_tags_as_structured_properties=True,
+                        structured_property_pattern=AllowDenyPattern(
+                            deny=["test_db.test_schema.my_tag_2"]
+                        ),
                         extract_tags=TagOption.without_lineage,
                         account_id="ABC12345.ap-south-1.aws",
                         username="TST_USR",

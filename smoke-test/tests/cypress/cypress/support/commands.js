@@ -206,6 +206,10 @@ Cypress.Commands.add("goToDomain", (urn) => {
   cy.visit(`/domain/${urn}`);
 });
 
+Cypress.Commands.add("goToApplication", (urn) => {
+  cy.visit(`/application/${urn}`);
+});
+
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
   cy.contains("Data Landscape Summary", { timeout: 10000 });
@@ -436,6 +440,15 @@ Cypress.Commands.add(
   },
 );
 
+Cypress.Commands.add(
+  "removeApplicationFromDataset",
+  (urn, dataset_name, application_urn) => {
+    cy.goToDataset(urn, dataset_name);
+    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.clickOptionWithText("Yes");
+  },
+);
+
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = `div[id$="${tab}"]:nth-child(1)`;
   cy.get(selector).click();
@@ -531,17 +544,22 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
       });
+    } else if (hasOperationName(req, "getMe")) {
+      req.alias = "gqlgetMeQuery";
+      req.on("response", (res) => {
+        res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
+      });
     }
   });
 });
 
-Cypress.Commands.add("ignoreResizeObserverLoop", () => {
-  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-  cy.on("uncaught:exception", (err) => {
-    if (err.message.includes(resizeObserverLoopErrRe)) {
-      return false;
-    }
-  });
+Cypress.on("uncaught:exception", (err) => {
+  const resizeObserverLoopErrMessage = "ResizeObserver loop limit exceeded";
+
+  /* returning false here prevents Cypress from failing the test */
+  if (err.message.includes(resizeObserverLoopErrMessage)) {
+    return false;
+  }
 });
 
 //

@@ -72,7 +72,7 @@ NIFI = "nifi"
 # and here - https://github.com/psf/requests/issues/1573
 class SSLAdapter(HTTPAdapter):
     def __init__(self, certfile, keyfile, password=None):
-        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self.context.load_cert_chain(
             certfile=certfile, keyfile=keyfile, password=password
         )

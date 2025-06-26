@@ -9,16 +9,15 @@ Traces let us track the life of a request across multiple components. Each trace
 are units of work, containing various context about the work being done as well as time taken to finish the work. By
 looking at the trace, we can more easily identify performance bottlenecks.
 
-We enable tracing by using
-the [OpenTelemetry java instrumentation library](https://github.com/open-telemetry/opentelemetry-java-instrumentation).
+We enable tracing by using the [OpenTelemetry java instrumentation library](https://github.com/open-telemetry/opentelemetry-java-instrumentation).
 This project provides a Java agent JAR that is attached to java applications. The agent injects bytecode to capture
 telemetry from popular libraries.
 
 Using the agent we are able to
 
-1) Plug and play different tracing tools based on the user's setup: Jaeger, Zipkin, or other tools
-2) Get traces for Kafka, JDBC, and Elasticsearch without any additional code
-3) Track traces of any function with a simple `@WithSpan` annotation
+1. Plug and play different tracing tools based on the user's setup: Jaeger, Zipkin, or other tools
+2. Get traces for Kafka, JDBC, and Elasticsearch without any additional code
+3. Track traces of any function with a simple `@WithSpan` annotation
 
 You can enable the agent by setting env variable `ENABLE_OTEL` to `true` for GMS and MAE/MCE consumers. In our
 example [docker-compose](../../docker/monitoring/docker-compose.monitoring.yml), we export metrics to a local Jaeger
@@ -99,7 +98,7 @@ docker-compose -p datahub \
 
 We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
 instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
-metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart. 
+metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart.
 
 ## Health check endpoint
 

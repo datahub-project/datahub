@@ -17,7 +17,6 @@ import SearchBar from '@theme/SearchBar';
 import NavbarMobileSidebarToggle from '@theme/Navbar/MobileSidebar/Toggle';
 import NavbarLogo from '@theme/Navbar/Logo';
 import NavbarSearch from '@theme/Navbar/Search';
-import SolutionsDropdown from '../../../components/SolutionsDropdown/SolutionsDropdown';
 import CardDropdown from '../../../components/CardDropdown/CardDropdown';
 import learnCardDropdownContent from '../learnCardDropdownContent';
 import communityCardDropdownContent from '../communityCardDropdownContent';
@@ -74,9 +73,8 @@ export default function NavbarContent(): JSX.Element {
   // among the right items, pick items except "Solution", "Learn", "Community"
   const rightItemsDropdown = rightItems.filter(
     (item) =>
-      item.label == 'Cloud' ||
-      item.label == 'Docs' ||
-      item.label == 'Integrations'
+      item.label == 'Integrations' ||
+      item.label == 'Docs'
   );
 
   // pick items without labels 
@@ -101,7 +99,6 @@ export default function NavbarContent(): JSX.Element {
         // TODO stop hardcoding items?
         // Ask the user to add the respective navbar items => more flexible
         <>
-          <SolutionsDropdown />
           <NavbarItems items={rightItemsDropdown} />
           <CardDropdown label="Learn" items={learnCardDropdownContent} />
           <CardDropdown label= "Community" items={communityCardDropdownContent} />

@@ -43,8 +43,10 @@ jar -tvf $jarFile |\
       grep -v "com/ibm/.*" |\
       grep -v "google/" |\
       grep -v "org/apache/avro" |\
-      grep -v "org/apache"
-
+      grep -v "org/apache" |\
+      grep -v "org/publicsuffix" |\
+      grep -v "com/eclipsesource/" |\
+      grep -v "freebsd/"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

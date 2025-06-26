@@ -1,6 +1,6 @@
-import { DataFlow, DataFlowUpdateInput } from '../../types.generated';
-import { findDataFlowByURN } from '../fixtures/searchResult/dataFlowSearchResult';
-import { updateEntityOwners, updateEntityTag } from '../mutationHelper';
+import { findDataFlowByURN } from '@graphql-mock/fixtures/searchResult/dataFlowSearchResult';
+import { updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
+import { DataFlow, DataFlowUpdateInput } from '@types';
 
 type UpdateDataFlow = {
     data: { updateDataFlow: DataFlow };
@@ -22,7 +22,7 @@ export const updateDataFlowResolver = {
                 updateDataFlow: Object.assign(dataFlow, {
                     info: {
                         ...dataFlow.info,
-                        externalUrl: 'https://airflow.demo.datahubproject.io/tree?dag_id=datahub_analytics_refresh',
+                        externalUrl: 'https://airflow.demo.datahub.com/tree?dag_id=datahub_analytics_refresh',
                         inputs: [],
                         customProperties: [],
                     },

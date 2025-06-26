@@ -24,7 +24,7 @@ services:
       test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     volumes:
@@ -47,7 +47,7 @@ services:
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}-slim
   datahub-frontend-react:
     depends_on:
       datahub-gms:
@@ -85,6 +85,7 @@ services:
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
     - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - ELASTICSEARCH_LIMIT_RESULTS_STRICT=true
     - ELASTICSEARCH_PORT=9200
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - ENTITY_SERVICE_ENABLE_RETENTION=true
@@ -211,6 +212,7 @@ services:
     - MYSQL_USER=datahub
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
+    - MYSQL_ROOT_HOST=%
     healthcheck:
       interval: 1s
       retries: 3
@@ -272,7 +274,7 @@ services:
       test: nc -z schema-registry ${DATAHUB_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry
-    image: ${DATAHUB_CONFLUENT_SCHEMA_REGISTRY_IMAGE:-confluentinc/cp-schema-registry}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_SCHEMA_REGISTRY_IMAGE:-confluentinc/cp-schema-registry}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
@@ -286,7 +288,7 @@ services:
       test: echo srvr | nc zookeeper $${DATAHUB_ZK_PORT:-2181}
       timeout: 5s
     hostname: zookeeper
-    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:

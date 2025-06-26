@@ -16,12 +16,9 @@ dependencies {
     implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
     implementation project(':metadata-jobs:pe-consumer')
-    implementation project(':metadata-jobs:common')
 
-    implementation(externalDependency.springBootStarterWeb) {
-        exclude module: "spring-boot-starter-tomcat"
-    }
-    implementation externalDependency.springBootStarterJetty
+    implementation(externalDependency.springBootStarterWeb)
+    implementation(externalDependency.springBootStarterJetty)
     implementation externalDependency.springKafka
     implementation externalDependency.springBootAutoconfigure
     implementation externalDependency.springActuator
@@ -47,7 +44,7 @@ bootJar {
 
 docker {
     dependsOn(bootJar)
-    name "${docker_registry}/${docker_repo}:v${version}"
+    name "${docker_registry}/${docker_repo}:${versionTag}"
     //version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
     files bootJar.outputs.files

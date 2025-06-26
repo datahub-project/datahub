@@ -1,8 +1,10 @@
-import styled from 'styled-components';
-import { Row } from 'antd';
+import { colors } from '@components';
 import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from './constants';
+import { Row } from 'antd';
+import styled from 'styled-components';
+
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 /**
  * Styled Components- Users and Groups Side bar component
@@ -45,7 +47,6 @@ export const SideBarSubSection = styled.div`
     }
     &::-webkit-scrollbar-thumb {
         background: #d6d6d6;
-        -webkit-border-radius: 1ex;
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
@@ -232,8 +233,8 @@ export const Content = styled.div`
         padding-bottom: 12px;
         width: 100%;
         &:not(:last-child) {
-            border-bottom: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid;
+            border-color: ${colors.gray[100]};
         }
     }
 `;
@@ -377,16 +378,24 @@ export const WhiteEditOutlinedIconStyle = styled(EditOutlinedIcon)`
     }
 `;
 
-export const ShowMoreButton = styled.div`
+const showMoreStyles = `
     margin-top: 8px;
     padding: 0px;
     color: ${ANTD_GRAY[7]};
     text-align: left;
+`;
+
+export const ShowMoreButton = styled.div`
+    ${showMoreStyles}
     :hover {
         cursor: pointer;
         color: ${ANTD_GRAY[8]};
         text-decoration: underline;
     }
+`;
+
+export const ShowMoreText = styled.div`
+    ${showMoreStyles}
 `;
 
 export const CountStyle = styled.div`

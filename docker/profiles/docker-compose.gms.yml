@@ -68,6 +68,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
@@ -191,11 +192,15 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
+  ports:
+    - 9090:9090
+    - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
@@ -252,7 +257,9 @@ services:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug
+      - debug-min
       - debug-backend
+      - debug-backend-aws
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -358,6 +365,27 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug
+      - debug-backend
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-aws:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-backend-aws
+    environment:
+      <<: *datahub-gms-dev-env
+      AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+      AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+      AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-min:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-min
       - debug-backend
     depends_on:
       system-update-debug:

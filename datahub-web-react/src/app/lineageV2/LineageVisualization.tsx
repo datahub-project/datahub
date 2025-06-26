@@ -1,21 +1,26 @@
-import SearchControl from '@app/lineageV2/controls/SearchControl';
-import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import React, { useContext, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
+import 'reactflow/dist/style.css';
 import styled from 'styled-components';
 
-import 'reactflow/dist/style.css';
-import { LineageDisplayContext, TRANSITION_DURATION_MS } from './common';
-import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from './LineageEdge/LineageTableEdge';
-import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
-import LineageFilterNodeBasic, { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
+import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV2/LineageEdge/LineageTableEdge';
+import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
+import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV2/LineageEntityNode/LineageEntityNode';
+import LineageFilterNodeBasic, {
+    LINEAGE_FILTER_NODE_NAME,
+} from '@app/lineageV2/LineageFilterNode/LineageFilterNodeBasic';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
-} from './LineageTransformationNode/LineageTransformationNode';
-import { LineageVisualizationNode } from './NodeBuilder';
-import LineageControls from './controls/LineageControls';
-import ZoomControls from './controls/ZoomControls';
-import LineageVisualizationContext from './LineageVisualizationContext';
+} from '@app/lineageV2/LineageTransformationNode/LineageTransformationNode';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
+import { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
+import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
+import LineageControls from '@app/lineageV2/controls/LineageControls';
+import SearchControl from '@app/lineageV2/controls/SearchControl';
+import ZoomControls from '@app/lineageV2/controls/ZoomControls';
+import { getLineageUrl } from '@app/lineageV2/lineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {
@@ -54,6 +59,9 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const entityRegistry = useEntityRegistry();
+    const history = useHistory();
+    const location = useLocation();
 
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
@@ -71,6 +79,11 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onNodeDragStart={(_e, node) => {
                     // eslint-disable-next-line no-param-reassign
                     node.data.dragged = true;
+                }}
+                onNodeDoubleClick={(_e, node) => {
+                    if (node.data?.urn && node.data?.type) {
+                        history.push(getLineageUrl(node.data.urn, node.data.type, location, entityRegistry));
+                    }
                 }}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}

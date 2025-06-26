@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -20,25 +21,26 @@ public class SystemGraphRetriever implements GraphRetriever {
   @Nonnull
   @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
-      @Nullable List<String> sourceTypes,
+      @Nullable Set<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
+      @Nullable Set<String> destinationTypes,
       @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
+      @Nonnull Set<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     return graphService.scrollRelatedEntities(
         systemOperationContext,
-        sourceTypes,
-        sourceEntityFilter,
-        destinationTypes,
-        destinationEntityFilter,
-        relationshipTypes,
-        relationshipFilter,
+        new GraphFilters(
+            sourceEntityFilter,
+            destinationEntityFilter,
+            sourceTypes,
+            destinationTypes,
+            relationshipTypes,
+            relationshipFilter),
         sortCriteria,
         scrollId,
         count,

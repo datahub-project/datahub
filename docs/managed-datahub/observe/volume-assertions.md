@@ -1,25 +1,25 @@
 ---
 description: This page provides an overview of working with DataHub Volume Assertions
 ---
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Volume Assertions
 
 <FeatureAvailability saasOnly />
 
-> The **Volume Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
-> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> The **Volume Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
-Can you remember a time when the meaning of Data Warehouse Table that you depended on fundamentally changed, with little or no notice? 
+Can you remember a time when the meaning of Data Warehouse Table that you depended on fundamentally changed, with little or no notice?
 If the answer is yes, how did you find out? We'll take a guess - someone looking at an internal reporting dashboard or worse, a user using your your product, sounded an alarm when
 a number looked a bit out of the ordinary. Perhaps your table initially tracked purchases made on your company's e-commerce web store, but suddenly began to include purchases made
-through your company's new mobile app. 
+through your company's new mobile app.
 
 There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may change in its meaning - application code bugs, new feature rollouts,
-changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products 
+changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
@@ -53,7 +53,7 @@ tab.
 
 A **Volume Assertion** is a configurable Data Quality rule used to monitor a Data Warehouse Table
 for unexpected or sudden changes in "volume", or row count. Volume Assertions can be particularly useful when you have frequently-changing
-Tables which have a relatively stable pattern of growth or decline. 
+Tables which have a relatively stable pattern of growth or decline.
 
 For example, imagine that we work for a company with a Snowflake Table that stores user clicks collected from our e-commerce website.
 This table is updated with new data on a specific cadence: once per hour (In practice, daily or even weekly are also common).
@@ -64,8 +64,8 @@ that our downstream metrics dashboard becomes incorrect. The risk of this situat
 may make bad decisions based on incomplete information.
 
 In such cases, we can use a **Volume Assertion** that checks whether the Snowflake "clicks" Table is growing in an expected
-way, and that there are no sudden increases or sudden decreases in the rows being added or removed from the table. 
-If too many rows are added or removed within an hour, we can notify key stakeholders and begin to root cause before the problem impacts stakeholders of the data. 
+way, and that there are no sudden increases or sudden decreases in the rows being added or removed from the table.
+If too many rows are added or removed within an hour, we can notify key stakeholders and begin to root cause before the problem impacts stakeholders of the data.
 
 ### Anatomy of a Volume Assertion
 
@@ -73,7 +73,7 @@ At the most basic level, **Volume Assertions** consist of a few important parts:
 
 1. An **Evaluation Schedule**
 2. A **Volume Condition**
-2. A **Volume Source**
+3. A **Volume Source**
 
 In this section, we'll give an overview of each.
 
@@ -84,30 +84,28 @@ be configured to match the expected change frequency of the Table, although it c
 on the requirements. You can also specify specific days of the week, hours in the day, or even
 minutes in an hour.
 
-
 #### 2. Volume Condition
 
 The **Volume Condition**: This defines the type of condition that we'd like to monitor, or when the Assertion
-should result in failure. 
+should result in failure.
 
-There are a 2 different categories of conditions: **Total** Volume and **Change** Volume. 
+There are a 2 different categories of conditions: **Total** Volume and **Change** Volume.
 
 _Total_ volume conditions are those which are defined against the point-in-time total row count for a table. They allow you to specify conditions like:
 
 1. **Table has too many rows**: The table should always have less than 1000 rows
 2. **Table has too few rows**: The table should always have more than 1000 rows
-3. **Table row count is outside a range**: The table should always have between 1000 and 2000 rows. 
+3. **Table row count is outside a range**: The table should always have between 1000 and 2000 rows.
 
-_Change_ volume conditions are those which are defined against the growth or decline rate of a table, measured between subsequent checks 
+_Change_ volume conditions are those which are defined against the growth or decline rate of a table, measured between subsequent checks
 of the table volume. They allow you to specify conditions like:
 
 1. **Table growth is too fast**: When the table volume is checked, it should have < 1000 more rows than it had during the previous check.
-2. **Table growth is too slow**: When the table volume is checked, it should have > 1000 more rows than it had during the previous check. 
+2. **Table growth is too slow**: When the table volume is checked, it should have > 1000 more rows than it had during the previous check.
 3. **Table growth is outside a range**: When the table volume is checked, it should have between 1000 and 2000 more rows than it had during the previous check.
 
 For change volume conditions, both _absolute_ row count deltas and relative percentage deltas are supported for identifying
-table that are following an abnormal pattern of growth. 
-
+table that are following an abnormal pattern of growth.
 
 #### 3. Volume Source
 
@@ -116,18 +114,17 @@ source types vary by the platform, but generally fall into these categories:
 
 - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
-  once a change has been made to a table. 
+  once a change has been made to a table.
 
-- **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform). 
-  This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve 
+- **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
+  This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers.
 
 - **DataHub Dataset Profile**: The DataHub Dataset Profile aspect is used to retrieve the latest row count information for a table.
   Using this option avoids contacting your data platform, and instead uses the DataHub Dataset Profile metadata to evaluate Volume Assertions.
   Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
-  
-Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
+Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
 ## Creating a Volume Assertion
 
@@ -145,7 +142,7 @@ Once these are in place, you're ready to create your Volume Assertions!
 ### Steps
 
 1. Navigate to the Table that to monitor for volume
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -159,8 +156,8 @@ Once these are in place, you're ready to create your Volume Assertions!
 
 4. Choose **Volume**
 
-5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a pass or fail result, and the times 
-   when the table volume will be checked. 
+5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a pass or fail result, and the times
+   when the table volume will be checked.
 
 6. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
@@ -175,8 +172,8 @@ Once these are in place, you're ready to create your Volume Assertions!
   <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
 </p>
 
-- **Information Schema**: Check the Data Platform system metadata tables to determine the table row count. 
-- **Query**: Issue a `COUNT(*)` query to the table to determine the row count. 
+- **Information Schema**: Check the Data Platform system metadata tables to determine the table row count.
+- **Query**: Issue a `COUNT(*)` query to the table to determine the row count.
 - **DataHub Dataset Profile**: Use the DataHub Dataset Profile metadata to determine the row count.
 
 8. Configure actions that should be taken when the Volume Assertion passes or fails
@@ -204,12 +201,23 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
+dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
+requiring any manual setup.
+
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
+</p>
 
 ## Stopping a Volume Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Volume** to open the Volume Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -222,26 +230,6 @@ To resume the assertion, simply click **Start**.
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
-
-
-## Smart Assertions ⚡
-
-As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
-requiring any manual setup.
-
-If DataHub Cloud is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
-
-<p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
-</p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
-
 
 ## Creating Volume Assertions via API
 
@@ -273,23 +261,15 @@ mutation upsertDatasetVolumeAssertionMonitor {
       rowCountTotal: {
         operator: BETWEEN
         parameters: {
-          minValue: {
-            value: "10"
-            type: NUMBER
-          }
-          maxValue: {
-            value: "20"
-            type: NUMBER
-          }
+          minValue: { value: "10", type: NUMBER }
+          maxValue: { value: "20", type: NUMBER }
         }
       }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
-      evaluationParameters: {
-        sourceType: INFORMATION_SCHEMA
-      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
       mode: ACTIVE
     }
   ) {
@@ -298,9 +278,39 @@ mutation upsertDatasetVolumeAssertionMonitor {
 }
 ```
 
-The supported volume assertion types are `ROW_COUNT_TOTAL` and `ROW_COUNT_CHANGE`. Other (e.g. incrementing segment) types are not yet supported. 
+To create an AI Smart Freshness Assertion that runs every 8 hours:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      type: ROW_COUNT_TOTAL
+      # you can provide any value here as it will be overwritten continuously by the AI engine
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+The supported volume assertion types are `ROW_COUNT_TOTAL` and `ROW_COUNT_CHANGE`. Other (e.g. incrementing segment) types are not yet supported.
 The supported operator types are `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
-The supported parameter types are `NUMBER`. 
+The supported parameter types are `NUMBER`.
 
 You can use same endpoint with assertion urn input to update an existing Volume Assertion and corresponding Monitor:
 
@@ -314,23 +324,15 @@ mutation upsertDatasetVolumeAssertionMonitor {
       rowCountTotal: {
         operator: BETWEEN
         parameters: {
-          minValue: {
-            value: "10"
-            type: NUMBER
-          }
-          maxValue: {
-            value: "20"
-            type: NUMBER
-          }
+          minValue: { value: "10", type: NUMBER }
+          maxValue: { value: "20", type: NUMBER }
         }
       }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */6 * * *"
       }
-      evaluationParameters: {
-        sourceType: INFORMATION_SCHEMA
-      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
       mode: ACTIVE
     }
   ) {
@@ -354,5 +356,5 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the DataHub Cloud GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::

@@ -16,7 +16,7 @@ from pyiceberg.exceptions import (
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
-from pyiceberg.typedef import Identifier
+from pyiceberg.typedef import Identifier, Properties
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -134,7 +134,9 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.OWNERSHIP,
     "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 class IcebergSource(StatefulIngestionSourceBase):
     """
     ## Integration Details
@@ -387,8 +389,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                         env=self.config.env,
                     )
                 )
+                namespace_properties: Properties = catalog.load_namespace_properties(
+                    namespace
+                )
                 namespaces.append((namespace, namespace_urn))
-                for aspect in self._create_iceberg_namespace_aspects(namespace):
+                for aspect in self._create_iceberg_namespace_aspects(
+                    namespace, namespace_properties
+                ):
                     yield stamping_processor.stamp_wu(
                         MetadataChangeProposalWrapper(
                             entityUrn=namespace_urn, aspect=aspect
@@ -608,12 +615,23 @@ class IcebergSource(StatefulIngestionSourceBase):
         return self.report
 
     def _create_iceberg_namespace_aspects(
-        self, namespace: Identifier
+        self, namespace: Identifier, properties: Properties
     ) -> Iterable[_Aspect]:
         namespace_repr = ".".join(namespace)
+        custom_properties: Dict[str, str] = {}
+        for k, v in properties.items():
+            try:
+                custom_properties[str(k)] = str(v)
+            except Exception as e:
+                LOGGER.warning(
+                    f"Exception when trying to parse namespace properties for {namespace_repr}. Exception: {e}"
+                )
         yield Status(removed=False)
         yield ContainerProperties(
-            name=namespace_repr, qualifiedName=namespace_repr, env=self.config.env
+            name=namespace_repr,
+            qualifiedName=namespace_repr,
+            env=self.config.env,
+            customProperties=custom_properties,
         )
         yield SubTypes(typeNames=[DatasetContainerSubTypes.NAMESPACE])
         dpi = self._get_dataplatform_instance_aspect()

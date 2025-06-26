@@ -1,10 +1,11 @@
-import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
-import { EntityType } from '../../../types.generated';
-import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import { MAX_AGGREGATION_VALUES } from './constants';
-import { useSidebarFilters } from './useSidebarFilters';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { MAX_AGGREGATION_VALUES } from '@app/searchV2/sidebar/constants';
+import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
+import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 type Props = {
     facets: string[];
@@ -44,7 +45,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
     };
 
     // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
-    const data = error ? null : newData ?? previousData;
+    const data = error ? null : (newData ?? previousData);
     const loaded = !!data || !!error;
 
     const entityAggregations = data?.aggregateAcrossEntities?.facets

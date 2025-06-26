@@ -1,5 +1,12 @@
 package com.linkedin.metadata.utils;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.test.KeyPartEnum;
@@ -14,7 +21,10 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
+import org.mockito.MockedStatic;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -96,5 +106,132 @@ public class EntityKeyUtilsTest {
     expectedKey.setOrigin(FabricType.PROD);
 
     assertEquals(actualKey, expectedKey);
+  }
+
+  @Test
+  public void testGetUrnFromEvent() throws Exception {
+    // Create a mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockKeyAspectSpec = mock(AspectSpec.class);
+
+    // Create a test URN
+    Urn testUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
+
+    // Create a test MetadataChangeLog event
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType("dataset");
+    event.setEntityUrn(testUrn);
+
+    // Configure mocks
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectSpec()).thenReturn(mockKeyAspectSpec);
+
+    // Mock the convertUrnToEntityKey method to simulate validation
+    RecordTemplate mockKeyRecord = mock(RecordTemplate.class);
+
+    // Use a spy to mock the static method call inside getUrnFromEvent
+    try (MockedStatic<EntityKeyUtils> mockedEntityKeyUtils = mockStatic(EntityKeyUtils.class)) {
+      mockedEntityKeyUtils
+          .when(() -> EntityKeyUtils.convertUrnToEntityKey(eq(testUrn), eq(mockKeyAspectSpec)))
+          .thenReturn(mockKeyRecord);
+
+      // Call method under test - redirect to the real method after our mock setup
+      mockedEntityKeyUtils
+          .when(() -> EntityKeyUtils.getUrnFromLog(eq(event), eq(mockKeyAspectSpec)))
+          .thenCallRealMethod();
+
+      // Enable calling the real method under test
+      mockedEntityKeyUtils
+          .when(() -> EntityKeyUtils.getUrnFromEvent(eq(event), eq(mockEntityRegistry)))
+          .thenCallRealMethod();
+
+      // Execute the method
+      Urn resultUrn = EntityKeyUtils.getUrnFromEvent(event, mockEntityRegistry);
+
+      // Verify the result
+      assertEquals(resultUrn, testUrn);
+
+      // Verify interactions
+      verify(mockEntityRegistry).getEntitySpec("dataset");
+      verify(mockEntitySpec).getKeyAspectSpec();
+      mockedEntityKeyUtils.verify(
+          () -> EntityKeyUtils.convertUrnToEntityKey(eq(testUrn), eq(mockKeyAspectSpec)));
+    }
+  }
+
+  @Test
+  public void testGetUrnFromEventWithKeyAspect() throws Exception {
+    // Create a mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockKeyAspectSpec = mock(AspectSpec.class);
+
+    // Create a test DatasetKey
+    DatasetKey datasetKey = new DatasetKey();
+    datasetKey.setPlatform(Urn.createFromString("urn:li:dataPlatform:hive"));
+    datasetKey.setName("testDataset");
+    datasetKey.setOrigin(FabricType.PROD);
+
+    // Create test URN that should be generated
+    Urn expectedUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)");
+
+    // Create aspect value for the event
+    SystemMetadata metadata = new SystemMetadata();
+    metadata.setRunId("test-run-id");
+
+    // Create a test MetadataChangeLog event with key aspect instead of URN
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType("dataset");
+    event.setEntityKeyAspect(GenericRecordUtils.serializeAspect(datasetKey));
+
+    // Configure mocks
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectSpec()).thenReturn(mockKeyAspectSpec);
+
+    // Mock deserializeAspect to return our datasetKey
+    try (MockedStatic<GenericRecordUtils> mockedGenericRecordUtils =
+        mockStatic(GenericRecordUtils.class)) {
+      mockedGenericRecordUtils
+          .when(() -> GenericRecordUtils.deserializeAspect(any(), any(), eq(mockKeyAspectSpec)))
+          .thenReturn(datasetKey);
+
+      // Mock convertEntityKeyToUrn to return our expected URN
+      try (MockedStatic<EntityKeyUtils> mockedEntityKeyUtils =
+          mockStatic(EntityKeyUtils.class, CALLS_REAL_METHODS)) {
+        mockedEntityKeyUtils
+            .when(() -> EntityKeyUtils.convertEntityKeyToUrn(eq(datasetKey), eq("dataset")))
+            .thenReturn(expectedUrn);
+
+        // Execute the method
+        Urn resultUrn = EntityKeyUtils.getUrnFromEvent(event, mockEntityRegistry);
+
+        // Verify the result
+        assertEquals(resultUrn, expectedUrn);
+
+        // Verify interactions
+        verify(mockEntityRegistry).getEntitySpec("dataset");
+        verify(mockEntitySpec).getKeyAspectSpec();
+      }
+    }
+  }
+
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "Failed to get urn from MetadataChangeLog event.*")
+  public void testGetUrnFromEventWithInvalidEntityType() {
+    // Create a mock entity registry that throws for invalid entity
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpec("invalidEntity"))
+        .thenThrow(new IllegalArgumentException("Entity not found"));
+
+    // Create a test MetadataChangeLog event with invalid entity type
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType("invalidEntity");
+
+    // Execute the method - should throw exception
+    EntityKeyUtils.getUrnFromEvent(event, mockEntityRegistry);
   }
 }

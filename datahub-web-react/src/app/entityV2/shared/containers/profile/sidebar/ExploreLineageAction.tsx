@@ -1,20 +1,21 @@
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import CompactContext from '@src/app/shared/CompactContext';
-import { REDESIGN_COLORS } from '../../../constants';
-import { getEntityPath } from '../utils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
 
 const ActionButton = styled(Link)`
     height: 22px;
     width: 22px;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border: 1px solid ${(props) => props.theme.styles['primary-color']};
     border-radius: 50%;
     text-align: center;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => props.theme.styles['primary-color']};
 
     svg {
         height: 20px;
@@ -25,7 +26,7 @@ const ActionButton = styled(Link)`
     :hover {
         cursor: pointer;
         color: ${REDESIGN_COLORS.WHITE};
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

@@ -25,6 +25,7 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
+    ColumnTransformation,
     DownstreamColumnRef,
     SqlParsingDebugInfo,
     SqlParsingResult,
@@ -192,17 +193,17 @@ def test_cll():
         ColumnLineageInfo(
             downstream=DownstreamColumnRef(table=None, column="a"),
             upstreams=[],
-            logic=None,
+            logic=ColumnTransformation(is_direct_copy=True, column_logic='"a" AS "a"'),
         ),
         ColumnLineageInfo(
             downstream=DownstreamColumnRef(table=None, column="b"),
             upstreams=[],
-            logic=None,
+            logic=ColumnTransformation(is_direct_copy=True, column_logic='"b" AS "b"'),
         ),
         ColumnLineageInfo(
             downstream=DownstreamColumnRef(table=None, column="c"),
             upstreams=[],
-            logic=None,
+            logic=ColumnTransformation(is_direct_copy=True, column_logic='"c" AS "c"'),
         ),
     ]
 

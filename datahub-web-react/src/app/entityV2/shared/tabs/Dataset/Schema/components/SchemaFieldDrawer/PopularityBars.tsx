@@ -5,7 +5,7 @@ const Bar = styled.div<{ status: number; bar: number; isFieldSelected: boolean; 
     width: ${(props) => (props.size === 'default' ? '5px' : '3px')};
     height: ${(props) => 5 * (props.bar + 1)}px;
     background: ${(props) => {
-        return props.bar <= props.status ? '#533fd1' : '#C6C0E0';
+        return props.bar <= props.status ? props.theme.styles['primary-color'] : '#C6C0E0';
     }};
     opacity: ${(props) => (props.isFieldSelected && !(props.bar <= props.status) ? '0.5' : '')};
     margin-right: ${(props) => (props.size === 'default' ? '3px' : '4px')};

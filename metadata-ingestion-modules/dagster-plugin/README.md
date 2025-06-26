@@ -1,3 +1,3 @@
 # Datahub Dagster Plugin
 
-See the [DataHub Dagster docs](https://datahubproject.io/docs/lineage/dagster/) for details.
+See the [DataHub Dagster docs](https://docs.datahub.com/docs/lineage/dagster/) for details.

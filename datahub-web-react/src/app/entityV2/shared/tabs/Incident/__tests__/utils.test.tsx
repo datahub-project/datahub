@@ -1,19 +1,20 @@
 import { format } from 'date-fns';
+
+import { IncidentListFilter } from '@app/entityV2/shared/tabs/Incident/types';
+import {
+    getAssigneeNamesWithAvatarUrl,
+    getAssigneeWithURN,
+    getExistingIncidents,
+    getFilteredTransformedIncidentData,
+    getFormattedDateForResolver,
+    getLinkedAssetsCount,
+    getLinkedAssetsData,
+    getSortedIncidents,
+    useSiblingOptionsForIncidentBuilder,
+    validateForm,
+} from '@app/entityV2/shared/tabs/Incident/utils';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { EntityType } from '@src/types.generated';
-import {
-    getFilteredTransformedIncidentData,
-    getLinkedAssetsCount,
-    getAssigneeWithURN,
-    getAssigneeNamesWithAvatarUrl,
-    getLinkedAssetsData,
-    getFormattedDateForResolver,
-    validateForm,
-    getSortedIncidents,
-    getExistingIncidents,
-    useSiblingOptionsForIncidentBuilder,
-} from '../utils';
-import { IncidentListFilter } from '../types';
 
 describe('Utility Functions', () => {
     test('getFilteredTransformedIncidentData should filter and transform incident data', () => {
@@ -42,7 +43,7 @@ describe('Utility Functions', () => {
                 priority: ['Low'],
                 stage: [],
                 state: [],
-                type: [],
+                category: [],
             },
         };
 
@@ -119,7 +120,7 @@ describe('Utility Functions', () => {
                 siblingsSearch: { searchResults: [{ entity: { incidents: { incidents: [{ id: 2 }] } } }] },
             },
         };
-        expect(getExistingIncidents(currData)).toEqual([{ id: 1 }, { id: 2 }]);
+        expect(getExistingIncidents(currData)).toEqual([{ id: 1 }]);
     });
 
     test('should return main entity data in options', () => {

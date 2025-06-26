@@ -76,6 +76,7 @@ class SourceCapability(Enum):
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
+    TEST_CONNECTION = "Test Connection"
 
 
 class StructuredLogLevel(Enum):
@@ -247,6 +248,7 @@ class SourceReport(Report):
                             self.aspect_urn_samples[entityType][
                                 "fineGrainedLineages"
                             ].append(urn)
+                            self.aspects[entityType]["fineGrainedLineages"] += 1
 
     def report_warning(
         self,
@@ -420,12 +422,9 @@ class Source(Closeable, metaclass=ABCMeta):
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
         browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.flags.generate_browse_path_v2
-        ):
+        if self.ctx.flags.generate_browse_path_v2:
             browse_path_processor = self._get_browse_path_processor(
-                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
+                self.ctx.flags.generate_browse_path_v2_dry_run
             )
 
         auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
