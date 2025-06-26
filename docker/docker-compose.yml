@@ -178,7 +178,7 @@ services:
     - broker:/var/lib/kafka/data/
   zookeeper:
     hostname: zookeeper
-    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
+    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env
