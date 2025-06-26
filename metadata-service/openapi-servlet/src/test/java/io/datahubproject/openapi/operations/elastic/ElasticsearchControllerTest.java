@@ -23,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -395,6 +396,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     @MockBean public TimeseriesAspectService timeseriesAspectService;
     @MockBean public EntitySearchService searchService;
     @MockBean public EntityService<?> entityService;
+    @MockBean public GraphService graphService;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -442,6 +444,12 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
+    }
+
+    @Bean
+    @Primary
+    public GraphService graphService() {
+      return graphService;
     }
   }
 }
