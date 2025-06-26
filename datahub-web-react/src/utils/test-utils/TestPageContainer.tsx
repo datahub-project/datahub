@@ -65,6 +65,28 @@ export function getTestEntityRegistry() {
     return entityRegistry;
 }
 
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
+};
+
 export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
     Object.defineProperty(window.document, 'cookie', {
