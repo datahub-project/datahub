@@ -1,5 +1,6 @@
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mock_data.datahub_mock_data import (
     DataHubMockDataConfig,
@@ -14,6 +15,22 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DatasetUrn
+
+
+def assert_workunit_aspect_type(workunit, expected_aspect_class):
+    """Helper method to assert that a workunit has the expected aspect type."""
+    assert isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+    assert workunit.metadata.aspect is not None
+    assert isinstance(workunit.metadata.aspect, expected_aspect_class)
+
+
+def get_workunit_metadata_safely(workunit):
+    """Helper method to safely access workunit metadata, ensuring it's a MetadataChangeProposalWrapper."""
+    if not isinstance(workunit.metadata, MetadataChangeProposalWrapper):
+        raise ValueError(
+            f"Expected MetadataChangeProposalWrapper, got {type(workunit.metadata)}"
+        )
+    return workunit.metadata
 
 
 @pytest.mark.parametrize(
@@ -130,8 +147,7 @@ def test_generate_lineage_data_gen1_no_hops():
 
     # Verify it's a status aspect
     workunit = workunits[0]
-    assert workunit.metadata.aspect is not None
-    assert isinstance(workunit.metadata.aspect, StatusClass)
+    assert_workunit_aspect_type(workunit, StatusClass)
 
 
 def test_generate_lineage_data_gen1_table_naming():
@@ -147,11 +163,10 @@ def test_generate_lineage_data_gen1_table_naming():
     # Check that we have tables with expected naming pattern
     table_names = set()
     for workunit in workunits:
-        if workunit.metadata.aspect and isinstance(
-            workunit.metadata.aspect, StatusClass
-        ):
+        metadata = get_workunit_metadata_safely(workunit)
+        if metadata.aspect and isinstance(metadata.aspect, StatusClass):
             # Extract table name from URN using DatasetUrn
-            urn = workunit.metadata.entityUrn
+            urn = metadata.entityUrn
             if urn is not None:
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_name = dataset_urn.name
@@ -182,11 +197,11 @@ def test_generate_lineage_data_gen1_lineage_relationships():
     workunits = list(source._data_gen_1())
 
     # Find lineage workunits
-    lineage_workunits = [
-        w
-        for w in workunits
-        if w.metadata.aspect and isinstance(w.metadata.aspect, UpstreamLineageClass)
-    ]
+    lineage_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, UpstreamLineageClass):
+            lineage_workunits.append(w)
 
     assert len(lineage_workunits) == 2
 
@@ -195,7 +210,8 @@ def test_generate_lineage_data_gen1_lineage_relationships():
     downstream_table_urns = set()
 
     for workunit in lineage_workunits:
-        lineage = workunit.metadata.aspect
+        metadata = get_workunit_metadata_safely(workunit)
+        lineage = metadata.aspect
         if lineage is not None:
             assert len(lineage.upstreams) == 1
             upstream = lineage.upstreams[0]
@@ -205,7 +221,7 @@ def test_generate_lineage_data_gen1_lineage_relationships():
             else:
                 assert upstream.dataset == upstream_table_urn
 
-            downstream_table_urns.add(workunit.metadata.entityUrn)
+            downstream_table_urns.add(metadata.entityUrn)
 
     # Verify upstream table name pattern
     if upstream_table_urn is not None:
@@ -245,20 +261,22 @@ def test_aspect_generation():
 
     # Test status aspect generation
     status_workunit = source._get_status_aspect("test_table")
-    dataset_urn = DatasetUrn.from_string(status_workunit.metadata.entityUrn)
+    metadata = get_workunit_metadata_safely(status_workunit)
+    dataset_urn = DatasetUrn.from_string(metadata.entityUrn)
     assert dataset_urn.name == "test_table"
-    assert status_workunit.metadata.entityType == "dataset"
-    assert isinstance(status_workunit.metadata.aspect, StatusClass)
-    assert status_workunit.metadata.aspect.removed is False
+    assert metadata.entityType == "dataset"
+    assert isinstance(metadata.aspect, StatusClass)
+    assert metadata.aspect.removed is False
 
     # Test upstream lineage aspect generation
     lineage_workunit = source._get_upstream_aspect("upstream_table", "downstream_table")
-    dataset_urn = DatasetUrn.from_string(lineage_workunit.metadata.entityUrn)
+    metadata = get_workunit_metadata_safely(lineage_workunit)
+    dataset_urn = DatasetUrn.from_string(metadata.entityUrn)
     assert dataset_urn.name == "downstream_table"
-    assert lineage_workunit.metadata.entityType == "dataset"
-    assert isinstance(lineage_workunit.metadata.aspect, UpstreamLineageClass)
+    assert metadata.entityType == "dataset"
+    assert isinstance(metadata.aspect, UpstreamLineageClass)
 
-    lineage = lineage_workunit.metadata.aspect
+    lineage = metadata.aspect
     if lineage is not None:
         assert len(lineage.upstreams) == 1
 
@@ -405,12 +423,13 @@ def test_get_subtypes_aspect():
 
     # Test SubTypes aspect generation
     subtypes_workunit = source._get_subtypes_aspect("test_table", 0, 1)
-    dataset_urn = DatasetUrn.from_string(subtypes_workunit.metadata.entityUrn)
+    metadata = get_workunit_metadata_safely(subtypes_workunit)
+    dataset_urn = DatasetUrn.from_string(metadata.entityUrn)
     assert dataset_urn.name == "test_table"
-    assert subtypes_workunit.metadata.entityType == "dataset"
-    assert isinstance(subtypes_workunit.metadata.aspect, SubTypesClass)
+    assert metadata.entityType == "dataset"
+    assert isinstance(metadata.aspect, SubTypesClass)
 
-    subtypes = subtypes_workunit.metadata.aspect
+    subtypes = metadata.aspect
     if subtypes is not None:
         assert len(subtypes.typeNames) == 1
         assert (
@@ -445,22 +464,23 @@ def test_generate_lineage_data_with_subtypes():
     assert len(workunits) == expected_workunits
 
     # Check that we have SubTypes aspects
-    subtypes_workunits = [
-        w
-        for w in workunits
-        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
-    ]
+    subtypes_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
+            subtypes_workunits.append(w)
     assert len(subtypes_workunits) == 3
 
     # Check that alternating pattern is applied
     table_subtypes = {}
     for workunit in subtypes_workunits:
-        urn = workunit.metadata.entityUrn
+        metadata = get_workunit_metadata_safely(workunit)
+        urn = metadata.entityUrn
         if urn is not None:
             dataset_urn = DatasetUrn.from_string(urn)
             table_name = dataset_urn.name
-            subtypes = workunit.metadata.aspect
-            if subtypes is not None:
+            subtypes = metadata.aspect
+            if subtypes is not None and isinstance(subtypes, SubTypesClass):
                 table_subtypes[table_name] = subtypes.typeNames[0]
 
     # Extract table indices from names to verify alternating pattern
@@ -486,19 +506,19 @@ def test_generate_lineage_data_subtypes_disabled():
     workunits = list(source._data_gen_1())
 
     # SubTypes workunits are generated by default
-    subtypes_workunits = [
-        w
-        for w in workunits
-        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
-    ]
+    subtypes_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
+            subtypes_workunits.append(w)
     assert len(subtypes_workunits) == 3
 
     # Should still generate status and lineage workunits
-    status_workunits = [
-        w
-        for w in workunits
-        if w.metadata.aspect and isinstance(w.metadata.aspect, StatusClass)
-    ]
+    status_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, StatusClass):
+            status_workunits.append(w)
     assert len(status_workunits) == 3  # 3 tables
 
 
@@ -519,21 +539,22 @@ def test_subtypes_level_based_pattern():
     workunits = list(source._data_gen_1())
 
     # Check SubTypes aspects
-    subtypes_workunits = [
-        w
-        for w in workunits
-        if w.metadata.aspect and isinstance(w.metadata.aspect, SubTypesClass)
-    ]
+    subtypes_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
+            subtypes_workunits.append(w)
 
     # Verify level-based pattern
     for workunit in subtypes_workunits:
-        urn = workunit.metadata.entityUrn
+        metadata = get_workunit_metadata_safely(workunit)
+        urn = metadata.entityUrn
         if urn is not None:
             dataset_urn = DatasetUrn.from_string(urn)
             table_name = dataset_urn.name
-            subtypes = workunit.metadata.aspect
+            subtypes = metadata.aspect
 
-            if subtypes is not None:
+            if subtypes is not None and isinstance(subtypes, SubTypesClass):
                 # Parse table name using helper
                 parsed = TableNamingHelper.parse_table_name(table_name)
                 level = parsed["level"]
@@ -572,10 +593,9 @@ def test_table_naming_helper_integration():
     # Extract table names from status workunits
     table_names = set()
     for workunit in workunits:
-        if workunit.metadata.aspect and isinstance(
-            workunit.metadata.aspect, StatusClass
-        ):
-            urn = workunit.metadata.entityUrn
+        metadata = get_workunit_metadata_safely(workunit)
+        if metadata.aspect and isinstance(metadata.aspect, StatusClass):
+            urn = metadata.entityUrn
             if urn is not None:
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_names.add(dataset_urn.name)
