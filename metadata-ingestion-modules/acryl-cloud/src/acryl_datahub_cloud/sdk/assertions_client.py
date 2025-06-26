@@ -3058,6 +3058,46 @@ class AssertionsClient:
         #     raise e
         return VolumeAssertion._from_entities(assertion_entity, monitor_entity)
 
+    def _validate_sql_assertion_creation_params(
+        self,
+        statement: Optional[str],
+        criteria_condition: Optional[Union[SqlAssertionCondition, str]],
+        criteria_parameters: Optional[
+            Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]
+        ],
+    ) -> None:
+        """Validate required parameters for SQL assertion creation."""
+        self._validate_required_field(
+            statement, "statement", "when creating a new assertion (urn is None)"
+        )
+        self._validate_required_field(
+            criteria_condition,
+            "criteria_condition",
+            "when creating a new assertion (urn is None)",
+        )
+        self._validate_required_field(
+            criteria_parameters,
+            "criteria_parameters",
+            "when creating a new assertion (urn is None)",
+        )
+
+    def _validate_required_sql_fields_for_update(
+        self,
+        statement: Optional[str],
+        criteria_condition: Optional[Union[SqlAssertionCondition, str]],
+        criteria_parameters: Optional[
+            Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]
+        ],
+        assertion_urn: Union[str, AssertionUrn],
+    ) -> None:
+        """Validate required fields after attempting to fetch from existing assertion."""
+        context = f"and not found in existing assertion {assertion_urn}. The existing assertion may be invalid or corrupted."
+        self._validate_required_field(statement, "statement", context)
+        self._validate_required_field(criteria_condition, "criteria_condition", context)
+        self._validate_required_field(
+            criteria_parameters, "criteria_parameters", context
+        )
+
     def sync_sql_assertion(
         self,
         *,
@@ -3065,11 +3105,11 @@ class AssertionsClient:
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: Optional[bool] = None,
-        statement: str,
-        criteria_condition: Union[SqlAssertionCondition, str],
-        criteria_parameters: Union[
-            Union[float, int], tuple[Union[float, int], Union[float, int]]
-        ],
+        statement: Optional[str] = None,
+        criteria_condition: Optional[Union[SqlAssertionCondition, str]] = None,
+        criteria_parameters: Optional[
+            Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]
+        ] = None,
         incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
@@ -3095,8 +3135,8 @@ class AssertionsClient:
             urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
             display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
             enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
-            statement (str): The SQL statement to be used for the assertion.
-            criteria_condition (Union[SqlAssertionCondition, str]): The condition for the sql assertion. Valid values are:
+            statement (Optional[str]): The SQL statement to be used for the assertion. Required when creating a new assertion (urn=None), optional when updating an existing assertion.
+            criteria_condition (Optional[Union[SqlAssertionCondition, str]]): The condition for the sql assertion. Required when creating a new assertion (urn=None), optional when updating an existing assertion. Valid values are:
                 - "IS_EQUAL_TO" -> The metric value equals the threshold.
                 - "IS_NOT_EQUAL_TO" -> The metric value does not equal the threshold.
                 - "IS_GREATER_THAN" -> The metric value is greater than the threshold.
@@ -3108,7 +3148,7 @@ class AssertionsClient:
                 - "GROWS_AT_LEAST_PERCENTAGE" -> The metric growth is at least the threshold (percentage change).
                 - "GROWS_WITHIN_A_RANGE_ABSOLUTE" -> The metric growth is within the specified range (absolute change).
                 - "GROWS_WITHIN_A_RANGE_PERCENTAGE" -> The metric growth is within the specified range (percentage change).
-            criteria_parameters (Union[float, int, tuple[float, int]]): The threshold parameters to be used for the assertion. This can be a single threshold value or a tuple range.
+            criteria_parameters (Optional[Union[float, int, tuple[float, int]]]): The threshold parameters to be used for the assertion. Required when creating a new assertion (urn=None), optional when updating an existing assertion. This can be a single threshold value or a tuple range.
                 - If the condition is range-based (IS_WITHIN_A_RANGE, GROWS_WITHIN_A_RANGE_ABSOLUTE, GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
                 - For other conditions, the value is a single numeric threshold value.
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
@@ -3131,6 +3171,15 @@ class AssertionsClient:
         # 1. If urn is not set, create a new assertion
         if urn is None:
             logger.info("URN is not set, creating a new assertion")
+
+            # Validate required parameters for creation
+            self._validate_sql_assertion_creation_params(
+                statement, criteria_condition, criteria_parameters
+            )
+            # After validation, these cannot be None
+            assert statement is not None
+            assert criteria_condition is not None
+            assert criteria_parameters is not None
             return self._create_sql_assertion(
                 dataset_urn=dataset_urn,
                 display_name=display_name,
@@ -3144,11 +3193,51 @@ class AssertionsClient:
                 schedule=schedule,
             )
 
-        # 2. If urn is set, first validate the input:
+        # 2.1 If urn is set, fetch missing required parameters from backend if needed:
+        # NOTE: This is a tactical solution. The problem is we fetch twice (once for validation,
+        # once for merge). Strategic solution would be to merge first, then validate after,
+        # but that requires heavy refactor and is skipped for now.
+        if urn is not None and (
+            statement is None
+            or criteria_condition is None
+            or criteria_parameters is None
+        ):
+            # Fetch existing assertion to get missing required parameters
+            maybe_assertion_entity, _, maybe_monitor_entity = (
+                self._retrieve_assertion_and_monitor(
+                    {"dataset_urn": dataset_urn, "urn": urn}
+                )
+            )
+
+            if maybe_assertion_entity is not None and maybe_monitor_entity is not None:
+                existing_assertion = SqlAssertion._from_entities(
+                    maybe_assertion_entity, maybe_monitor_entity
+                )
+                # Use existing values for missing required parameters
+                if statement is None:
+                    statement = existing_assertion.statement
+                if criteria_condition is None or criteria_parameters is None:
+                    criteria = existing_assertion._criteria
+                    if criteria_condition is None:
+                        criteria_condition = criteria.condition
+                    if criteria_parameters is None:
+                        criteria_parameters = criteria.parameters
+
+            self._validate_required_sql_fields_for_update(
+                statement, criteria_condition, criteria_parameters, urn
+            )
+            assert (
+                statement is not None
+                and criteria_condition is not None
+                and criteria_parameters is not None
+            ), "Fields guaranteed non-None after validation"
+
+        # 2.2 Now validate the input with all required parameters:
         criteria = SqlAssertionCriteria(
             condition=criteria_condition,
             parameters=criteria_parameters,
         )
+
         assertion_input = _SqlAssertionInput(
             urn=urn,
             entity_client=self.client.entities,

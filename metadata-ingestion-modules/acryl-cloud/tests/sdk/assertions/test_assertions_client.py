@@ -2324,6 +2324,71 @@ def test_sync_sql_assertion_uses_string_incident_behavior(
     assert mock_create.call_count == 2  # Creates both assertion and monitor
 
 
+def test_sync_sql_assertion_missing_required_params_for_creation(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion raises SDKUsageError when required params are missing for creation (urn=None)."""
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Test missing statement
+    with pytest.raises(
+        SDKUsageError, match="statement is required when creating a new assertion"
+    ):
+        client.sync_sql_assertion(
+            dataset_urn=any_dataset_urn,
+            # statement missing
+            criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
+            criteria_parameters=100,
+        )
+
+    # Test missing criteria_condition
+    with pytest.raises(
+        SDKUsageError,
+        match="criteria_condition is required when creating a new assertion",
+    ):
+        client.sync_sql_assertion(
+            dataset_urn=any_dataset_urn,
+            statement="SELECT COUNT(*) FROM test_table",
+            # criteria_condition missing
+            criteria_parameters=100,
+        )
+
+    # Test missing criteria_parameters
+    with pytest.raises(
+        SDKUsageError,
+        match="criteria_parameters is required when creating a new assertion",
+    ):
+        client.sync_sql_assertion(
+            dataset_urn=any_dataset_urn,
+            statement="SELECT COUNT(*) FROM test_table",
+            criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
+            # criteria_parameters missing
+        )
+
+
+def test_sync_sql_assertion_optional_params_for_merge(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion allows optional params when urn is provided (merge scenario)."""
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
+
+    # This should not raise an error since urn is provided and we can fetch missing params from existing assertion
+    result = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn="urn:li:assertion:sql_assertion",  # Use the URN from conftest fixtures
+        # statement, criteria_condition, criteria_parameters are optional in merge scenario
+    )
+
+    # Verify that the values were correctly fetched from the existing assertion
+    assert result.statement == "SELECT COUNT(*) FROM test_table"
+    assert result._criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
+    assert result._criteria.parameters == 100
+
+
 def test_create_sql_assertion_uses_string_incident_behavior(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
