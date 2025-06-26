@@ -1,10 +1,10 @@
-import React from 'react';
-import './storybook-theme.css';
+import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 // FYI: import of antd styles required to show components based on it correctly
 import 'antd/dist/antd.css';
+import React from 'react';
 
-import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 import DocTemplate from './DocTemplate.mdx';
+import './storybook-theme.css';
 
 const preview = {
     tags: ['!dev', 'autodocs'],

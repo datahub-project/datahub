@@ -1,4 +1,4 @@
-import { PageTitle, Tabs, colors } from '@components';
+import { PageTitle, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +7,7 @@ import { AssertionsByAssertionSummary } from '@app/observe/dataset/assertion/Ass
 import { AssertionsByTableSummary } from '@app/observe/dataset/assertion/AssertionsByTableSummary';
 import { IncidentsSummary } from '@app/observe/dataset/incident/IncidentsSummary';
 import { useAppConfig } from '@app/useAppConfig';
+import { Tabs } from '@src/alchemy-components/components/Tabs';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const BY_ASSERTIONS_TAB_ID = 'by-assertions';
@@ -20,80 +21,11 @@ const BY_ASSERTIONS_URL = `${BASE_ASSERTIONS_URL}/${BY_ASSERTIONS_TAB_ID}`;
 const BY_TABLE_URL = `${BASE_ASSERTIONS_URL}/${BY_TABLE_TAB_ID}`;
 const INCIDENTS_URL = `${BASE_URL}/${INCIDENTS_TAB_ID}`;
 
-const TABS_TO_URL_MAP: Record<string, string> = {
-    [ASSERTIONS_TAB_ID]: BY_ASSERTIONS_URL, // default to 'by-assertions'
-    [INCIDENTS_TAB_ID]: INCIDENTS_URL,
-    [BY_ASSERTIONS_TAB_ID]: BY_ASSERTIONS_URL,
-    [BY_TABLE_TAB_ID]: BY_TABLE_URL,
-};
-
-type TabKeys = {
-    main: string;
-    sub: string | null;
-};
-
-const URL_TO_TAB_MAP: Record<string, TabKeys> = {
-    [BASE_URL]: { main: ASSERTIONS_TAB_ID, sub: BY_ASSERTIONS_TAB_ID }, // default to 'by-assertions'
-    [BASE_ASSERTIONS_URL]: { main: ASSERTIONS_TAB_ID, sub: BY_ASSERTIONS_TAB_ID }, // default to 'by-assertions'
-    [BY_ASSERTIONS_URL]: { main: ASSERTIONS_TAB_ID, sub: BY_ASSERTIONS_TAB_ID },
-    [BY_TABLE_URL]: { main: ASSERTIONS_TAB_ID, sub: BY_TABLE_TAB_ID },
-    [INCIDENTS_URL]: { main: INCIDENTS_TAB_ID, sub: null },
-};
-
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : colors.white)};
     overflow: hidden;
     height: 100%;
 `;
-
-/**
- * Extracts the main and sub-tab from the current URL.
- * @returns An object containing the main tab and sub-tab.
- */
-const getTabsFromUrl = (): TabKeys | undefined => {
-    return URL_TO_TAB_MAP[window.location.pathname];
-};
-
-/**
- * Extracts the URL from the selected tab and sub-tab.
- * @param main - The selected main tab.
- * @param sub - The selected sub-tab (if any).
- * @returns The URL corresponding to the selected tab and sub-tab.
- */
-const getUrlFromTabs = ({ main, sub }: TabKeys): string => {
-    if (main === ASSERTIONS_TAB_ID) {
-        return sub ? TABS_TO_URL_MAP[sub] : TABS_TO_URL_MAP[main];
-    }
-    return TABS_TO_URL_MAP[main];
-};
-
-/**
- * Updates the URL based on the selected tab and sub-tab.
- * @param main - The selected main tab.
- * @param sub - The selected sub-tab (if any).
- */
-const updateUrl = ({ main, sub }: TabKeys) => {
-    const url = getUrlFromTabs({ main, sub });
-    window.history.replaceState({}, '', url);
-};
-
-/**
- * Updates the selected tab and sub-tab in the state and URL.
- * @param selectedTab - The selected main tab.
- * @param selectedSubTab - The selected sub-tab.
- * @param setSelectedTab - The state setter for the main tab.
- * @param setSelectedSubTab - The state setter for the sub-tab.
- */
-const updateTabsAndUrl = (
-    selectedTab: string,
-    selectedSubTab: string,
-    setSelectedTab: React.Dispatch<React.SetStateAction<string>>,
-    setSelectedSubTab: React.Dispatch<React.SetStateAction<string>>,
-) => {
-    setSelectedTab(selectedTab);
-    setSelectedSubTab(selectedSubTab);
-    updateUrl({ main: selectedTab, sub: selectedSubTab });
-};
 
 /**
  * The top-level Dataset Health Dashboard which lives under the Observe module.
@@ -102,9 +34,35 @@ export const DatasetHealthPage = () => {
     const appConfig = useAppConfig();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const { main, sub } = getTabsFromUrl() || { main: ASSERTIONS_TAB_ID, sub: BY_ASSERTIONS_TAB_ID };
-    const [selectedTab, setSelectedTab] = React.useState<string>(main);
-    const [selectedSubTab, setSelectedSubTab] = React.useState<string>(sub || BY_ASSERTIONS_TAB_ID);
+    const [selectedTab, setSelectedTab] = React.useState<string>(ASSERTIONS_TAB_ID);
+    const [selectedSubTab, setSelectedSubTab] = React.useState<string>(BY_ASSERTIONS_TAB_ID);
+
+    // Initialize tab state based on current URL
+    React.useEffect(() => {
+        const currentUrl = window.location.pathname;
+        if (currentUrl === BY_TABLE_URL) {
+            setSelectedSubTab(BY_TABLE_TAB_ID);
+        } else if (currentUrl === INCIDENTS_URL) {
+            setSelectedTab(INCIDENTS_TAB_ID);
+        }
+    }, []);
+
+    const handleMainTabChange = (tabKey: string) => {
+        setSelectedTab(tabKey);
+        if (tabKey === INCIDENTS_TAB_ID) {
+            window.history.replaceState({}, '', INCIDENTS_URL);
+        } else if (tabKey === ASSERTIONS_TAB_ID) {
+            // When switching to assertions, preserve the current subtab
+            const targetUrl = selectedSubTab === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
+            window.history.replaceState({}, '', targetUrl);
+        }
+    };
+
+    const handleSubTabChange = (subtabKey: string) => {
+        setSelectedSubTab(subtabKey);
+        const targetUrl = subtabKey === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
+        window.history.replaceState({}, '', targetUrl);
+    };
 
     const assertionsTabs = (
         <Tabs
@@ -131,9 +89,8 @@ export const DatasetHealthPage = () => {
             ]}
             secondary
             selectedTab={selectedSubTab}
-            onChange={(selected) => {
-                updateTabsAndUrl(selectedTab, selected, setSelectedTab, setSelectedSubTab);
-            }}
+            onChange={handleSubTabChange}
+            defaultTab={BY_ASSERTIONS_TAB_ID}
         />
     );
 
@@ -157,9 +114,8 @@ export const DatasetHealthPage = () => {
                 },
             ]}
             selectedTab={selectedTab}
-            onChange={(selected) => {
-                updateTabsAndUrl(selected, selectedSubTab, setSelectedTab, setSelectedSubTab);
-            }}
+            onChange={handleMainTabChange}
+            defaultTab={ASSERTIONS_TAB_ID}
         />
     );
 
