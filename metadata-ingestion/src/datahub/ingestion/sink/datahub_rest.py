@@ -349,9 +349,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
     def flush(self) -> None:
         """Wait for all pending records to be written."""
-        with self.report.main_thread_blocking_timer:
-            while self.report.pending_requests > 0:
-                time.sleep(0.1)
+        while self.report.pending_requests > 0:
+            time.sleep(0.1)
 
     def close(self):
         with self.report.main_thread_blocking_timer:
