@@ -120,8 +120,12 @@ class DataHubMockDataSource(Source):
         self.report = SourceReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # We don't want any implicit aspects to be produced
+        # so we are not using get_workunits_internal
         if self.config.gen_1.emit_lineage:
-            yield from self._data_gen_1()
+            for wu in self._data_gen_1():
+                self.report.report_workunit(wu)
+                yield wu
 
         yield from []
 

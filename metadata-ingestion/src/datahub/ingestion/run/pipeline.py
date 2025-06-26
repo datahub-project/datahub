@@ -341,6 +341,9 @@ class Pipeline:
                 logger.warning("Reporting failed on start", exc_info=e)
 
     def _notify_reporters_on_ingestion_completion(self) -> None:
+        # This method is being called when there are records to flush
+        # in rest-sink so adding this flush here
+        self.sink.flush()
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
