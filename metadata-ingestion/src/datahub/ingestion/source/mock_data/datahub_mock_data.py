@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import Field
@@ -24,11 +23,12 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 
-class SubTypePattern(str, Enum):
+class SubTypePattern(StrEnum):
     ALTERNATING = "alternating"
     ALL_TABLE = "all_table"
     ALL_VIEW = "all_view"
