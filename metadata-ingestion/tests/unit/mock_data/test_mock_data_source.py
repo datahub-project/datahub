@@ -152,9 +152,10 @@ def test_generate_lineage_data_gen1_table_naming():
         ):
             # Extract table name from URN using DatasetUrn
             urn = workunit.metadata.entityUrn
-            dataset_urn = DatasetUrn.from_string(urn)
-            table_name = dataset_urn.name
-            table_names.add(table_name)
+            if urn is not None:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+                table_names.add(table_name)
 
     expected_names = {
         "hops_1_f_2_h0_t0",  # Level 0, table 0
@@ -195,24 +196,28 @@ def test_generate_lineage_data_gen1_lineage_relationships():
 
     for workunit in lineage_workunits:
         lineage = workunit.metadata.aspect
-        assert len(lineage.upstreams) == 1
-        upstream = lineage.upstreams[0]
+        if lineage is not None:
+            assert len(lineage.upstreams) == 1
+            upstream = lineage.upstreams[0]
 
-        if upstream_table_urn is None:
-            upstream_table_urn = upstream.dataset
-        else:
-            assert upstream.dataset == upstream_table_urn
+            if upstream_table_urn is None:
+                upstream_table_urn = upstream.dataset
+            else:
+                assert upstream.dataset == upstream_table_urn
 
-        downstream_table_urns.add(workunit.metadata.entityUrn)
+            downstream_table_urns.add(workunit.metadata.entityUrn)
 
     # Verify upstream table name pattern
-    upstream_dataset_urn = DatasetUrn.from_string(upstream_table_urn)
-    upstream_table_name = upstream_dataset_urn.name
-    assert upstream_table_name == "hops_1_f_2_h0_t0"
+    if upstream_table_urn is not None:
+        upstream_dataset_urn = DatasetUrn.from_string(upstream_table_urn)
+        upstream_table_name = upstream_dataset_urn.name
+        assert upstream_table_name == "hops_1_f_2_h0_t0"
 
     # Verify downstream table name patterns
     downstream_names = {
-        DatasetUrn.from_string(urn).name for urn in downstream_table_urns
+        DatasetUrn.from_string(urn).name
+        for urn in downstream_table_urns
+        if urn is not None
     }
     expected_downstream = {"hops_1_f_2_h1_t0", "hops_1_f_2_h1_t1"}
     assert downstream_names == expected_downstream
@@ -254,12 +259,13 @@ def test_aspect_generation():
     assert isinstance(lineage_workunit.metadata.aspect, UpstreamLineageClass)
 
     lineage = lineage_workunit.metadata.aspect
-    assert len(lineage.upstreams) == 1
+    if lineage is not None:
+        assert len(lineage.upstreams) == 1
 
-    upstream = lineage.upstreams[0]
-    upstream_dataset_urn = DatasetUrn.from_string(upstream.dataset)
-    assert upstream_dataset_urn.name == "upstream_table"
-    assert upstream.type == "TRANSFORMED"
+        upstream = lineage.upstreams[0]
+        upstream_dataset_urn = DatasetUrn.from_string(upstream.dataset)
+        assert upstream_dataset_urn.name == "upstream_table"
+        assert upstream.type == "TRANSFORMED"
 
 
 @pytest.mark.parametrize(
@@ -405,10 +411,11 @@ def test_get_subtypes_aspect():
     assert isinstance(subtypes_workunit.metadata.aspect, SubTypesClass)
 
     subtypes = subtypes_workunit.metadata.aspect
-    assert len(subtypes.typeNames) == 1
-    assert (
-        subtypes.typeNames[0] == "View"
-    )  # index 1 should be View in alternating pattern
+    if subtypes is not None:
+        assert len(subtypes.typeNames) == 1
+        assert (
+            subtypes.typeNames[0] == "View"
+        )  # index 1 should be View in alternating pattern
 
 
 def test_generate_lineage_data_with_subtypes():
@@ -449,10 +456,12 @@ def test_generate_lineage_data_with_subtypes():
     table_subtypes = {}
     for workunit in subtypes_workunits:
         urn = workunit.metadata.entityUrn
-        dataset_urn = DatasetUrn.from_string(urn)
-        table_name = dataset_urn.name
-        subtypes = workunit.metadata.aspect
-        table_subtypes[table_name] = subtypes.typeNames[0]
+        if urn is not None:
+            dataset_urn = DatasetUrn.from_string(urn)
+            table_name = dataset_urn.name
+            subtypes = workunit.metadata.aspect
+            if subtypes is not None:
+                table_subtypes[table_name] = subtypes.typeNames[0]
 
     # Extract table indices from names to verify alternating pattern
     for table_name, subtype in table_subtypes.items():
@@ -519,18 +528,20 @@ def test_subtypes_level_based_pattern():
     # Verify level-based pattern
     for workunit in subtypes_workunits:
         urn = workunit.metadata.entityUrn
-        dataset_urn = DatasetUrn.from_string(urn)
-        table_name = dataset_urn.name
-        subtypes = workunit.metadata.aspect
+        if urn is not None:
+            dataset_urn = DatasetUrn.from_string(urn)
+            table_name = dataset_urn.name
+            subtypes = workunit.metadata.aspect
 
-        # Parse table name using helper
-        parsed = TableNamingHelper.parse_table_name(table_name)
-        level = parsed["level"]
+            if subtypes is not None:
+                # Parse table name using helper
+                parsed = TableNamingHelper.parse_table_name(table_name)
+                level = parsed["level"]
 
-        expected_subtype = config.gen_1.level_subtypes.get(level, "Table")
-        assert subtypes.typeNames[0] == expected_subtype, (
-            f"Table {table_name} at level {level} should be {expected_subtype}"
-        )
+                expected_subtype = config.gen_1.level_subtypes.get(level, "Table")
+                assert subtypes.typeNames[0] == expected_subtype, (
+                    f"Table {table_name} at level {level} should be {expected_subtype}"
+                )
 
 
 def test_subtype_pattern_enum_values():
@@ -565,8 +576,9 @@ def test_table_naming_helper_integration():
             workunit.metadata.aspect, StatusClass
         ):
             urn = workunit.metadata.entityUrn
-            dataset_urn = DatasetUrn.from_string(urn)
-            table_names.add(dataset_urn.name)
+            if urn is not None:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_names.add(dataset_urn.name)
 
     # Verify all generated table names are valid and parseable
     for table_name in table_names:

@@ -1,3 +1,6 @@
+from typing import Dict
+
+
 class TableNamingHelper:
     """
     Helper class for managing table naming conventions in mock data generation.
@@ -24,7 +27,7 @@ class TableNamingHelper:
         return f"hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
 
     @staticmethod
-    def parse_table_name(table_name: str) -> dict[str, int]:
+    def parse_table_name(table_name: str) -> Dict[str, int]:
         """
         Parse a table name to extract its components.
 

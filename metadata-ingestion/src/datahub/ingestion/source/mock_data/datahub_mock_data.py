@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Iterable
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import Field
 
@@ -77,7 +77,7 @@ class LineageConfigGen1(ConfigModel):
         description="Number of hops (levels) in the lineage graph. This controls the 'depth' of the lineage graph. Level 0 is the root table, and each subsequent level contains downstream tables. Higher values create deeper lineage chains.",
     )
 
-    lineage_fan_out_after_first_hop: int = Field(
+    lineage_fan_out_after_first_hop: Optional[int] = Field(
         default=None,
         description="Optional limit on fanout for hops after the first hop. When set, prevents exponential growth by limiting the number of downstream tables per upstream table at levels 2 and beyond. When None, uses the standard exponential growth (lineage_fan_out^level).",
     )
@@ -87,7 +87,7 @@ class LineageConfigGen1(ConfigModel):
         description="Pattern for determining SubTypes. Options: 'alternating', 'all_table', 'all_view', 'level_based'",
     )
 
-    level_subtypes: dict[int, str] = Field(
+    level_subtypes: Dict[int, str] = Field(
         default={0: "Table", 1: "View", 2: "Table"},
         description="Mapping of level to subtype for level_based pattern",
     )
@@ -126,8 +126,8 @@ class DataHubMockDataSource(Source):
         yield from []
 
     def _calculate_lineage_tables(
-        self, fan_out: int, hops: int, fan_out_after_first: int = None
-    ) -> tuple[int, list[int]]:
+        self, fan_out: int, hops: int, fan_out_after_first: Optional[int] = None
+    ) -> Tuple[int, List[int]]:
         """
         Calculate the total number of tables and tables at each level for lineage generation.
 
@@ -141,7 +141,7 @@ class DataHubMockDataSource(Source):
             containing the number of tables at each level (index 0 = level 0, etc.)
         """
         tables_to_be_created = 0
-        tables_at_levels = []
+        tables_at_levels: List[int] = []
 
         for i in range(hops + 1):
             if i == 0:
@@ -165,7 +165,7 @@ class DataHubMockDataSource(Source):
         return tables_to_be_created, tables_at_levels
 
     def _calculate_fanout_for_level(
-        self, level: int, fan_out: int, fan_out_after_first: int = None
+        self, level: int, fan_out: int, fan_out_after_first: Optional[int] = None
     ) -> int:
         """
         Calculate the fanout (number of downstream tables) for a specific level.
@@ -290,8 +290,8 @@ class DataHubMockDataSource(Source):
         table_index: int,
         hops: int,
         fan_out: int,
-        fan_out_after_first: int,
-        tables_at_levels: list[int],
+        fan_out_after_first: Optional[int],
+        tables_at_levels: List[int],
     ) -> Iterable[MetadataWorkUnit]:
         """Generate lineage relationships for a specific table."""
         # Only generate lineage if there are downstream levels
@@ -320,7 +320,7 @@ class DataHubMockDataSource(Source):
         current_fan_out: int,
         hops: int,
         fan_out: int,
-        tables_at_levels: list[int],
+        tables_at_levels: List[int],
     ) -> Iterable[MetadataWorkUnit]:
         """Generate lineage relationships to downstream tables."""
         downstream_level = upstream_table_level + 1
