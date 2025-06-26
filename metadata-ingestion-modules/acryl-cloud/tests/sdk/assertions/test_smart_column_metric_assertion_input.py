@@ -17,7 +17,6 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     FIELD_METRIC_TYPE_CONFIG,
     MetricType,
     OperatorType,
-    ValueType,
     _SmartColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
@@ -78,8 +77,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=False,
             ),
             id="valid_string_column_null_count",
@@ -90,8 +88,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.UNIQUE_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=False,
             ),
             id="valid_string_column_unique_count",
@@ -102,8 +99,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.MAX_LENGTH,
                 operator="LESS_THAN",
-                criteria_parameters="100",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=100,
                 should_raise=False,
             ),
             id="valid_string_column_max_length",
@@ -114,8 +110,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.MEAN,
                 operator="BETWEEN",
-                criteria_parameters=("0", "100"),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=(0, 100),
                 should_raise=False,
             ),
             id="valid_number_column_mean",
@@ -126,8 +121,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.MEDIAN,
                 operator="GREATER_THAN",
-                criteria_parameters="50",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=50,
                 should_raise=False,
             ),
             id="valid_number_column_median",
@@ -138,8 +132,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.NEGATIVE_COUNT,
                 operator="EQUAL_TO",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=False,
             ),
             id="valid_number_column_negative_count",
@@ -151,8 +144,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=MetricType.EMPTY_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="5",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=5,
                 should_raise=False,
             ),
             id="valid_string_column_empty_count_metric_type",
@@ -163,8 +155,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=MetricType.EMPTY_PERCENTAGE,
                 operator="LESS_THAN",
-                criteria_parameters="10.0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10.0,
                 should_raise=False,
             ),
             id="valid_string_column_empty_percentage_metric_type",
@@ -175,8 +166,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.MIN,
                 operator="GREATER_THAN",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=False,
             ),
             id="valid_number_column_min_metric_type",
@@ -187,8 +177,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.MAX,
                 operator="LESS_THAN",
-                criteria_parameters="1000",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=1000,
                 should_raise=False,
             ),
             id="valid_number_column_max_metric_type",
@@ -200,7 +189,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=MetricType.MEAN,
                 operator="BETWEEN",
                 criteria_parameters=(10.0, 100.0),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_number_column_mean_metric_type",
@@ -211,8 +199,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.MEDIAN,
                 operator="EQUAL_TO",
-                criteria_parameters="50.5",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=50.5,
                 should_raise=False,
             ),
             id="valid_number_column_median_metric_type",
@@ -223,8 +210,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.STDDEV,
                 operator="GREATER_THAN_OR_EQUAL_TO",
-                criteria_parameters="1.5",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=1.5,
                 should_raise=False,
             ),
             id="valid_number_column_stddev_metric_type",
@@ -235,8 +221,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.NEGATIVE_COUNT,
                 operator="EQUAL_TO",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=False,
             ),
             id="valid_number_column_negative_count_metric_type",
@@ -247,8 +232,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.NEGATIVE_PERCENTAGE,
                 operator="LESS_THAN",
-                criteria_parameters="5.0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=5.0,
                 should_raise=False,
             ),
             id="valid_number_column_negative_percentage_metric_type",
@@ -259,8 +243,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=MetricType.ZERO_COUNT,
                 operator="NOT_EQUAL_TO",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=False,
             ),
             id="valid_number_column_zero_count_metric_type",
@@ -272,7 +255,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=MetricType.ZERO_PERCENTAGE,
                 operator="BETWEEN",
                 criteria_parameters=(0.0, 15.0),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_number_column_zero_percentage_metric_type",
@@ -305,7 +287,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="REGEX_MATCH",
                 criteria_parameters="test.*",
-                criteria_type=models.AssertionStdParameterTypeClass.STRING,
                 should_raise=False,
             ),
             id="valid_string_column_regex_match",
@@ -316,8 +297,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN_OR_EQUAL_TO",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=False,
             ),
             id="valid_number_column_greater_than_or_equal_to",
@@ -328,8 +308,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="NOT_EQUAL_TO",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=False,
             ),
             id="valid_number_column_not_equal_to",
@@ -342,7 +321,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="EQUAL_TO",
                 criteria_parameters="test",
-                criteria_type=models.AssertionStdParameterTypeClass.STRING,
                 should_raise=False,
             ),
             id="valid_string_value_type",
@@ -354,7 +332,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="EQUAL_TO",
                 criteria_parameters=42,
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_number_value_type",
@@ -367,7 +344,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="BETWEEN",
                 criteria_parameters=("a", "z"),
-                criteria_type=models.AssertionStdParameterTypeClass.STRING,
                 should_raise=False,
             ),
             id="valid_string_range_type",
@@ -379,7 +355,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="BETWEEN",
                 criteria_parameters=(0, 100),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_number_range_type",
@@ -391,8 +366,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="invalid_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Column invalid_column not found in dataset urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
             ),
@@ -404,8 +378,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type="INVALID_METRIC",
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Invalid value for FieldMetricTypeClass: INVALID_METRIC, valid options are",
             ),
@@ -417,8 +390,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="INVALID_OPERATOR",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Invalid value for AssertionStdOperatorClass: INVALID_OPERATOR, valid options are",
             ),
@@ -430,33 +402,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="invalid_value",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
-                should_raise=True,
-                expected_error_should_contain="Invalid value: invalid_value, must be a number",
-            ),
-            id="invalid_value_type",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="BETWEEN",
-                criteria_parameters=("invalid_start", "100"),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
-                should_raise=True,
-                expected_error_should_contain="Invalid value: invalid_start, must be a number",
-            ),
-            id="invalid_range_value",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="GREATER_THAN",
-                criteria_type=None,
                 criteria_parameters=None,  # Not provided, should raise error
                 should_raise=True,
                 expected_error_should_contain="Value is required for operator GREATER_THAN",
@@ -469,7 +414,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 criteria_parameters=None,  # Not provided, should raise error
                 should_raise=True,
                 expected_error_should_contain="Value is required for operator GREATER_THAN",
@@ -493,8 +437,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="NULL",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Value parameters should not be provided for operator NULL",
             ),
@@ -549,8 +492,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="number_column",
                 metric_type=models.FieldMetricTypeClass.MAX_LENGTH,
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Metric type MAX_LENGTH is not allowed for field type NUMBER",
             ),
@@ -562,8 +504,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.MEAN,
                 operator="GREATER_THAN",
-                criteria_parameters="10",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=10,
                 should_raise=True,
                 expected_error_should_contain="Metric type MEAN is not allowed for field type STRING",
             ),
@@ -586,8 +527,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="date_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=True,
                 expected_error_should_contain="Operator GREATER_THAN is not allowed for field type DATE for column 'date_column'. Allowed operators: NULL, NOT_NULL",
             ),
@@ -599,8 +539,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="time_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="EQUAL_TO",
-                criteria_parameters="0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=0,
                 should_raise=True,
                 expected_error_should_contain="Operator EQUAL_TO is not allowed for field type TIME for column 'time_column'. Allowed operators: NULL, NOT_NULL",
             ),
@@ -612,8 +551,7 @@ class SmartColumnMetricAssertionInputTestParams:
                 column_name="null_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="GREATER_THAN",
-                criteria_parameters="1.0",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+                criteria_parameters=1.0,
                 should_raise=True,
                 expected_error_should_contain="Operator GREATER_THAN is not allowed for field type NULL for column 'null_column'. Allowed operators: NULL, NOT_NULL",
             ),
@@ -643,32 +581,6 @@ class SmartColumnMetricAssertionInputTestParams:
             id="invalid_boolean_operator_for_numeric_metric",
         ),
         # Test cases for value and metric type compatibility
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="EQUAL_TO",
-                criteria_parameters="abc",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
-                should_raise=True,
-                expected_error_should_contain="Invalid value: abc, must be a number",
-            ),
-            id="invalid_string_value_for_numeric_metric",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="number_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="EQUAL_TO",
-                criteria_parameters="not_a_number",
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
-                should_raise=True,
-                expected_error_should_contain="Invalid value: not_a_number, must be a number",
-            ),
-            id="invalid_non_numeric_value_for_numeric_metric",
-        ),
         # Test cases for range and metric type compatibility
         pytest.param(
             SmartColumnMetricAssertionInputTestParams(
@@ -677,36 +589,9 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="BETWEEN",
                 criteria_parameters=(0, 100),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_numeric_range_for_numeric_metric",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="BETWEEN",
-                criteria_parameters=("a", "z"),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,  # This should fail because we're using string values with NUMBER type
-                should_raise=True,
-                expected_error_should_contain="Invalid value: a, must be a number",
-            ),
-            id="invalid_string_range_for_numeric_metric",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="number_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="BETWEEN",
-                criteria_parameters=("not_a_number", 100),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
-                should_raise=True,
-                expected_error_should_contain="Invalid value: not_a_number, must be a number",
-            ),
-            id="invalid_non_numeric_range_for_numeric_metric",
         ),
         # Test cases for value type and metric type compatibility
         pytest.param(
@@ -716,23 +601,9 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="EQUAL_TO",
                 criteria_parameters=42,
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_numeric_value_type_for_numeric_metric",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="EQUAL_TO",
-                criteria_parameters=42,
-                criteria_type=models.AssertionStdParameterTypeClass.STRING,  # This should fail because we're using a number with STRING type
-                should_raise=True,
-                expected_error_should_contain="Invalid value: 42, must be a string",
-            ),
-            id="invalid_numeric_value_for_string_type",
         ),
         # Test cases for range type and metric type compatibility
         pytest.param(
@@ -742,23 +613,9 @@ class SmartColumnMetricAssertionInputTestParams:
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="BETWEEN",
                 criteria_parameters=(0, 100),
-                criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
                 should_raise=False,
             ),
             id="valid_numeric_range_type_for_numeric_metric",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="BETWEEN",
-                criteria_parameters=(0, 100),
-                criteria_type=models.AssertionStdParameterTypeClass.STRING,  # This should fail because we're using numbers with STRING type
-                should_raise=True,
-                expected_error_should_contain="Invalid value: 0, must be a string",
-            ),
-            id="invalid_numeric_range_for_string_type",
         ),
     ],
 )
@@ -777,7 +634,6 @@ def test_smart_column_metric_assertion_input(
                 metric_type=params.metric_type,
                 operator=params.operator,
                 criteria_parameters=params.criteria_parameters,
-                criteria_type=params.criteria_type,
                 display_name=params.display_name,
                 enabled=params.enabled,
                 schedule=params.schedule,
@@ -801,7 +657,6 @@ def test_smart_column_metric_assertion_input(
             metric_type=params.metric_type,
             operator=params.operator,
             criteria_parameters=params.criteria_parameters,
-            criteria_type=params.criteria_type,
             display_name=params.display_name,
             enabled=params.enabled,
             schedule=params.schedule,
@@ -949,8 +804,7 @@ def test_smart_column_metric_assertion_info_basic_conversion(
         column_name="string_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
         operator="GREATER_THAN",
-        criteria_parameters="10",
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=10,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -993,8 +847,7 @@ def test_smart_column_metric_monitor_info_conversion(
         column_name="string_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
         operator="GREATER_THAN",
-        criteria_parameters="10",
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=10,
         schedule=models.CronScheduleClass(
             cron="0 0 * * *",
             timezone="America/New_York",
@@ -1089,8 +942,7 @@ def test_smart_column_metric_assertion_metric_type_enum(
         column_name="number_column",
         metric_type=MetricType.MEAN,
         operator="GREATER_THAN",
-        criteria_parameters="50.0",
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=50.0,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1123,7 +975,6 @@ def test_smart_column_metric_assertion_range_parameters(
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
         operator="BETWEEN",
         criteria_parameters=(0, 100),
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1206,8 +1057,7 @@ def test_smart_column_metric_assertion_string_metric_type_case_insensitive(
         column_name=column_name,
         metric_type=metric_type_str,
         operator="GREATER_THAN",
-        criteria_parameters="10",
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=10,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1265,7 +1115,6 @@ def test_smart_column_metric_assertion_string_operator_type_case_insensitive(
             metric_type=models.FieldMetricTypeClass.MEAN,
             operator=operator_str,
             criteria_parameters=(0, 100),
-            criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
             created_by="urn:li:corpuser:test",
             created_at=datetime.fromtimestamp(1717929600),
             updated_by="urn:li:corpuser:test",
@@ -1279,7 +1128,6 @@ def test_smart_column_metric_assertion_string_operator_type_case_insensitive(
             metric_type=models.FieldMetricTypeClass.NULL_COUNT,
             operator=operator_str,
             criteria_parameters="^[A-Z].*",
-            criteria_type=models.AssertionStdParameterTypeClass.STRING,
             created_by="urn:li:corpuser:test",
             created_at=datetime.fromtimestamp(1717929600),
             updated_by="urn:li:corpuser:test",
@@ -1304,8 +1152,7 @@ def test_smart_column_metric_assertion_string_operator_type_case_insensitive(
             column_name="number_column",
             metric_type=models.FieldMetricTypeClass.MEAN,
             operator=operator_str,
-            criteria_parameters="50.0",
-            criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+            criteria_parameters=50.0,
             created_by="urn:li:corpuser:test",
             created_at=datetime.fromtimestamp(1717929600),
             updated_by="urn:li:corpuser:test",
@@ -1332,8 +1179,7 @@ def test_smart_column_metric_assertion_operator_type_enum(
         column_name="number_column",
         metric_type=MetricType.MEAN,
         operator=OperatorType.GREATER_THAN,
-        criteria_parameters="50.0",
-        criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+        criteria_parameters=50.0,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1353,57 +1199,6 @@ def test_smart_column_metric_assertion_operator_type_enum(
     )
 
 
-@pytest.mark.parametrize(
-    "value_type_str,expected_value_type,test_value",
-    [
-        # Case insensitive value types with appropriate values
-        ("STRING", models.AssertionStdParameterTypeClass.STRING, "test_string"),
-        ("string", models.AssertionStdParameterTypeClass.STRING, "test_string"),
-        ("String", models.AssertionStdParameterTypeClass.STRING, "test_string"),
-        ("NUMBER", models.AssertionStdParameterTypeClass.NUMBER, "10"),
-        ("number", models.AssertionStdParameterTypeClass.NUMBER, "10"),
-        ("Number", models.AssertionStdParameterTypeClass.NUMBER, "10"),
-        # Note: LIST and SET are not yet supported, so we exclude them
-        ("UNKNOWN", models.AssertionStdParameterTypeClass.UNKNOWN, "unknown_value"),
-        ("unknown", models.AssertionStdParameterTypeClass.UNKNOWN, "unknown_value"),
-        ("Unknown", models.AssertionStdParameterTypeClass.UNKNOWN, "unknown_value"),
-    ],
-)
-def test_smart_column_metric_assertion_string_value_type_case_insensitive(
-    stub_entity_client: EntityClient,
-    value_type_str: str,
-    expected_value_type: models.AssertionStdParameterTypeClass,
-    test_value: str,
-) -> None:
-    """Test that value_type parameter accepts strings and is case insensitive."""
-    assertion_input = _SmartColumnMetricAssertionInput(
-        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-        entity_client=stub_entity_client,
-        column_name="string_column",
-        metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-        operator="GREATER_THAN",
-        criteria_parameters=test_value,
-        criteria_type=value_type_str,
-        created_by="urn:li:corpuser:test",
-        created_at=datetime.fromtimestamp(1717929600),
-        updated_by="urn:li:corpuser:test",
-        updated_at=datetime.fromtimestamp(1717929600),
-    )
-
-    # Verify the string value type was correctly converted to the expected enum
-    assert assertion_input.criteria_type == expected_value_type
-
-    # Verify assertion info conversion works correctly with string value types
-    assertion_info = assertion_input._create_assertion_info(None)
-    assert isinstance(assertion_info, models.FieldAssertionInfoClass)
-    assert assertion_info.fieldMetricAssertion is not None
-    assert assertion_info.fieldMetricAssertion.parameters is not None
-    assert assertion_info.fieldMetricAssertion.parameters.value is not None
-    assert (
-        assertion_info.fieldMetricAssertion.parameters.value.type == expected_value_type
-    )
-
-
 def test_smart_column_metric_assertion_value_type_enum(
     stub_entity_client: EntityClient,
 ) -> None:
@@ -1414,8 +1209,7 @@ def test_smart_column_metric_assertion_value_type_enum(
         column_name="number_column",
         metric_type=MetricType.MEAN,
         operator=OperatorType.GREATER_THAN,
-        criteria_parameters="50.0",
-        criteria_type=ValueType.NUMBER,
+        criteria_parameters=50.0,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1423,7 +1217,6 @@ def test_smart_column_metric_assertion_value_type_enum(
     )
 
     # Verify the ValueType enum was correctly handled
-    assert assertion_input.criteria_type == models.AssertionStdParameterTypeClass.NUMBER
 
     # Verify assertion info conversion works correctly with ValueType enum
     assertion_info = assertion_input._create_assertion_info(None)
@@ -1471,8 +1264,7 @@ def test_smart_column_metric_assertion_input_detection_mechanism_validation(
             column_name="string_column",
             metric_type=models.FieldMetricTypeClass.NULL_COUNT,
             operator="GREATER_THAN",
-            criteria_parameters="10",
-            criteria_type=models.AssertionStdParameterTypeClass.NUMBER,
+            criteria_parameters=10,
             detection_mechanism=detection_mechanism,
             created_by="urn:li:corpuser:test",
             created_at=datetime.now(),
@@ -1497,8 +1289,7 @@ def test_smart_column_metric_assertion_consolidated_parameters(
         column_name="string_column",
         metric_type=MetricType.NULL_COUNT,
         operator=OperatorType.GREATER_THAN,
-        criteria_parameters="10",
-        criteria_type=ValueType.NUMBER,
+        criteria_parameters=10,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1507,11 +1298,9 @@ def test_smart_column_metric_assertion_consolidated_parameters(
 
     # Test new consolidated parameters
     assert assertion_input.criteria_parameters == 10  # Converted to int
-    assert assertion_input.criteria_type == ValueType.NUMBER
 
     # Test consolidated parameters
     assert assertion_input.criteria_parameters == 10
-    assert assertion_input.criteria_type == ValueType.NUMBER
 
     # Test range parameters
     assertion_input = _SmartColumnMetricAssertionInput(
@@ -1521,7 +1310,6 @@ def test_smart_column_metric_assertion_consolidated_parameters(
         metric_type=MetricType.MEAN,
         operator=OperatorType.BETWEEN,
         criteria_parameters=(50.0, 200.0),
-        criteria_type=ValueType.NUMBER,
         created_by="urn:li:corpuser:test",
         created_at=datetime.fromtimestamp(1717929600),
         updated_by="urn:li:corpuser:test",
@@ -1530,11 +1318,9 @@ def test_smart_column_metric_assertion_consolidated_parameters(
 
     # Test new consolidated parameters
     assert assertion_input.criteria_parameters == (50.0, 200.0)
-    assert assertion_input.criteria_type == (ValueType.NUMBER, ValueType.NUMBER)
 
     # Test range parameters work correctly
     assert assertion_input.criteria_parameters == (50.0, 200.0)
-    assert assertion_input.criteria_type == (ValueType.NUMBER, ValueType.NUMBER)
 
 
 def test_metric_type_enum_matches_field_metric_type_class() -> None:

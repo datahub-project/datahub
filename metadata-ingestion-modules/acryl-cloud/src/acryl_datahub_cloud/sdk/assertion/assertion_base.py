@@ -31,9 +31,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricInputType,
     OperatorInputType,
-    RangeTypeInputType,
     SmartColumnMetricAssertionParameters,
-    ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     SqlAssertionCondition,
@@ -197,13 +195,11 @@ class _HasColumnMetricFunctionality:
         metric_type: MetricInputType,
         operator: OperatorInputType,
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
-        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
     ):
         self._column_name = column_name
         self._metric_type = metric_type
         self._operator = operator
         self._criteria_parameters = criteria_parameters
-        self._criteria_type = criteria_type
 
     @property
     def column_name(self) -> str:
@@ -220,10 +216,6 @@ class _HasColumnMetricFunctionality:
     @property
     def criteria_parameters(self) -> Optional[SmartColumnMetricAssertionParameters]:
         return self._criteria_parameters
-
-    @property
-    def criteria_type(self) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
-        return self._criteria_type
 
     @staticmethod
     def _get_column_name(assertion: Assertion) -> str:
@@ -298,38 +290,6 @@ class _HasColumnMetricFunctionality:
             return (min_value, max_value)
 
         # If no parameters found, return None
-        return None
-
-    @staticmethod
-    def _get_criteria_type(
-        assertion: Assertion,
-    ) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
-        # First check if there's a single value type
-        value_type = _get_nested_field_for_entity_with_default(
-            assertion,
-            field_path="info.fieldMetricAssertion.parameters.value.type",
-            default=None,
-        )
-        if value_type is not None:
-            return value_type
-
-        # Then check for range types
-        min_value_type = _get_nested_field_for_entity_with_default(
-            assertion,
-            field_path="info.fieldMetricAssertion.parameters.minValue.type",
-            default=None,
-        )
-        max_value_type = _get_nested_field_for_entity_with_default(
-            assertion,
-            field_path="info.fieldMetricAssertion.parameters.maxValue.type",
-            default=None,
-        )
-
-        # If both range types exist, return as tuple
-        if min_value_type is not None and max_value_type is not None:
-            return (min_value_type, max_value_type)
-
-        # If no types found, return None
         return None
 
 

@@ -328,7 +328,6 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         operator: OperatorInputType,
         # Criteria parameters
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
-        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
@@ -353,8 +352,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             column_name: The name of the column to validate.
             metric_type: The metric type to validate.
             operator: The operator to use.
-            criteria_parameters: The criteria parameters (single value, range tuple, or None).
-            criteria_type: The type of the criteria parameters.
+            criteria_parameters: The criteria parameters (single value, range tuple, or None). Type will be automatically inferred.
             urn: The urn of the assertion.
             display_name: The display name of the assertion.
             enabled: Whether the assertion is enabled.
@@ -414,7 +412,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         )
 
         # Process criteria parameters
-        self._process_criteria_parameters(criteria_parameters, criteria_type)
+        self._process_criteria_parameters(criteria_parameters)
 
         # Validate compatibility:
         self._validate_field_type_and_operator_compatibility(
@@ -424,12 +422,59 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             self.column_name, self.metric_type
         )
 
+    def _infer_criteria_type_from_parameters(
+        self,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+    ) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
+        """
+        Infer the criteria type from the parameters based on Python types.
+
+        Args:
+            criteria_parameters: The criteria parameters to infer type from.
+
+        Returns:
+            The inferred type(s) for the criteria parameters.
+        """
+        if criteria_parameters is None:
+            return None
+
+        if isinstance(criteria_parameters, tuple):
+            # Range parameters - infer type for each value
+            if len(criteria_parameters) != 2:
+                raise SDKUsageError(
+                    "Range parameters must be a tuple of exactly 2 values"
+                )
+
+            type1 = self._infer_single_value_type(criteria_parameters[0])
+            type2 = self._infer_single_value_type(criteria_parameters[1])
+            return (type1, type2)
+        else:
+            # Single value parameter
+            return self._infer_single_value_type(criteria_parameters)
+
+    def _infer_single_value_type(self, value: ValueInputType) -> ValueTypeInputType:
+        """
+        Infer the type of a single value based on its Python type.
+
+        Args:
+            value: The value to infer type from.
+
+        Returns:
+            The inferred ValueType.
+        """
+        if isinstance(value, (int, float)):
+            return ValueType.NUMBER
+        elif isinstance(value, str):
+            return ValueType.STRING
+        else:
+            # Default fallback
+            return ValueType.UNKNOWN
+
     def _process_criteria_parameters(
         self,
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
-        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
     ) -> None:
-        """Process the new consolidated criteria_parameters."""
+        """Process the new consolidated criteria_parameters with automatic type inference."""
 
         if criteria_parameters is None:
             # No parameters - validate this is appropriate for the operator
@@ -449,9 +494,9 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                     "Provide a single value instead of a tuple."
                 )
 
-            # Get inferred range type
-            inferred_range_type = self._infer_or_use_criteria_type(
-                criteria_type, is_range=True
+            # Infer range type automatically
+            inferred_range_type = self._infer_criteria_type_from_parameters(
+                criteria_parameters
             )
 
             # Validate and parse the range type
@@ -479,9 +524,9 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                     "Use criteria_parameters=None or omit criteria_parameters."
                 )
 
-            # Get inferred value type
-            inferred_value_type = self._infer_or_use_criteria_type(
-                criteria_type, is_range=False
+            # Infer value type automatically
+            inferred_value_type = self._infer_criteria_type_from_parameters(
+                criteria_parameters
             )
 
             # Validate value if required
@@ -504,26 +549,6 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                 # Store raw parameters for operators that don't require validation
                 self.criteria_parameters = criteria_parameters
                 self.criteria_type = inferred_value_type
-
-    def _infer_or_use_criteria_type(
-        self,
-        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]],
-        is_range: bool,
-    ) -> Union[ValueTypeInputType, RangeTypeInputType]:
-        """Infer type from value or use provided criteria_type."""
-
-        if criteria_type is not None:
-            return criteria_type
-
-        # Auto-infer type based on Python type
-        if is_range:
-            # For ranges, default to NUMBER type for both values
-            return (ValueType.NUMBER, ValueType.NUMBER)
-        else:
-            # For single values, infer from the actual value
-            return (
-                ValueType.NUMBER
-            )  # Default fallback, will be inferred more specifically in validation
 
     def _create_monitor_info(
         self,
@@ -826,42 +851,158 @@ def _try_parse_and_validate_value_type(
     )
 
 
-def _try_parse_and_validate_value(
-    value: Optional[ValueInputType],
-    value_type: ValueTypeInputType,
-) -> ValueInputType:
-    if value is None:
-        raise SDKUsageError("Value parameter is required for the chosen operator")
-    # Accept both Python types and JSON strings
+def _deserialize_json_value(value: ValueInputType) -> ValueInputType:
+    """
+    Deserialize a value that might be a JSON string.
+
+    Args:
+        value: The value to deserialize, potentially a JSON string.
+
+    Returns:
+        The deserialized value or the original value if not JSON.
+    """
     if isinstance(value, str):
-        # Try to parse as JSON, but if it fails, treat as a raw string
         try:
-            deserialized_value = json.loads(value)
+            return json.loads(value)
         except json.JSONDecodeError:
-            deserialized_value = value
-    else:
-        deserialized_value = value
-    # Validate that the value is of the correct type
-    if value_type == models.AssertionStdParameterTypeClass.NUMBER:
-        if not isinstance(deserialized_value, (int, float)):
-            raise SDKUsageError(f"Invalid value: {value}, must be a number")
-    elif value_type == models.AssertionStdParameterTypeClass.STRING:
-        if not isinstance(deserialized_value, str):
-            raise SDKUsageError(f"Invalid value: {value}, must be a string")
-    elif (
-        value_type == models.AssertionStdParameterTypeClass.LIST
-        or value_type == models.AssertionStdParameterTypeClass.SET
+            return value
+    return value
+
+
+def _convert_string_to_number(value: str) -> Union[int, float]:
+    """
+    Convert a string to a number (int or float).
+
+    Args:
+        value: The string value to convert.
+
+    Returns:
+        The converted number.
+
+    Raises:
+        ValueError: If the string cannot be converted to a number.
+    """
+    if "." in value:
+        return float(value)
+    return int(value)
+
+
+def _validate_number_type(
+    value: ValueInputType, original_value: ValueInputType
+) -> ValueInputType:
+    """
+    Validate and convert a value to a number type.
+
+    Args:
+        value: The deserialized value to validate.
+        original_value: The original input value for error messages.
+
+    Returns:
+        The validated number value.
+
+    Raises:
+        SDKUsageError: If the value cannot be converted to a number.
+    """
+    if isinstance(value, (int, float)):
+        return value
+
+    if isinstance(value, str):
+        try:
+            return _convert_string_to_number(value)
+        except ValueError as e:
+            raise SDKUsageError(
+                f"Invalid value: {original_value}, must be a number"
+            ) from e
+
+    raise SDKUsageError(f"Invalid value: {original_value}, must be a number")
+
+
+def _validate_string_type(
+    value: ValueInputType, original_value: ValueInputType
+) -> ValueInputType:
+    """
+    Validate that a value is a string type.
+
+    Args:
+        value: The deserialized value to validate.
+        original_value: The original input value for error messages.
+
+    Returns:
+        The validated string value.
+
+    Raises:
+        SDKUsageError: If the value is not a string.
+    """
+    if not isinstance(value, str):
+        raise SDKUsageError(f"Invalid value: {original_value}, must be a string")
+    return value
+
+
+def _validate_unsupported_types(value_type: ValueTypeInputType) -> None:
+    """
+    Check for unsupported value types and raise appropriate errors.
+
+    Args:
+        value_type: The value type to check.
+
+    Raises:
+        SDKNotYetSupportedError: If the value type is LIST or SET.
+        SDKUsageError: If the value type is invalid.
+    """
+    if value_type in (
+        models.AssertionStdParameterTypeClass.LIST,
+        models.AssertionStdParameterTypeClass.SET,
     ):
         raise SDKNotYetSupportedError(
             "List and set value types are not supported for smart column metric assertions"
         )
-    elif value_type == models.AssertionStdParameterTypeClass.UNKNOWN:
-        pass  # TODO: What to do with unknown?
-    else:
+
+    valid_types = {
+        models.AssertionStdParameterTypeClass.NUMBER,
+        models.AssertionStdParameterTypeClass.STRING,
+        models.AssertionStdParameterTypeClass.UNKNOWN,
+    }
+
+    if value_type not in valid_types:
         raise SDKUsageError(
             f"Invalid value type: {value_type}, valid options are {get_enum_options(models.AssertionStdParameterTypeClass)}"
         )
-    return deserialized_value
+
+
+def _try_parse_and_validate_value(
+    value: Optional[ValueInputType],
+    value_type: ValueTypeInputType,
+) -> ValueInputType:
+    """
+    Parse and validate a value according to its expected type.
+
+    Args:
+        value: The value to parse and validate.
+        value_type: The expected type of the value.
+
+    Returns:
+        The validated and potentially converted value.
+
+    Raises:
+        SDKUsageError: If the value is None, invalid, or cannot be converted.
+        SDKNotYetSupportedError: If the value type is not supported.
+    """
+    if value is None:
+        raise SDKUsageError("Value parameter is required for the chosen operator")
+
+    # Deserialize JSON strings if applicable
+    deserialized_value = _deserialize_json_value(value)
+
+    # Validate based on expected type
+    if value_type == models.AssertionStdParameterTypeClass.NUMBER:
+        return _validate_number_type(deserialized_value, value)
+    elif value_type == models.AssertionStdParameterTypeClass.STRING:
+        return _validate_string_type(deserialized_value, value)
+    elif value_type == models.AssertionStdParameterTypeClass.UNKNOWN:
+        return deserialized_value  # Accept any type for unknown
+    else:
+        _validate_unsupported_types(value_type)
+        return deserialized_value
 
 
 def _is_range_required_for_operator(operator: models.AssertionStdOperatorClass) -> bool:

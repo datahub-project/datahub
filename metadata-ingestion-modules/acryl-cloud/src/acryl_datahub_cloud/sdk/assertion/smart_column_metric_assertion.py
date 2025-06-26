@@ -25,9 +25,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     MetricInputType,
     OperatorInputType,
-    RangeTypeInputType,
     SmartColumnMetricAssertionParameters,
-    ValueTypeInputType,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -59,7 +57,6 @@ class SmartColumnMetricAssertion(
         operator: OperatorInputType,
         # Consolidated criteria parameters
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = None,
-        criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = None,
         # TODO: Evaluate these params:
         display_name: str,
         mode: AssertionMode,
@@ -126,7 +123,6 @@ class SmartColumnMetricAssertion(
             metric_type=metric_type,
             operator=operator,
             criteria_parameters=criteria_parameters,
-            criteria_type=criteria_type,
         )
 
     @classmethod
@@ -148,7 +144,6 @@ class SmartColumnMetricAssertion(
             metric_type=cls._get_metric_type(assertion),
             operator=cls._get_operator(assertion),
             criteria_parameters=cls._get_criteria_parameters(assertion),
-            criteria_type=cls._get_criteria_type(assertion),
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
             schedule=cls._get_schedule(monitor),
