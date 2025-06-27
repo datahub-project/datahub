@@ -1,9 +1,19 @@
 {
-  "generated_at": "2025-06-27T11:15:14.491820+00:00",
+  "generated_at": "2025-06-27T12:41:09.940824+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "supported": true
+        },
         {
           "capability": "TAGS",
           "description": "Can extract ABS object/container tags if enabled",

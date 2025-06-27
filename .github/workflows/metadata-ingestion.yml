@@ -38,7 +38,6 @@ jobs:
         python-version: ["3.8", "3.11"]
         command:
           [
-            "capabilitySummary",
             "testQuick",
             "testIntegrationBatch0",
             "testIntegrationBatch1",
@@ -70,7 +69,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
         run: ./gradlew :metadata-ingestion:installPackageOnly
-      - name: Check lint and capability_summary.json beimg up-to-date
+      - name: Check lint and capability_summary.json being up-to-date
         if: ${{  matrix.command == 'testQuick' }}
         run: |
           ./gradlew :metadata-ingestion:lint 
