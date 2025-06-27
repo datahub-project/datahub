@@ -79,7 +79,7 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
   <i style={{color:"grey"}}>Lineage Tracking</i>
 </p>
 
-- **[Lineage Tracking](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide):** Tools to track the origin and transformations of metrics, ensuring they align with standardized definitions.
+- **[Lineage Tracking](https://docs.datahub.com/docs/features/feature-guides/lineage):** Tools to track the origin and transformations of metrics, ensuring they align with standardized definitions.
 
 By implementing these solutions, you can ensure that your business metrics are consistently defined and accurately used across all teams, supporting reliable analysis and decision-making.
 

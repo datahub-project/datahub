@@ -493,89 +493,16 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
-    doc_file = f"{source_dir}/lineage-feature-guide.md"
+    doc_file = f"{source_dir}/automatic-lineage-extraction.md"
     with open(doc_file, "w+") as f:
         f.write(
-            "import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n"
-        )
-        f.write("# About DataHub Lineage\n\n")
-        f.write("<FeatureAvailability/>\n")
-
-        f.write(
             """
-Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
-This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
-
-With data lineage, you can
-- Maintaining Data Integrity
-- Simplify and Refine Complex Relationships
-- Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
-- [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
-
-
-## Viewing Lineage
-
-You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
-
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
-</p>
-
-By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
-</p>
-
-In this example, data flows from Airflow/BigQuery to Snowflake tables, then to the Hive dataset, and ultimately to the features of Machine Learning Models.
-
-
-:::tip The Lineage Tab is greyed out - why can’t I click on it?
-This means you have not yet ingested lineage metadata for that entity. Please ingest lineage to proceed.
-
-:::
-
-## Column Level Lineage Support
-
-Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
-Below is how column-level lineage can be set with dbt and Postgres tables.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage.png" />
-</p>
-
-## Adding Lineage
-
-### Ingestion Source
-
-If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://docs.datahub.com/integrations) for the source you are using.
-
-### UI
-
-As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage](../../features/feature-guides/ui-lineage.md) for more information.
-
-:::caution Recommendation on UI-based lineage
-
-Lineage added by hand and programmatically may conflict with one another to cause unwanted overwrites.
-It is strongly recommend that lineage is edited manually in cases where lineage information is not also extracted in automated fashion, e.g. by running an ingestion source.
-
-:::
-
-### API
-
-If you are not using a Lineage-support ingestion source, you can programmatically emit lineage edges between entities via API.
-Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more information.
-
-
-## Lineage Support
+# Automatic Lineage Extraction
 
 DataHub supports **[automatic table- and column-level lineage detection](#automatic-lineage-extraction-support)** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
 For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) detects lineage with 97-99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
-### Types of Lineage Connections
+## Types of Lineage Connections
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
@@ -585,7 +512,7 @@ Types of lineage connections supported in DataHub and the example codes are as f
 * [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)
 * [Chart to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)
 
-### Automatic Lineage Extraction Support
+## Automatic Lineage Extraction Support
 
 This is a summary of automatic lineage extraction support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
         )
@@ -664,7 +591,7 @@ This is a summary of automatic lineage extraction support in our data source. Pl
         f.write(
             """
         
-### SQL Parser Lineage Extraction
+## SQL Parser Lineage Extraction
 
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
