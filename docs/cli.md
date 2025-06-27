@@ -300,7 +300,7 @@ The `check` command allows you to check if all plugins are loaded correctly as w
 
 #### restore-indices
 
-This command allow you to restore indices for one or more `urn`.
+This command allows you to restore indices for one or more `urn`.
 
 ```shell
 datahub check restore-indices --help
