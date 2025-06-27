@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-06-27T12:57:51.318771+00:00",
+  "generated_at": "2025-06-27T13:05:34.669331+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -11,7 +11,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -92,7 +92,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via stateful_ingestion",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -135,7 +135,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -183,7 +183,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -378,7 +378,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -500,7 +500,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -545,7 +545,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -641,7 +641,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -659,7 +659,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -682,7 +682,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -705,7 +705,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -728,7 +728,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -756,7 +756,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -807,7 +807,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -893,7 +893,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1128,7 +1128,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1161,7 +1161,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1189,7 +1189,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -1217,7 +1217,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1255,7 +1255,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1341,7 +1341,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1369,7 +1369,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1402,7 +1402,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1430,7 +1430,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1579,7 +1579,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1597,7 +1597,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1620,7 +1620,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via stateful_ingestion",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -1782,7 +1782,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1825,7 +1825,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1843,7 +1843,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via stateful_ingestion",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -1982,7 +1982,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2025,7 +2025,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2063,7 +2063,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2159,7 +2159,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2215,7 +2215,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2281,7 +2281,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2324,7 +2324,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
       ],
@@ -2367,7 +2367,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2499,7 +2499,7 @@
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via stateful_ingestion",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2731,7 +2731,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
@@ -2812,7 +2812,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
