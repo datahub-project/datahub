@@ -1,4 +1,5 @@
-import { Button, Input, Modal } from 'antd';
+import { Modal } from '@components';
+import { Button, Input } from 'antd';
 import React, { useState } from 'react';
 
 type Props = {
@@ -8,12 +9,12 @@ type Props = {
     defaultValue?: string;
 };
 
-export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title }: Props) => {
+export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title = 'Edit text' }: Props) => {
     const [stagedValue, setStagedValue] = useState(defaultValue || '');
     return (
         <Modal
             title={title}
-            visible
+            open
             onCancel={onCloseModal}
             keyboard
             footer={
