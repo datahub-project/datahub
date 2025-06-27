@@ -80,8 +80,15 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     pushdown_deny_usernames: List[str] = pydantic.Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes.",
+    )
+
+    pushdown_allow_usernames: List[str] = pydantic.Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "If not specified, all users not in deny list are included.",
     )
 
     user_email_pattern: AllowDenyPattern = pydantic.Field(
@@ -350,6 +357,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
+            allow_usernames=self.config.pushdown_allow_usernames,
         )
 
         with self.structured_reporter.report_exc(
@@ -663,14 +671,29 @@ def _build_enriched_query_log_query(
     end_time: datetime,
     bucket_duration: BucketDuration,
     deny_usernames: Optional[List[str]],
+    allow_usernames: Optional[List[str]],
 ) -> str:
     start_time_millis = int(start_time.timestamp() * 1000)
     end_time_millis = int(end_time.timestamp() * 1000)
 
-    users_filter = ""
+    user_filters = []
     if deny_usernames:
-        user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
-        users_filter = f"user_name NOT IN ({user_not_in})"
+        deny_conditions = []
+        for pattern in deny_usernames:
+            # Ensure pattern is uppercase for case-insensitive LIKE
+            deny_conditions.append(f"UPPER(user_name) NOT LIKE '{pattern.upper()}'")
+        if deny_conditions:
+            user_filters.append(f"({' AND '.join(deny_conditions)})")
+
+    if allow_usernames:
+        allow_conditions = []
+        for pattern in allow_usernames:
+            # Ensure pattern is uppercase for case-insensitive LIKE
+            allow_conditions.append(f"UPPER(user_name) LIKE '{pattern.upper()}'")
+        if allow_conditions:
+            user_filters.append(f"({' OR '.join(allow_conditions)})")
+
+    users_filter_clause = " AND ".join(user_filters) if user_filters else "TRUE"
 
     time_bucket_size = bucket_duration.value
     assert time_bucket_size in ("HOUR", "DAY", "MONTH")
@@ -697,7 +720,7 @@ fingerprinted_queries as (
         query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
         AND execution_status = 'SUCCESS'
-        AND {users_filter or "TRUE"}
+        AND {users_filter_clause}
 )
 , deduplicated_queries as (
     SELECT
@@ -725,7 +748,7 @@ fingerprinted_queries as (
     WHERE
         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        AND {users_filter or "TRUE"}
+        AND {users_filter_clause}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
