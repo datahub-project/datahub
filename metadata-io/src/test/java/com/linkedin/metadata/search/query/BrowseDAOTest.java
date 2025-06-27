@@ -163,10 +163,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG.setLimit(
-                new LimitConfig()
-                    .setResults(
-                        new ResultsLimitConfig().setMax(15).setApiDefault(15).setStrict(false))));
+            TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+                .limit(
+                    new LimitConfig()
+                        .setResults(
+                            new ResultsLimitConfig().setMax(15).setApiDefault(15).setStrict(false)))
+                .build());
 
     // Test browse with size that exceeds limit
     int requestedSize = 20;

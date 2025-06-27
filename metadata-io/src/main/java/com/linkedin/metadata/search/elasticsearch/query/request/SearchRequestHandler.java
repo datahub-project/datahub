@@ -287,7 +287,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         sortCriteria);
   }
 
-  private SearchSourceBuilder constructSearchSourceBuilder(int from, int size) {
+  private SearchSourceBuilder constructSearchSourceBuilder(int from, @Nullable Integer size) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
@@ -508,7 +508,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       int from,
-      int size) {
+      @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -518,7 +518,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         .setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
         .setNumEntities(totalCount);
   }
 
@@ -528,9 +528,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
@@ -864,7 +865,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Predicate predicate,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
@@ -916,7 +917,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Predicate predicate,
       int from,
-      int size) {
+      @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -926,7 +927,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         .setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
         .setNumEntities(totalCount);
   }
 
@@ -970,7 +971,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -981,7 +982,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
 
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
@@ -1014,8 +1015,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Predicate predicate,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       boolean supportsPointInTime) {
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =

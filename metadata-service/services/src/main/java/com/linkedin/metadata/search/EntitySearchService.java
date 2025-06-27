@@ -509,7 +509,7 @@ public interface EntitySearchService {
       @Nullable Predicate predicateFilter,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets);
 
   @Nonnull
@@ -521,5 +521,5 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size);
+      @Nullable Integer size);
 }

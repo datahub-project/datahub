@@ -542,7 +542,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Predicate predicate,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
@@ -570,7 +570,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     log.debug(
         String.format(
             "Scrolling Predicate Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, scrollId: %s, size: %s",

@@ -284,7 +284,7 @@ public class ESSearchDAO {
       @Nullable Filter filters,
       @Nonnull SearchRequest searchRequest,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
@@ -310,7 +310,7 @@ public class ESSearchDAO {
       @Nonnull EntitySpec entitySpec,
       @Nullable Filter filters,
       @Nonnull SearchScrollRequest searchScrollRequest,
-      int size,
+      @Nullable Integer size,
       @Nonnull String keepAlive) {
     try {
       final SearchResponse searchResponse =
@@ -965,7 +965,7 @@ public class ESSearchDAO {
       @Nullable Predicate predicateFilter,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     final String finalInput = input.isEmpty() ? "*" : input;
 
@@ -1001,7 +1001,7 @@ public class ESSearchDAO {
       @Nonnull SearchRequest searchRequest,
       @Nullable Predicate predicate,
       int from,
-      int size) {
+      @Nullable Integer size) {
     long id = System.currentTimeMillis();
     try {
       log.debug("Executing request {}: {}", id, searchRequest);
@@ -1048,7 +1048,7 @@ public class ESSearchDAO {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     final String finalInput = input.isEmpty() ? "*" : input;
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String[] indexArray =
@@ -1087,7 +1087,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       String[] indexArray,
-      int size,
+      @Nullable Integer size,
       @Nullable Predicate predicate,
       List<EntitySpec> entitySpecs,
       String finalInput,
@@ -1144,7 +1144,7 @@ public class ESSearchDAO {
       @Nonnull SearchRequest searchRequest,
       @Nullable Predicate predicate,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well

@@ -448,7 +448,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets,
       @Nullable String predicateJson) {
     return getCachedPredicateSearchResults(
@@ -468,9 +468,10 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets,
       @Nullable String predicateJson) {
+    size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -550,7 +551,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       String predicateJson) {
     return getCachedPredicateScrollResults(
         opContext,
@@ -573,7 +574,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       String predicateJson) {
     try {
       Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
