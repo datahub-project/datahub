@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -45,6 +45,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+from datahub.sdk.entity import Entity
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -218,7 +219,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             flow_urn=dataflow_urn,
             platform_instance=self.config.platform_instance,
             display_name=connector.connector_name,
-            owners=[CorpUserUrn(owner_email)] if owner_email else [],
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Map connector source and destination table with dataset entity
@@ -241,7 +242,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
         # hack: convert to old instance for DataProcessInstance.from_datajob compatibility
         datajob_v1 = DataJobV1(
-            id=job.job_id,
+            id=datajob.name,
             flow_urn=datajob.flow_urn,
             platform_instance=self.config.platform_instance,
             name=datajob.name,
@@ -287,15 +288,15 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _get_connector_workunits(
         self, connector: Connector
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_connectors_scanned()
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
-        yield from dataflow.as_workunits()
+        yield dataflow
 
         # Map Fivetran's connector entity with Datahub's datajob entity
         datajob = self._generate_datajob_from_connector(connector)
-        yield from datajob.as_workunits()
+        yield datajob
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
@@ -317,7 +318,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
         Datahub Ingestion framework invoke this method
         """

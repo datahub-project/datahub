@@ -65,7 +65,7 @@ class DataJob(
         """Get the URN type for data jobs."""
         return DataJobUrn
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         *,
         name: str,
@@ -137,24 +137,6 @@ class DataJob(
         )
         self._setdefault_aspect(job_info)
         self._ensure_datajob_props().flowUrn = str(flow.urn)
-
-        self._init_basic_props(
-            description, external_url, custom_properties, created, last_modified
-        )
-        self._init_metadata_props(
-            subtype, owners, links, tags, terms, domain, structured_properties
-        )
-        self._init_io_props(inlets, outlets, fine_grained_lineages)
-
-    def _init_basic_props(
-        self,
-        description: Optional[str],
-        external_url: Optional[str],
-        custom_properties: Optional[Dict[str, str]],
-        created: Optional[datetime],
-        last_modified: Optional[datetime],
-        env: Optional[str] = None,
-    ) -> None:
         if description is not None:
             self.set_description(description)
         if external_url is not None:
@@ -165,18 +147,6 @@ class DataJob(
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
-        self.set_env(env)
-
-    def _init_metadata_props(
-        self,
-        subtype: Optional[str],
-        owners: Optional[OwnersInputType],
-        links: Optional[LinksInputType],
-        tags: Optional[TagsInputType],
-        terms: Optional[TermsInputType],
-        domain: Optional[DomainInputType],
-        structured_properties: Optional[StructuredPropertyInputType],
-    ) -> None:
         if subtype is not None:
             self.set_subtype(subtype)
         if owners is not None:
@@ -192,19 +162,16 @@ class DataJob(
         if structured_properties is not None:
             for key, value in structured_properties.items():
                 self.set_structured_property(property_urn=key, values=value)
-
-    def _init_io_props(
-        self,
-        inlets: Optional[List[DatasetUrnOrStr]],
-        outlets: Optional[List[DatasetUrnOrStr]],
-        fine_grained_lineages: Optional[List[models.FineGrainedLineageClass]],
-    ) -> None:
         if inlets is not None:
             self.set_inlets(inlets)
         if outlets is not None:
             self.set_outlets(outlets)
         if fine_grained_lineages is not None:
             self.set_fine_grained_lineages(fine_grained_lineages)
+
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
+        self._ensure_datajob_props().env = env
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -398,8 +365,3 @@ class DataJob(
     def env(self) -> Optional[str]:
         """Get the environment of the data job."""
         return str(self._ensure_datajob_props().env)
-
-    def set_env(self, env: Optional[str]) -> None:
-        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
-            env = self.flow_urn.cluster.upper()
-        self._ensure_datajob_props().env = env
