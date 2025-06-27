@@ -10,6 +10,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -43,8 +45,14 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@Builder
-public class TraceContext implements ContextInterface {
+@Builder(toBuilder = true)
+public class SystemTelemetryContext implements ContextInterface {
+  public static final SystemTelemetryContext TEST =
+      SystemTelemetryContext.builder()
+          .metricUtils(MetricUtils.builder().registry(new SimpleMeterRegistry()).build())
+          .tracer(OpenTelemetry.noop().getTracer("test"))
+          .build();
+
   // trace logging
   public static final String TRACE_HEADER = "X-Enable-Trace-Log";
   public static final String TRACE_COOKIE = "enable-trace-log";
@@ -98,6 +106,7 @@ public class TraceContext implements ContextInterface {
     logTracingEnabled.set(false);
   }
 
+  @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final Tracer tracer;
   @Getter @Nullable private final SpanProcessor usageSpanExporter;
 

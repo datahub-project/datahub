@@ -137,7 +137,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             null,
             TEST_GRAPH_SERVICE_CONFIG,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
     QueryBuilder limitedBuilder = graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos);
 
     LineageGraphFilters lineageGraphFilters =
@@ -313,7 +314,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Mock the search response
     SearchResponse mockSearchResponse = mock(SearchResponse.class);
@@ -373,7 +375,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with mixed entity types for a single entity type key
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -423,7 +426,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with empty URN sets
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -490,7 +494,8 @@ public class ESGraphQueryDAOTest {
             mockLineageRegistry,
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with dataset URNs
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -629,7 +634,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create test data - requesting more than the limit
     GraphFilters graphFilters =
@@ -675,7 +681,8 @@ public class ESGraphQueryDAOTest {
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
-            TEST_ES_SEARCH_CONFIG);
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create test data
     GraphFilters graphFilters =

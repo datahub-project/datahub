@@ -50,23 +50,25 @@ public class LocalEbeanConfigFactory {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
-  public static DataSourcePoolListener getListenerToTrackCounts(String metricName) {
+  public static DataSourcePoolListener getListenerToTrackCounts(
+      MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
     return new DataSourcePoolListener() {
       @Override
       public void onAfterBorrowConnection(Connection connection) {
-        MetricUtils.counter(counterName).inc();
+        if (metricUtils != null) metricUtils.increment(counterName, 1);
       }
 
       @Override
       public void onBeforeReturnConnection(Connection connection) {
-        MetricUtils.counter(counterName).dec();
+        if (metricUtils != null) metricUtils.increment(counterName, -1);
       }
     };
   }
 
   @Bean("ebeanDataSourceConfig")
-  public DataSourceConfig buildDataSourceConfig(@Value("${ebean.url}") String dataSourceUrl) {
+  public DataSourceConfig buildDataSourceConfig(
+      @Value("${ebean.url}") String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
@@ -78,7 +80,7 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
-    dataSourceConfig.setListener(getListenerToTrackCounts("main"));
+    dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
       Map<String, String> custom = new HashMap<>();

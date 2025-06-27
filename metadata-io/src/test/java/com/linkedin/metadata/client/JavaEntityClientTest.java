@@ -4,7 +4,6 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
-import com.codahale.metrics.Counter;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
@@ -38,8 +37,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.function.Supplier;
-import org.mockito.MockedStatic;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -53,9 +50,8 @@ public class JavaEntityClientTest {
   private LineageSearchService _lineageSearchService;
   private TimeseriesAspectService _timeseriesAspectService;
   private EventProducer _eventProducer;
-  private MockedStatic<MetricUtils> _metricUtils;
+  private MetricUtils _metricUtils;
   private RollbackService rollbackService;
-  private Counter _counter;
   private OperationContext opContext;
 
   @BeforeMethod
@@ -69,15 +65,8 @@ public class JavaEntityClientTest {
     _timeseriesAspectService = mock(TimeseriesAspectService.class);
     rollbackService = mock(RollbackService.class);
     _eventProducer = mock(EventProducer.class);
-    _metricUtils = mockStatic(MetricUtils.class);
-    _counter = mock(Counter.class);
-    when(MetricUtils.counter(any(), any())).thenReturn(_counter);
+    _metricUtils = mock(MetricUtils.class);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-  }
-
-  @AfterMethod
-  public void closeTest() {
-    _metricUtils.close();
   }
 
   private JavaEntityClient getJavaEntityClient() {
@@ -91,7 +80,8 @@ public class JavaEntityClientTest {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        EntityClientConfig.builder().batchGetV2Size(1).build());
+        EntityClientConfig.builder().batchGetV2Size(1).build(),
+        _metricUtils);
   }
 
   @Test
@@ -103,7 +93,7 @@ public class JavaEntityClientTest {
 
     assertEquals(client.withRetry(mockSupplier, null), 42);
     verify(mockSupplier, times(1)).get();
-    _metricUtils.verify(() -> MetricUtils.counter(any(), any()), times(0));
+    verify(_metricUtils, times(0)).increment(any(), anyDouble());
   }
 
   @Test
@@ -116,9 +106,8 @@ public class JavaEntityClientTest {
 
     assertEquals(client.withRetry(mockSupplier, "test"), 42);
     verify(mockSupplier, times(4)).get();
-    _metricUtils.verify(
-        () -> MetricUtils.counter(client.getClass(), "test_exception_" + e.getClass().getName()),
-        times(3));
+    verify(_metricUtils, times(3))
+        .increment(eq(client.getClass()), eq("test_exception_" + e.getClass().getName()), eq(1d));
   }
 
   @Test
@@ -131,9 +120,8 @@ public class JavaEntityClientTest {
 
     assertThrows(IllegalArgumentException.class, () -> client.withRetry(mockSupplier, "test"));
     verify(mockSupplier, times(4)).get();
-    _metricUtils.verify(
-        () -> MetricUtils.counter(client.getClass(), "test_exception_" + e.getClass().getName()),
-        times(4));
+    verify(_metricUtils, times(4))
+        .increment(eq(client.getClass()), eq("test_exception_" + e.getClass().getName()), eq(1d));
   }
 
   @Test
@@ -147,9 +135,8 @@ public class JavaEntityClientTest {
     assertThrows(
         RequiredFieldNotPresentException.class, () -> client.withRetry(mockSupplier, null));
     verify(mockSupplier, times(1)).get();
-    _metricUtils.verify(
-        () -> MetricUtils.counter(client.getClass(), "exception_" + e.getClass().getName()),
-        times(1));
+    verify(_metricUtils, times(1))
+        .increment(eq(client.getClass()), eq("exception_" + e.getClass().getName()), eq(1d));
   }
 
   @Test
