@@ -75,6 +75,7 @@ The transport should look like this:
 ```
 
 #### How to modify configurations
+
 To modify the configurations for the OpenLineage REST endpoint, you can change it using environment variables. The following configurations are available:
 
 ##### DataHub OpenLineage Configuration
@@ -87,17 +88,15 @@ The DataHub OpenLineage integration can be configured using environment variable
 
 ##### Environment Variables
 
-
-| Environment Variable | Property | Type | Default | Description |
-|---------------------|----------|------|---------|-------------|
-| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE` | `datahub.openlineage.platform-instance` | String | `null` | Specific platform instance identifier |
-| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE` | `datahub.openlineage.common-dataset-platform-instance` | String | `null` | Common platform instance for datasets |
-| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET` | `datahub.openlineage.materialize-dataset` | Boolean | `true` | Whether to materialize dataset entities |
-| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA` | `datahub.openlineage.include-schema-metadata` | Boolean | `true` | Whether to include schema metadata in lineage |
-| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE` | `datahub.openlineage.capture-column-level-lineage` | Boolean | `true` | Whether to capture column-level lineage information |
-| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN` | `datahub.openlineage.file-partition-regexp-pattern` | String | `null` | Regular expression pattern for file partition detection |
-| `DATAHUB_OPENLINEAGE_USE_PATCH` | `datahub.openlineage.use-patch` | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage |
-
+| Environment Variable                                   | Property                                               | Type    | Default | Description                                                     |
+| ------------------------------------------------------ | ------------------------------------------------------ | ------- | ------- | --------------------------------------------------------------- |
+| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                | `datahub.openlineage.platform-instance`                | String  | `null`  | Specific platform instance identifier                           |
+| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE` | `datahub.openlineage.common-dataset-platform-instance` | String  | `null`  | Common platform instance for datasets                           |
+| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`              | `datahub.openlineage.materialize-dataset`              | Boolean | `true`  | Whether to materialize dataset entities                         |
+| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`          | `datahub.openlineage.include-schema-metadata`          | Boolean | `true`  | Whether to include schema metadata in lineage                   |
+| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`     | `datahub.openlineage.capture-column-level-lineage`     | Boolean | `true`  | Whether to capture column-level lineage information             |
+| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection         |
+| `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage |
 
 #### Known Limitations
 
