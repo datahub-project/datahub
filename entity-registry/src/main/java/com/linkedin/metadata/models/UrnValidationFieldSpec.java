@@ -7,7 +7,7 @@ import javax.annotation.Nonnull;
 import lombok.Value;
 
 @Value
-public class UrnValidationFieldSpec {
+public class UrnValidationFieldSpec implements FieldSpec {
   @Nonnull PathSpec path;
   @Nonnull UrnValidationAnnotation urnValidationAnnotation;
   @Nonnull DataSchema pegasusSchema;
