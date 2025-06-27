@@ -315,7 +315,7 @@ module.exports = {
     },
     {
       "type": "doc",
-      "link": "docs/managed-datahub/welcome-acryl",
+      "id": "docs/managed-datahub/welcome-acryl",
     },
     {
       "Configure Single Sign-On": [
