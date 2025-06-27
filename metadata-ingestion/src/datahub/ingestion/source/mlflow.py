@@ -781,7 +781,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             TagUrn(f"{k}:{v}") for k, v in model_version.tags.items()
         ]
         ml_model = MLModel(
-            id=model_version.name,
+            id=f"{model_version.name}{self.config.model_name_separator}{model_version.version}",
             name=model_version.name,
             platform=self.platform,
             description=model_version.description,
