@@ -118,7 +118,9 @@ export const ManageIngestionPage = () => {
                 setCapabilitySummary(data);
             } catch (error) {
                 console.error('Error fetching capability summary:', error);
-                setIsCapabilitySummaryError(error instanceof Error ? error.message : 'Failed to fetch capability summary');
+                setIsCapabilitySummaryError(
+                    error instanceof Error ? error.message : 'Failed to fetch capability summary',
+                );
             } finally {
                 setIsCapabilitySummaryLoading(false);
             }
@@ -138,20 +140,21 @@ export const ManageIngestionPage = () => {
         if (!capabilities) {
             return false;
         }
-        return capabilities?.some(capability => capability.capability === capabilityName && capability.supported);
+        return capabilities?.some((capability) => capability.capability === capabilityName && capability.supported);
     };
 
     const isProfilingSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'DATA_PROFILING');
     const isLineageSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'LINEAGE_COARSE');
-    const isFineGrainedLineageSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'LINEAGE_FINE');
+    const isFineGrainedLineageSupported = (platformId: string): boolean =>
+        isCapabilitySupported(platformId, 'LINEAGE_FINE');
     const isUsageStatsSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'USAGE_STATS');
 
     if (!isCapabilitySummaryLoading && !isCapabilitySummaryError) {
-        console.log("Example to be removed when is actually used for something");
-        console.log("isProfilingSupported", isProfilingSupported('bigquery'));
-        console.log("isLineageSupported", isLineageSupported('bigquery'));
-        console.log("isFineGrainedLineageSupported", isFineGrainedLineageSupported('bigquery'));
-        console.log("isUsageStatsSupported", isUsageStatsSupported('bigquery'));
+        console.log('Example to be removed when is actually used for something');
+        console.log('isProfilingSupported', isProfilingSupported('bigquery'));
+        console.log('isLineageSupported', isLineageSupported('bigquery'));
+        console.log('isFineGrainedLineageSupported', isFineGrainedLineageSupported('bigquery'));
+        console.log('isUsageStatsSupported', isUsageStatsSupported('bigquery'));
     }
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
