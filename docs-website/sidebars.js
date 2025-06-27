@@ -312,11 +312,11 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/managed-datahub-overview",
-      "title": "DataHub Cloud Overview",
+      title: "DataHub Cloud Overview",
     },
     {
-      "type": "doc",
-      "id": "docs/managed-datahub/welcome-acryl",
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
     },
     {
       "Configure Single Sign-On": [
