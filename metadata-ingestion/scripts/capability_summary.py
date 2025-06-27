@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 import click
 from docgen_types import Plugin
 
-from datahub.ingestion.api.decorators import SourceCapability, SupportStatus
+from datahub.ingestion.api.decorators import SupportStatus
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -74,22 +74,12 @@ class CapabilitySummary:
     plugins_skipped: int
     skipped_plugin_names: List[str]  # List of plugin names that were skipped
     total_capabilities: int
-    capability_breakdown: Dict[
-        str, Dict[str, int]
-    ]  # capability -> {supported: count, unsupported: count}
-    capabilities_dict: Dict[str, str]  # capability -> description
-    platform_summary: Dict[
-        str, Dict[str, List[str]]
-    ]  # platform_id -> {capability -> [plugin_names]}
     plugin_details: Dict[str, Dict]  # plugin_name -> detailed info
 
 
 def generate_capability_summary() -> CapabilitySummary:
     """Generate a comprehensive summary of capabilities across all plugins."""
 
-    capability_breakdown: Dict[str, Dict[str, int]] = {}
-    capabilities_dict: Dict[str, str] = {}
-    platform_summary: Dict[str, Dict[str, List[str]]] = {}
     plugin_details: Dict[str, Dict] = {}
 
     total_plugins = 0
@@ -97,9 +87,6 @@ def generate_capability_summary() -> CapabilitySummary:
     plugins_skipped = 0
     skipped_plugin_names: List[str] = []
     total_capabilities = 0
-
-    for capability in SourceCapability:
-        capability_breakdown[capability.value] = {"supported": 0, "unsupported": 0}
 
     for plugin_name in sorted(source_registry.mapping.keys()):
         if plugin_name in {
@@ -128,27 +115,11 @@ def generate_capability_summary() -> CapabilitySummary:
             "capabilities": [],
         }
 
-        if plugin.platform_id not in platform_summary:
-            platform_summary[plugin.platform_id] = {}
-            for capability in SourceCapability:
-                platform_summary[plugin.platform_id][capability.value] = []
-
         if plugin.capabilities:
             plugins_with_capabilities += 1
             for cap_setting in plugin.capabilities:
                 total_capabilities += 1
-                capability_name = cap_setting.capability.value
-
-                if capability_name not in capabilities_dict:
-                    capabilities_dict[capability_name] = cap_setting.description
-
-                if cap_setting.supported:
-                    capability_breakdown[capability_name]["supported"] += 1
-                    platform_summary[plugin.platform_id][capability_name].append(
-                        plugin_name
-                    )
-                else:
-                    capability_breakdown[capability_name]["unsupported"] += 1
+                capability_name = cap_setting.capability.name
 
                 plugin_details[plugin_name]["capabilities"].append(
                     {
@@ -164,9 +135,6 @@ def generate_capability_summary() -> CapabilitySummary:
         plugins_skipped=plugins_skipped,
         skipped_plugin_names=skipped_plugin_names,
         total_capabilities=total_capabilities,
-        capability_breakdown=capability_breakdown,
-        capabilities_dict=capabilities_dict,
-        platform_summary=platform_summary,
         plugin_details=plugin_details,
     )
 
@@ -180,10 +148,6 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
     summary_dict = dataclasses.asdict(summary)
     summary_dict["generated_by"] = "metadata-ingestion/scripts/capability_summary.py"
     summary_dict["generated_at"] = datetime.now(timezone.utc).isoformat()
-    # Remove unwanted keys from the output
-    summary_dict.pop("capability_breakdown", None)
-    summary_dict.pop("capabilities_dict", None)
-    summary_dict.pop("platform_summary", None)
     summary_json = json.dumps(summary_dict, indent=2, sort_keys=True)
 
     summary_file = output_path / "capability_summary.json"

@@ -1,21 +1,21 @@
 {
-  "generated_at": "2025-06-25T16:49:35.137488+00:00",
+  "generated_at": "2025-06-27T11:15:14.491820+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Can extract ABS object/container tags if enabled",
           "supported": true
         }
@@ -28,57 +28,57 @@
     "athena": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -91,7 +91,7 @@
     "azure-ad": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via stateful_ingestion",
           "supported": true
         }
@@ -104,67 +104,67 @@
     "bigquery": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Partition Support",
+          "capability": "PARTITION_SUPPORT",
           "description": "Enabled by default, partition keys and clustering keys are supported.",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Platform instance is pre-set to the BigQuery project id",
           "supported": false
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -177,22 +177,22 @@
     "cassandra": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         }
@@ -205,52 +205,52 @@
     "clickhouse": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -263,17 +263,17 @@
     "clickhouse-usage": {
       "capabilities": [
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         }
@@ -286,57 +286,57 @@
     "cockroachdb": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -349,22 +349,22 @@
     "csv-enricher": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Supported by default",
           "supported": true
         }
@@ -377,7 +377,7 @@
     "datahub": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         }
@@ -418,12 +418,12 @@
     "datahub-lineage-file": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Specified in the lineage file.",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Specified in the lineage file.",
           "supported": true
         }
@@ -433,25 +433,32 @@
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
     },
+    "datahub-mock-data": {
+      "capabilities": [],
+      "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
+      "platform_id": "datahubmockdata",
+      "platform_name": "DataHubMockData",
+      "support_status": "TESTING"
+    },
     "dbt": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `include_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -464,22 +471,22 @@
     "dbt-cloud": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `include_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -492,12 +499,12 @@
     "delta-lake": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
           "supported": true
         }
@@ -517,47 +524,47 @@
     "dremio": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -570,52 +577,52 @@
     "druid": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -628,17 +635,17 @@
     "dynamodb": {
       "capabilities": [
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
           "supported": true
         }
@@ -651,12 +658,12 @@
     "elasticsearch": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -669,22 +676,22 @@
     "feast": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -697,12 +704,12 @@
     "file": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -715,17 +722,17 @@
     "fivetran": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -738,22 +745,22 @@
     "gcs": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Not supported",
           "supported": false
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         }
@@ -766,27 +773,27 @@
     "glue": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Support via the `emit_s3_lineage` config field",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default when stateful ingestion is turned on.",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -799,7 +806,7 @@
     "grafana": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         }
@@ -812,57 +819,57 @@
     "hana": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -875,27 +882,27 @@
     "hex": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -908,52 +915,52 @@
     "hive": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -966,52 +973,52 @@
     "hive-metastore": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Not Supported",
           "supported": false
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Not Supported",
           "supported": false
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "View lineage is not supported",
           "supported": false
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1024,37 +1031,37 @@
     "iceberg": {
       "capabilities": [
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration.",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default.",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Currently not supported.",
           "supported": false
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
           "supported": true
         },
         {
-          "capability": "Partition Support",
+          "capability": "PARTITION_SUPPORT",
           "description": "Currently not supported.",
           "supported": false
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
           "supported": true
         }
@@ -1067,32 +1074,32 @@
     "json-schema": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Extracts descriptions at top level and field level",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "With stateful ingestion enabled, will remove entities from DataHub if they are no longer present in the source",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Does not currently support extracting ownership",
           "supported": false
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Does not currently support extracting tags",
           "supported": false
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Supports platform instance via config",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Extracts schemas, following references",
           "supported": true
         }
@@ -1105,42 +1112,42 @@
     "kafka": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Not supported",
           "supported": false
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Not supported",
           "supported": false
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Set dataset description to top level doc field for Avro schema",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "For multiple Kafka clusters, use the platform_instance configuration",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
           "supported": false
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1153,22 +1160,22 @@
     "kafka-connect": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1181,7 +1188,7 @@
     "ldap": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         }
@@ -1194,42 +1201,42 @@
     "looker": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default, configured using `extract_usage_history`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `extract_owners`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` field",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1242,22 +1249,22 @@
     "lookml": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` and `connection_to_platform_map` fields",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         }
@@ -1270,57 +1277,57 @@
     "mariadb": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1333,17 +1340,17 @@
     "metabase": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         }
@@ -1356,17 +1363,17 @@
     "mlflow": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for MLflow Registered Models and Model Versions",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Extract tags for MLflow Registered Model Stages",
           "supported": true
         }
@@ -1379,37 +1386,37 @@
     "mode": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Supported by default",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         }
@@ -1422,17 +1429,17 @@
     "mongodb": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1445,57 +1452,57 @@
     "mssql": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1508,57 +1515,57 @@
     "mysql": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1571,12 +1578,12 @@
     "neo4j": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Supported via the `platform_instance` config",
           "supported": true
         }
@@ -1589,12 +1596,12 @@
     "nifi": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported. See docs for limitations",
           "supported": true
         }
@@ -1607,12 +1614,12 @@
     "okta": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via stateful_ingestion",
           "supported": true
         }
@@ -1625,7 +1632,7 @@
     "openapi": {
       "capabilities": [
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "",
           "supported": false
         }
@@ -1638,47 +1645,47 @@
     "oracle": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1691,57 +1698,57 @@
     "postgres": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1754,57 +1761,57 @@
     "powerbi": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Disabled by default, configured using `extract_column_level_lineage`. ",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration profiling.enabled",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, configured using `extract_lineage`.",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1817,12 +1824,12 @@
     "powerbi-report-server": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1835,17 +1842,17 @@
     "preset": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via stateful_ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         }
@@ -1853,57 +1860,57 @@
       "classname": "datahub.ingestion.source.preset.PresetSource",
       "platform_id": "preset",
       "platform_name": "Preset",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "presto": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1916,52 +1923,52 @@
     "presto-on-hive": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Not Supported",
           "supported": false
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Not Supported",
           "supported": false
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "View lineage is not supported",
           "supported": false
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -1974,22 +1981,22 @@
     "pulsar": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2002,47 +2009,47 @@
     "qlik-sense": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Disabled by default. ",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `ingest_owner`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default.",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2055,12 +2062,12 @@
     "redash": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2073,62 +2080,62 @@
     "redshift": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2141,27 +2148,27 @@
     "s3": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Can infer schema from supported file types",
           "supported": true
         }
@@ -2174,27 +2181,27 @@
     "sac": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default (only for Import Data Models)",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default (only for Live Data Models)",
           "supported": true
         }
@@ -2207,12 +2214,12 @@
     "sagemaker": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2225,32 +2232,32 @@
     "salesforce": {
       "capabilities": [
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Only table level profiling is supported via `profiling.enabled` config field",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Not supported yet",
           "supported": false
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Can be equivalent to Salesforce organization",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2263,47 +2270,47 @@
     "sigma": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `ingest_owner`",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default.",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2316,7 +2323,7 @@
     "slack": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         }
@@ -2329,67 +2336,67 @@
     "snowflake": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration `profiling.enabled`",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default, can be disabled via configuration `include_usage_stats`",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Optionally enabled via `extract_tags`",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, can be disabled via configuration `include_table_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2402,12 +2409,12 @@
     "sql-queries": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Parsed from SQL queries",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Parsed from SQL queries",
           "supported": true
         }
@@ -2420,52 +2427,52 @@
     "sqlalchemy": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2478,7 +2485,7 @@
     "starburst-trino-usage": {
       "capabilities": [
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
           "supported": true
         }
@@ -2491,17 +2498,17 @@
     "superset": {
       "capabilities": [
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via stateful_ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "supported": true
         }
@@ -2514,52 +2521,52 @@
     "tableau": {
       "capabilities": [
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `extract_column_level_lineage`",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Dashboard/Chart view counts, enabled using extract_usage_stats config",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default when stateful ingestion is turned on.",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Requires transformer",
           "supported": false
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Requires recipe configuration",
           "supported": true
         },
         {
-          "capability": "Extract Tags",
+          "capability": "TAGS",
           "description": "Requires recipe configuration",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2572,62 +2579,62 @@
     "teradata": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2640,52 +2647,52 @@
     "trino": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2698,62 +2705,62 @@
     "unity-catalog": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Supported via the `profiling.enabled` config",
           "supported": true
         },
         {
-          "capability": "Dataset Usage",
+          "capability": "USAGE_STATS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Extract Ownership",
+          "capability": "OWNERSHIP",
           "description": "Supported via the `include_ownership` config",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2766,7 +2773,7 @@
     "vertexai": {
       "capabilities": [
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for Vertex AI Registered Models and Model Versions",
           "supported": true
         }
@@ -2779,57 +2786,57 @@
     "vertica": {
       "capabilities": [
         {
-          "capability": "Asset Containers",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Classification",
+          "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
           "supported": true
         },
         {
-          "capability": "Column-level Lineage",
+          "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "supported": true
         },
         {
-          "capability": "Data Profiling",
+          "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "supported": true
         },
         {
-          "capability": "Descriptions",
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Detect Deleted Entities",
+          "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
           "supported": true
         },
         {
-          "capability": "Domains",
+          "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
           "supported": true
         },
         {
-          "capability": "Platform Instance",
+          "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Schema Metadata",
+          "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "supported": true
         },
         {
-          "capability": "Table-Level Lineage",
+          "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
           "supported": true
         },
         {
-          "capability": "Test Connection",
+          "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "supported": true
         }
@@ -2844,5 +2851,5 @@
   "plugins_with_capabilities": 74,
   "skipped_plugin_names": [],
   "total_capabilities": 442,
-  "total_plugins": 79
+  "total_plugins": 80
 }
