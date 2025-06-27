@@ -61,11 +61,18 @@ def _parse_freshness_schedule_check_type(
                 schedule_check_type, models.FreshnessAssertionScheduleTypeClass
             )
         )
-    return (
-        FreshnessAssertionScheduleCheckType(schedule_check_type)
-        if schedule_check_type
-        else DEFAULT_FRESHNESS_SCHEDULE_CHECK_TYPE
-    )
+    if not schedule_check_type:
+        return DEFAULT_FRESHNESS_SCHEDULE_CHECK_TYPE
+
+    # Make string comparison case-insensitive
+    if isinstance(schedule_check_type, str):
+        schedule_check_type_upper = schedule_check_type.upper()
+        for member in FreshnessAssertionScheduleCheckType:
+            if member.value.upper() == schedule_check_type_upper:
+                return member
+        # If no match found, fall back to original behavior for error
+
+    return FreshnessAssertionScheduleCheckType(schedule_check_type)
 
 
 class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):

@@ -201,6 +201,45 @@ class TestFreshnessAssertionInput:
                 ),
                 id="fixed_interval_model_with_timewindowsize",
             ),
+            # ============ CASE INSENSITIVE TESTS ============
+            # Test case insensitive SINCE_THE_LAST_CHECK
+            pytest.param(
+                FreshnessAssertionTestParams(
+                    freshness_schedule_check_type="since_the_last_check",
+                    lookback_window=None,
+                    should_succeed=True,
+                ),
+                id="since_last_check_lowercase",
+            ),
+            pytest.param(
+                FreshnessAssertionTestParams(
+                    freshness_schedule_check_type="Since_The_Last_Check",
+                    lookback_window=None,
+                    should_succeed=True,
+                ),
+                id="since_last_check_mixed_case",
+            ),
+            # Test case insensitive FIXED_INTERVAL
+            pytest.param(
+                FreshnessAssertionTestParams(
+                    freshness_schedule_check_type="fixed_interval",
+                    lookback_window=TimeWindowSize(
+                        unit=CalendarInterval.MINUTE, multiple=10
+                    ),
+                    should_succeed=True,
+                ),
+                id="fixed_interval_lowercase",
+            ),
+            pytest.param(
+                FreshnessAssertionTestParams(
+                    freshness_schedule_check_type="Fixed_Interval",
+                    lookback_window=TimeWindowSize(
+                        unit=CalendarInterval.HOUR, multiple=2
+                    ),
+                    should_succeed=True,
+                ),
+                id="fixed_interval_mixed_case",
+            ),
             # ============ ERROR CASES ============
             # Test FIXED_INTERVAL without required lookback window
             pytest.param(
@@ -288,7 +327,24 @@ class TestFreshnessAssertionInput:
                 # Should parse correctly
                 if isinstance(
                     test_params.freshness_schedule_check_type,
-                    (str, models.FreshnessAssertionScheduleTypeClass),
+                    str,
+                ):
+                    # For string inputs, determine expected value based on case-insensitive comparison
+                    input_upper = test_params.freshness_schedule_check_type.upper()
+                    if input_upper == "SINCE_THE_LAST_CHECK":
+                        expected = (
+                            FreshnessAssertionScheduleCheckType.SINCE_THE_LAST_CHECK
+                        )
+                    elif input_upper == "FIXED_INTERVAL":
+                        expected = FreshnessAssertionScheduleCheckType.FIXED_INTERVAL
+                    else:
+                        # This should not happen in our test cases, but fall back to original behavior
+                        expected = FreshnessAssertionScheduleCheckType(
+                            test_params.freshness_schedule_check_type
+                        )
+                elif isinstance(
+                    test_params.freshness_schedule_check_type,
+                    models.FreshnessAssertionScheduleTypeClass,
                 ):
                     expected = FreshnessAssertionScheduleCheckType(
                         test_params.freshness_schedule_check_type
