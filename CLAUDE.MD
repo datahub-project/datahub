@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) or any other agent w
 
  - `docs/what/urn.md` defines what a URN is
 
-## Directory strcuture
+## Directory structure
 
 - This is repository for DataHub project.
 - `README.MD` should give some basic information about the project.
