@@ -56,6 +56,7 @@ const ManageTags = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const entityRegistry = useEntityRegistry();
     const [showCreateTagModal, setShowCreateTagModal] = useState(false);
@@ -78,11 +79,11 @@ const ManageTags = () => {
         () => ({
             types: [EntityType.Tag],
             query: debouncedSearchQuery,
-            start: (currentPage - 1) * PAGE_SIZE,
-            count: PAGE_SIZE,
+            start: (currentPage - 1) * pageSize,
+            count: pageSize,
             filters: [],
         }),
-        [currentPage, debouncedSearchQuery],
+        [currentPage, debouncedSearchQuery, pageSize],
     );
 
     const {
@@ -182,10 +183,16 @@ const ManageTags = () => {
                     />
                     <Pagination
                         currentPage={currentPage}
+                        itemsPerPage={pageSize}
                         totalPages={totalTags}
                         loading={searchLoading}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={(newPage, newPageSize) => {
+                            if (newPageSize !== pageSize) {
+                                setCurrentPage(1);
+                                setPageSize(newPageSize);
                             } else {
+                                setCurrentPage(newPage);
+                            }
                         }}
                     />
                 </>
