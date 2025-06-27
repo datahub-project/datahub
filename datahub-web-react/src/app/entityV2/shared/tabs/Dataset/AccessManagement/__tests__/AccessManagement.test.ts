@@ -87,7 +87,8 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-
+                    manageApplications: true,
+                    manageFeatures: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
