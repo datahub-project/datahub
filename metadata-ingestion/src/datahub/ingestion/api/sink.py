@@ -147,6 +147,9 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         pass
 
+    def flush(self) -> None:
+        pass
+
     def configured(self) -> str:
         """Override this method to output a human-readable and scrubbed version of the configured sink"""
         return ""

@@ -232,7 +232,6 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
-    BIGQUERY_BETA,
     CSV,
     DBT_CLOUD,
     MYSQL,
@@ -303,33 +302,6 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [
             INCLUDE_TABLES,
             INCLUDE_VIEWS,
-            INCLUDE_TABLE_LINEAGE,
-            TABLE_PROFILING_ENABLED,
-            COLUMN_PROFILING_ENABLED,
-            START_TIME,
-            STATEFUL_INGESTION_ENABLED,
-        ],
-        filterFields: [
-            PROJECT_ALLOW,
-            PROJECT_DENY,
-            DATASET_ALLOW,
-            DATASET_DENY,
-            TABLE_ALLOW,
-            TABLE_DENY,
-            VIEW_ALLOW,
-            VIEW_DENY,
-        ],
-        filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
-    },
-    [BIGQUERY_BETA]: {
-        fields: [
-            BIGQUERY_BETA_PROJECT_ID,
-            BIGQUERY_PRIVATE_KEY,
-            BIGQUERY_PRIVATE_KEY_ID,
-            BIGQUERY_CLIENT_EMAIL,
-            BIGQUERY_CLIENT_ID,
-        ],
-        advancedFields: [
             INCLUDE_TABLE_LINEAGE,
             TABLE_PROFILING_ENABLED,
             COLUMN_PROFILING_ENABLED,
@@ -619,8 +591,20 @@ export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
     SNOWFLAKE,
     LOOKER,
-    BIGQUERY_BETA,
     BIGQUERY,
     UNITY_CATALOG,
     SAC,
+    MYSQL,
+    POSTGRES,
+    REDSHIFT,
+    MSSQL,
+    MARIADB,
+    TRINO,
+    PRESTO,
+    HIVE,
+    TABLEAU,
+    KAFKA,
+    DBT_CLOUD,
+    POWER_BI,
+    VERTICA,
 ]);

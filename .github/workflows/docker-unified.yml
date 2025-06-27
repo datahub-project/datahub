@@ -365,6 +365,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      # TODO Chakru: Review if required
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
         if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}

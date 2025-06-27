@@ -104,7 +104,7 @@ public class BootstrapMCPUtil {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, opContext.getRetrieverContext())
         .retrieverContext(opContext.getRetrieverContext())
-        .build();
+        .build(opContext);
   }
 
   static List<ObjectNode> resolveMCPTemplate(

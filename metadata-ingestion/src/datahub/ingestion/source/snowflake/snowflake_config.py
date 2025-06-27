@@ -154,14 +154,11 @@ class SnowflakeIdentifierConfig(
 
     email_domain: Optional[str] = pydantic.Field(
         default=None,
-        description="Email domain of your organization so users can be displayed on UI appropriately.",
+        description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
     )
 
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
+    _email_as_user_identifier = pydantic_removed_field(
+        "email_as_user_identifier",
     )
 
 

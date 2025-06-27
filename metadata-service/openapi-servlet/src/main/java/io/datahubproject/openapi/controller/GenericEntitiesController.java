@@ -661,7 +661,7 @@ public abstract class GenericEntitiesController<
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(upsert))
-                .build(),
+                .build(opContext),
             async);
 
     if (!async) {

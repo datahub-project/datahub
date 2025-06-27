@@ -162,6 +162,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @support_status(SupportStatus.INCUBATING)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """

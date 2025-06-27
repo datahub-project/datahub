@@ -82,6 +82,7 @@ public class Config extends HttpServlet {
       Map<String, Object> telemetryConfig = new HashMap<>();
       telemetryConfig.put("enabledCli", configProvider.getTelemetry().enabledCli);
       telemetryConfig.put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+
       newConfig.put("telemetry", telemetryConfig);
 
       // Ingestion Configuration

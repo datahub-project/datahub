@@ -65,7 +65,7 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
       @Nonnull AuditStamp auditStamp) {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, opContext.getRetrieverContext())
-        .build();
+        .build(opContext);
   }
 
   @Override

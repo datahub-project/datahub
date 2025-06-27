@@ -364,12 +364,12 @@ module.exports = {
           Slack: [
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
+              id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
               className: "saasOnly",
             },
             {
@@ -409,6 +409,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_12",
             "docs/managed-datahub/release-notes/v_0_3_11",
             "docs/managed-datahub/release-notes/v_0_3_10",
             "docs/managed-datahub/release-notes/v_0_3_9",
@@ -861,6 +862,10 @@ module.exports = {
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
+        "docs/api/tutorials/container",
+        "docs/api/tutorials/dashboard-chart",
+        "docs/api/tutorials/dataflow-datajob",
+        "docs/api/tutorials/mlmodel-mlmodelgroup",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

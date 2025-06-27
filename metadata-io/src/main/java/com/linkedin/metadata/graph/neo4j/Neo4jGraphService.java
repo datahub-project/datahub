@@ -1072,4 +1072,9 @@ public class Neo4jGraphService implements GraphService {
         .scrollId(nextScrollId)
         .build();
   }
+
+  @Override
+  public List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples) {
+    return List.of();
+  }
 }

@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import java.util.Collection;
 import java.util.Optional;
 import lombok.Value;
 
@@ -17,4 +18,7 @@ public class AuthorizationRequest {
    * privilege this optional will be empty.
    */
   Optional<EntitySpec> resourceSpec;
+
+  /** The sub-resources that are being applied as a modification to the target resource */
+  Collection<EntitySpec> subResources;
 }

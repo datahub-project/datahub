@@ -198,7 +198,7 @@ def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
         source_config_class: ConfigModel = source_type.get_config_class()
 
         plugin.config_json_schema = source_config_class.schema_json(indent=2)
-        plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema())
+        plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema(), current_source=plugin_name)
 
         # Write the config json schema to the out_dir.
         config_dir = pathlib.Path(out_dir) / "config_schemas"

@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationResult;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -63,16 +63,8 @@ public class DatasetStatsSummaryResolverTest {
 
     // Execute resolver
     DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
-
-    AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
-    Mockito.when(mockContext.getOperationContext().authorize(any(), any()))
-        .thenReturn(mockAuthorizerResult);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);

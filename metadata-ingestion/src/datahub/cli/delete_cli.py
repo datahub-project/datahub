@@ -1,5 +1,6 @@
 import logging
 import random
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
@@ -318,6 +319,19 @@ def undo_by_filter(
     help="Recursively delete all contained entities (only for containers and dataPlatformInstances)",
 )
 @click.option(
+    "--streaming-batch",
+    required=False,
+    is_flag=True,
+    help="Use streaming batch deletion for recursive operations. Benefit of being resumable for large hierarchies where getting all URNs at once can take a long time.",
+)
+@click.option(
+    "--streaming-batch-size",
+    required=False,
+    default=12000,
+    type=int,
+    help="Batch size for streaming batch deletion for recursive operations.",
+)
+@click.option(
     "--start-time",
     required=False,
     type=ClickDatetime(),
@@ -368,6 +382,8 @@ def by_filter(
     entity_type: Optional[str],
     query: Optional[str],
     recursive: bool,
+    streaming_batch: bool,
+    streaming_batch_size: int,
     start_time: Optional[datetime],
     end_time: Optional[datetime],
     batch_size: int,
@@ -386,6 +402,7 @@ def by_filter(
         env=env,
         query=query,
         recursive=recursive,
+        streaming_batch=streaming_batch,
     )
     soft_delete_filter = _validate_user_soft_delete_flags(
         soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
@@ -417,26 +434,27 @@ def by_filter(
     # Determine which urns to delete.
     delete_by_urn = bool(urn) and not recursive
     if urn:
-        urns = [urn]
-
         if recursive:
-            # Add children urns to the list.
-            if guess_entity_type(urn) == "dataPlatformInstance":
-                urns.extend(
-                    graph.get_urns_by_filter(
-                        platform_instance=urn,
-                        status=soft_delete_filter,
-                        batch_size=batch_size,
-                    )
-                )
-            else:
-                urns.extend(
-                    graph.get_urns_by_filter(
-                        container=urn,
-                        status=soft_delete_filter,
-                        batch_size=batch_size,
-                    )
-                )
+            _delete_urns_streaming_recursive(
+                graph=graph,
+                parent_urn=urn,
+                aspect_name=aspect,
+                soft=soft,
+                dry_run=dry_run,
+                start_time=start_time,
+                end_time=end_time,
+                workers=workers,
+                soft_delete_filter=soft_delete_filter,
+                batch_size=batch_size,
+                force=force,
+                streaming_batch_size=streaming_batch_size
+                if streaming_batch
+                else sys.maxsize,
+            )
+            return
+
+        else:
+            urns = [urn]
     elif urn_file:
         with open(urn_file, "r") as r:
             urns = []
@@ -557,6 +575,7 @@ def _validate_user_urn_and_filters(
     env: Optional[str],
     query: Optional[str],
     recursive: bool,
+    streaming_batch: bool,
 ) -> None:
     # Check urn / filters options.
     if urn:
@@ -590,6 +609,12 @@ def _validate_user_urn_and_filters(
     elif urn and guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
         logger.warning(
             f"This will only delete {urn}. Use --recursive to delete all contained entities."
+        )
+
+    # Check streaming flag.
+    if streaming_batch and not recursive:
+        raise click.UsageError(
+            "The --streaming-batch flag can only be used with --recursive."
         )
 
 
@@ -737,4 +762,77 @@ def _delete_one_urn(
         num_records=rows_affected,
         num_timeseries_records=ts_rows_affected,
         num_referenced_entities=referenced_entities_affected,
+    )
+
+
+def _delete_urns_streaming_recursive(
+    graph: DataHubGraph,
+    parent_urn: str,
+    aspect_name: Optional[str],
+    soft: bool,
+    dry_run: bool,
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+    workers: int,
+    soft_delete_filter: RemovedStatusFilter,
+    batch_size: int,
+    force: bool,
+    streaming_batch_size: int,
+) -> None:
+    """Streaming recursive batch deletion that processes URNs in batches."""
+
+    entity_type = guess_entity_type(parent_urn)
+    click.echo(f"Starting recursive deletion of {entity_type} {parent_urn}")
+
+    if not force and not dry_run:
+        click.confirm(
+            f"This will recursively delete {parent_urn} and all its contained entities. Do you want to continue?",
+            abort=True,
+        )
+
+    urns = []
+
+    if entity_type == "dataPlatformInstance":
+        child_urns_iter = graph.get_urns_by_filter(
+            platform_instance=parent_urn,
+            status=soft_delete_filter,
+            batch_size=batch_size,
+            # Important to skip cache so we can resume from where we left off.
+            skip_cache=True,
+        )
+    else:
+        child_urns_iter = graph.get_urns_by_filter(
+            container=parent_urn,
+            status=soft_delete_filter,
+            batch_size=batch_size,
+            # Important to skip cache so we can resume from where we left off.
+            skip_cache=True,
+        )
+
+    for child_urn in child_urns_iter:
+        urns.append(child_urn)
+        if len(urns) >= streaming_batch_size:
+            _delete_urns_parallel(
+                graph=graph,
+                urns=urns,
+                aspect_name=aspect_name,
+                soft=soft,
+                dry_run=dry_run,
+                delete_by_urn=False,
+                start_time=start_time,
+                end_time=end_time,
+                workers=workers,
+            )
+            urns = []
+    urns.append(parent_urn)
+    _delete_urns_parallel(
+        graph=graph,
+        urns=urns,
+        aspect_name=aspect_name,
+        soft=soft,
+        dry_run=dry_run,
+        delete_by_urn=False,
+        start_time=start_time,
+        end_time=end_time,
+        workers=workers,
     )

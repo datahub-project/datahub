@@ -774,7 +774,7 @@ public class JavaEntityClient implements EntityClient {
                           auditStamp,
                           opContext.getRetrieverContext(),
                           opContext.getValidationContext().isAlternateValidation())
-                      .build();
+                      .build(opContext);
 
               List<IngestResult> results =
                   entityService.ingestProposal(opContext, aspectsBatch, async);

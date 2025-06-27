@@ -515,5 +515,9 @@ public class Constants {
 
   public static final String RESTLI_SUCCESS = "success";
 
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
+
   private Constants() {}
 }

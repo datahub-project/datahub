@@ -644,7 +644,11 @@ public class ESIndexBuilder {
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
     createIndex(nextIndexName, config);
     renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName, false);
-    int targetshards = (Integer) config.targetSettings().get(NUMBER_OF_SHARDS);
+    int targetShards =
+        Optional.ofNullable(config.targetSettings().get(NUMBER_OF_SHARDS))
+            .map(Object::toString)
+            .map(Integer::parseInt)
+            .orElseThrow(() -> new IllegalArgumentException("Number of shards not specified"));
 
     Map<String, Object> reinfo =
         submitReindex(
@@ -653,7 +657,7 @@ public class ESIndexBuilder {
             options.getBatchSize(),
             TimeValue.timeValueSeconds(options.getTimeoutSeconds()),
             filterQuery,
-            targetshards);
+            targetShards);
     return (String) reinfo.get("taskId");
   }
 
@@ -675,8 +679,14 @@ public class ESIndexBuilder {
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
 
-      int targetshards =
-          (Integer) ((Map) indexState.targetSettings().get("index")).get(NUMBER_OF_SHARDS);
+      int targetShards =
+          Optional.ofNullable(indexState.targetSettings().get("index"))
+              .filter(Map.class::isInstance)
+              .map(Map.class::cast)
+              .map(indexMap -> indexMap.get(NUMBER_OF_SHARDS))
+              .map(Object::toString)
+              .map(Integer::parseInt)
+              .orElseThrow(() -> new IllegalArgumentException("Number of shards not specified"));
       String parentTaskId = "";
       boolean reindexTaskCompleted = false;
       if (previousTaskInfo.isPresent()) {
@@ -706,7 +716,7 @@ public class ESIndexBuilder {
                   REINDEX_BATCHSIZE,
                   null,
                   null,
-                  targetshards);
+                  targetShards);
           parentTaskId = (String) reinfo.get("taskId");
           result = ReindexResult.REINDEXING;
         }
@@ -779,7 +789,7 @@ public class ESIndexBuilder {
                       REINDEX_BATCHSIZE,
                       null,
                       null,
-                      targetshards);
+                      targetShards);
               reindexCount = reindexCount + 1;
               documentCountsLastUpdated = System.currentTimeMillis(); // reset timer
             } else {

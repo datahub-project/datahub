@@ -10,8 +10,8 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +75,24 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
   }
 
+  @ExceptionHandler(RuntimeException.class)
+  public ResponseEntity<Map<String, String>> handleRuntimeException(
+      RuntimeException e, HttpServletRequest request) {
+
+    // Check if this exception originates from UrnUtils.getUrn()
+    for (StackTraceElement element : e.getStackTrace()) {
+      if (element.getClassName().equals("com.linkedin.common.urn.UrnUtils")
+          && element.getMethodName().equals("getUrn")) {
+        log.error("Invalid URN format in request: {}", request.getRequestURI(), e);
+        return new ResponseEntity<>(
+            Map.of("error", "Invalid URN format: " + e.getMessage()), HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    // For other RuntimeExceptions, let them bubble up to the generic handler
+    return handleGenericException(e, request);
+  }
+
   @Override
   protected void logException(Exception ex, HttpServletRequest request) {
     log.error("Error while resolving request: {}", request.getRequestURI(), ex);
@@ -93,17 +111,26 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   public ResponseEntity<Map<String, String>> handleValidationException(
       ValidationException e, HttpServletRequest request) {
     log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
+
+    Map<String, String> response =
+        new LinkedHashMap<>(Map.of("error", "Validation Error", "message", e.getMessage()));
+    HttpStatus statusCode = HttpStatus.BAD_REQUEST;
+
     if (e.getValidationExceptionCollection() != null
         && e.getValidationExceptionCollection()
             .getSubTypes()
-            .equals(Set.of(ValidationSubType.PRECONDITION))) {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()),
-          HttpStatus.PRECONDITION_FAILED);
-    } else {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+            .contains(ValidationSubType.AUTHORIZATION)) {
+      response.put("error", "Authorization Error");
+      statusCode = HttpStatus.FORBIDDEN;
+    } else if (e.getValidationExceptionCollection() != null
+        && e.getValidationExceptionCollection()
+            .getSubTypes()
+            .contains(ValidationSubType.PRECONDITION)) {
+      response.put("error", "Precondition Error");
+      statusCode = HttpStatus.PRECONDITION_FAILED;
     }
+
+    return new ResponseEntity<>(response, statusCode);
   }
 
   @ExceptionHandler(Exception.class)
