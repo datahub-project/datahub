@@ -111,7 +111,7 @@ public class LineageRegistryController {
   @GetMapping(path = "/edges/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       description =
-          "Retrieves lineage lineage edges for entity. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+          "Retrieves lineage edges for entity. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
       responses = {
         @ApiResponse(
             responseCode = "200",
@@ -156,7 +156,7 @@ public class LineageRegistryController {
   @GetMapping(path = "/edges/{entityName}/{direction}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       description =
-          "Retrieves lineage lineage edges for entity in the provided direction. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
+          "Retrieves lineage edges for entity in the provided direction. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
       responses = {
         @ApiResponse(
             responseCode = "200",
