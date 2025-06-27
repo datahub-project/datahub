@@ -1,6 +1,6 @@
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
-import { debounce } from 'lodash';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import ApplicationsTable from '@app/applications/ApplicationsTable';
@@ -63,16 +63,7 @@ const ManageApplications = () => {
     const userContext = useUserContext();
     const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
-    // Debounce search query input to reduce unnecessary renders
-    const debouncedSetSearchQuery = useMemo(
-        () => debounce((query: string) => setDebouncedSearchQuery(query), DEBOUNCE_SEARCH_MS),
-        [],
-    );
-
-    useEffect(() => {
-        debouncedSetSearchQuery(searchQuery);
-        return () => debouncedSetSearchQuery.cancel();
-    }, [searchQuery, debouncedSetSearchQuery]);
+    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
 
     // Search query configuration
     const searchInputs = useMemo(

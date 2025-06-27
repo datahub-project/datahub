@@ -3,14 +3,13 @@ import { Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-
 import {
     ApplicationActionsColumn,
     ApplicationDescriptionColumn,
     ApplicationNameColumn,
     ApplicationOwnersColumn,
 } from '@app/applications/ApplicationsTableColumns';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
@@ -39,16 +38,6 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [applicationUrnToDelete, setApplicationUrnToDelete] = useState('');
     const [applicationDisplayName, setApplicationDisplayName] = useState('');
-
-    const [sortedInfo, setSortedInfo] = useState<{
-        columnKey?: string;
-        order?: 'ascend' | 'descend';
-    }>({});
-
-    // Fix the handler type to match what Table expects
-    const handleTableChange = (pagination: any, filters: any, sorter: any): void => {
-        setSortedInfo(sorter);
-    };
 
     // Filter applications based on search query and sort by name - optimized with useMemo
     const filteredApplications = useMemo(() => {
@@ -129,12 +118,6 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                         />
                     );
                 },
-                sorter: (sourceA, sourceB) => {
-                    const nameA = entityRegistry.getDisplayName(EntityType.Application, sourceA.entity);
-                    const nameB = entityRegistry.getDisplayName(EntityType.Application, sourceB.entity);
-                    return nameA.localeCompare(nameB);
-                },
-                sortOrder: sortedInfo.columnKey === 'tag' ? sortedInfo.order : null,
             },
             {
                 title: 'Description',
@@ -178,7 +161,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 },
             },
         ],
-        [entityRegistry, searchQuery, sortedInfo, showDeleteConfirmation],
+        [entityRegistry, searchQuery, showDeleteConfirmation],
     );
 
     // Generate table data once with memoization
@@ -191,15 +174,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
 
     return (
         <>
-            <Table
-                columns={columns}
-                data={tableData}
-                isLoading={isLoading}
-                isScrollable
-                rowKey="key"
-                onChange={handleTableChange as any}
-            />
-
+            <Table columns={columns} data={tableData} isLoading={isLoading} isScrollable rowKey="key" />
             <ConfirmationModal
                 isOpen={showDeleteModal}
                 handleClose={handleDeleteClose}
