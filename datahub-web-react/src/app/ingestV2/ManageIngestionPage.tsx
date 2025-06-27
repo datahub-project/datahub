@@ -18,6 +18,26 @@ import {
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
+interface Capability {
+    capability: string;
+    description: string;
+    supported: boolean;
+}
+
+interface PluginDetails {
+    capabilities: Capability[];
+    classname: string;
+    platform_id: string;
+    platform_name: string;
+    support_status: string;
+}
+
+interface CapabilitySummary {
+    generated_at: string;
+    generated_by: string;
+    plugin_details: Record<string, PluginDetails>;
+}
+
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: white;
@@ -78,8 +98,49 @@ export const ManageIngestionPage = () => {
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
+    const [capabilitySummary, setCapabilitySummary] = useState<CapabilitySummary | null>(null);
+
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
+
+    useEffect(() => {
+        const fetchCapabilitySummary = async () => {
+            try {
+                const response = await fetch('/assets/ingestion/capability_summary.json');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch capability summary: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                setCapabilitySummary(data);
+            } catch (error) {
+                console.error('Error fetching capability summary:', error);
+            }
+        };
+
+        fetchCapabilitySummary();
+    }, []);
+
+    const getPluginCapabilities = (platformId: string): PluginDetails | null => {
+        if (!capabilitySummary?.plugin_details?.[platformId]) {
+            return null;
+        }
+        return capabilitySummary.plugin_details[platformId];
+    };
+    const isSupported = (platformId: string, capabilityName: string): boolean => {
+        const capabilities = getPluginCapabilities(platformId)?.capabilities;
+        if (!capabilities) {
+            return false;
+        }
+        return capabilities?.some(capability => capability.capability === capabilityName && capability.supported);
+    };
+
+
+    const isProfilingSupported = (platformId: string): boolean => isSupported(platformId, 'DATA_PROFILING');
+    const isLineageSupported = (platformId: string): boolean => isSupported(platformId, 'LINEAGE_COARSE');
+    const isFineGrainedLineageSupported = (platformId: string): boolean => isSupported(platformId, 'LINEAGE_FINE');
+    const isUsageStatsSupported = (platformId: string): boolean => isSupported(platformId, 'USAGE_STATS');
+
+    console.log("Example to be removed when the capabilities are actually used", isProfilingSupported('bigquery'), isLineageSupported('bigquery'), isFineGrainedLineageSupported('bigquery'), isUsageStatsSupported('bigquery'));
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
