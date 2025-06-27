@@ -862,6 +862,10 @@ module.exports = {
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
+        "docs/api/tutorials/container",
+        "docs/api/tutorials/dashboard-chart",
+        "docs/api/tutorials/dataflow-datajob",
+        "docs/api/tutorials/mlmodel-mlmodelgroup",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
