@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-06-27T12:41:09.940824+00:00",
+  "generated_at": "2025-06-27T12:57:51.318771+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2846,10 +2846,5 @@
       "platform_name": "Vertica",
       "support_status": "CERTIFIED"
     }
-  },
-  "plugins_skipped": 0,
-  "plugins_with_capabilities": 74,
-  "skipped_plugin_names": [],
-  "total_capabilities": 442,
-  "total_plugins": 80
+  }
 }

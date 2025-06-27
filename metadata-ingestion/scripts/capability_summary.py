@@ -3,7 +3,7 @@ import json
 import logging
 import pathlib
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import click
 from docgen_types import Plugin
@@ -69,11 +69,6 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
 class CapabilitySummary:
     """Summary of capabilities across all plugins."""
 
-    total_plugins: int
-    plugins_with_capabilities: int
-    plugins_skipped: int
-    skipped_plugin_names: List[str]  # List of plugin names that were skipped
-    total_capabilities: int
     plugin_details: Dict[str, Dict]  # plugin_name -> detailed info
 
 
@@ -81,12 +76,6 @@ def generate_capability_summary() -> CapabilitySummary:
     """Generate a comprehensive summary of capabilities across all plugins."""
 
     plugin_details: Dict[str, Dict] = {}
-
-    total_plugins = 0
-    plugins_with_capabilities = 0
-    plugins_skipped = 0
-    skipped_plugin_names: List[str] = []
-    total_capabilities = 0
 
     for plugin_name in sorted(source_registry.mapping.keys()):
         if plugin_name in {
@@ -97,12 +86,9 @@ def generate_capability_summary() -> CapabilitySummary:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
-        total_plugins += 1
         plugin = load_plugin_capabilities(plugin_name)
 
         if plugin is None:
-            plugins_skipped += 1
-            skipped_plugin_names.append(plugin_name)
             continue
 
         plugin_details[plugin_name] = {
@@ -116,9 +102,7 @@ def generate_capability_summary() -> CapabilitySummary:
         }
 
         if plugin.capabilities:
-            plugins_with_capabilities += 1
             for cap_setting in plugin.capabilities:
-                total_capabilities += 1
                 capability_name = cap_setting.capability.name
 
                 plugin_details[plugin_name]["capabilities"].append(
@@ -130,11 +114,6 @@ def generate_capability_summary() -> CapabilitySummary:
                 )
 
     return CapabilitySummary(
-        total_plugins=total_plugins,
-        plugins_with_capabilities=plugins_with_capabilities,
-        plugins_skipped=plugins_skipped,
-        skipped_plugin_names=skipped_plugin_names,
-        total_capabilities=total_capabilities,
         plugin_details=plugin_details,
     )
 
@@ -207,15 +186,8 @@ def generate_capability_report(output_dir: str, source: Optional[str] = None) ->
 
         print("Capability Report Generation Complete")
         print("=====================================")
-        print(f"Total plugins processed: {summary.total_plugins}")
-        print(f"Plugins with capabilities: {summary.plugins_with_capabilities}")
-        if summary.skipped_plugin_names:
-            print(f"Plugins skipped (no capabilities): {summary.plugins_skipped}")
-            print("Skipped plugin names:")
-            for plugin_name in sorted(summary.skipped_plugin_names):
-                print(f"  - {plugin_name}")
-        else:
-            print(f"Plugins skipped (no capabilities): {summary.plugins_skipped}")
+        print(f"Total plugins processed: {len(summary.plugin_details)}")
+        print(f"Plugins with capabilities: {len(summary.plugin_details)}")
         print(f"Output directory: {output_dir}")
 
     finally:
