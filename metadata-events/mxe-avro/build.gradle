@@ -40,13 +40,6 @@ idea {
 
 project.rootProject.tasks.idea.dependsOn(avroCodeGen)
 
-// Exclude classes from avro-schemas
-jar {
-  dependsOn classes
-  from sourceSets.main.output
-  exclude('com/linkedin/events/**')
-}
-
 clean {
     delete 'src'
 }

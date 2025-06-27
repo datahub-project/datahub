@@ -24,6 +24,10 @@ export enum EntityActionItem {
      * Batch add a Data Product to a set of assets
      */
     BATCH_ADD_DATA_PRODUCT,
+    /**
+     * Batch add an Application to a set of assets
+     */
+    BATCH_ADD_APPLICATION,
 }
 
 interface Props {

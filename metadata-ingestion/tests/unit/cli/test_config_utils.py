@@ -218,6 +218,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
@@ -237,6 +238,7 @@ class TestConfigUtils:
                 "retry_max_times": None,
                 "retry_status_codes": None,
                 "timeout_sec": None,
+                "server_config_refresh_interval": None,
             },
             "other": {"setting": "value"},
         }
@@ -261,6 +263,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 },
                 "other": {"setting": "value"},
             }
@@ -288,6 +291,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config

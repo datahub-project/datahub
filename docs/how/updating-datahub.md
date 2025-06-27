@@ -6,6 +6,9 @@
 
 ### Breaking Changes
 
+- #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
+- #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
+
 ### Known Issues
 
 ### Potential Downtime
@@ -13,6 +16,8 @@
 ### Deprecations
 
 ### Other Notable Changes
+
+- #13726: Removed dgraph from tests
 
 -->
 
@@ -28,22 +33,26 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- #13858 For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
+
 ### Other Notable Changes
 
 ## 1.1.0
 
 ### Breaking Changes
 
+- #12795: slack source v2 - now ingests all user and channels. Make sure the ingestion source and GMS are on the same version of DataHub.
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
 - #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
 - #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
-- #13456: Remove the exposure of `CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE` due to unsupported / incomplete functionality causing confusion among admins of DataHub.
+- #13120: DataHub Actions Integration: Moved datahub-actions into OSS DataHub. Users building their own DataHub Actions docker images can now build from the OSS project.
 
 ### Known Issues
 
 - #13397: Ingestion Rest Emitter
   - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
   - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
 
 ### Potential Downtime
 
@@ -51,6 +60,15 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- SDK Improvements: Added URN to URL helpers, lineage client, ML model support, and search enhancements.
+- Connector Improvements: Significant enhancements to PowerBI, Superset, MLflow, and Redshift connectors.
+- New Connectors: Added connectors for Hex notebooks and VertexAI.
+- Iceberg Connector Refactoring: The Iceberg connector has been completely refactored to use MCPWs instead of MCEs.
+- Entity Subtypes Model Change: The addition of subtypes to most entities.
+- #13151 #13255: UI Search Bar Redesign: search bar with new autocomplete functionality has been added.
+- #12976: Edit Lineage Feature: Added ability to edit lineage directly in the UI.
+- #12983 #13107: Manage Tags Interface: Added a dedicated "Manage Tags" navigation page.
+- #13361: Theme Support: Added foundation for basic theme support with primary color configuration.
 - #13165 - OpenAPI v3 Patching Improvements
 - #13397 - Ingestion Rest Emitter - Added EmitMode parameter for write guarantees.
   - SYNC_WAIT: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
