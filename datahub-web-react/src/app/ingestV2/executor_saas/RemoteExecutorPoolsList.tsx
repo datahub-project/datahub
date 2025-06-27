@@ -49,7 +49,7 @@ const StyledTabToolbar = styled(TabToolbar)`
 `;
 
 const StyledSearchBar = styled(SearchBar)`
-    width: 220px;
+    width: 400px;
 `;
 
 const RefreshButtonContainer = styled.div`
