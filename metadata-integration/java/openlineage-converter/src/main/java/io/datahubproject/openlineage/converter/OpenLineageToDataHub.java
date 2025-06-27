@@ -69,6 +69,7 @@ import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -86,11 +87,31 @@ import org.json.JSONObject;
 @Slf4j
 public class OpenLineageToDataHub {
 
+  // Constants
   public static final String FILE_NAMESPACE = "file";
   public static final String SCHEME_SEPARATOR = "://";
   public static final String URN_LI_CORPUSER = "urn:li:corpuser:";
   public static final String URN_LI_CORPUSER_DATAHUB = URN_LI_CORPUSER + "datahub";
   public static final String URN_LI_DATA_PROCESS_INSTANCE = "urn:li:dataProcessInstance:";
+
+  // Custom property keys
+  public static final String PROCESSING_ENGINE_KEY = "processingEngine";
+  public static final String PROCESSING_ENGINE_VERSION_KEY = "processingEngineVersion";
+  public static final String OPENLINEAGE_ADAPTER_VERSION_KEY = "openlineageAdapterVersion";
+  public static final String JOB_ID_KEY = "jobId";
+  public static final String JOB_DESCRIPTION_KEY = "jobDescription";
+  public static final String JOB_GROUP_KEY = "jobGroup";
+  public static final String JOB_CALL_SITE_KEY = "jobCallSite";
+  public static final String SPARK_VERSION_KEY = "spark-version";
+  public static final String OPENLINEAGE_SPARK_VERSION_KEY = "openlineage-spark-version";
+  public static final String SPARK_LOGICAL_PLAN_KEY = "spark.logicalPlan";
+
+  // SQL patterns
+  public static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
+  public static final String MERGE_INTO_SQL_PATTERN = "MERGE INTO";
+  public static final String TABLE_PREFIX = "table/";
+  public static final String WAREHOUSE_PATH_PATTERN = "/warehouse/";
+  public static final String DB_SUFFIX = ".db/";
 
   public static final Map<String, String> PLATFORM_MAP =
       Stream.of(
@@ -107,6 +128,7 @@ public class OpenLineageToDataHub {
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
     Optional<DatasetUrn> datahubUrn;
+
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
         && !mappingConfig.isDisableSymlinkResolution()) {
@@ -114,7 +136,7 @@ public class OpenLineageToDataHub {
           getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
-        if (symlink.getType().equals("TABLE")) {
+        if ("TABLE".equals(symlink.getType())) {
           // Before OpenLineage 0.17.1 the namespace started with "aws:glue:" and after that it was
           // changed to :arn:aws:glue:"
           if (symlink.getNamespace().startsWith("aws:glue:")
@@ -123,8 +145,8 @@ public class OpenLineageToDataHub {
           } else {
             namespace = mappingConfig.getHivePlatformAlias();
           }
-          if (symlink.getName().startsWith("table/")) {
-            datasetName = symlink.getName().replaceFirst("table/", "").replace("/", ".");
+          if (symlink.getName().startsWith(TABLE_PREFIX)) {
+            datasetName = symlink.getName().replaceFirst(TABLE_PREFIX, "").replace("/", ".");
           } else {
             datasetName = symlink.getName();
           }
@@ -153,6 +175,7 @@ public class OpenLineageToDataHub {
                     mappingConfig.getUrnAliases().get(datahubUrn.get().toString())));
         return datahubUrn;
       } catch (URISyntaxException e) {
+        log.warn("Failed to create URN from alias: {}", e.getMessage());
         return Optional.empty();
       }
     }
@@ -185,7 +208,8 @@ public class OpenLineageToDataHub {
           datasetName = datasetUri.getPath();
           try {
             HdfsPathDataset hdfsPathDataset = HdfsPathDataset.create(datasetUri, mappingConfig);
-            return Optional.of(hdfsPathDataset.urn());
+            DatasetUrn urn = hdfsPathDataset.urn();
+            return Optional.of(urn);
           } catch (InstantiationException e) {
             log.warn(
                 "Unable to create urn from namespace: {} and dataset {}.", namespace, datasetName);
@@ -202,15 +226,16 @@ public class OpenLineageToDataHub {
 
     String platformInstance = getPlatformInstance(mappingConfig, platform);
     FabricType env = getEnv(mappingConfig, platform);
-    return Optional.of(DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env));
+    DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
+    return Optional.of(urn);
   }
 
   private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
     FabricType fabricType = mappingConfig.getFabricType();
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
-      List<PathSpec> path_specs = mappingConfig.getPathSpecs().get(platform);
-      for (PathSpec pathSpec : path_specs) {
+      List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
+      for (PathSpec pathSpec : pathSpecs) {
         if (pathSpec.getEnv().isPresent()) {
           try {
             fabricType = FabricType.valueOf(pathSpec.getEnv().get());
@@ -231,8 +256,8 @@ public class OpenLineageToDataHub {
     String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
-      List<PathSpec> path_specs = mappingConfig.getPathSpecs().get(platform);
-      for (PathSpec pathSpec : path_specs) {
+      List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
+      for (PathSpec pathSpec : pathSpecs) {
         if (pathSpec.getPlatformInstance().isPresent()) {
           return pathSpec.getPlatformInstance().get();
         }
@@ -269,8 +294,7 @@ public class OpenLineageToDataHub {
     return datahubDomains;
   }
 
-  public static Urn dataPlatformInstanceUrn(String platform, String instance)
-      throws URISyntaxException {
+  public static Urn dataPlatformInstanceUrn(String platform, String instance) {
     return new Urn(
         "dataPlatformInstance",
         new TupleKey(Arrays.asList(new DataPlatformUrn(platform).toString(), instance)));
@@ -288,11 +312,18 @@ public class OpenLineageToDataHub {
     log.info("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
 
+    String processingEngine = null;
+
+    if (event.getRun().getFacets() != null
+        && event.getRun().getFacets().getProcessing_engine() != null) {
+      processingEngine = event.getRun().getFacets().getProcessing_engine().getName();
+    }
+
     DataFlowUrn dataFlowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             event.getJob().getName(),
-            null,
+            processingEngine,
             event.getProducer(),
             datahubConf);
     jobBuilder.flowUrn(dataFlowUrn);
@@ -330,7 +361,9 @@ public class OpenLineageToDataHub {
   static void forEachValue(Map<String, Object> source, StringMap customProperties) {
     for (final Map.Entry<String, Object> entry : source.entrySet()) {
       if (entry.getValue() instanceof Map) {
-        forEachValue((Map<String, Object>) entry.getValue(), customProperties);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nestedMap = (Map<String, Object>) entry.getValue();
+        forEachValue(nestedMap, customProperties);
       } else {
         customProperties.put(entry.getKey(), entry.getValue().toString());
       }
@@ -346,7 +379,7 @@ public class OpenLineageToDataHub {
           event.getJob().getFacets().getOwnership().getOwners()) {
         Owner owner = new Owner();
         try {
-          owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ":" + ownerFacet.getName()));
+          owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
           owner.setType(OwnershipType.DEVELOPER);
           OwnershipSource source = new OwnershipSource();
           source.setType(OwnershipSourceType.SERVICE);
@@ -386,9 +419,9 @@ public class OpenLineageToDataHub {
       return null;
     }
 
-    OpenLineage.ColumnLineageDatasetFacet columLineage = dataset.getFacets().getColumnLineage();
+    OpenLineage.ColumnLineageDatasetFacet columnLineage = dataset.getFacets().getColumnLineage();
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
-        columLineage.getFields().getAdditionalProperties().entrySet();
+        columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
       FineGrainedLineage fgl = new FineGrainedLineage();
 
@@ -400,6 +433,8 @@ public class OpenLineageToDataHub {
           urn ->
               downstreamsFields.add(
                   UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
+
+      LinkedList<String> transformationTexts = new LinkedList<>();
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
           new OpenLineage.StaticDatasetBuilder();
       field
@@ -412,6 +447,15 @@ public class OpenLineageToDataHub {
                         .name(inputField.getName())
                         .namespace(inputField.getNamespace())
                         .build();
+
+                if (inputField.getTransformations() != null) {
+                  for (OpenLineage.InputFieldTransformations transformation :
+                      inputField.getTransformations()) {
+                    transformationTexts.add(
+                        String.format(
+                            "%s:%s", transformation.getType(), transformation.getSubtype()));
+                  }
+                }
                 Optional<DatasetUrn> urn =
                     convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
                 if (urn.isPresent()) {
@@ -436,7 +480,6 @@ public class OpenLineageToDataHub {
                 }
               });
 
-      // fgl.set(upstreamFields);
       upstreamFields.sort(Comparator.comparing(Urn::toString));
       fgl.setUpstreams(upstreamFields);
       fgl.setConfidenceScore(0.5f);
@@ -445,6 +488,13 @@ public class OpenLineageToDataHub {
       downstreamsFields.sort(Comparator.comparing(Urn::toString));
       fgl.setDownstreams(downstreamsFields);
       fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+
+      // Capture transformation information from OpenLineage
+      if (!transformationTexts.isEmpty()) {
+        transformationTexts.sort(String::compareToIgnoreCase);
+        fgl.setTransformOperation(String.join(",", transformationTexts));
+      }
+
       fgla.add(fgl);
     }
 
@@ -475,6 +525,7 @@ public class OpenLineageToDataHub {
             .getAdditionalProperties()
             .get("airflow")
             .getAdditionalProperties();
+    @SuppressWarnings("unchecked")
     Map<String, Object> dagProperties = (Map<String, Object>) airflowProperties.get("dag");
     if (dagProperties.get("tags") != null) {
       try {
@@ -500,20 +551,18 @@ public class OpenLineageToDataHub {
         && (event.getRun().getFacets().getProcessing_engine() != null)) {
       if (event.getRun().getFacets().getProcessing_engine().getName() != null) {
         customProperties.put(
-            "processingEngine", event.getRun().getFacets().getProcessing_engine().getName());
+            PROCESSING_ENGINE_KEY, event.getRun().getFacets().getProcessing_engine().getName());
       }
 
-      customProperties.put(
-          "processingEngine", event.getRun().getFacets().getProcessing_engine().getName());
       if (event.getRun().getFacets().getProcessing_engine().getVersion() != null) {
         customProperties.put(
-            "processingEngineVersion",
+            PROCESSING_ENGINE_VERSION_KEY,
             event.getRun().getFacets().getProcessing_engine().getVersion());
       }
       if (event.getRun().getFacets().getProcessing_engine().getOpenlineageAdapterVersion()
           != null) {
         customProperties.put(
-            "openlineageAdapterVersion",
+            OPENLINEAGE_ADAPTER_VERSION_KEY,
             event.getRun().getFacets().getProcessing_engine().getOpenlineageAdapterVersion());
       }
     }
@@ -525,116 +574,129 @@ public class OpenLineageToDataHub {
 
     for (Map.Entry<String, OpenLineage.RunFacet> entry :
         event.getRun().getFacets().getAdditionalProperties().entrySet()) {
-      switch (entry.getKey()) {
-        case "spark_jobDetails":
-          if (entry.getValue().getAdditionalProperties().get("jobId") != null) {
-            customProperties.put(
-                "jobId",
-                (String) entry.getValue().getAdditionalProperties().get("jobId").toString());
-          }
-          if (entry.getValue().getAdditionalProperties().get("jobDescription") != null) {
-            customProperties.put(
-                "jobDescription",
-                (String) entry.getValue().getAdditionalProperties().get("jobDescription"));
-          }
-          if (entry.getValue().getAdditionalProperties().get("jobGroup") != null) {
-            customProperties.put(
-                "jobGroup", (String) entry.getValue().getAdditionalProperties().get("jobGroup"));
-          }
-          if (entry.getValue().getAdditionalProperties().get("jobCallSite") != null) {
-            customProperties.put(
-                "jobCallSite",
-                (String) entry.getValue().getAdditionalProperties().get("jobCallSite"));
-          }
-        case "processing_engine":
-          if (entry.getValue().getAdditionalProperties().get("processing-engine") != null) {
-            customProperties.put(
-                "processing-engine",
-                (String) entry.getValue().getAdditionalProperties().get("name"));
-          }
-          if (entry.getValue().getAdditionalProperties().get("processing-engine-version") != null) {
-            customProperties.put(
-                "processing-engine-version",
-                (String) entry.getValue().getAdditionalProperties().get("version"));
-          }
-          if (entry.getValue().getAdditionalProperties().get("openlineage-adapter-version")
-              != null) {
-            customProperties.put(
-                "openlineage-adapter-version",
-                (String)
-                    entry.getValue().getAdditionalProperties().get("openlineageAdapterVersion"));
-          }
-
-        case "spark_version":
-          {
-            if (entry.getValue().getAdditionalProperties().get("spark-version") != null) {
-              customProperties.put(
-                  "spark-version",
-                  (String) entry.getValue().getAdditionalProperties().get("spark-version"));
-            }
-            if (entry.getValue().getAdditionalProperties().get("openlineage-spark-version")
-                != null) {
-              customProperties.put(
-                  "openlineage-spark-version",
-                  (String)
-                      entry.getValue().getAdditionalProperties().get("openlineage-spark-version"));
-            }
-          }
-          break;
-        case "spark_properties":
-          {
-            if (entry.getValue() != null) {
-              Map<String, Object> sparkProperties =
-                  (Map<String, Object>)
-                      entry.getValue().getAdditionalProperties().get("properties");
-              log.info("Spark properties: {}, Properties: {}", entry.getValue(), sparkProperties);
-              if (sparkProperties != null) {
-                forEachValue(sparkProperties, customProperties);
-              }
-            }
-          }
-          break;
-        case "airflow":
-          {
-            Map<String, Object> airflowProperties;
-            if (flowProperties) {
-              airflowProperties =
-                  (Map<String, Object>) entry.getValue().getAdditionalProperties().get("dag");
-            } else {
-              airflowProperties =
-                  (Map<String, Object>) entry.getValue().getAdditionalProperties().get("task");
-            }
-            forEachValue(airflowProperties, customProperties);
-          }
-          break;
-        case "spark.logicalPlan":
-          {
-            if (flowProperties) {
-              JSONObject jsonObject = new JSONObject(entry.getValue().getAdditionalProperties());
-              customProperties.put("spark.logicalPlan", jsonObject.toString());
-            }
-          }
-          break;
-        case "unknownSourceAttribute":
-          {
-            if (!flowProperties) {
-              List<Map<String, Object>> unknownItems =
-                  (List<Map<String, Object>>)
-                      entry
-                          .getValue()
-                          .getAdditionalProperties()
-                          .getOrDefault("unknownItems", Collections.emptyList());
-              for (Map<String, Object> item : unknownItems) {
-                forEachValue(item, customProperties);
-              }
-            }
-          }
-          break;
-        default:
-          break;
-      }
+      processRunFacetEntry(entry, customProperties, flowProperties);
     }
     return customProperties;
+  }
+
+  private static void processRunFacetEntry(
+      Map.Entry<String, OpenLineage.RunFacet> entry,
+      StringMap customProperties,
+      boolean flowProperties) {
+    switch (entry.getKey()) {
+      case "spark_jobDetails":
+        processSparkJobDetails(entry.getValue(), customProperties);
+        break;
+      case "processing_engine":
+        processProcessingEngine(entry.getValue(), customProperties);
+        break;
+      case "spark_version":
+        processSparkVersion(entry.getValue(), customProperties);
+        break;
+      case "spark_properties":
+        processSparkProperties(entry.getValue(), customProperties);
+        break;
+      case "airflow":
+        processAirflowProperties(entry.getValue(), customProperties, flowProperties);
+        break;
+      case "spark.logicalPlan":
+        processSparkLogicalPlan(entry.getValue(), customProperties, flowProperties);
+        break;
+      case "unknownSourceAttribute":
+        processUnknownSourceAttributes(entry.getValue(), customProperties, flowProperties);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private static void processSparkJobDetails(
+      OpenLineage.RunFacet facet, StringMap customProperties) {
+    Map<String, Object> properties = facet.getAdditionalProperties();
+    if (properties.get("jobId") != null) {
+      customProperties.put(JOB_ID_KEY, properties.get("jobId").toString());
+    }
+    if (properties.get("jobDescription") != null) {
+      customProperties.put(JOB_DESCRIPTION_KEY, (String) properties.get("jobDescription"));
+    }
+    if (properties.get("jobGroup") != null) {
+      customProperties.put(JOB_GROUP_KEY, (String) properties.get("jobGroup"));
+    }
+    if (properties.get("jobCallSite") != null) {
+      customProperties.put(JOB_CALL_SITE_KEY, (String) properties.get("jobCallSite"));
+    }
+  }
+
+  private static void processProcessingEngine(
+      OpenLineage.RunFacet facet, StringMap customProperties) {
+    Map<String, Object> properties = facet.getAdditionalProperties();
+    if (properties.get("name") != null) {
+      customProperties.put(PROCESSING_ENGINE_KEY, (String) properties.get("name"));
+    }
+    if (properties.get("version") != null) {
+      customProperties.put(PROCESSING_ENGINE_VERSION_KEY, (String) properties.get("version"));
+    }
+    if (properties.get("openlineageAdapterVersion") != null) {
+      customProperties.put(
+          OPENLINEAGE_ADAPTER_VERSION_KEY, (String) properties.get("openlineageAdapterVersion"));
+    }
+  }
+
+  private static void processSparkVersion(OpenLineage.RunFacet facet, StringMap customProperties) {
+    Map<String, Object> properties = facet.getAdditionalProperties();
+    if (properties.get("spark-version") != null) {
+      customProperties.put(SPARK_VERSION_KEY, (String) properties.get("spark-version"));
+    }
+    if (properties.get("openlineage-spark-version") != null) {
+      customProperties.put(
+          OPENLINEAGE_SPARK_VERSION_KEY, (String) properties.get("openlineage-spark-version"));
+    }
+  }
+
+  private static void processSparkProperties(
+      OpenLineage.RunFacet facet, StringMap customProperties) {
+    if (facet != null) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> sparkProperties =
+          (Map<String, Object>) facet.getAdditionalProperties().get("properties");
+      log.info("Spark properties: {}, Properties: {}", facet, sparkProperties);
+      if (sparkProperties != null) {
+        forEachValue(sparkProperties, customProperties);
+      }
+    }
+  }
+
+  private static void processAirflowProperties(
+      OpenLineage.RunFacet facet, StringMap customProperties, boolean flowProperties) {
+    @SuppressWarnings("unchecked")
+    Map<String, Object> airflowProperties =
+        flowProperties
+            ? (Map<String, Object>) facet.getAdditionalProperties().get("dag")
+            : (Map<String, Object>) facet.getAdditionalProperties().get("task");
+    if (airflowProperties != null) {
+      forEachValue(airflowProperties, customProperties);
+    }
+  }
+
+  private static void processSparkLogicalPlan(
+      OpenLineage.RunFacet facet, StringMap customProperties, boolean flowProperties) {
+    if (flowProperties) {
+      JSONObject jsonObject = new JSONObject(facet.getAdditionalProperties());
+      customProperties.put(SPARK_LOGICAL_PLAN_KEY, jsonObject.toString());
+    }
+  }
+
+  private static void processUnknownSourceAttributes(
+      OpenLineage.RunFacet facet, StringMap customProperties, boolean flowProperties) {
+    if (!flowProperties) {
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> unknownItems =
+          (List<Map<String, Object>>)
+              facet.getAdditionalProperties().getOrDefault("unknownItems", Collections.emptyList());
+      for (Map<String, Object> item : unknownItems) {
+        forEachValue(item, customProperties);
+      }
+    }
   }
 
   // Helper method to check for RDD transformations that don't create new datasets
@@ -674,108 +736,112 @@ public class OpenLineageToDataHub {
 
   private static void convertJobToDataJob(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf)
-      throws URISyntaxException, IOException {
+      throws URISyntaxException {
 
     OpenLineage.Job job = event.getJob();
     DataJobInfo dji = new DataJobInfo();
 
     log.debug("Datahub Config: {}", datahubConf);
 
+    // Extract job names using helper method
+    JobNameResult jobNames = extractJobNames(job, event, datahubConf);
+
+    // Set the display name
+    dji.setName(jobNames.displayName);
+
+    String jobProcessingEngine = null;
+    if ((event.getRun().getFacets() != null)
+        && (event.getRun().getFacets().getProcessing_engine() != null)) {
+      jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
+    }
+
+    DataFlowUrn flowUrn =
+        getFlowUrn(
+            event.getJob().getNamespace(),
+            job.getName(), // Use original job name for flow URN
+            jobProcessingEngine,
+            event.getProducer(),
+            datahubConf);
+
+    dji.setFlowUrn(flowUrn);
+    dji.setType(DataJobInfo.Type.create(flowUrn.getOrchestratorEntity()));
+
+    // Use the jobNameForUrn (which includes table name for MERGE commands)
+    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNames.urnName);
+    datahubJob.setJobUrn(dataJobUrn);
+
+    StringMap customProperties = generateCustomProperties(event, false);
+    dji.setCustomProperties(customProperties);
+
+    TimeStamp timestamp = new TimeStamp();
+
+    if (event.getEventTime() != null) {
+      dji.setCreated(timestamp.setTime(event.getEventTime().toInstant().toEpochMilli()));
+    }
+
+    String description = getDescription(event);
+    if (description != null) {
+      dji.setDescription(description);
+    }
+    datahubJob.setJobInfo(dji);
+
+    // Process inputs and outputs
+    boolean inputsEqualOutputs = checkInputsEqualOutputs(event, job, datahubConf);
+
+    processJobInputs(datahubJob, event, datahubConf);
+
+    if (!inputsEqualOutputs) {
+      processJobOutputs(datahubJob, event, datahubConf);
+    }
+
+    // Set run event and instance properties
+    DataProcessInstanceRunEvent dpire = processDataProcessInstanceResult(event);
+    datahubJob.setDataProcessInstanceRunEvent(dpire);
+
+    DataProcessInstanceProperties dpiProperties = getJobDataProcessInstanceProperties(event);
+    datahubJob.setDataProcessInstanceProperties(dpiProperties);
+
+    // Create input/output edges and relationships
+    DataJobInputOutput inputOutput = new DataJobInputOutput();
+    processParentJob(event, job, jobNames.urnName, inputOutput, datahubConf);
+
+    DataProcessInstanceRelationships dataProcessInstanceRelationships =
+        new DataProcessInstanceRelationships();
+    dataProcessInstanceRelationships.setParentTemplate(dataJobUrn);
+    dataProcessInstanceRelationships.setUpstreamInstances(new UrnArray());
+    datahubJob.setDataProcessInstanceRelationships(dataProcessInstanceRelationships);
+
+    try {
+      Urn dpiUrn =
+          Urn.createFromString(URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
+      datahubJob.setDataProcessInstanceUrn(dpiUrn);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException("Unable to create dataprocess instance urn:" + e);
+    }
+  }
+
+  private static class JobNameResult {
+    final String displayName;
+    final String urnName;
+
+    JobNameResult(String displayName, String urnName) {
+      this.displayName = displayName;
+      this.urnName = urnName;
+    }
+  }
+
+  private static JobNameResult extractJobNames(
+      OpenLineage.Job job, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
     // Check if we have a MERGE INTO command
-    boolean isMergeIntoCommand = job.getName().contains("execute_merge_into_command_edge");
+    boolean isMergeIntoCommand = job.getName().contains(MERGE_INTO_COMMAND_PATTERN);
     String tableName = null;
 
     // If this is a MERGE INTO command and enhanced extraction is enabled, try to extract the target
     // table name
     if (isMergeIntoCommand && datahubConf.isEnhancedMergeIntoExtraction()) {
       log.info("Detected MERGE INTO command in job: {} - using enhanced extraction", job.getName());
-
-      // Method 1: Check for table name in the SQL facet (most reliable)
-      if (job.getFacets() != null && job.getFacets().getSql() != null) {
-        String sqlQuery = job.getFacets().getSql().getQuery();
-        if (sqlQuery != null && sqlQuery.toUpperCase().contains("MERGE INTO")) {
-          // Extract table name from the MERGE INTO SQL statement
-          String[] lines = sqlQuery.split("\n");
-          for (String line : lines) {
-            line = line.trim();
-            if (line.toUpperCase().startsWith("MERGE INTO")) {
-              // Format: MERGE INTO schema.table target
-              String[] parts = line.split("\\s+");
-              if (parts.length >= 3) {
-                tableName = parts[2].replace("`", "").trim();
-                // If there's an alias (target/t/etc.), remove it
-                int spaceIndex = tableName.indexOf(' ');
-                if (spaceIndex > 0) {
-                  tableName = tableName.substring(0, spaceIndex);
-                }
-                log.info("Extracted table name from SQL: {}", tableName);
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      // Method 2: Look for direct table names in the outputs
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          // First check if the name itself is a table name (e.g., "delta_demo.customers")
-          String name = output.getName();
-          if (name != null && name.contains(".") && !name.startsWith("/")) {
-            tableName = name;
-            log.info("Using table name directly from output dataset name: {}", tableName);
-            break;
-          }
-        }
-      }
-
-      // Method 3: Check for table identifiers in symlinks
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          if (output.getFacets() != null && output.getFacets().getSymlinks() != null) {
-            for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
-                output.getFacets().getSymlinks().getIdentifiers()) {
-              if ("TABLE".equals(symlink.getType())) {
-                String name = symlink.getName();
-                if (name != null) {
-                  // Handle table/name format
-                  if (name.startsWith("table/")) {
-                    name = name.replaceFirst("table/", "").replace("/", ".");
-                  }
-                  tableName = name;
-                  log.info("Extracted table name from symlink: {}", tableName);
-                  break;
-                }
-              }
-            }
-            if (tableName != null) break;
-          }
-        }
-      }
-
-      // Method 4: Extract table name from warehouse paths (as a last resort)
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          String path = output.getName();
-          if (path != null && path.contains("/warehouse/")) {
-            // Extract table name from warehouse path pattern /warehouse/db.name/ or similar
-            if (path.contains(".db/")) {
-              int dbIndex = path.lastIndexOf(".db/");
-              String tablePart = path.substring(dbIndex + 4);
-              // Remove trailing slashes
-              tablePart = tablePart.replaceAll("/+$", "");
-              // Construct the full table name including db
-              int warehouseIndex = path.lastIndexOf("/warehouse/");
-              if (warehouseIndex >= 0) {
-                String dbPart = path.substring(warehouseIndex + 11, dbIndex);
-                tableName = dbPart + "." + tablePart;
-                log.info("Extracted table name from warehouse path: {}", tableName);
-                break;
-              }
-            }
-          }
-        }
-      }
+      tableName = extractTableNameFromMergeCommand(job, event);
     }
 
     // Prepare job names - one for display and one for the URN
@@ -803,46 +869,130 @@ public class OpenLineageToDataHub {
       jobNameForDisplay = job.getName().substring(job.getName().indexOf(".") + 1);
     }
 
-    // Set the display name
-    dji.setName(jobNameForDisplay);
+    return new JobNameResult(jobNameForDisplay, jobNameForUrn);
+  }
 
-    String jobProcessingEngine = null;
-    if ((event.getRun().getFacets() != null)
-        && (event.getRun().getFacets().getProcessing_engine() != null)) {
-      jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
+  private static String extractTableNameFromMergeCommand(
+      OpenLineage.Job job, OpenLineage.RunEvent event) {
+    String tableName;
+
+    // Method 1: Check for table name in the SQL facet (most reliable)
+    tableName = extractTableNameFromSql(job);
+    if (tableName != null) {
+      return tableName;
     }
 
-    DataFlowUrn flowUrn =
-        getFlowUrn(
-            event.getJob().getNamespace(),
-            job.getName(), // Use original job name for flow URN
-            jobProcessingEngine,
-            event.getProducer(),
-            datahubConf);
-
-    dji.setFlowUrn(flowUrn);
-    dji.setType(DataJobInfo.Type.create(flowUrn.getOrchestratorEntity()));
-
-    // Use the jobNameForUrn (which includes table name for MERGE commands)
-    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNameForUrn);
-    datahubJob.setJobUrn(dataJobUrn);
-
-    StringMap customProperties = generateCustomProperties(event, false);
-    dji.setCustomProperties(customProperties);
-
-    TimeStamp timestamp = new TimeStamp();
-
-    if (event.getEventTime() != null) {
-      dji.setCreated(timestamp.setTime(event.getEventTime().toInstant().toEpochMilli()));
+    // Method 2: Look for direct table names in the outputs
+    tableName = extractTableNameFromOutputs(event);
+    if (tableName != null) {
+      return tableName;
     }
 
-    String description = getDescription(event);
-    if (description != null) {
-      dji.setDescription(description);
+    // Method 3: Check for table identifiers in symlinks
+    tableName = extractTableNameFromSymlinks(event);
+    if (tableName != null) {
+      return tableName;
     }
-    datahubJob.setJobInfo(dji);
 
-    // Process inputs and outputs
+    // Method 4: Extract table name from warehouse paths (as a last resort)
+    tableName = extractTableNameFromWarehousePaths(event);
+    return tableName;
+  }
+
+  private static String extractTableNameFromSql(OpenLineage.Job job) {
+    if (job.getFacets() != null && job.getFacets().getSql() != null) {
+      String sqlQuery = job.getFacets().getSql().getQuery();
+      if (sqlQuery != null && sqlQuery.toUpperCase().contains(MERGE_INTO_SQL_PATTERN)) {
+        // Extract table name from the MERGE INTO SQL statement
+        String[] lines = sqlQuery.split("\n");
+        for (String line : lines) {
+          line = line.trim();
+          if (line.toUpperCase().startsWith(MERGE_INTO_SQL_PATTERN)) {
+            // Format: MERGE INTO schema.table target
+            String[] parts = line.split("\\s+");
+            if (parts.length >= 3) {
+              String tableName = parts[2].replace("`", "").trim();
+              // If there's an alias (target/t/etc.), remove it
+              int spaceIndex = tableName.indexOf(' ');
+              if (spaceIndex > 0) {
+                tableName = tableName.substring(0, spaceIndex);
+              }
+              log.info("Extracted table name from SQL: {}", tableName);
+              return tableName;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromOutputs(OpenLineage.RunEvent event) {
+    if (event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        // First check if the name itself is a table name (e.g., "delta_demo.customers")
+        String name = output.getName();
+        if (name != null && name.contains(".") && !name.startsWith("/")) {
+          log.info("Using table name directly from output dataset name: {}", name);
+          return name;
+        }
+      }
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromSymlinks(OpenLineage.RunEvent event) {
+    if (event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        if (output.getFacets() != null && output.getFacets().getSymlinks() != null) {
+          for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+              output.getFacets().getSymlinks().getIdentifiers()) {
+            if ("TABLE".equals(symlink.getType())) {
+              String name = symlink.getName();
+              if (name != null) {
+                // Handle table/name format
+                if (name.startsWith(TABLE_PREFIX)) {
+                  name = name.replaceFirst(TABLE_PREFIX, "").replace("/", ".");
+                }
+                log.info("Extracted table name from symlink: {}", name);
+                return name;
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private static String extractTableNameFromWarehousePaths(OpenLineage.RunEvent event) {
+    if (event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        String path = output.getName();
+        if (path != null && path.contains(WAREHOUSE_PATH_PATTERN)) {
+          // Extract table name from warehouse path pattern /warehouse/db.name/ or similar
+          if (path.contains(DB_SUFFIX)) {
+            int dbIndex = path.lastIndexOf(DB_SUFFIX);
+            String tablePart = path.substring(dbIndex + 4);
+            // Remove trailing slashes
+            tablePart = tablePart.replaceAll("/+$", "");
+            // Construct the full table name including db
+            int warehouseIndex = path.lastIndexOf(WAREHOUSE_PATH_PATTERN);
+            if (warehouseIndex >= 0) {
+              String dbPart = path.substring(warehouseIndex + 11, dbIndex);
+              String tableName = dbPart + "." + tablePart;
+              log.info("Extracted table name from warehouse path: {}", tableName);
+              return tableName;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private static boolean checkInputsEqualOutputs(
+      OpenLineage.RunEvent event, OpenLineage.Job job, DatahubOpenlineageConfig datahubConf) {
     boolean inputsEqualOutputs = false;
     if ((datahubConf.isSpark())
         && ((event.getInputs() != null && event.getOutputs() != null)
@@ -863,37 +1013,7 @@ public class OpenLineageToDataHub {
             inputsEqualOutputs);
       }
     }
-
-    processJobInputs(datahubJob, event, datahubConf);
-
-    if (!inputsEqualOutputs) {
-      processJobOutputs(datahubJob, event, datahubConf);
-    }
-
-    // Set run event and instance properties
-    DataProcessInstanceRunEvent dpire = processDataProcessInstanceResult(event);
-    datahubJob.setDataProcessInstanceRunEvent(dpire);
-
-    DataProcessInstanceProperties dpiProperties = getJobDataProcessInstanceProperties(event);
-    datahubJob.setDataProcessInstanceProperties(dpiProperties);
-
-    // Create input/output edges and relationships
-    DataJobInputOutput inputOutput = new DataJobInputOutput();
-    processParentJob(event, job, jobNameForUrn, inputOutput, datahubConf);
-
-    DataProcessInstanceRelationships dataProcessInstanceRelationships =
-        new DataProcessInstanceRelationships();
-    dataProcessInstanceRelationships.setParentTemplate(dataJobUrn);
-    dataProcessInstanceRelationships.setUpstreamInstances(new UrnArray());
-    datahubJob.setDataProcessInstanceRelationships(dataProcessInstanceRelationships);
-
-    try {
-      Urn dpiUrn =
-          Urn.createFromString(URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
-      datahubJob.setDataProcessInstanceUrn(dpiUrn);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException("Unable to create dataprocess instance urn:" + e);
-    }
+    return inputsEqualOutputs;
   }
 
   private static DataProcessInstanceProperties getJobDataProcessInstanceProperties(
@@ -938,11 +1058,13 @@ public class OpenLineageToDataHub {
       DataJobInputOutput inputOutput,
       DatahubOpenlineageConfig datahubConf) {
     if ((event.getRun().getFacets() != null) && (event.getRun().getFacets().getParent() != null)) {
+      OpenLineage.ParentRunFacetJob parentRunFacetJob =
+          event.getRun().getFacets().getParent().getJob();
       DataJobUrn parentDataJobUrn =
           new DataJobUrn(
               getFlowUrn(
-                  event.getRun().getFacets().getParent().getJob().getNamespace(),
-                  event.getRun().getFacets().getParent().getJob().getName(),
+                  parentRunFacetJob.getNamespace(),
+                  parentRunFacetJob.getName(),
                   null,
                   event.getRun().getFacets().getParent().get_producer(),
                   datahubConf),
@@ -962,8 +1084,10 @@ public class OpenLineageToDataHub {
       return;
     }
 
-    for (OpenLineage.InputDataset input :
-        event.getInputs().stream().distinct().collect(Collectors.toList())) {
+    // Use LinkedHashSet to maintain order and remove duplicates more efficiently
+    Set<OpenLineage.InputDataset> uniqueInputs = new LinkedHashSet<>(event.getInputs());
+
+    for (OpenLineage.InputDataset input : uniqueInputs) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(input, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
@@ -989,8 +1113,10 @@ public class OpenLineageToDataHub {
       return;
     }
 
-    for (OpenLineage.OutputDataset output :
-        event.getOutputs().stream().distinct().collect(Collectors.toList())) {
+    // Use LinkedHashSet to maintain order and remove duplicates more efficiently
+    Set<OpenLineage.OutputDataset> uniqueOutputs = new LinkedHashSet<>(event.getOutputs());
+
+    for (OpenLineage.OutputDataset output : uniqueOutputs) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(output, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
@@ -1084,7 +1210,7 @@ public class OpenLineageToDataHub {
   }
 
   public static DataFlowInfo convertRunEventToDataFlowInfo(
-      OpenLineage.RunEvent event, String flowName) throws IOException {
+      OpenLineage.RunEvent event, String flowName) {
     DataFlowInfo dataFlowInfo = new DataFlowInfo();
     dataFlowInfo.setName(getFlowName(event.getJob().getName(), flowName));
     return dataFlowInfo;
@@ -1160,7 +1286,7 @@ public class OpenLineageToDataHub {
     Optional<DatasetUrn> datasetUrn =
         getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
 
-    if (!datasetUrn.isPresent()) {
+    if (datasetUrn.isEmpty()) {
       return null;
     }
 

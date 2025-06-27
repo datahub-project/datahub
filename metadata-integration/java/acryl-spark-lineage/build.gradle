@@ -38,7 +38,7 @@ dependencies {
   provided(externalDependency.sparkHive)
   implementation 'org.slf4j:slf4j-log4j12:2.0.7'
   implementation externalDependency.httpClient
-  implementation externalDependency.logbackClassicJava8
+  // REMOVED: implementation externalDependency.logbackClassicJava8
   implementation externalDependency.typesafeConfig
   implementation externalDependency.commonsLang
 
@@ -120,6 +120,8 @@ shadowJar {
       exclude_modules.contains(it.name)
     })
     exclude(dependency("org.slf4j::"))
+    exclude(dependency("ch.qos.logback:"))
+
     exclude("org/apache/commons/logging/**")
   }
 
