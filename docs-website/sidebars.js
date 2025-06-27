@@ -310,9 +310,9 @@ module.exports = {
       defaultStyle: true,
     },
     {
+      label: "DataHub Cloud Overview",
       type: "doc",
       id: "docs/managed-datahub/managed-datahub-overview",
-      title: "DataHub Cloud Overview",
     },
     {
       type: "doc",
