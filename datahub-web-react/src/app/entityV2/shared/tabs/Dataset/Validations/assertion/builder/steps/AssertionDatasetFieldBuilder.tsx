@@ -40,7 +40,8 @@ export const AssertionDatasetFieldBuilder = ({
         <StyledFormItem
             initialValue={selectedPath}
             name={name}
-            rules={[{ required, message: 'Required' }]}
+            // NOTE: we need to explicitly set required as SimpleSelect is not an ant design component
+            rules={[{ required: selectedPath ? false : required, message: 'Required' }]}
             width={width}
         >
             <SimpleSelect
