@@ -307,6 +307,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
@@ -336,6 +337,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
@@ -473,9 +475,8 @@ public class GmsGraphQLEngine {
   private final PageTemplateType dataHubPageTemplateType;
   private final PageModuleType dataHubPageModuleType;
 
-  private final int graphQLQueryComplexityLimit;
-  private final int graphQLQueryDepthLimit;
-  private final boolean graphQLQueryIntrospectionEnabled;
+  private final GraphQLConfiguration graphQLConfiguration;
+  private final MetricUtils metricUtils;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -604,9 +605,8 @@ public class GmsGraphQLEngine {
     this.executionRequestType = new ExecutionRequestType(entityClient);
     this.dataHubPageTemplateType = new PageTemplateType(entityClient);
     this.dataHubPageModuleType = new PageModuleType(entityClient);
-    this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
-    this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
-    this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
+    this.graphQLConfiguration = args.graphQLConfiguration;
+    this.metricUtils = args.metricUtils;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -840,9 +840,8 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
-        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
-        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled)
+        .setGraphQLConfiguration(graphQLConfiguration)
+        .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
     return builder;
   }

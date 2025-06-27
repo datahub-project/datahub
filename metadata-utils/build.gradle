@@ -8,13 +8,17 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 dependencies {
   api externalDependency.avro
   implementation externalDependency.commonsLang
-  api externalDependency.dropwizardMetricsCore
-  implementation externalDependency.dropwizardMetricsJmx
+  api externalDependency.micrometerPrometheus
+  api externalDependency.micrometerJmx
+  api externalDependency.micrometerOtelBridge
   implementation externalDependency.opentelemetrySdk
   api externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   api externalDependency.neo4jJavaDriver
   api externalDependency.json
+  implementation (externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   implementation spec.product.pegasus.restliClient
   implementation spec.product.pegasus.restliCommon
@@ -37,6 +41,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation project(':metadata-operation-context')
+  testImplementation project(':entity-registry')
 
   constraints {
       implementation(externalDependency.log4jCore) {
