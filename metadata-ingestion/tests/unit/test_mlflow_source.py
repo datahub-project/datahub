@@ -140,13 +140,9 @@ def test_model_without_run(source, registered_model, model_version):
         model_version=model_version,
         run=run,
     )
-    wu_list = list(wu)
-    assert len(wu_list) > 0
 
-    aspect = wu_list[1].metadata.aspect
-
-    assert aspect.hyperParams is None
-    assert aspect.trainingMetrics is None
+    assert wu.hyper_params is None
+    assert wu.training_metrics is None
 
 
 def test_traverse_mlflow_search_func(source):
