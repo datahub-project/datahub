@@ -101,6 +101,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showHomePageRedesign
         }
         chromeExtensionConfig {
             enabled
