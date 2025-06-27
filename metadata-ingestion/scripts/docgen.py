@@ -68,6 +68,20 @@ def get_capability_text(src_capability: SourceCapability) -> str:
     )
 
 
+def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
+    """
+    Maps capability names from the JSON file to SourceCapability enum values.
+    The JSON file uses enum names (e.g., "DATA_PROFILING") but the enum expects values (e.g., "Data Profiling").
+    """
+    try:
+        return SourceCapability[capability_name]
+    except KeyError:
+        try:
+            return SourceCapability(capability_name)
+        except ValueError:
+            raise ValueError(f"Unknown capability name: {capability_name}")
+
+
 def does_extra_exist(extra_name: str) -> bool:
     for key, value in metadata("acryl-datahub").items():
         if key == "Provides-Extra" and value == extra_name:
@@ -159,7 +173,7 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
     if plugin_data.get("capabilities"):
         capabilities = []
         for cap_data in plugin_data["capabilities"]:
-            capability = SourceCapability(cap_data["capability"])
+            capability = map_capability_name_to_enum(cap_data["capability"])
             capabilities.append(CapabilitySetting(
                 capability=capability,
                 supported=cap_data["supported"],
