@@ -312,6 +312,7 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/managed-datahub-overview",
+      "title": "DataHub Cloud Overview",
     },
     {
       "type": "doc",
