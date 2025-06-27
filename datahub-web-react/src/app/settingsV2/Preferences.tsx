@@ -86,7 +86,7 @@ export const Preferences = () => {
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
-    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageApplications;
+    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
     return (
         <Page>

@@ -16,8 +16,7 @@ public class ApplicationAuthorizationUtils {
 
   /**
    * Returns true if the current user is authorized to edit any application entity. This is true if
-   * the user has either: 1. The EDIT_ENTITY privilege (super user privileges) 2. The
-   * EDIT_ENTITY_APPLICATIONS privilege
+   * the user has the EDIT_ENTITY privilege for applications.
    */
   public static boolean canManageApplications(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
