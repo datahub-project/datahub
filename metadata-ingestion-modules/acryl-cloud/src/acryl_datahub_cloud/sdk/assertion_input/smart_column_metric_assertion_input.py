@@ -1,7 +1,10 @@
 import json
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    pass
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
@@ -342,6 +345,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        gms_criteria_type_info: Optional[tuple] = None,
     ):
         """
         Initialize a smart column metric assertion input.
@@ -411,8 +415,13 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             None
         )
 
-        # Process criteria parameters
-        self._process_criteria_parameters(criteria_parameters)
+        # Process criteria parameters with GMS type information if available
+        if gms_criteria_type_info is not None:
+            self._process_criteria_parameters_with_gms_type(
+                criteria_parameters, gms_criteria_type_info[1]
+            )
+        else:
+            self._process_criteria_parameters(criteria_parameters)
 
         # Validate compatibility:
         self._validate_field_type_and_operator_compatibility(
@@ -470,85 +479,181 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             # Default fallback
             return ValueType.UNKNOWN
 
+    def _process_criteria_parameters_with_gms_type(
+        self,
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
+    ) -> None:
+        """Process criteria_parameters using explicit type information from GMS."""
+        if criteria_parameters is None:
+            self._process_none_parameters()
+        elif isinstance(criteria_parameters, tuple):
+            # Range parameters with GMS types
+            if gms_type_info and isinstance(gms_type_info, tuple):
+                self._process_range_parameters_with_types(
+                    criteria_parameters, gms_type_info
+                )
+            else:
+                self._process_range_parameters(criteria_parameters)
+        else:
+            # Single value with GMS type
+            if gms_type_info and not isinstance(gms_type_info, tuple):
+                self._process_single_value_parameters_with_type(
+                    criteria_parameters, gms_type_info
+                )
+            else:
+                self._process_single_value_parameters(criteria_parameters)
+
     def _process_criteria_parameters(
         self,
         criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
     ) -> None:
         """Process the new consolidated criteria_parameters with automatic type inference."""
-
         if criteria_parameters is None:
-            # No parameters - validate this is appropriate for the operator
-            if _is_value_required_for_operator(self.operator):
-                raise SDKUsageError(f"Value is required for operator {self.operator}")
-            if _is_range_required_for_operator(self.operator):
-                raise SDKUsageError(f"Range is required for operator {self.operator}")
-
-            # No parameters (for operators like NULL, NOT_NULL)
-            self.criteria_parameters = None
-            self.criteria_type = None
+            self._process_none_parameters()
         elif isinstance(criteria_parameters, tuple):
-            # Range parameters
-            if not _is_range_required_for_operator(self.operator):
-                raise SDKUsageError(
-                    f"Operator {self.operator} does not support range parameters. "
-                    "Provide a single value instead of a tuple."
-                )
+            self._process_range_parameters(criteria_parameters)
+        else:
+            self._process_single_value_parameters(criteria_parameters)
 
-            # Infer range type automatically
-            inferred_range_type = self._infer_criteria_type_from_parameters(
-                criteria_parameters
+    def _process_none_parameters(self) -> None:
+        """Process None criteria_parameters."""
+        # No parameters - validation is now handled at the client level
+        # This allows both creation and update scenarios to be handled appropriately
+        self.criteria_parameters = None
+        self.criteria_type = None
+
+    def _process_range_parameters(self, criteria_parameters: tuple) -> None:
+        """Process tuple criteria_parameters for range operators."""
+        # Range parameters
+        if not _is_range_required_for_operator(self.operator):
+            raise SDKUsageError(
+                f"Operator {self.operator} does not support range parameters. "
+                "Provide a single value instead of a tuple."
             )
 
-            # Validate and parse the range type
-            validated_range_type = _try_parse_and_validate_range_type(
-                inferred_range_type
+        # Infer range type automatically
+        inferred_range_type = self._infer_criteria_type_from_parameters(
+            criteria_parameters
+        )
+
+        # Validate and parse the range type
+        validated_range_type = _try_parse_and_validate_range_type(inferred_range_type)
+
+        # Validate and parse the range values
+        validated_range = _try_parse_and_validate_range(
+            criteria_parameters, validated_range_type, self.operator
+        )
+
+        # Store validated parameters
+        self.criteria_parameters = validated_range
+        self.criteria_type = validated_range_type
+
+    def _process_single_value_parameters(
+        self, criteria_parameters: Union[str, int, float]
+    ) -> None:
+        """Process single value criteria_parameters."""
+        # Single value parameters
+        if _is_no_parameter_operator(self.operator):
+            raise SDKUsageError(
+                f"Value parameters should not be provided for operator {self.operator}"
+            )
+        if not _is_value_required_for_operator(self.operator):
+            raise SDKUsageError(
+                f"Operator {self.operator} does not support value parameters. "
+                "Use criteria_parameters=None or omit criteria_parameters."
             )
 
-            # Validate and parse the range values
-            validated_range = _try_parse_and_validate_range(
-                criteria_parameters, validated_range_type, self.operator
+        # Infer value type automatically
+        inferred_value_type = self._infer_criteria_type_from_parameters(
+            criteria_parameters
+        )
+
+        # Validate value if required
+        if _is_value_required_for_operator(self.operator):
+            # Validate and parse the value type - make sure it's a single type, not a tuple
+            if isinstance(inferred_value_type, tuple):
+                raise SDKUsageError("Single value type expected, not a tuple type")
+
+            validated_value_type = _try_parse_and_validate_value_type(
+                inferred_value_type
+            )
+            validated_value = _try_parse_and_validate_value(
+                criteria_parameters, validated_value_type
             )
 
             # Store validated parameters
-            self.criteria_parameters = validated_range
-            self.criteria_type = validated_range_type
+            self.criteria_parameters = validated_value
+            self.criteria_type = validated_value_type
         else:
-            # Single value parameters
-            if _is_no_parameter_operator(self.operator):
-                raise SDKUsageError(
-                    f"Value parameters should not be provided for operator {self.operator}"
-                )
-            if not _is_value_required_for_operator(self.operator):
-                raise SDKUsageError(
-                    f"Operator {self.operator} does not support value parameters. "
-                    "Use criteria_parameters=None or omit criteria_parameters."
-                )
+            # Store raw parameters for operators that don't require validation
+            self.criteria_parameters = criteria_parameters
+            self.criteria_type = inferred_value_type
 
-            # Infer value type automatically
-            inferred_value_type = self._infer_criteria_type_from_parameters(
-                criteria_parameters
+    def _process_single_value_parameters_with_type(
+        self,
+        criteria_parameters: Union[str, int, float],
+        gms_type: models.AssertionStdParameterTypeClass,
+    ) -> None:
+        """Process single value criteria_parameters using explicit GMS type information."""
+        # Single value parameters
+        if _is_no_parameter_operator(self.operator):
+            raise SDKUsageError(
+                f"Value parameters should not be provided for operator {self.operator}"
+            )
+        if not _is_value_required_for_operator(self.operator):
+            raise SDKUsageError(
+                f"Operator {self.operator} does not support value parameters. "
+                "Use criteria_parameters=None or omit criteria_parameters."
             )
 
-            # Validate value if required
-            if _is_value_required_for_operator(self.operator):
-                # Validate and parse the value type - make sure it's a single type, not a tuple
-                if isinstance(inferred_value_type, tuple):
-                    raise SDKUsageError("Single value type expected, not a tuple type")
+        # Use GMS type instead of inferring
+        validated_value_type = _try_parse_and_validate_value_type(gms_type)
+        validated_value = _try_parse_and_validate_value(
+            criteria_parameters, validated_value_type
+        )
 
-                validated_value_type = _try_parse_and_validate_value_type(
-                    inferred_value_type
-                )
-                validated_value = _try_parse_and_validate_value(
-                    criteria_parameters, validated_value_type
-                )
+        # Store validated parameters
+        self.criteria_parameters = validated_value
+        self.criteria_type = validated_value_type
 
-                # Store validated parameters
-                self.criteria_parameters = validated_value
-                self.criteria_type = validated_value_type
-            else:
-                # Store raw parameters for operators that don't require validation
-                self.criteria_parameters = criteria_parameters
-                self.criteria_type = inferred_value_type
+    def _process_range_parameters_with_types(
+        self,
+        criteria_parameters: tuple,
+        gms_types: tuple,
+    ) -> None:
+        """Process range criteria_parameters using explicit GMS type information."""
+        # Range parameters with GMS types
+        if _is_no_parameter_operator(self.operator):
+            raise SDKUsageError(
+                f"Range parameters should not be provided for operator {self.operator}"
+            )
+        if not _is_range_required_for_operator(self.operator):
+            raise SDKUsageError(
+                f"Operator {self.operator} does not support range parameters. "
+                "Use a single value or criteria_parameters=None."
+            )
+
+        if len(criteria_parameters) != 2:
+            raise SDKUsageError("Range parameters must be a tuple of exactly 2 values")
+
+        min_value, max_value = criteria_parameters
+        min_type, max_type = gms_types
+
+        # Use GMS types instead of inferring
+        validated_min_type = _try_parse_and_validate_value_type(min_type)
+        validated_max_type = _try_parse_and_validate_value_type(max_type)
+
+        validated_min_value = _try_parse_and_validate_value(
+            min_value, validated_min_type
+        )
+        validated_max_value = _try_parse_and_validate_value(
+            max_value, validated_max_type
+        )
+
+        # Store validated parameters
+        self.criteria_parameters = (validated_min_value, validated_max_value)
+        self.criteria_type = (validated_min_type, validated_max_type)
 
     def _create_monitor_info(
         self,

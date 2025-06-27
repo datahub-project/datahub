@@ -34,6 +34,8 @@ from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input
     MetricInputType,
     OperatorInputType,
     SmartColumnMetricAssertionParameters,
+    _is_range_required_for_operator,
+    _is_value_required_for_operator,
     _SmartColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
@@ -112,6 +114,31 @@ class AssertionsClient:
         self._validate_required_field(column_name, "column_name", context)
         self._validate_required_field(metric_type, "metric_type", context)
         self._validate_required_field(operator, "operator", context)
+
+    def _validate_criteria_parameters_for_creation(
+        self,
+        urn: Optional[Union[str, AssertionUrn]],
+        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        operator: OperatorInputType,
+    ) -> None:
+        """Validate criteria_parameters for creation scenario."""
+        if urn is None and criteria_parameters is None:  # Creation scenario
+            # Convert operator to proper type for validation
+            from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+                _try_parse_and_validate_schema_classes_enum,
+            )
+
+            validated_operator = _try_parse_and_validate_schema_classes_enum(
+                operator, models.AssertionStdOperatorClass
+            )
+            if _is_value_required_for_operator(validated_operator):
+                raise SDKUsageError(
+                    f"criteria_parameters is required for operator {operator}"
+                )
+            if _is_range_required_for_operator(validated_operator):
+                raise SDKUsageError(
+                    f"criteria_parameters is required for operator {operator}"
+                )
 
     def sync_smart_freshness_assertion(
         self,
@@ -2222,6 +2249,11 @@ class AssertionsClient:
                 and operator is not None
             ), "Fields guaranteed non-None after validation"
 
+        # 2.1.1 Validate criteria_parameters for creation scenario
+        self._validate_criteria_parameters_for_creation(
+            urn, criteria_parameters, operator
+        )
+
         # 2.2 Now validate the input with all required parameters:
         assertion_input = _SmartColumnMetricAssertionInput(
             urn=urn,
@@ -2507,7 +2539,17 @@ class AssertionsClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 4. Merge the existing assertion with the validated input:
+        # 4. Extract type information from GMS if available for criteria_parameters
+        gms_criteria_type_info = None
+        if maybe_assertion_entity and criteria_parameters is None:
+            # Only capture type info when criteria_parameters is None (meaning we're using GMS values)
+            gms_criteria_type_info = (
+                SmartColumnMetricAssertion._get_criteria_parameters_with_type(
+                    maybe_assertion_entity
+                )
+            )
+
+        # 5. Merge the existing assertion with the validated input:
         merged_assertion_input = self._merge_smart_column_metric_input(
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -2529,6 +2571,7 @@ class AssertionsClient:
             maybe_assertion_entity=maybe_assertion_entity,
             maybe_monitor_entity=maybe_monitor_entity,
             existing_assertion=existing_assertion,
+            gms_criteria_type_info=gms_criteria_type_info,
         )
 
         return merged_assertion_input
@@ -2555,6 +2598,7 @@ class AssertionsClient:
         maybe_assertion_entity: Optional[Assertion],
         maybe_monitor_entity: Optional[Monitor],
         existing_assertion: SmartColumnMetricAssertion,
+        gms_criteria_type_info: Optional[tuple] = None,
     ) -> _SmartColumnMetricAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -2626,7 +2670,9 @@ class AssertionsClient:
                 validated_assertion_input=assertion_input,
                 validated_existing_assertion=existing_assertion,
                 # Extract criteria parameters from existing assertion
-                existing_entity_value=assertion_input.criteria_parameters
+                existing_entity_value=SmartColumnMetricAssertion._get_criteria_parameters(
+                    maybe_assertion_entity
+                )
                 if maybe_assertion_entity
                 else None,
             ),
@@ -2721,6 +2767,7 @@ class AssertionsClient:
             or now_utc,  # Override with the existing assertion's created_at or now if not set
             updated_by=assertion_input.updated_by,  # Override with the input's updated_by
             updated_at=assertion_input.updated_at,  # Override with the input's updated_at (now)
+            gms_criteria_type_info=gms_criteria_type_info,
         )
 
         return merged_assertion_input

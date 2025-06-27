@@ -261,13 +261,13 @@ class _HasColumnMetricFunctionality:
         assertion: Assertion,
     ) -> Optional[SmartColumnMetricAssertionParameters]:
         # First check if there's a single value parameter
-        value = _get_nested_field_for_entity_with_default(
+        value_param = _get_nested_field_for_entity_with_default(
             assertion,
-            field_path="info.fieldMetricAssertion.parameters.value.value",
+            field_path="info.fieldMetricAssertion.parameters.value",
             default=None,
         )
-        if value is not None:
-            return value
+        if value_param is not None:
+            return value_param.value
 
         # Then check for range parameters
         min_value = _get_nested_field_for_entity_with_default(
@@ -288,6 +288,49 @@ class _HasColumnMetricFunctionality:
             if hasattr(max_value, "value"):
                 max_value = max_value.value
             return (min_value, max_value)
+
+        # If no parameters found, return None
+        return None
+
+    @staticmethod
+    def _get_criteria_parameters_with_type(
+        assertion: Assertion,
+    ) -> Optional[tuple]:
+        """
+        Get criteria parameters along with their type information from the backend.
+
+        Returns:
+            For single values: (value, type)
+            For ranges: ((min_value, max_value), (min_type, max_type))
+            None if no parameters found
+        """
+        # First check if there's a single value parameter
+        value_param = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.value",
+            default=None,
+        )
+        if value_param is not None:
+            return (value_param.value, value_param.type)
+
+        # Then check for range parameters
+        min_param = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.minValue",
+            default=None,
+        )
+        max_param = _get_nested_field_for_entity_with_default(
+            assertion,
+            field_path="info.fieldMetricAssertion.parameters.maxValue",
+            default=None,
+        )
+
+        # If both range parameters exist, return values and types
+        if min_param is not None and max_param is not None:
+            return (
+                (min_param.value, max_param.value),
+                (min_param.type, max_param.type),
+            )
 
         # If no parameters found, return None
         return None

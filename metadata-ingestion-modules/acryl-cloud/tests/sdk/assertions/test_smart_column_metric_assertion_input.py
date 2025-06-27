@@ -25,7 +25,7 @@ from acryl_datahub_cloud.sdk.entities.assertion import (
 from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError, SDKUsageError
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
 
 
@@ -45,6 +45,7 @@ class SmartColumnMetricAssertionInputTestParams:
         Union[str, int, float, Tuple[Union[str, int, float], Union[str, int, float]]]
     ] = None
     criteria_type: Optional[Union[str, models.AssertionStdParameterTypeClass]] = None
+    urn: Optional[Union[str, AssertionUrn]] = None
     display_name: Optional[str] = None
     enabled: bool = True
     schedule: Optional[Union[str, models.CronScheduleClass]] = None
@@ -401,41 +402,6 @@ class SmartColumnMetricAssertionInputTestParams:
                 dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
                 column_name="string_column",
                 metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="GREATER_THAN",
-                criteria_parameters=None,  # Not provided, should raise error
-                should_raise=True,
-                expected_error_should_contain="Value is required for operator GREATER_THAN",
-            ),
-            id="missing_required_value_and_value_type",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="GREATER_THAN",
-                criteria_parameters=None,  # Not provided, should raise error
-                should_raise=True,
-                expected_error_should_contain="Value is required for operator GREATER_THAN",
-            ),
-            id="missing_required_value",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-                operator="BETWEEN",
-                should_raise=True,
-                expected_error_should_contain="Range is required for operator BETWEEN",
-            ),
-            id="missing_required_range",
-        ),
-        pytest.param(
-            SmartColumnMetricAssertionInputTestParams(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
-                column_name="string_column",
-                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
                 operator="NULL",
                 criteria_parameters=10,
                 should_raise=True,
@@ -617,6 +583,30 @@ class SmartColumnMetricAssertionInputTestParams:
             ),
             id="valid_numeric_range_type_for_numeric_metric",
         ),
+        # Test cases for None criteria_parameters - now allowed at AssertionInput level
+        # (validation moved to client level)
+        pytest.param(
+            SmartColumnMetricAssertionInputTestParams(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+                column_name="string_column",
+                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
+                operator="GREATER_THAN",
+                criteria_parameters=None,  # None is now allowed at AssertionInput level
+                should_raise=False,
+            ),
+            id="none_criteria_parameters_allowed",
+        ),
+        pytest.param(
+            SmartColumnMetricAssertionInputTestParams(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+                column_name="string_column",
+                metric_type=models.FieldMetricTypeClass.NULL_COUNT,
+                operator="BETWEEN",
+                criteria_parameters=None,  # None is now allowed at AssertionInput level
+                should_raise=False,
+            ),
+            id="none_criteria_parameters_allowed_for_range_operators",
+        ),
     ],
 )
 def test_smart_column_metric_assertion_input(
@@ -634,6 +624,7 @@ def test_smart_column_metric_assertion_input(
                 metric_type=params.metric_type,
                 operator=params.operator,
                 criteria_parameters=params.criteria_parameters,
+                urn=params.urn,
                 display_name=params.display_name,
                 enabled=params.enabled,
                 schedule=params.schedule,
@@ -657,6 +648,7 @@ def test_smart_column_metric_assertion_input(
             metric_type=params.metric_type,
             operator=params.operator,
             criteria_parameters=params.criteria_parameters,
+            urn=params.urn,
             display_name=params.display_name,
             enabled=params.enabled,
             schedule=params.schedule,
