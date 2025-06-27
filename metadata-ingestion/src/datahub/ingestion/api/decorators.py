@@ -104,7 +104,11 @@ def capability(
             for base in cls.__bases__
         ):
             cls.__capabilities = {}
-            cls.get_capabilities = lambda: cls.__capabilities.values()
+
+            def get_capabilities(cls_or_self):
+                return cls.__capabilities.values()
+
+            cls.get_capabilities = classmethod(get_capabilities)
 
             # If the superclasses have capability annotations, copy those over.
             for base in cls.__bases__:
