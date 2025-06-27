@@ -1286,7 +1286,7 @@ public class OpenLineageToDataHub {
     Optional<DatasetUrn> datasetUrn =
         getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
 
-    if (datasetUrn.isEmpty()) {
+    if (!datasetUrn.isPresent()) {
       return null;
     }
 
