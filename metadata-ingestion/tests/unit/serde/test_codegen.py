@@ -1,8 +1,12 @@
 import os
 import pathlib
 import typing
-from typing import List, Type
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Optional, Type, Union
+from unittest.mock import patch
 
+import jwt
 import pytest
 import typing_inspect
 
@@ -10,6 +14,7 @@ from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
+    AuditStampClass,
     FineGrainedLineageClass,
     MetadataChangeEventClass,
     OwnershipClass,
@@ -17,12 +22,22 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urns._urn_base import URN_TYPES
 
 _UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
 ENTITY_REGISTRY_PATH = pathlib.Path(
     "../metadata-models/src/main/resources/entity-registry.yml"
 )
+
+
+@dataclass
+class AuditStampFromTokenTestParams:
+    auth_token: Optional[str]
+    fallback_actor: Optional[Union[CorpUserUrn, CorpGroupUrn]]
+    fallback_timestamp: Optional[datetime]
+    expected_actor: str
+    should_log_warning: bool
 
 
 def test_class_filter() -> None:
@@ -170,3 +185,136 @@ def test_urn_types() -> None:
     assert len(URN_TYPES) > 10
     for checked_type in ["dataset", "dashboard", "dataFlow", "schemaField"]:
         assert checked_type in URN_TYPES
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=None,
+                fallback_actor=None,
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:__ingestion",
+                should_log_warning=False,
+            ),
+            id="basic_default",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=None,
+                fallback_actor=CorpUserUrn("custom-fallback"),
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:custom-fallback",
+                should_log_warning=False,
+            ),
+            id="custom_fallback_user",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=None,
+                fallback_actor=CorpGroupUrn("data-engineers"),
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpGroup:data-engineers",
+                should_log_warning=False,
+            ),
+            id="custom_fallback_group",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=jwt.encode(
+                    {"actorId": "test-user", "type": "PERSONAL"},
+                    "secret",
+                    algorithm="HS256",
+                ),
+                fallback_actor=None,
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:test-user",
+                should_log_warning=False,
+            ),
+            id="valid_jwt",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token="invalid-token",
+                fallback_actor=None,
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:__ingestion",
+                should_log_warning=True,
+            ),
+            id="invalid_jwt",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=jwt.encode(
+                    {"type": "PERSONAL"}, "secret", algorithm="HS256"
+                ),
+                fallback_actor=None,
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:__ingestion",
+                should_log_warning=True,
+            ),
+            id="jwt_missing_actor",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=jwt.encode(
+                    {"actorId": "service-account", "type": "SERVICE"},
+                    "secret",
+                    algorithm="HS256",
+                ),
+                fallback_actor=None,
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:__ingestion",
+                should_log_warning=True,
+            ),
+            id="jwt_non_personal",
+        ),
+        pytest.param(
+            AuditStampFromTokenTestParams(
+                auth_token=jwt.encode(
+                    {"actorId": "token-user", "type": "PERSONAL"},
+                    "secret",
+                    algorithm="HS256",
+                ),
+                fallback_actor=CorpUserUrn("fallback-user"),
+                fallback_timestamp=None,
+                expected_actor="urn:li:corpuser:token-user",
+                should_log_warning=False,
+            ),
+            id="valid_token_overrides_fallback",
+        ),
+    ],
+)
+def test_audit_stamp_from_token(params: AuditStampFromTokenTestParams) -> None:
+    """Test AuditStampClass.from_token() with various input combinations."""
+    with patch("logging.getLogger") as mock_logger:
+        mock_log = mock_logger.return_value
+
+        # Use custom timestamp for consistent testing
+        custom_time = datetime(2023, 6, 15, 12, 30, 45)
+        timestamp_to_use = params.fallback_timestamp or custom_time
+
+        audit_stamp = AuditStampClass.from_token(
+            auth_token=params.auth_token,
+            fallback_actor=params.fallback_actor,
+            fallback_timestamp=timestamp_to_use,
+        )
+
+        # Check that we get an AuditStampClass instance
+        assert isinstance(audit_stamp, AuditStampClass)
+
+        # Check the actor
+        assert audit_stamp.actor == params.expected_actor
+
+        # Check timestamp handling
+        assert isinstance(audit_stamp.time, int)
+        assert audit_stamp.time > 0
+        expected_ms = int(timestamp_to_use.timestamp() * 1000)
+        assert audit_stamp.time == expected_ms
+
+        # Check logging behavior
+        if params.should_log_warning:
+            mock_log.warning.assert_called_once()
+        else:
+            mock_log.warning.assert_not_called()
