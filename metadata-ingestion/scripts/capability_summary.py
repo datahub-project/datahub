@@ -25,14 +25,24 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         source_type = source_registry.get(plugin_name)
         logger.info(f"Source class is {source_type}")
 
+        # Get platform name
+        platform_name = plugin_name.title()
         if hasattr(source_type, "get_platform_name"):
-            platform_name = source_type.get_platform_name()
-        else:
-            platform_name = plugin_name.title()
+            try:
+                platform_name = source_type.get_platform_name()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to call get_platform_name for {plugin_name}: {e}"
+                )
 
+        # Get platform ID
         platform_id = None
         if hasattr(source_type, "get_platform_id"):
-            platform_id = source_type.get_platform_id()
+            try:
+                platform_id = source_type.get_platform_id()
+            except Exception as e:
+                logger.warning(f"Failed to call get_platform_id for {plugin_name}: {e}")
+
         if platform_id is None:
             raise ValueError(f"Platform ID not found for {plugin_name}")
 
@@ -44,15 +54,27 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         )
 
         if hasattr(source_type, "get_support_status"):
-            plugin.support_status = source_type.get_support_status()
+            try:
+                plugin.support_status = source_type.get_support_status()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to call get_support_status for {plugin_name}: {e}"
+                )
 
+        # Get capabilities
         if hasattr(source_type, "get_capabilities"):
-            capabilities = list(source_type.get_capabilities())
-            if capabilities:
-                capabilities.sort(key=lambda x: x.capability.value)
-                plugin.capabilities = capabilities
-            else:
-                logger.warning(f"No capabilities defined for {plugin_name}")
+            try:
+                capabilities = list(source_type.get_capabilities())
+                if capabilities:
+                    capabilities.sort(key=lambda x: x.capability.value)
+                    plugin.capabilities = capabilities
+                else:
+                    logger.warning(f"No capabilities defined for {plugin_name}")
+                    plugin.capabilities = []
+            except Exception as e:
+                logger.warning(
+                    f"Failed to call get_capabilities for {plugin_name}: {e}"
+                )
                 plugin.capabilities = []
         else:
             logger.warning(f"No get_capabilities method for {plugin_name}")

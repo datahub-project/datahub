@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
@@ -105,10 +105,7 @@ def capability(
         ):
             cls.__capabilities = {}
 
-            def get_capabilities(cls_or_self: Any) -> Any:
-                return cls.__capabilities.values()
-
-            cls.get_capabilities = classmethod(get_capabilities)
+            cls.get_capabilities = lambda: cls.__capabilities.values()
 
             # If the superclasses have capability annotations, copy those over.
             for base in cls.__bases__:
