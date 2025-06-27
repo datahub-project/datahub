@@ -23,9 +23,8 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         if isinstance(class_or_exception, Exception):
             raise class_or_exception
         source_type = source_registry.get(plugin_name)
-        logger.info(f"Source class is {source_type}")
+        logger.debug(f"Source class is {source_type}")
 
-        # Get platform name
         platform_name = plugin_name.title()
         if hasattr(source_type, "get_platform_name"):
             try:
@@ -35,7 +34,6 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
                     f"Failed to call get_platform_name for {plugin_name}: {e}"
                 )
 
-        # Get platform ID
         platform_id = None
         if hasattr(source_type, "get_platform_id"):
             try:
