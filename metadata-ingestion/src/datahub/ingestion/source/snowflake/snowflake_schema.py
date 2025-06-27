@@ -401,6 +401,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
+        logger.debug(f"Fetching views for {db_name}")
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -425,6 +426,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 view_name = view["name"]
                 schema_name = view["schema_name"]
+                logger.debug(f"Fetched view: {view_name} for {schema_name}")
                 if schema_name not in views:
                     views[schema_name] = []
                 views[schema_name].append(
@@ -448,6 +450,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"Fetching next page of views for {db_name} - after {view_name}"
                 )
                 view_pagination_marker = view_name
+
+        if logger.isEnabledFor(logging.DEBUG):
+            num_views_per_schema = {
+                schema_name: len(schema_views)
+                for schema_name, schema_views in views.items()
+            }
+            logger.debug(f"Fetched views per schema: {num_views_per_schema}")
 
         return views
 
