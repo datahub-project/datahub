@@ -502,7 +502,7 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
+                self.sink.flush()
                 self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
