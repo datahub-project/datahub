@@ -99,12 +99,15 @@ export const ManageIngestionPage = () => {
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
     const [capabilitySummary, setCapabilitySummary] = useState<CapabilitySummary | null>(null);
+    const [isCapabilitySummaryLoading, setIsCapabilitySummaryLoading] = useState<boolean>(true);
+    const [isCapabilitySummaryError, setIsCapabilitySummaryError] = useState<string | null>(null);
 
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
 
     useEffect(() => {
         const fetchCapabilitySummary = async () => {
+            setIsCapabilitySummaryLoading(true);
             try {
                 const response = await fetch('/assets/ingestion/capability_summary.json');
                 if (!response.ok) {
@@ -114,6 +117,9 @@ export const ManageIngestionPage = () => {
                 setCapabilitySummary(data);
             } catch (error) {
                 console.error('Error fetching capability summary:', error);
+                setIsCapabilitySummaryError(error instanceof Error ? error.message : 'Failed to fetch capability summary');
+            } finally {
+                setIsCapabilitySummaryLoading(false);
             }
         };
 
@@ -126,7 +132,7 @@ export const ManageIngestionPage = () => {
         }
         return capabilitySummary.plugin_details[platformId];
     };
-    const isSupported = (platformId: string, capabilityName: string): boolean => {
+    const isCapabilitySupported = (platformId: string, capabilityName: string): boolean => {
         const capabilities = getPluginCapabilities(platformId)?.capabilities;
         if (!capabilities) {
             return false;
@@ -134,13 +140,18 @@ export const ManageIngestionPage = () => {
         return capabilities?.some(capability => capability.capability === capabilityName && capability.supported);
     };
 
+    const isProfilingSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'DATA_PROFILING');
+    const isLineageSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'LINEAGE_COARSE');
+    const isFineGrainedLineageSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'LINEAGE_FINE');
+    const isUsageStatsSupported = (platformId: string): boolean => isCapabilitySupported(platformId, 'USAGE_STATS');
 
-    const isProfilingSupported = (platformId: string): boolean => isSupported(platformId, 'DATA_PROFILING');
-    const isLineageSupported = (platformId: string): boolean => isSupported(platformId, 'LINEAGE_COARSE');
-    const isFineGrainedLineageSupported = (platformId: string): boolean => isSupported(platformId, 'LINEAGE_FINE');
-    const isUsageStatsSupported = (platformId: string): boolean => isSupported(platformId, 'USAGE_STATS');
-
-    console.log("Example to be removed when the capabilities are actually used", isProfilingSupported('bigquery'), isLineageSupported('bigquery'), isFineGrainedLineageSupported('bigquery'), isUsageStatsSupported('bigquery'));
+    if (!isCapabilitySummaryLoading && !isCapabilitySummaryError) {
+        console.log("Example to be removed when is actually used for something");
+        console.log("isProfilingSupported", isProfilingSupported('bigquery'));
+        console.log("isLineageSupported", isLineageSupported('bigquery'));
+        console.log("isFineGrainedLineageSupported", isFineGrainedLineageSupported('bigquery'));
+        console.log("isUsageStatsSupported", isUsageStatsSupported('bigquery'));
+    }
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
