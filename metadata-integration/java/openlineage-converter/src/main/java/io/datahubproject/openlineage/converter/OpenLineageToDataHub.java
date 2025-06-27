@@ -434,7 +434,7 @@ public class OpenLineageToDataHub {
               downstreamsFields.add(
                   UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
 
-      LinkedList<String> transformationTexts = new LinkedList<>();
+      LinkedHashSet<String> transformationTexts = new LinkedHashSet<>();
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
           new OpenLineage.StaticDatasetBuilder();
       field
@@ -491,8 +491,11 @@ public class OpenLineageToDataHub {
 
       // Capture transformation information from OpenLineage
       if (!transformationTexts.isEmpty()) {
-        transformationTexts.sort(String::compareToIgnoreCase);
-        fgl.setTransformOperation(String.join(",", transformationTexts));
+        List<String> sortedList =
+            transformationTexts.stream()
+                .sorted(String::compareToIgnoreCase)
+                .collect(Collectors.toList());
+        fgl.setTransformOperation(String.join(",", sortedList));
       }
 
       fgla.add(fgl);
