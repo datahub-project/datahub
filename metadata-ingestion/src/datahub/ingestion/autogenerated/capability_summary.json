@@ -5,16 +5,6 @@
     "abs": {
       "capabilities": [
         {
-          "capability": "DATA_PROFILING",
-          "description": "Optionally enabled via configuration",
-          "supported": true
-        },
-        {
-          "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-          "supported": true
-        },
-        {
           "capability": "TAGS",
           "description": "Can extract ABS object/container tags if enabled",
           "supported": true
