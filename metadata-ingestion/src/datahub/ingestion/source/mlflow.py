@@ -56,8 +56,10 @@ from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     EdgeClass,
     GlobalTagsClass,
+    MetadataAttributionClass,
     MLHyperParamClass,
     MLMetricClass,
+    MLModelGroupPropertiesClass,
     MLTrainingRunPropertiesClass,
     PlatformResourceInfoClass,
     SubTypesClass,
@@ -65,6 +67,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    VersionTagClass,
     _Aspect,
 )
 from datahub.metadata.urns import (
@@ -76,6 +79,7 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 
@@ -198,7 +202,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         yield from self._get_tags_workunits()
         yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
@@ -631,7 +635,7 @@ class MLflowSource(StatefulIngestionSourceBase):
     def _get_ml_group_workunit(
         self,
         registered_model: RegisteredModel,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> MLModelGroup:
         """
         Generate an MLModelGroup workunit for an MLflow Registered Model.
         """
@@ -653,8 +657,19 @@ class MLflowSource(StatefulIngestionSourceBase):
             created=created_time,
             last_modified=last_modified_time,
             custom_properties=registered_model.tags,
+            extra_aspects=[
+                MLModelGroupPropertiesClass(
+                    version=VersionTagClass(
+                        versionTag=self._get_latest_version(registered_model),
+                        metadataAttribution=MetadataAttributionClass(
+                            time=registered_model.last_updated_timestamp,
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    )
+                )
+            ],
         )
-        yield from ml_model_group.as_workunits()
+        return ml_model_group
 
     def _make_ml_model_group_urn(self, registered_model: RegisteredModel) -> str:
         urn = builder.make_ml_model_group_urn(
@@ -698,17 +713,17 @@ class MLflowSource(StatefulIngestionSourceBase):
         else:
             return None
 
-    def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _get_ml_model_workunits(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
         registered_models = self._get_mlflow_registered_models()
         for registered_model in registered_models:
-            yield from self._get_ml_group_workunit(registered_model)
+            yield self._get_ml_group_workunit(registered_model)
             model_versions = self._get_mlflow_model_versions(registered_model)
             for model_version in model_versions:
                 run = self._get_mlflow_run(model_version)
-                yield from self._get_ml_model_properties_workunit(
+                yield self._get_ml_model_properties_workunit(
                     registered_model=registered_model,
                     model_version=model_version,
                     run=run,
@@ -729,7 +744,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         registered_model: RegisteredModel,
         model_version: ModelVersion,
         run: Union[None, Run],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Entity:
         """
         Generate an MLModel workunit for an MLflow Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
@@ -781,7 +796,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             model_group=ml_model_group_urn,
             training_jobs=training_jobs,
         )
-        yield from ml_model.as_workunits()
+        return ml_model
 
     def _make_ml_model_urn(self, model_version: ModelVersion) -> str:
         urn = builder.make_ml_model_urn(

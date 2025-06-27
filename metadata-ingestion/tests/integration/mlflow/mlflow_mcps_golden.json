@@ -262,10 +262,20 @@
                 "model_env": "test",
                 "model_id": "1"
             },
-            "name": "test-model",
             "description": "This a test registered model",
             "created": {
                 "time": 1615443388097
+            },
+            "lastModified": {
+                "time": 1615443388097
+            },
+            "version": {
+                "versionTag": "1",
+                "metadataAttribution": {
+                    "time": 1615443388097,
+                    "actor": "urn:li:corpuser:datahub",
+                    "sourceDetail": {}
+                }
             }
         }
     },
