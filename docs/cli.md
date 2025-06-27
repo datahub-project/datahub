@@ -298,6 +298,14 @@ datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
 The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
 
+#### restore-indices
+
+This command allow you to restore indices for one or more `urn`.
+
+```shell
+datahub check restore-indices --help
+```
+
 ### delete
 
 The `delete` command allows you to delete metadata from DataHub.
