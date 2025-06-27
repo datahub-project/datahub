@@ -13,11 +13,27 @@ This file provides guidance to Claude Code (claude.ai/code) or any other agent w
 
  - `docs/what/urn.md` defines what a URN is
 
-## Directory structure
+## Overall Directory structure
 
 - This is repository for DataHub project.
 - `README.MD` should give some basic information about the project.
 - This is a multi-project gradle project so you will find a lot of `build.gradle` in most folders
-- `metadata-ingestion` contains source and tests for DataHub OSS CLI. 
-    - `pyproject.toml`, `setup.py`, `setup.cfg` in the folder contain rules about the code style for the repository
-    - The `.md` files at top level in this folder gives you important information about the concepts of ingestion
+
+### metadata-ingestion module details
+- `metadata-ingestion` contains source and tests for DataHub OSS CLI.
+- `metadata-ingestion/developing.md` contains details about the environment used for testing.
+- `.github/workflows/metadata-ingestion.yml` contains our github workflow that is used in CI.
+- `metadata-ingestion/build.gradle` contains our build.gradle that has gradle tasks defined for this module
+- `pyproject.toml`, `setup.py`, `setup.cfg` in the folder contain rules about the code style for the repository
+- The `.md` files at top level in this folder gives you important information about the concepts of ingestion
+- Source code goes in `metadata-ingestion/src/`
+- Tests go in `metadata-ingestion/tests/` (not in `src/`)
+- **Testing conventions for metadata-ingestion**:
+    - Unit tests: `metadata-ingestion/tests/unit/`
+    - Integration tests: `metadata-ingestion/tests/integration/`
+    - Test files should mirror the source directory structure
+    - Use pytest, not unittest
+    - Use `assert` statements, not `self.assertEqual()` or `self.assertIsNone()`
+    - Use regular classes, not `unittest.TestCase`
+    - Import `pytest` in test files
+    - Test files should be named `test_*.py` and placed in the appropriate test directory, not alongside source files
