@@ -192,6 +192,7 @@ export const IngestionSourceList = ({
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
     const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
     const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
+    const [isModalWaiting, setIsModalWaiting] = useState<boolean>(false);
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -346,6 +347,7 @@ export const IngestionSourceList = ({
         shouldRun?: boolean,
         owners?: Entity[],
     ) => {
+        setIsModalWaiting(true);
         const ownerInputs = owners?.map((owner) => {
             return {
                 ownerUrn: owner.urn,
@@ -406,6 +408,9 @@ export const IngestionSourceList = ({
                         content: `Failed to update ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
+                })
+                .finally(() => {
+                    setIsModalWaiting(false);
                 });
         } else {
             // Create
@@ -473,6 +478,9 @@ export const IngestionSourceList = ({
                         content: `Failed to create ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
+                })
+                .finally(() => {
+                    setIsModalWaiting(false);
                 });
         }
     };
@@ -684,6 +692,7 @@ export const IngestionSourceList = ({
                     return Promise.resolve();
                 }}
                 selectedSource={focusSource}
+                loading={isModalWaiting}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
