@@ -23,7 +23,7 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         if isinstance(class_or_exception, Exception):
             raise class_or_exception
         source_type = source_registry.get(plugin_name)
-        logger.debug(f"Source class is {source_type}")
+        logger.info(f"Source class is {source_type}")
 
         if hasattr(source_type, "get_platform_name"):
             platform_name = source_type.get_platform_name()
@@ -52,10 +52,10 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
                 capabilities.sort(key=lambda x: x.capability.value)
                 plugin.capabilities = capabilities
             else:
-                logger.debug(f"No capabilities defined for {plugin_name}")
+                logger.warning(f"No capabilities defined for {plugin_name}")
                 plugin.capabilities = []
         else:
-            logger.debug(f"No get_capabilities method for {plugin_name}")
+            logger.warning(f"No get_capabilities method for {plugin_name}")
             plugin.capabilities = []
 
         return plugin
