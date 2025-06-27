@@ -196,8 +196,8 @@ def listPolicies(auth_session):
         }""",
         "variables": {
             "input": {
-                "start": "0",
-                "count": "20",
+                "start": 0,
+                "count": 20,
             }
         },
     }

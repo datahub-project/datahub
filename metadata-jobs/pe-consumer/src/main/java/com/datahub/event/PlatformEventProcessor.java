@@ -2,8 +2,6 @@ package com.datahub.event;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CONSUMER_NAME;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -33,8 +31,6 @@ public class PlatformEventProcessor {
   private final OperationContext systemOperationContext;
 
   @Getter private final List<PlatformEventHook> hooks;
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
   public PlatformEventProcessor(
@@ -66,7 +62,14 @@ public class PlatformEventProcessor {
         () -> {
           log.debug("Consuming a Platform Event");
 
-          kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.histogram(
+                          this.getClass(),
+                          "kafkaLag",
+                          System.currentTimeMillis() - consumerRecord.timestamp()));
           final GenericRecord record = consumerRecord.value();
           log.info(
               "Got PE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
@@ -76,14 +79,31 @@ public class PlatformEventProcessor {
               consumerRecord.offset(),
               consumerRecord.serializedValueSize(),
               consumerRecord.timestamp());
-          MetricUtils.counter(this.getClass(), "received_pe_count").inc();
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils -> metricUtils.increment(this.getClass(), "received_pe_count", 1));
 
           PlatformEvent event;
           try {
+            if (record == null) {
+              log.error("Null record found. Dropping.");
+              systemOperationContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils -> metricUtils.increment(this.getClass(), "null_record", 1));
+              return;
+            }
+
             event = EventUtils.avroToPegasusPE(record);
             log.debug("Successfully converted Avro PE to Pegasus PE. name: {}", event.getName());
           } catch (Exception e) {
-            MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+            systemOperationContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(
+                            this.getClass(), "avro_to_pegasus_conversion_failure", 1));
             log.error("Error deserializing message due to: ", e);
             log.error("Message: {}", record.toString());
             return;
@@ -104,9 +124,14 @@ public class PlatformEventProcessor {
                     hook.invoke(systemOperationContext, event);
                   } catch (Exception e) {
                     // Just skip this hook and continue.
-                    MetricUtils.counter(
-                            this.getClass(), hook.getClass().getSimpleName() + "_failure")
-                        .inc();
+                    systemOperationContext
+                        .getMetricUtils()
+                        .ifPresent(
+                            metricUtils ->
+                                metricUtils.increment(
+                                    this.getClass(),
+                                    hook.getClass().getSimpleName() + "_failure",
+                                    1));
                     log.error(
                         "Failed to execute PE hook with name {}",
                         hook.getClass().getCanonicalName(),
@@ -116,7 +141,10 @@ public class PlatformEventProcessor {
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), hook.getClass().getSimpleName() + "_latency"));
           }
-          MetricUtils.counter(this.getClass(), "consumed_pe_count").inc();
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils -> metricUtils.increment(this.getClass(), "consumed_pe_count", 1));
           log.info("Successfully completed PE hooks for event with name {}", event.getName());
         },
         MetricUtils.DROPWIZARD_NAME,

@@ -44,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @Builder
-public class TraceContext implements ContextInterface {
+public class SystemTelemetryContext implements ContextInterface {
   // trace logging
   public static final String TRACE_HEADER = "X-Enable-Trace-Log";
   public static final String TRACE_COOKIE = "enable-trace-log";
@@ -98,6 +98,7 @@ public class TraceContext implements ContextInterface {
     logTracingEnabled.set(false);
   }
 
+  @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final Tracer tracer;
   @Getter @Nullable private final SpanProcessor usageSpanExporter;
 

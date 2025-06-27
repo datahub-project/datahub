@@ -3,7 +3,6 @@ package com.linkedin.metadata.entity;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
-import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -57,7 +56,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.trace.Tracer;
 import jakarta.persistence.EntityNotFoundException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -70,8 +71,6 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -954,25 +953,28 @@ public class EntityServiceImplTest {
     // Create a counter mock
     Counter mockCounter = mock(Counter.class);
 
-    // Mock the static method
-    try (MockedStatic<MetricUtils> metricUtilsMock = Mockito.mockStatic(MetricUtils.class)) {
-      metricUtilsMock
-          .when(() -> MetricUtils.counter(eq(EntityServiceImpl.class), eq("delete_nonexisting")))
-          .thenReturn(mockCounter);
+    // Mock the metricUtils
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .metricUtils(metricUtils)
+                    .tracer(mock(Tracer.class))
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
 
-      // Execute the method
-      RollbackResult result =
-          entityService.deleteAspectWithoutMCL(
-              opContext, testUrn.toString(), aspectName, conditions, true);
+    // Execute the method
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            testContext, testUrn.toString(), aspectName, conditions, true);
 
-      // Verify result is null
-      assertNull(result, "Result should be null when EntityNotFoundException is caught");
+    // Verify result is null
+    assertNull(result, "Result should be null when EntityNotFoundException is caught");
 
-      // Verify metric was incremented
-      metricUtilsMock.verify(
-          () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
-      verify(mockCounter).inc();
-    }
+    // Verify metric was incremented
+    verify(metricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("delete_nonexisting"), eq(1d));
   }
 
   @Test

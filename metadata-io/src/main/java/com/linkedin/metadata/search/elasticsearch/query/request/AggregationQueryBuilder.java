@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -554,9 +555,29 @@ public class AggregationQueryBuilder {
   }
 
   /**
-   * Only used in aggregation queries, lazy load
+   * Returns a mapping of facet field names to their human-readable display names for use in search
+   * aggregations.
    *
-   * @return map of field name to facet display names
+   * <p>This method processes all searchable annotations across all entity types to build a
+   * comprehensive mapping. When multiple entities define different display names for the same facet
+   * field, the conflicting names are merged by joining them with "/" in alphabetical order (e.g.,
+   * "Name/Title").
+   *
+   * <p>The mapping is built only once on first access and cached for subsequent calls. This
+   * includes:
+   *
+   * <ul>
+   *   <li>Regular facet fields (when annotation has addToFilters=true)
+   *   <li>"Has value" boolean fields (when annotation has addHasValuesToFilters=true)
+   *   <li>A hardcoded entry for the virtual index field ("_index" → "Type")
+   * </ul>
+   *
+   * <p>When display name collisions are detected, a warning is logged indicating which field has
+   * multiple display names across entities.
+   *
+   * @return a map where keys are facet field names (e.g., "type") and values are their
+   *     corresponding display names (e.g., "Type", "Chart Type"). Display names may be merged with
+   *     "/" when conflicts exist across entities.
    */
   private Map<String, String> getFacetToDisplayNames() {
     if (filtersToDisplayName == null) {
@@ -571,20 +592,24 @@ public class AggregationQueryBuilder {
                                   getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
                                       .stream()))
               .collect(Collectors.groupingBy(Pair::getFirst, Collectors.toSet()));
-      for (Map.Entry<String, Set<Pair<String, Pair<String, String>>>> entry :
-          validateFieldMap.entrySet()) {
-        if (entry.getValue().stream().map(i -> i.getSecond().getSecond()).distinct().count() > 1) {
-          Map<String, Set<Pair<String, String>>> displayNameEntityMap =
-              entry.getValue().stream()
-                  .map(Pair::getSecond)
-                  .collect(Collectors.groupingBy(Pair::getSecond, Collectors.toSet()));
-          throw new IllegalStateException(
-              String.format(
-                  "Facet field collision on field `%s`. Incompatible Display Name across entities. Multiple Display Names detected: %s",
-                  entry.getKey(), displayNameEntityMap));
-        }
-      }
 
+      // Log fields with multiple display names
+      validateFieldMap.entrySet().stream()
+          .filter(
+              entry ->
+                  entry.getValue().stream().map(i -> i.getSecond().getSecond()).distinct().count()
+                      > 1)
+          .forEach(
+              entry -> {
+                Set<String> displayNames =
+                    entry.getValue().stream()
+                        .map(i -> i.getSecond().getSecond())
+                        .collect(Collectors.toSet());
+                // Log warning about multiple display names
+                log.warn("Field '{}' has multiple display names: {}", entry.getKey(), displayNames);
+              });
+
+      // Create the map with joined display names
       filtersToDisplayName =
           entitySearchAnnotations.entrySet().stream()
               .flatMap(
@@ -595,7 +620,19 @@ public class AggregationQueryBuilder {
                                   getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
                                       .stream()))
               .collect(
-                  Collectors.toMap(Pair::getFirst, p -> p.getSecond().getSecond(), mapMerger()));
+                  Collectors.toMap(
+                      Pair::getFirst,
+                      p -> p.getSecond().getSecond(),
+                      (existing, replacement) -> {
+                        if (existing.equals(replacement)) {
+                          return existing;
+                        }
+                        Set<String> values = new TreeSet<>();
+                        values.add(existing);
+                        values.add(replacement);
+                        return String.join("/", values);
+                      }));
+
       filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     }
 

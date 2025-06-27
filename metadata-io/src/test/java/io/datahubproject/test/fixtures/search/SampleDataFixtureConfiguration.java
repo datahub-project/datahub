@@ -310,6 +310,7 @@ public class SampleDataFixtureConfiguration {
         null,
         null,
         null,
-        EntityClientConfig.builder().batchGetV2Size(1).build());
+        EntityClientConfig.builder().batchGetV2Size(1).build(),
+        null);
   }
 }

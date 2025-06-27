@@ -31,7 +31,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.OpenTelemetry;
@@ -415,7 +415,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
             // Create a tracer
             Tracer tracer = openTelemetry.getTracer("test-tracer");
-            return TraceContext.builder().tracer(tracer).build();
+            return SystemTelemetryContext.builder().tracer(tracer).build();
           });
     }
 
@@ -427,9 +427,9 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
     }
 
     @Bean

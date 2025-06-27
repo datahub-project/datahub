@@ -13,7 +13,7 @@ import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -80,7 +80,7 @@ public class MCPFailedTraceReaderTest
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     FailedMetadataChangeProposal fmcp = buildMessage(systemMetadata);

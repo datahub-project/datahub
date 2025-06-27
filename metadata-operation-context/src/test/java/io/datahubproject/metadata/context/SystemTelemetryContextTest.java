@@ -33,45 +33,45 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class TraceContextTest {
+public class SystemTelemetryContextTest {
   @Mock private Tracer tracer;
   @Mock private HttpServletRequest request;
   @Mock private Span span;
   @Mock private SpanContext spanContext;
 
-  private TraceContext traceContext;
+  private SystemTelemetryContext systemTelemetryContext;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    traceContext = TraceContext.builder().tracer(tracer).build();
+    systemTelemetryContext = SystemTelemetryContext.builder().tracer(tracer).build();
 
     // Clear any existing thread local state
-    TraceContext.clear();
+    SystemTelemetryContext.clear();
   }
 
   @Test
   public void testEnableLogTracingWithHeader() {
-    when(request.getHeader(TraceContext.TRACE_HEADER)).thenReturn("true");
-    TraceContext.enableLogTracing(request);
-    assertTrue(TraceContext.isLogTracingEnabled());
+    when(request.getHeader(SystemTelemetryContext.TRACE_HEADER)).thenReturn("true");
+    SystemTelemetryContext.enableLogTracing(request);
+    assertTrue(SystemTelemetryContext.isLogTracingEnabled());
   }
 
   @Test
   public void testEnableLogTracingWithCookie() {
-    when(request.getHeader(TraceContext.TRACE_HEADER)).thenReturn(null);
-    Cookie cookie = new Cookie(TraceContext.TRACE_COOKIE, "true");
+    when(request.getHeader(SystemTelemetryContext.TRACE_HEADER)).thenReturn(null);
+    Cookie cookie = new Cookie(SystemTelemetryContext.TRACE_COOKIE, "true");
     when(request.getCookies()).thenReturn(new Cookie[] {cookie});
-    TraceContext.enableLogTracing(request);
-    assertTrue(TraceContext.isLogTracingEnabled());
+    SystemTelemetryContext.enableLogTracing(request);
+    assertTrue(SystemTelemetryContext.isLogTracingEnabled());
   }
 
   @Test
   public void testEnableLogTracingDisabled() {
-    when(request.getHeader(TraceContext.TRACE_HEADER)).thenReturn("false");
+    when(request.getHeader(SystemTelemetryContext.TRACE_HEADER)).thenReturn("false");
     when(request.getCookies()).thenReturn(null);
-    TraceContext.enableLogTracing(request);
-    assertFalse(TraceContext.isLogTracingEnabled());
+    SystemTelemetryContext.enableLogTracing(request);
+    assertFalse(SystemTelemetryContext.isLogTracingEnabled());
   }
 
   @Test
@@ -83,9 +83,10 @@ public class TraceContextTest {
 
     try (var mockedStatic = mockStatic(Span.class)) {
       mockedStatic.when(Span::current).thenReturn(span);
-      SystemMetadata result = traceContext.withTraceId(systemMetadata, false);
+      SystemMetadata result = systemTelemetryContext.withTraceId(systemMetadata, false);
       assertNotNull(result.getProperties());
-      assertEquals(result.getProperties().get(TraceContext.TELEMETRY_TRACE_KEY), "test-trace-id");
+      assertEquals(
+          result.getProperties().get(SystemTelemetryContext.TELEMETRY_TRACE_KEY), "test-trace-id");
     }
   }
 
@@ -97,7 +98,7 @@ public class TraceContextTest {
 
     try (var mockedStatic = mockStatic(Span.class)) {
       mockedStatic.when(Span::current).thenReturn(span);
-      SystemMetadata result = traceContext.withTraceId(systemMetadata, false);
+      SystemMetadata result = systemTelemetryContext.withTraceId(systemMetadata, false);
       assertSame(result, systemMetadata);
     }
   }
@@ -108,21 +109,25 @@ public class TraceContextTest {
     List<SystemMetadata> batchMetadata = new ArrayList<>();
     SystemMetadata metadata1 = new SystemMetadata();
     metadata1.setProperties(new StringMap());
-    metadata1.getProperties().put(TraceContext.TELEMETRY_TRACE_KEY, "trace-1");
-    metadata1.getProperties().put(TraceContext.TELEMETRY_QUEUE_SPAN_KEY, "span-1");
-    metadata1.getProperties().put(TraceContext.TELEMETRY_LOG_KEY, "true");
+    metadata1.getProperties().put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "trace-1");
+    metadata1.getProperties().put(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY, "span-1");
+    metadata1.getProperties().put(SystemTelemetryContext.TELEMETRY_LOG_KEY, "true");
     metadata1
         .getProperties()
-        .put(TraceContext.TELEMETRY_ENQUEUED_AT, String.valueOf(System.currentTimeMillis()));
+        .put(
+            SystemTelemetryContext.TELEMETRY_ENQUEUED_AT,
+            String.valueOf(System.currentTimeMillis()));
 
     SystemMetadata metadata2 = new SystemMetadata();
     metadata2.setProperties(new StringMap());
-    metadata2.getProperties().put(TraceContext.TELEMETRY_TRACE_KEY, "trace-2");
-    metadata2.getProperties().put(TraceContext.TELEMETRY_QUEUE_SPAN_KEY, "span-2");
-    metadata2.getProperties().put(TraceContext.TELEMETRY_LOG_KEY, "false");
+    metadata2.getProperties().put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "trace-2");
+    metadata2.getProperties().put(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY, "span-2");
+    metadata2.getProperties().put(SystemTelemetryContext.TELEMETRY_LOG_KEY, "false");
     metadata2
         .getProperties()
-        .put(TraceContext.TELEMETRY_ENQUEUED_AT, String.valueOf(System.currentTimeMillis()));
+        .put(
+            SystemTelemetryContext.TELEMETRY_ENQUEUED_AT,
+            String.valueOf(System.currentTimeMillis()));
 
     batchMetadata.add(metadata1);
     batchMetadata.add(metadata2);
@@ -143,7 +148,7 @@ public class TraceContextTest {
     when(span.getSpanContext()).thenReturn(spanContext);
 
     // Execute & Verify - mainly checking that no exceptions are thrown
-    traceContext.withQueueSpan(
+    systemTelemetryContext.withQueueSpan(
         "test-operation",
         batchMetadata,
         "test-topic",
@@ -164,7 +169,8 @@ public class TraceContextTest {
     when(span.makeCurrent()).thenReturn(mock(Scope.class));
 
     // Execute
-    String result = traceContext.withSpan("test-operation", () -> "test-result", "attr1", "value1");
+    String result =
+        systemTelemetryContext.withSpan("test-operation", () -> "test-result", "attr1", "value1");
 
     // Verify
     assertEquals(result, "test-result");
@@ -186,7 +192,7 @@ public class TraceContextTest {
     when(span.makeCurrent()).thenReturn(mock(Scope.class));
 
     try {
-      traceContext.withSpan(
+      systemTelemetryContext.withSpan(
           "test-operation",
           () -> {
             throw new RuntimeException("test-exception");
@@ -214,7 +220,7 @@ public class TraceContextTest {
 
     AtomicBoolean executed = new AtomicBoolean(false);
 
-    traceContext.withSpan("test-operation", () -> executed.set(true), "attr1", "value1");
+    systemTelemetryContext.withSpan("test-operation", () -> executed.set(true), "attr1", "value1");
 
     assertTrue(executed.get());
     verify(mockSpanBuilder).startSpan();
@@ -225,12 +231,14 @@ public class TraceContextTest {
   public void testWithSingleQueueSpan() {
     SystemMetadata metadata = new SystemMetadata();
     metadata.setProperties(new StringMap());
-    metadata.getProperties().put(TraceContext.TELEMETRY_TRACE_KEY, "trace-1");
-    metadata.getProperties().put(TraceContext.TELEMETRY_QUEUE_SPAN_KEY, "span-1");
-    metadata.getProperties().put(TraceContext.TELEMETRY_LOG_KEY, "true");
+    metadata.getProperties().put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "trace-1");
+    metadata.getProperties().put(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY, "span-1");
+    metadata.getProperties().put(SystemTelemetryContext.TELEMETRY_LOG_KEY, "true");
     metadata
         .getProperties()
-        .put(TraceContext.TELEMETRY_ENQUEUED_AT, String.valueOf(System.currentTimeMillis()));
+        .put(
+            SystemTelemetryContext.TELEMETRY_ENQUEUED_AT,
+            String.valueOf(System.currentTimeMillis()));
 
     io.opentelemetry.api.trace.SpanBuilder mockSpanBuilder =
         mock(io.opentelemetry.api.trace.SpanBuilder.class);
@@ -247,7 +255,7 @@ public class TraceContextTest {
 
     AtomicBoolean executed = new AtomicBoolean(false);
 
-    traceContext.withQueueSpan(
+    systemTelemetryContext.withQueueSpan(
         "test-operation", List.of(metadata), "test-topic", () -> executed.set(true));
 
     assertTrue(executed.get());
@@ -279,13 +287,14 @@ public class TraceContextTest {
       mockedStatic.when(Span::current).thenReturn(span);
 
       SystemMetadata result =
-          traceContext.withProducerTrace("test-operation", systemMetadata, "test-topic");
+          systemTelemetryContext.withProducerTrace("test-operation", systemMetadata, "test-topic");
 
       assertNotNull(result.getProperties());
-      assertTrue(result.getProperties().containsKey(TraceContext.TELEMETRY_TRACE_KEY));
-      assertTrue(result.getProperties().containsKey(TraceContext.TELEMETRY_QUEUE_SPAN_KEY));
-      assertTrue(result.getProperties().containsKey(TraceContext.TELEMETRY_LOG_KEY));
-      assertTrue(result.getProperties().containsKey(TraceContext.TELEMETRY_ENQUEUED_AT));
+      assertTrue(result.getProperties().containsKey(SystemTelemetryContext.TELEMETRY_TRACE_KEY));
+      assertTrue(
+          result.getProperties().containsKey(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY));
+      assertTrue(result.getProperties().containsKey(SystemTelemetryContext.TELEMETRY_LOG_KEY));
+      assertTrue(result.getProperties().containsKey(SystemTelemetryContext.TELEMETRY_ENQUEUED_AT));
       verify(mockSpanBuilder).startSpan();
       verify(span).end();
     }
