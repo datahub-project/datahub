@@ -14,10 +14,7 @@ from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
-from datahub_airflow_plugin._airflow_shims import (
-    AIRFLOW_PATCHED,
-    EmptyOperator
-)
+from datahub_airflow_plugin._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
