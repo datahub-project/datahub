@@ -7,8 +7,6 @@ from unittest import mock
 from unittest.mock import Mock
 
 import airflow.configuration
-import airflow.version
-import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
