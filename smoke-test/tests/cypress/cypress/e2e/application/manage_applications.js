@@ -83,7 +83,7 @@ describe("manage applications", () => {
     cy.get('[data-testid="action-delete"]').click();
 
     // Verify the confirmation modal appears
-    cy.contains("Delete application test-new-name").should("be.visible");
+    cy.contains("Delete Application").should("be.visible");
 
     // Handle the confirmation modal
     cy.contains("button", "Delete").click();
