@@ -303,146 +303,150 @@ module.exports = {
         },
       ],
     },
+    // DataHub Cloud.
     {
-      label: "DataHub Cloud",
-      type: "category",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "docs/managed-datahub/managed-datahub-overview",
-      },
-      items: [
-        "docs/managed-datahub/welcome-acryl",
-        {
-          "Configure Single Sign-On": [
-            {
-              type: "doc",
-              id: "docs/authentication/guides/sso/initialize-oidc",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Remote Executor": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/remote-executor/about",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/remote-executor/monitoring",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "DataHub API": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/datahub-api/entity-events-api",
-              className: "saasOnly",
-            },
-            {
-              "GraphQL API": [
-                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              ],
-            },
-          ],
-        },
-        {
-          Slack: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Operator Guides": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-          ],
-        },
+      type: "html",
+      value: "<div>DataHub Cloud</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "DataHub Cloud Overview",
+      type: "doc",
+      id: "docs/managed-datahub/managed-datahub-overview",
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
+    },
+    {
+      "Configure Single Sign-On": [
         {
           type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
+          id: "docs/authentication/guides/sso/initialize-oidc",
           className: "saasOnly",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/chrome-extension",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
         },
+      ],
+    },
+    {
+      "Remote Executor": [
         {
           type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          id: "docs/managed-datahub/remote-executor/about",
           className: "saasOnly",
         },
         {
-          "DataHub Cloud Release History": [
-            "docs/managed-datahub/release-notes/v_0_3_11",
-            "docs/managed-datahub/release-notes/v_0_3_10",
-            "docs/managed-datahub/release-notes/v_0_3_9",
-            "docs/managed-datahub/release-notes/v_0_3_8",
-            "docs/managed-datahub/release-notes/v_0_3_7",
-            "docs/managed-datahub/release-notes/v_0_3_6",
-            "docs/managed-datahub/release-notes/v_0_3_5",
-            "docs/managed-datahub/release-notes/v_0_3_4",
-            "docs/managed-datahub/release-notes/v_0_3_3",
-            "docs/managed-datahub/release-notes/v_0_3_2",
-            "docs/managed-datahub/release-notes/v_0_3_1",
-            "docs/managed-datahub/release-notes/v_0_2_16",
-            "docs/managed-datahub/release-notes/v_0_2_15",
-            "docs/managed-datahub/release-notes/v_0_2_14",
-            "docs/managed-datahub/release-notes/v_0_2_13",
-            "docs/managed-datahub/release-notes/v_0_2_12",
-            "docs/managed-datahub/release-notes/v_0_2_11",
-            "docs/managed-datahub/release-notes/v_0_2_10",
-            "docs/managed-datahub/release-notes/v_0_2_9",
-            "docs/managed-datahub/release-notes/v_0_2_8",
-            "docs/managed-datahub/release-notes/v_0_2_7",
-            "docs/managed-datahub/release-notes/v_0_2_6",
-            "docs/managed-datahub/release-notes/v_0_2_5",
-            "docs/managed-datahub/release-notes/v_0_2_4",
-            "docs/managed-datahub/release-notes/v_0_2_3",
-            "docs/managed-datahub/release-notes/v_0_2_2",
-            "docs/managed-datahub/release-notes/v_0_2_1",
-            "docs/managed-datahub/release-notes/v_0_2_0",
-            "docs/managed-datahub/release-notes/v_0_1_73",
-            "docs/managed-datahub/release-notes/v_0_1_72",
-            "docs/managed-datahub/release-notes/v_0_1_70",
-            "docs/managed-datahub/release-notes/v_0_1_69",
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/monitoring",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      "DataHub API": [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/entity-events-api",
+          className: "saasOnly",
+        },
+        {
+          "GraphQL API": [
+            "docs/managed-datahub/datahub-api/graphql-api/getting-started",
           ],
         },
+      ],
+    },
+    {
+      Slack: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/slack/saas-slack-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/slack/saas-slack-setup",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      "Operator Guides": [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/approval-workflows",
+      className: "saasOnly",
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/chrome-extension",
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/subscription-and-notification",
+      className: "saasOnly",
+    },
+    {
+      "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_12",
+        "docs/managed-datahub/release-notes/v_0_3_11",
+        "docs/managed-datahub/release-notes/v_0_3_10",
+        "docs/managed-datahub/release-notes/v_0_3_9",
+        "docs/managed-datahub/release-notes/v_0_3_8",
+        "docs/managed-datahub/release-notes/v_0_3_7",
+        "docs/managed-datahub/release-notes/v_0_3_6",
+        "docs/managed-datahub/release-notes/v_0_3_5",
+        "docs/managed-datahub/release-notes/v_0_3_4",
+        "docs/managed-datahub/release-notes/v_0_3_3",
+        "docs/managed-datahub/release-notes/v_0_3_2",
+        "docs/managed-datahub/release-notes/v_0_3_1",
+        "docs/managed-datahub/release-notes/v_0_2_16",
+        "docs/managed-datahub/release-notes/v_0_2_15",
+        "docs/managed-datahub/release-notes/v_0_2_14",
+        "docs/managed-datahub/release-notes/v_0_2_13",
+        "docs/managed-datahub/release-notes/v_0_2_12",
+        "docs/managed-datahub/release-notes/v_0_2_11",
+        "docs/managed-datahub/release-notes/v_0_2_10",
+        "docs/managed-datahub/release-notes/v_0_2_9",
+        "docs/managed-datahub/release-notes/v_0_2_8",
+        "docs/managed-datahub/release-notes/v_0_2_7",
+        "docs/managed-datahub/release-notes/v_0_2_6",
+        "docs/managed-datahub/release-notes/v_0_2_5",
+        "docs/managed-datahub/release-notes/v_0_2_4",
+        "docs/managed-datahub/release-notes/v_0_2_3",
+        "docs/managed-datahub/release-notes/v_0_2_2",
+        "docs/managed-datahub/release-notes/v_0_2_1",
+        "docs/managed-datahub/release-notes/v_0_2_0",
+        "docs/managed-datahub/release-notes/v_0_1_73",
+        "docs/managed-datahub/release-notes/v_0_1_72",
+        "docs/managed-datahub/release-notes/v_0_1_70",
+        "docs/managed-datahub/release-notes/v_0_1_69",
       ],
     },
     // Integrations.
@@ -861,6 +865,10 @@ module.exports = {
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
+        "docs/api/tutorials/container",
+        "docs/api/tutorials/dashboard-chart",
+        "docs/api/tutorials/dataflow-datajob",
+        "docs/api/tutorials/mlmodel-mlmodelgroup",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

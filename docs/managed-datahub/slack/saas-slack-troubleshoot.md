@@ -90,7 +90,7 @@ If you've installed the Slack bot, but your commands are failing with an error '
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_1.png"/>
 </p>
-3. The values will be `**`'d out, but if any of these fields are empty (ie. Signing Secret), then you'll want to fill them in.
+3. Refill in the Bot Token and Signing Secret, even if the values are already present.
 4. Visit [api.slack.com/apps](https://api.slack.com/apps), and open your currently installed app. You will see fields like `App ID` and `Signing Secret` here:
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_2.png"/>
