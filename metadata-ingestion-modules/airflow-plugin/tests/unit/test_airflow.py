@@ -10,6 +10,7 @@ import airflow.configuration
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
+from airflow.utils.state import DagRunState
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
@@ -279,8 +280,6 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             op1 >> op2
 
         # We must fake the run_id parameter.
-        
-        from airflow.utils.state import DagRunState
 
         ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
         dag_run = DagRun(
