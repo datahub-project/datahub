@@ -31,7 +31,7 @@ import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -339,7 +339,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
     @MockBean public AuthorizerChain authorizerChain;
-    @MockBean public TraceContext traceContext;
+    @MockBean public SystemTelemetryContext systemTelemetryContext;
     @MockBean public DataHubUsageService dataHubUsageService;
 
     @Bean

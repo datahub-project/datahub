@@ -50,8 +50,6 @@ dependencies {
   implementation project(':metadata-io')
   implementation spec.product.pegasus.restliServer
   implementation externalDependency.slf4jApi
-  implementation externalDependency.dropwizardMetricsCore
-  implementation externalDependency.dropwizardMetricsJmx
 
   implementation externalDependency.lombok
   implementation externalDependency.neo4jJavaDriver

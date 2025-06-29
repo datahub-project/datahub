@@ -28,7 +28,7 @@ import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.Map;
 import java.util.Optional;
@@ -221,7 +221,7 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextTraceNoSearchAuthorization(
       @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
-      @Nullable Supplier<TraceContext> traceContextSupplier) {
+      @Nullable Supplier<SystemTelemetryContext> traceContextSupplier) {
 
     return systemContext(
         null,
@@ -268,7 +268,7 @@ public class TestOperationContexts {
       @Nullable Consumer<OperationContext> postConstruct,
       @Nullable Supplier<ValidationContext> environmentContextSupplier,
       @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
-      @Nullable Supplier<TraceContext> traceContextSupplier) {
+      @Nullable Supplier<SystemTelemetryContext> traceContextSupplier) {
 
     OperationContextConfig config =
         Optional.ofNullable(configSupplier).map(Supplier::get).orElse(DEFAULT_OPCONTEXT_CONFIG);
@@ -304,7 +304,8 @@ public class TestOperationContexts {
             ? ObjectMapperContext.DEFAULT
             : objectMapperContextSupplier.get();
 
-    TraceContext traceContext = traceContextSupplier != null ? traceContextSupplier.get() : null;
+    SystemTelemetryContext systemTelemetryContext =
+        traceContextSupplier != null ? traceContextSupplier.get() : null;
 
     OperationContext operationContext =
         OperationContext.asSystem(
@@ -316,7 +317,7 @@ public class TestOperationContexts {
             retrieverContext,
             validationContext,
             objectMapperContext,
-            traceContext,
+            systemTelemetryContext,
             true);
 
     if (postConstruct != null) {
@@ -374,7 +375,7 @@ public class TestOperationContexts {
   }
 
   public static OperationContext userContextNoSearchAuthorization(
-      @Nonnull RequestContext requestContext) {
+      @Nonnull RequestContext.RequestContextBuilder requestContext) {
     return systemContextNoSearchAuthorization(defaultEntityRegistry())
         .asSession(requestContext, Authorizer.EMPTY, TEST_USER_AUTH);
   }

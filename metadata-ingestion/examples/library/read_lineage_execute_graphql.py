@@ -30,7 +30,7 @@ variables = {
                 "and": [
                     {
                         "condition": "EQUAL",
-                        "negated": "false",
+                        "negated": False,
                         "field": "degree",
                         "values": ["1", "2", "3+"],
                     }

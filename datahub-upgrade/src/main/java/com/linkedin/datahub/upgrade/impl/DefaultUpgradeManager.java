@@ -126,18 +126,18 @@ public class DefaultUpgradeManager implements UpgradeManager {
               int retryCount = step.retryCount();
               UpgradeStepResult result = null;
               int maxAttempts = retryCount + 1;
+              OperationContext opContext = context.opContext();
+
               for (int i = 0; i < maxAttempts; i++) {
                 try {
                   result =
-                      context
-                          .opContext()
-                          .withSpan(
-                              "executionTime",
-                              () -> step.executable().apply(context),
-                              "step.id",
-                              step.id(),
-                              MetricUtils.DROPWIZARD_NAME,
-                              MetricUtils.name(step.id(), "executionTime"));
+                      opContext.withSpan(
+                          "executionTime",
+                          () -> step.executable().apply(context),
+                          "step.id",
+                          step.id(),
+                          MetricUtils.DROPWIZARD_NAME,
+                          MetricUtils.name(step.id(), "executionTime"));
 
                   if (result == null) {
                     // Failed to even retrieve a result. Create a default failure result.
@@ -145,11 +145,20 @@ public class DefaultUpgradeManager implements UpgradeManager {
                     context
                         .report()
                         .addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
-                    MetricUtils.counter(MetricRegistry.name(step.id(), "retry")).inc();
+                    opContext
+                        .getMetricUtils()
+                        .ifPresent(
+                            metricUtils ->
+                                metricUtils.increment(MetricRegistry.name(step.id(), "retry"), 1));
                   }
 
                   if (DataHubUpgradeState.SUCCEEDED.equals(result.result())) {
-                    MetricUtils.counter(MetricRegistry.name(step.id(), "succeeded")).inc();
+                    opContext
+                        .getMetricUtils()
+                        .ifPresent(
+                            metricUtils ->
+                                metricUtils.increment(
+                                    MetricRegistry.name(step.id(), "succeeded"), 1));
                     break;
                   }
                 } catch (Exception e) {
@@ -161,7 +170,11 @@ public class DefaultUpgradeManager implements UpgradeManager {
                           String.format(
                               "Caught exception during attempt %s of Step with id %s: %s",
                               i, step.id(), e));
-                  MetricUtils.counter(MetricRegistry.name(step.id(), "failed")).inc();
+                  opContext
+                      .getMetricUtils()
+                      .ifPresent(
+                          metricUtils ->
+                              metricUtils.increment(MetricRegistry.name(step.id(), "failed"), 1));
                   result = new DefaultUpgradeStepResult(step.id(), DataHubUpgradeState.FAILED);
                   context
                       .report()

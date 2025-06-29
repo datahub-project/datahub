@@ -33,7 +33,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -155,7 +154,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
         && (systemMetadata == null
             || systemMetadata.getProperties() == null
             || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
-      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event.getMetadataChangeLog());
+      updateGraphServiceDiff(
+          opContext, urn, aspectSpec, previousAspect, aspect, event.getMetadataChangeLog());
     } else {
       updateGraphService(opContext, urn, aspectSpec, aspect, event.getMetadataChangeLog());
     }
@@ -343,6 +343,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   }
 
   private void updateGraphServiceDiff(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspect,
@@ -381,23 +382,38 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
       subtractiveDifference.forEach(graphService::removeEdge);
-      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_REMOVE_METRIC)
-          .inc(subtractiveDifference.size());
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(
+                      this.getClass(),
+                      GRAPH_DIFF_MODE_REMOVE_METRIC,
+                      subtractiveDifference.size()));
     }
 
     // Then add new edges
     if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
       additiveDifference.forEach(graphService::addEdge);
-      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_ADD_METRIC)
-          .inc(additiveDifference.size());
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(
+                      this.getClass(), GRAPH_DIFF_MODE_ADD_METRIC, additiveDifference.size()));
     }
 
     // Then update existing edges
     if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
       mergedEdges.forEach(graphService::upsertEdge);
-      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC).inc(mergedEdges.size());
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(
+                      this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC, mergedEdges.size()));
     }
   }
 
