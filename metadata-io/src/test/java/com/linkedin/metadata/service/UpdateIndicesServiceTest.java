@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -40,6 +42,9 @@ public class UpdateIndicesServiceTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    when(entitySearchService.getIndexConvention())
+        .thenReturn(
+            new IndexConventionImpl(IndexConventionImpl.IndexConventionConfig.builder().build()));
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     updateIndicesService =
         new UpdateIndicesService(
