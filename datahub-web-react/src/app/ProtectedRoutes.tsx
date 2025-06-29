@@ -10,8 +10,10 @@ import { HomePage } from '@app/home/HomePage';
 import { HomePage as HomePageV2 } from '@app/homeV2/HomePage';
 import { IntroduceYourself } from '@app/homeV2/introduce/IntroduceYourself';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { HomePage as HomePageNew } from '@app/homepageV2/HomePage';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
+import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
 import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
@@ -33,8 +35,16 @@ export const ProtectedRoutes = (): JSX.Element => {
     useSetNavBarRedesignEnabled();
 
     const isThemeV2 = useIsThemeV2();
-    const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
+    const { config } = useAppConfig();
+    const showHomepageRedesign = config.featureFlags.showHomePageRedesign;
 
+    let FinalHomePage;
+
+    if (isThemeV2) {
+        FinalHomePage = showHomepageRedesign ? HomePageNew : HomePageV2;
+    } else {
+        FinalHomePage = HomePage;
+    }
     const location = useLocation();
     const history = useHistory();
 
