@@ -272,7 +272,7 @@ def get_filter_name(filter_obj):
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
