@@ -538,6 +538,16 @@
     displayName: Superset
     type: OTHERS
     logoUrl: "/assets/platforms/supersetlogo.png"
+- entityUrn: urn:li:dataPlatform:preset
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: preset
+    displayName: Preset
+    type: OTHERS
+    logoUrl: "/assets/platforms/presetlogo.svg"
 - entityUrn: urn:li:dataPlatform:trino
   entityType: dataPlatform
   aspectName: dataPlatformInfo
