@@ -33,8 +33,6 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -443,13 +441,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       @Nullable RecordTemplate aspect,
       Boolean isKeyAspect,
       AuditStamp auditStamp) {
-    String docId;
-    try {
-      docId = URLEncoder.encode(urn.toString(), "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
-      return;
-    }
+    final String docId = elasticSearchService.getIndexConvention().getEntityDocumentId(urn);
 
     if (isKeyAspect) {
       elasticSearchService.deleteDocument(opContext, entityName, docId);
