@@ -62,12 +62,14 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 
 const FIFTH_SECOND_IN_MS = 100;
 
-type Props = React.PropsWithChildren<any>;
+type Props = React.PropsWithChildren<{
+    hideSearchBar?: boolean;
+}>;
 
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ children }: Props) => {
+export const SearchablePage = ({ children, hideSearchBar }: Props) => {
     const appConfig = useAppConfig();
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const { filters, query: currentQuery } = useQueryAndFiltersFromLocation();
@@ -147,19 +149,21 @@ export const SearchablePage = ({ children }: Props) => {
 
     return (
         <>
-            <SearchHeader
-                initialQuery={currentQuery as string}
-                placeholderText={themeConfig.content.search.searchbarMessage}
-                suggestions={
-                    (newSuggestionData &&
-                        newSuggestionData?.autoCompleteForMultiple &&
-                        newSuggestionData.autoCompleteForMultiple.suggestions) ||
-                    []
-                }
-                onSearch={search}
-                onQueryChange={autoComplete}
-                entityRegistry={entityRegistry}
-            />
+            {!hideSearchBar && (
+                <SearchHeader
+                    initialQuery={currentQuery as string}
+                    placeholderText={themeConfig.content.search.searchbarMessage}
+                    suggestions={
+                        (newSuggestionData &&
+                            newSuggestionData?.autoCompleteForMultiple &&
+                            newSuggestionData.autoCompleteForMultiple.suggestions) ||
+                        []
+                    }
+                    onSearch={search}
+                    onQueryChange={autoComplete}
+                    entityRegistry={entityRegistry}
+                />
+            )}
             <BodyBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Body>
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
