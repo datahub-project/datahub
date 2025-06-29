@@ -87,8 +87,9 @@ public class Config extends HttpServlet {
 
       // Ingestion Configuration
       Map<String, Object> ingestionConfig = new HashMap<>();
-      ingestionConfig.put("enabled", configProvider.getIngestion().enabled);
-      ingestionConfig.put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+      ingestionConfig.put("enabled", configProvider.getIngestion().isEnabled());
+      ingestionConfig.put(
+          "defaultCliVersion", configProvider.getIngestion().getDefaultCliVersion());
       newConfig.put("managedIngestion", ingestionConfig);
 
       // DataHub Configuration
