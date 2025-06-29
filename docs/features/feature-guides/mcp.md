@@ -194,3 +194,15 @@ For other AI tools, you'll typically need to provide the following configuration
   - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
 
 </details>
+
+### Troubleshooting
+
+#### `spawn uvx ENOENT`
+
+The full stack trace might look like this:
+
+```
+2025-04-08T19:58:16.593Z [datahub] [error] spawn uvx ENOENT {"stack":"Error: spawn uvx ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)"}
+```
+
+Solution: Replace the `uvx` bit of the command with the output of `which uvx`.
