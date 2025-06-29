@@ -1,3 +1,8 @@
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -17,6 +22,11 @@ import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import { EntityType, ExecutionRequestResult, FacetFilterInput, FacetMetadata, SortCriterion, SortOrder } from '@types';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(advancedFormat);
+dayjs.extend(localizedFormat);
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -372,3 +382,18 @@ export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): Face
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
         : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
 };
+
+export function formatTimezone(timezoneVal: string | null | undefined): string | undefined {
+    return timezoneVal ? dayjs().tz(timezoneVal).format('z') : undefined;
+}
+
+export function capitalizeMonthsAndDays(scheduleText: string): string {
+    const dayNames = Array.from({ length: 7 }, (_, i) => dayjs().day(i).format('dddd').toLowerCase());
+    const monthNames = Array.from({ length: 12 }, (_, i) => dayjs().month(i).format('MMMM').toLowerCase());
+
+    const capitalizableWords = new Set([...dayNames, ...monthNames]);
+
+    return scheduleText.replace(/\b[a-z]+\b/g, (word) =>
+        capitalizableWords.has(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+    );
+}

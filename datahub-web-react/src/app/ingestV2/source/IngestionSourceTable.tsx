@@ -79,20 +79,20 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} />;
             },
-            width: '30%',
+            width: '25%',
             sorter: true,
         },
         {
             title: 'Schedule',
             key: 'schedule',
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
-            width: '15%',
+            width: '20%',
         },
         {
             title: 'Last Run',
             key: 'lastRun',
             render: (record) => <DateTimeColumn time={record.lastExecTime} />,
-            width: '15%',
+            width: '20%',
         },
         {
             title: 'Status',
@@ -110,7 +110,7 @@ function IngestionSourceTable({
             title: 'Owner',
             key: 'owner',
             render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-            width: '15%',
+            width: '20%',
         },
 
         {

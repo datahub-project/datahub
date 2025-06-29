@@ -505,8 +505,6 @@ export const IngestionSourceList = ({
                                 onChange={(value) => setSearchInput(value)}
                                 ref={searchInputRef}
                             />
-                        </SearchContainer>
-                        <FilterButtonsContainer>
                             <StyledSimpleSelect
                                 options={[
                                     { label: 'All', value: '0' },
@@ -518,6 +516,8 @@ export const IngestionSourceList = ({
                                 showClear={false}
                                 width="fit-content"
                             />
+                        </SearchContainer>
+                        <FilterButtonsContainer>
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
