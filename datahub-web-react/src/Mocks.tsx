@@ -4021,6 +4021,8 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageApplications: true,
+    manageFeatures: true,
 };
 
 export const DomainMock1 = {
