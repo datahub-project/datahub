@@ -180,7 +180,11 @@ export const SimpleSelect = ({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} ignoreMaxHeight={ignoreMaxHeight}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            ignoreMaxHeight={ignoreMaxHeight}
+                            data-testid="select-dropdown"
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"

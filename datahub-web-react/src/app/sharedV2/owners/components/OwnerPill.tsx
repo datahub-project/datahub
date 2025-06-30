@@ -55,6 +55,7 @@ export default function OwnerPill({
                         size="lg"
                         colorLevel={400}
                         onClick={onRemoveClick}
+                        data-testid="button-remove"
                     />
                 ) : null}
             </>
@@ -84,6 +85,7 @@ export default function OwnerPill({
                         extraRightContent={renderButtons()}
                         type={avatarType}
                         pillBorderType={isProposed ? 'dashed' : 'default'}
+                        dataTestId={`owner-pill-${owner.urn}`}
                     />
                 </LinkWrapper>
             </AvatarWrapper>

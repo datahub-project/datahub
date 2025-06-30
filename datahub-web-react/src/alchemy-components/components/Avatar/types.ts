@@ -15,4 +15,5 @@ export interface AvatarProps {
     showName?: boolean;
     type?: AvatarType;
     extraRightContent?: React.ReactNode;
+    dataTestId?: string;
 }

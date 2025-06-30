@@ -175,6 +175,7 @@ const OwnersSection = ({
                         />
                     )}
                     selectMinHeight="42px"
+                    data-testid="owners-select"
                 />
             </FormSection>
         </SectionContainer>

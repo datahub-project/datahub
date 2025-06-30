@@ -7,12 +7,14 @@ import {
   runIngestionSource,
   verifyScheduleIsAppliedOnTable,
   goToIngestionPage,
+  verifyOwnerIsInTable,
+  verifyOwnerIsNotInTable,
 } from "./utils";
 
 const number = crypto.getRandomValues(new Uint32Array(1))[0];
 
 const ingestionSourceDetails = {
-  accound_id: `account${number}`,
+  account_id: `account${number}`,
   warehouse_id: `warehouse${number}`,
   username: `user${number}`,
   password: `password${number}`,
@@ -33,10 +35,14 @@ describe("ingestion sources", () => {
     createIngestionSource(sourceName, {
       sourceDetails: ingestionSourceDetails,
       schedule: { hour: "01" },
+      currentUserUrn: "urn:li:corpuser:admin",
+      userNameToAddAsOwner: "John Doe",
+      userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
     });
     cy.waitTextVisible(sourceName);
     verifyScheduleIsAppliedOnTable(sourceName, "01:00 am");
-
+    verifyOwnerIsInTable(sourceName, "urn:li:corpuser:admin");
+    verifyOwnerIsInTable(sourceName, "urn:li:corpuser:jdoe");
     deleteIngestionSource(sourceName);
   });
 
@@ -47,9 +53,14 @@ describe("ingestion sources", () => {
     verifyScheduleIsAppliedOnTable(sourceName, "12:00 am"); // the default schedule
     updateIngestionSource(sourceName, updatedSourceName, {
       schedule: { hour: "01" },
+      userNameToAddAsOwner: "John Doe",
+      userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
+      ownerUrnToRemove: "urn:li:corpuser:admin",
     });
     cy.waitTextVisible(updatedSourceName);
     verifyScheduleIsAppliedOnTable(updatedSourceName, "01:00 am");
+    verifyOwnerIsInTable(updatedSourceName, "urn:li:corpuser:jdoe");
+    verifyOwnerIsNotInTable(updatedSourceName, "urn:li:corpuser:admin");
     deleteIngestionSource(updatedSourceName);
   });
 

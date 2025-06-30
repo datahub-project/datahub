@@ -73,6 +73,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     hideSelectedOptions,
     filterResultsByQuery = selectDefaults.filterResultsByQuery,
     selectMinHeight,
+    optionListTestId,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -198,7 +199,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef}>
+                        <DropdownContainer ref={dropdownRef} data-testid="select-dropdown">
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -207,7 +208,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                     size={size}
                                 />
                             )}
-                            <OptionList>
+                            <OptionList data-testid={optionListTestId}>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
                                         label={selectAllLabel}

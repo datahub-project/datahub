@@ -21,7 +21,7 @@ export const goToIngestionPage = () => {
 };
 
 export const verifySourceDetails = (source) => {
-  cy.get("#account_id").type(source.accound_id);
+  cy.get("#account_id").type(source.account_id);
   cy.get("#warehouse").type(source.warehouse_id);
   cy.get("#username").type(source.username);
   cy.get("#password").type(source.password);
@@ -31,7 +31,7 @@ export const verifySourceDetails = (source) => {
   // Verify yaml recipe is generated correctly
   cy.clickOptionWithTestId("recipe-builder-yaml-button");
   cy.waitTextVisible("account_id");
-  cy.waitTextVisible(source.accound_id);
+  cy.waitTextVisible(source.account_id);
   cy.waitTextVisible(source.warehouse_id);
   cy.waitTextVisible(source.username);
   cy.waitTextVisible(source.password);
@@ -69,6 +69,35 @@ export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
     });
 };
 
+export const verifyOwnerSelected = (ownerUrn) => {
+  cy.getWithTestId(`owner-pill-${ownerUrn}`).should("be.visible");
+};
+
+export const addOwner = (ownerName, ownerUrn) => {
+  cy.clickOptionWithTestId("owners-select");
+  cy.enterTextInTestId("select-search-input", ownerName);
+  cy.clickOptionWithTestId(`owner-option-${ownerUrn}`);
+  cy.clickOptionWithTestId("select-button-update");
+};
+
+export const removeOwner = (ownerUrn) => {
+  cy.getWithTestId(`owner-pill-${ownerUrn}`).within(() => {
+    cy.clickOptionWithTestId("button-remove");
+  });
+};
+
+export const verifyOwnerIsInTable = (sourceName, ownerUrn) => {
+  cy.getWithTestId(`row-${sourceName}`).within(() => {
+    cy.getWithTestId(`owner-avatar-${ownerUrn}`);
+  });
+};
+
+export const verifyOwnerIsNotInTable = (sourceName, ownerUrn) => {
+  cy.getWithTestId(`row-${sourceName}`).within(() => {
+    cy.getWithTestId(`owner-avatar-${ownerUrn}`).should("not.exist");
+  });
+};
+
 export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTestId("create-ingestion-source-button");
   cy.clickOptionWithTextToScrollintoView("Snowflake");
@@ -87,6 +116,14 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
   cy.waitTextVisible("Give this data source a name");
   cy.get('[data-testid="source-name-input"]').type(sourceName);
+  // the current user should be set by default
+  if (options?.currentUserUrn) {
+    verifyOwnerSelected(options.currentUserUrn);
+  }
+  if (options?.userNameToAddAsOwner && options?.userUrnToAddAsOwner) {
+    addOwner(options.userNameToAddAsOwner, options.userUrnToAddAsOwner);
+    verifyOwnerSelected(options.userUrnToAddAsOwner);
+  }
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully created ingestion source!");
 };
@@ -111,6 +148,13 @@ export const updateIngestionSource = (
   cy.get('[data-testid="source-name-input"]')
     .focus()
     .type(`{selectall}{backspace}${updatedSourceName}`);
+  if (options?.userNameToAddAsOwner && options?.userUrnToAddAsOwner) {
+    addOwner(options.userNameToAddAsOwner, options.userUrnToAddAsOwner);
+    verifyOwnerSelected(options.userUrnToAddAsOwner);
+  }
+  if (options?.ownerUrnToRemove) {
+    removeOwner(options.ownerUrnToRemove);
+  }
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully updated ingestion source!");
 };

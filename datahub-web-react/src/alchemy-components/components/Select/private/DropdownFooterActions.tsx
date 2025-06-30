@@ -23,7 +23,7 @@ interface Props {
 export default function DropdownFooterActions({ onCancel, onUpdate, size }: Props) {
     return (
         <FooterBase>
-            <Button onClick={onCancel} variant="text" size={size}>
+            <Button onClick={onCancel} variant="text" size={size} data-testid="select-cancel-button">
                 Cancel
             </Button>
             <Button

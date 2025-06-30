@@ -196,6 +196,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
             imageUrl: owner.owner.editableProperties?.pictureLink,
             type: mapEntityTypeToAvatarType(owner.owner.type),
             urn: owner.owner.urn,
+            dataTestId: `owner-avatar-${owner.owner.urn}`,
         };
     });
     const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
@@ -216,6 +217,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
                         imageUrl={singleOwner.editableProperties?.pictureLink}
                         showInPill
                         type={mapEntityTypeToAvatarType(singleOwner.type)}
+                        dataTestId={`owner-avatar-${singleOwner.urn}`}
                     />
                 </Link>
             )}

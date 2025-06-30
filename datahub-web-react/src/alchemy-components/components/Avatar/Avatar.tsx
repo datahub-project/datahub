@@ -27,11 +27,18 @@ export const Avatar = ({
     isOutlined = avatarDefaults.isOutlined,
     extraRightContent,
     pillBorderType = avatarDefaults.pillBorderType,
+    dataTestId,
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
     return (
-        <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill} $borderType={pillBorderType}>
+        <Container
+            onClick={onClick}
+            $hasOnClick={!!onClick}
+            $showInPill={showInPill}
+            $borderType={pillBorderType}
+            data-testid={dataTestId}
+        >
             {(type === AvatarType.user || imageUrl) && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
                     {!hasError && imageUrl ? (
