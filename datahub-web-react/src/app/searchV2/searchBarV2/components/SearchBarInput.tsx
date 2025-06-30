@@ -38,6 +38,8 @@ const ViewSelectContainer = styled.div``;
 
 export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
+    width: 100%;
+    min-width: 500px;
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -77,6 +79,7 @@ interface Props {
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    width?: string;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
@@ -93,6 +96,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             placeholder,
             showCommandK,
             viewsEnabled,
+            width,
         },
         ref,
     ) => {
@@ -158,7 +162,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                             )}
                         </SuffixWrapper>
                     }
-                    width={isShowNavBarRedesign ? '664px' : '620px'}
+                    width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
                     $isShowNavBarRedesign={isShowNavBarRedesign}
                 />
