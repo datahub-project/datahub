@@ -14,6 +14,13 @@ from datahub.ingestion.source.source_registry import source_registry
 logger = logging.getLogger(__name__)
 
 
+DENY_LIST = {
+    "snowflake-summary",
+    "snowflake-queries",
+    "bigquery-queries",
+}
+
+
 def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
     """Load plugin capabilities without generating full documentation."""
     logger.debug(f"Loading capabilities for {plugin_name}")
@@ -81,11 +88,7 @@ def generate_capability_summary() -> CapabilitySummary:
     plugin_details: Dict[str, Dict] = {}
 
     for plugin_name in sorted(source_registry.mapping.keys()):
-        if plugin_name in {
-            "snowflake-summary",
-            "snowflake-queries",
-            "bigquery-queries",
-        }:
+        if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
