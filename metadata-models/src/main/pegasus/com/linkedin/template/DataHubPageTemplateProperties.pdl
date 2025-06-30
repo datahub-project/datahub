@@ -3,7 +3,7 @@ namespace com.linkedin.template
 import com.linkedin.common.AuditStamp
 
 /**
- * The main properties of an Application
+ * The main properties of a DataHub page template
  */
 @Aspect = {
   "name": "dataHubPageTemplateProperties"
@@ -28,7 +28,7 @@ record DataHubPageTemplateProperties  {
   /**
    * Info about the surface area of the product that this template is deployed in
    */
-  visbility: DataHubPageTemplateVisibility
+  visibility: DataHubPageTemplateVisibility
 
   /**
    * Audit stamp for when and by whom this template was created
