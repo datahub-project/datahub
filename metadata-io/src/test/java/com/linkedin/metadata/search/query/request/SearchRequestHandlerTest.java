@@ -41,6 +41,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -58,13 +60,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -1192,6 +1198,226 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     // Verify the max limit was applied
     assertEquals(sourceBuilder.size(), 25);
+  }
+
+  @Test
+  public void testExtractResultWithNullSize() {
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test with null size
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, null);
+
+    // Should use the default from the service config
+    assertEquals(
+        result.getPageSize().intValue(),
+        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getFrom().intValue(), 0);
+    assertEquals(result.getNumEntities().intValue(), 100);
+  }
+
+  @Test
+  public void testExtractResultWithLimitConfiguration() {
+    // Create a custom SearchServiceConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().max(50).apiDefault(30).strict(false).build())
+                    .build())
+            .build();
+
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(200L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+
+    // Test with size above limit
+    SearchResult result =
+        limitHandler.extractResult(
+            operationContext, mockResponse, null, 0, 100); // Requesting 100, but max is 50
+
+    // Should be limited to 30, applying default
+    assertEquals(result.getPageSize().intValue(), 30);
+
+    // Test with size below limit
+    result = limitHandler.extractResult(operationContext, mockResponse, null, 0, 25);
+
+    // Should use the requested size
+    assertEquals(result.getPageSize().intValue(), 25);
+
+    // Test with null size - should use API default
+    result = limitHandler.extractResult(operationContext, mockResponse, null, 0, null);
+
+    // Should use the API default (30)
+    assertEquals(result.getPageSize().intValue(), 30);
+  }
+
+  @Test
+  public void testExtractScrollResultWithNullSize() {
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test with null size
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
+
+    // Should use the default from the service config default
+    assertEquals(
+        result.getPageSize().intValue(),
+        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getNumEntities().intValue(), 100);
+  }
+
+  @Test
+  public void testExtractScrollResultWithLimitConfiguration() {
+    // Create a custom SearchServiceConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().max(40).apiDefault(40).strict(false).build())
+                    .build())
+            .build();
+
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Test with size above limit
+    ScrollResult result = verifyScrollResultSize(limitHandler, 40, 80, true);
+
+    // Should be limited to 40 as the default
+    assertEquals(result.getPageSize().intValue(), 40);
+    assertNotNull(result.getScrollId()); // Should have next scroll ID since we have full page
+
+    // Test with size below limit - partial page
+    result = verifyScrollResultSize(limitHandler, 15, 20, false);
+
+    // Should use the requested size
+    assertEquals(result.getPageSize().intValue(), 20);
+    assertFalse(result.hasScrollId()); // No next scroll ID since results < page size
+
+    // Test with null size - should use API default
+    result = verifyScrollResultSize(limitHandler, 40, null, true);
+
+    // Should use the API default (40)
+    assertEquals(result.getPageSize().intValue(), 40);
+    assertNotNull(result.getScrollId()); // Should have next scroll ID
+  }
+
+  @Test
+  public void testExtractScrollResultPaginationLogic() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test when results equal page size - should have scroll ID
+    ScrollResult result = verifyScrollResultSize(handler, 10, 10, true);
+
+    assertEquals(result.getPageSize().intValue(), 10);
+    assertNotNull(result.getScrollId());
+
+    // Test when results less than page size - should NOT have scroll ID
+    result = verifyScrollResultSize(handler, 5, 10, false);
+
+    assertEquals(result.getPageSize().intValue(), 10);
+    assertFalse(result.hasScrollId());
+  }
+
+  // Helper method to create scroll results with specific sizes
+  private ScrollResult verifyScrollResultSize(
+      SearchRequestHandler handler,
+      int actualResults,
+      Integer requestedSize,
+      boolean expectScrollId) {
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    // Create array of mock hits
+    SearchHit[] hits = new SearchHit[actualResults];
+    for (int i = 0; i < actualResults; i++) {
+      SearchHit mockHit = mock(SearchHit.class);
+      when(mockHit.getSourceAsMap())
+          .thenReturn(
+              ImmutableMap.of(
+                  "urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,test" + i + ",PROD)"));
+      when(mockHit.getScore()).thenReturn(1.0f);
+      when(mockHit.getHighlightFields()).thenReturn(ImmutableMap.of());
+      when(mockHit.getMatchedQueries()).thenReturn(new String[0]);
+      when(mockHit.getSortValues()).thenReturn(new Object[] {"sortValue" + i});
+      hits[i] = mockHit;
+    }
+    when(mockHits.getHits()).thenReturn(hits);
+
+    return handler.extractScrollResult(
+        operationContext, mockResponse, null, "5m", requestedSize, true);
   }
 
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
