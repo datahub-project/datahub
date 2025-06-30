@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
+import com.linkedin.metadata.aspect.hooks.LineageDatasetUrnResolver;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -382,6 +383,26 @@ public class SpringStandardPluginConfiguration {
                             .entityName(EXECUTION_REQUEST_ENTITY_NAME)
                             .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
                             .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.extensions.enabled",
+      havingValue = "false")
+  public MutationHook lineageDatasetUrnMutator(
+      @Value("${lineageDatasetUrnMutator.platforms}") List<String> platforms) {
+    return new LineageDatasetUrnResolver()
+        .setPlatforms(platforms)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LineageDatasetUrnResolver.class.getName())
+                .enabled(ignoreUnknownEnabled && !extensionsEnabled)
+                .supportedOperations(List.of("CREATE", "UPDATE", "UPSERT", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        new AspectPluginConfig.EntityAspectName(
+                            "*", DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)))
                 .build());
   }
 }
