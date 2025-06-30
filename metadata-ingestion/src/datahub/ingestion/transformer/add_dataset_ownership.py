@@ -72,12 +72,20 @@ class AddDatasetOwnership(OwnershipTransformer):
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
             owners = {
-                frozenset((owner.owner, owner.type, owner.typeUrn)): owner
+                (
+                    owner.owner,
+                    owner.type,
+                    owner.typeUrn,
+                ): owner
                 for owner in server_ownership.owners
             }
             owners.update(
                 {
-                    frozenset((owner.owner, owner.type, owner.typeUrn)): owner
+                    (
+                        owner.owner,
+                        owner.type,
+                        owner.typeUrn,
+                    ): owner
                     for owner in mce_ownership.owners
                 }
             )
