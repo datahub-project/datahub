@@ -692,8 +692,9 @@ def _build_database_filter_condition(
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            # Convert regex pattern to SQL RLIKE
-            allow_conditions.append(f"database_name RLIKE '{pattern}'")
+            # Escape single quotes that might be present in the regex pattern
+            escaped_pattern = pattern.replace("'", "''")
+            allow_conditions.append(f"database_name RLIKE '{escaped_pattern}'")
         if allow_conditions:
             database_conditions.append(f"({' OR '.join(allow_conditions)})")
 
@@ -701,8 +702,9 @@ def _build_database_filter_condition(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            # Convert regex pattern to SQL RLIKE with NOT
-            deny_conditions.append(f"database_name NOT RLIKE '{pattern}'")
+            # Escape single quotes that might be present in the regex pattern
+            escaped_pattern = pattern.replace("'", "''")
+            deny_conditions.append(f"database_name NOT RLIKE '{escaped_pattern}'")
         if deny_conditions:
             database_conditions.append(f"({' AND '.join(deny_conditions)})")
 

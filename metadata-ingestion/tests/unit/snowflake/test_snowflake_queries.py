@@ -66,14 +66,24 @@ class TestBuildDatabaseFilterCondition:
                 id="allow_all_with_deny",
             ),
             pytest.param(
-                AllowDenyPattern(allow=["^TEST'S_DB$"]),
-                "(database_name RLIKE '^TEST'S_DB$')",
+                AllowDenyPattern(allow=["^TESTS?[a-z]?_DB$"]),
+                "(database_name RLIKE '^TESTS?[a-z]?_DB$')",
                 id="special_characters",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["^TEST DB$"]),
                 "(database_name RLIKE '^TEST DB$')",
                 id="whitespace_in_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(allow=["xxx'yyy"]),
+                "(database_name RLIKE 'xxx''yyy')",
+                id="single_quote_in_allow_pattern",
+            ),
+            pytest.param(
+                AllowDenyPattern(deny=["xxx'yyy"]),
+                "(database_name NOT RLIKE 'xxx''yyy')",
+                id="single_quote_in_deny_pattern",
             ),
         ],
     )
