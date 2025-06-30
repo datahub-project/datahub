@@ -55,7 +55,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run tests
         run: |
-          ./gradlew --info :metadata-ingestion:testScriptsCoverage
+          ./gradlew --info :metadata-ingestion:testScripts
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build
