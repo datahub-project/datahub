@@ -10,7 +10,7 @@ record DataHubPageTemplateVisibility  {
    @Searchable = {
     "fieldType": "KEYWORD"
   }
-  scope: enum TemplateScope {
+  scope: enum PageTemplateScope {
     /**
      * This template is used for individual use only
      */
