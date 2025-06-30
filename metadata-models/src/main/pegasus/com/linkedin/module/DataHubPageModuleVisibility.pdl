@@ -1,0 +1,23 @@
+namespace com.linkedin.module
+
+/**
+ * Info about the visibility of this module
+ */
+record DataHubPageModuleVisibility  {
+  /**
+   * Audit stamp for when and by whom this module was created
+   */
+   @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  scope: enum PageModuleScope {
+    /**
+     * This module is used for individual use only
+     */
+    PERSONAL
+    /**
+     * This module is used across users
+     */
+    GLOBAL
+   }
+}
