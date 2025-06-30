@@ -151,20 +151,18 @@ public class OwnerServiceTest {
 
   @Test
   private void testAddOwnersToEntity() throws Exception {
-    SystemEntityClient mockClient = createMockOwnersClient(null);
-
-    final OwnerService service = new OwnerService(mockClient);
+    final OwnerService service = createMockOwnersService(null);
 
     Owner owner = new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER);
 
     service.addOwners(opContext, TEST_ENTITY_URN_1, ImmutableList.of(owner));
 
-    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockClient, times(1))
-        .ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    ArgumentCaptor<List<MetadataChangeProposal>> proposalCaptor =
+        ArgumentCaptor.forClass((Class<List<MetadataChangeProposal>>) (Class) List.class);
+    verify(service.entityClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), proposalCaptor.capture(), eq(false));
 
-    MetadataChangeProposal resultProposal = proposalCaptor.getValue();
+    MetadataChangeProposal resultProposal = proposalCaptor.getValue().get(0);
     assertEquals(resultProposal.getEntityType(), DATASET_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), OWNERSHIP_ASPECT_NAME);
     assertEquals(resultProposal.getChangeType(), ChangeType.UPSERT);
