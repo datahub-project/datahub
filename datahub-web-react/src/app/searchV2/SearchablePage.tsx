@@ -102,8 +102,7 @@ export const SearchablePage = ({ children }: Props) => {
 
         let newAppliedFilters: FacetFilterInput[] | undefined = filters;
 
-        // For the redesigned search bar we should always pass new filters even though they are empty
-        if (showSearchBarAutocompleteRedesign || (newFilters && newFilters?.length > 0)) {
+        if (newFilters && newFilters?.length > 0) {
             newAppliedFilters = newFilters;
         }
 

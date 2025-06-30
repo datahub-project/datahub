@@ -116,14 +116,10 @@ export const SearchBarV2 = ({
         [selectOption],
     );
 
-    const onChangeHandler = useCallback(
-        (value: string) => {
-            const filteredQuery = filterSearchQuery(value);
-            setSearchQuery(filteredQuery);
-            if (value === '') clear();
-        },
-        [clear],
-    );
+    const onChangeHandler = useCallback((value: string) => {
+        const filteredQuery = filterSearchQuery(value);
+        setSearchQuery(filteredQuery);
+    }, []);
 
     const onDropdownVisibilityChangeHandler = useCallback((isOpen) => setIsDropdownVisible(isOpen), []);
 
@@ -198,6 +194,7 @@ export const SearchBarV2 = ({
                     onFocus={onFocus}
                     onBlur={onBlur}
                     onViewsClick={onViewsClickHandler}
+                    onClear={clearQueryAndFilters}
                     ref={searchInputRef}
                     showCommandK={showCommandK}
                     isDropdownOpened={isDropdownVisible}
