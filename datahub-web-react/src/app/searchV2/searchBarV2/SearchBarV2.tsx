@@ -27,6 +27,14 @@ import { SearchBarApi } from '@src/types.generated';
 
 const Wrapper = styled.div``;
 
+const StyledAutocomplete = styled(AutoComplete)`
+    width: 100%;
+`;
+
+interface SearchBarV2Props extends SearchBarProps {
+    width?: string;
+}
+
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -44,7 +52,8 @@ export const SearchBarV2 = ({
     onBlur,
     showViewAllResults = false,
     isShowNavBarRedesign,
-}: SearchBarProps) => {
+    width,
+}: SearchBarV2Props) => {
     const appConfig = useAppConfig();
     const showAutoCompleteResults = appConfig?.config?.featureFlags?.showAutoCompleteResults;
     const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
@@ -139,7 +148,7 @@ export const SearchBarV2 = ({
 
     return (
         <Wrapper id={id} className={SEARCH_BAR_CLASS_NAME}>
-            <AutoComplete
+            <StyledAutocomplete
                 dataTestId="search-bar"
                 defaultActiveFirstOption={false}
                 options={options}
@@ -162,6 +171,7 @@ export const SearchBarV2 = ({
                         onClearFilters={onClearFiltersAndSelectedViewHandler}
                     />
                 }
+                dropdownMatchSelectWidth
                 onSelect={onSelectHandler}
                 defaultValue={initialQuery || undefined}
                 value={searchQuery}
@@ -186,6 +196,7 @@ export const SearchBarV2 = ({
                 onDropdownVisibleChange={onDropdownVisibilityChangeHandler}
                 open={isDropdownVisible}
                 dropdownContentHeight={480}
+                clickOutsideWidth={width === '100%' ? '100%' : undefined}
             >
                 <SearchBarInput
                     placeholder={placeholderText}
@@ -199,8 +210,9 @@ export const SearchBarV2 = ({
                     showCommandK={showCommandK}
                     isDropdownOpened={isDropdownVisible}
                     viewsEnabled={viewsEnabled}
+                    width={width}
                 />
-            </AutoComplete>
+            </StyledAutocomplete>
         </Wrapper>
     );
 };
