@@ -1,0 +1,4782 @@
+{
+  "entities": {
+    "globalSettings": {
+      "globalSettingsInfo": {
+        "aspect": "globalSettingsInfo",
+        "fields": [
+          {
+            "name": "defaultView",
+            "path": "views.defaultView",
+            "isLineage": true,
+            "relationship": {
+              "name": "viewedWith",
+              "entityTypes": [
+                "dataHubView"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "role": {
+      "actors": {
+        "aspect": "actors",
+        "fields": [
+          {
+            "name": "user",
+            "path": "users.user",
+            "isLineage": true,
+            "relationship": {
+              "name": "Has",
+              "entityTypes": [
+                "corpuser"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "post": {
+      "postInfo": {
+        "aspect": "postInfo",
+        "fields": [
+          {
+            "name": "target",
+            "path": "target",
+            "isLineage": true,
+            "relationship": {
+              "name": "PostTarget",
+              "entityTypes": [
+                "dataset",
+                "schemaField",
+                "chart",
+                "container",
+                "dashboard",
+                "dataFlow",
+                "dataJob",
+                "dataProduct",
+                "glossaryTerm",
+                "glossaryNode",
+                "mlModel",
+                "mlFeature",
+                "notebook",
+                "mlFeatureTable",
+                "mlPrimaryKey",
+                "mlModelGroup",
+                "domain",
+                "dataProduct"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataJob": {
+      "dataJobInputOutput": {
+        "aspect": "dataJobInputOutput",
+        "fields": [
+          {
+            "name": "inputDatasets",
+            "path": "inputDatasets",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputDatasetEdges",
+            "path": "inputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputDatasets",
+            "path": "outputDatasets",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputDatasetEdges",
+            "path": "outputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputDatajobs",
+            "path": "inputDatajobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataJob"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputDatajobEdges",
+            "path": "inputDatajobEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataJob"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputDatasetFields",
+            "path": "inputDatasetFields",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputDatasetFields",
+            "path": "outputDatasetFields",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentsSummary": {
+        "aspect": "incidentsSummary",
+        "fields": [
+          {
+            "name": "resolvedIncidentDetails",
+            "path": "resolvedIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ResolvedIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "activeIncidentDetails",
+            "path": "activeIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ActiveIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataJobKey": {
+        "aspect": "dataJobKey",
+        "fields": [
+          {
+            "name": "flow",
+            "path": "flow",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "dataFlow"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "corpuser": {
+      "groupMembership": {
+        "aspect": "groupMembership",
+        "fields": [
+          {
+            "name": "groups",
+            "path": "groups",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsMemberOfGroup",
+              "entityTypes": [
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "roleMembership": {
+        "aspect": "roleMembership",
+        "fields": [
+          {
+            "name": "roles",
+            "path": "roles",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsMemberOfRole",
+              "entityTypes": [
+                "dataHubRole"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "corpUserInfo": {
+        "aspect": "corpUserInfo",
+        "fields": [
+          {
+            "name": "managerUrn",
+            "path": "managerUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ReportsTo",
+              "entityTypes": [
+                "corpuser"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "corpUserEditableInfo": {
+        "aspect": "corpUserEditableInfo",
+        "fields": [
+          {
+            "name": "platforms",
+            "path": "platforms",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsUserOf",
+              "entityTypes": [
+                "dataPlatform"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "persona",
+            "path": "persona",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPersona",
+              "entityTypes": [
+                "dataHubPersona"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "nativeGroupMembership": {
+        "aspect": "nativeGroupMembership",
+        "fields": [
+          {
+            "name": "nativeGroups",
+            "path": "nativeGroups",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsMemberOfNativeGroup",
+              "entityTypes": [
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "slackUserInfo": {
+        "aspect": "slackUserInfo",
+        "fields": [
+          {
+            "name": "slackInstance",
+            "path": "slackInstance",
+            "isLineage": true,
+            "relationship": {
+              "name": "PartOfSlackWorkspace",
+              "entityTypes": [
+                "dataPlatformInstance"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "corpGroup": {
+      "roleMembership": {
+        "aspect": "roleMembership",
+        "fields": [
+          {
+            "name": "roles",
+            "path": "roles",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsMemberOfRole",
+              "entityTypes": [
+                "dataHubRole"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "corpGroupInfo": {
+        "aspect": "corpGroupInfo",
+        "fields": [
+          {
+            "name": "admins",
+            "path": "admins",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "members",
+            "path": "members",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "corpuser"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "groups",
+            "path": "groups",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataset": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "upstreamLineage": {
+        "aspect": "upstreamLineage",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "upstreams.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "fineGrainedLineages",
+            "path": "fineGrainedLineages",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset",
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "editableSchemaMetadata": {
+        "aspect": "editableSchemaMetadata",
+        "fields": [
+          {
+            "name": "globalTags",
+            "path": "editableSchemaFieldInfo.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "EditableSchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "editableSchemaFieldInfo.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "editableSchemaFieldInfo.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "EditableSchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "editableSchemaFieldInfo.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "schemaMetadata": {
+        "aspect": "schemaMetadata",
+        "fields": [
+          {
+            "name": "globalTags",
+            "path": "fields.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "fields.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "fields.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "fields.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignFields",
+            "path": "foreignKeys.foreignFields",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyTo",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignDataset",
+            "path": "foreignKeys.foreignDataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyToDataset",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "siblings": {
+        "aspect": "siblings",
+        "fields": [
+          {
+            "name": "siblings",
+            "path": "siblings",
+            "isLineage": true,
+            "relationship": {
+              "name": "SiblingOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "versionProperties": {
+        "aspect": "versionProperties",
+        "fields": [
+          {
+            "name": "versionSet",
+            "path": "versionSet",
+            "isLineage": true,
+            "relationship": {
+              "name": "VersionOf",
+              "entityTypes": [
+                "versionSet"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentsSummary": {
+        "aspect": "incidentsSummary",
+        "fields": [
+          {
+            "name": "resolvedIncidentDetails",
+            "path": "resolvedIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ResolvedIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "activeIncidentDetails",
+            "path": "activeIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ActiveIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "access": {
+        "aspect": "access",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "roles.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "role"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataFlow": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentsSummary": {
+        "aspect": "incidentsSummary",
+        "fields": [
+          {
+            "name": "resolvedIncidentDetails",
+            "path": "resolvedIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ResolvedIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "activeIncidentDetails",
+            "path": "activeIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ActiveIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataProcess": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataProcessInfo": {
+        "aspect": "dataProcessInfo",
+        "fields": [
+          {
+            "name": "inputs",
+            "path": "inputs",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputs",
+            "path": "outputs",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataProcessInstance": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataProcessInstanceOutput": {
+        "aspect": "dataProcessInstanceOutput",
+        "fields": [
+          {
+            "name": "outputs",
+            "path": "outputs",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "dataset",
+                "mlModel"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "DataProcessInstanceProduces",
+              "entityTypes": [
+                "dataset",
+                "mlModel",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataProcessInstanceRelationships": {
+        "aspect": "dataProcessInstanceRelationships",
+        "fields": [
+          {
+            "name": "parentTemplate",
+            "path": "parentTemplate",
+            "isLineage": true,
+            "relationship": {
+              "name": "InstanceOf",
+              "entityTypes": [
+                "dataJob",
+                "dataFlow",
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "parentInstance",
+            "path": "parentInstance",
+            "isLineage": true,
+            "relationship": {
+              "name": "ChildOf",
+              "entityTypes": [
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "upstreamInstances",
+            "path": "upstreamInstances",
+            "isLineage": true,
+            "relationship": {
+              "name": "UpstreamOf",
+              "entityTypes": [
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataProcessInstanceInput": {
+        "aspect": "dataProcessInstanceInput",
+        "fields": [
+          {
+            "name": "inputs",
+            "path": "inputs",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset",
+                "mlModel"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "DataProcessInstanceConsumes",
+              "entityTypes": [
+                "dataset",
+                "mlModel",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "chart": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "chartInfo": {
+        "aspect": "chartInfo",
+        "fields": [
+          {
+            "name": "inputs",
+            "path": "inputs",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentsSummary": {
+        "aspect": "incidentsSummary",
+        "fields": [
+          {
+            "name": "resolvedIncidentDetails",
+            "path": "resolvedIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ResolvedIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "activeIncidentDetails",
+            "path": "activeIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ActiveIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "inputFields": {
+        "aspect": "inputFields",
+        "fields": [
+          {
+            "name": "schemaFieldUrn",
+            "path": "fields.schemaFieldUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "consumesField",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "globalTags",
+            "path": "fields.schemaField.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "fields.schemaField.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "fields.schemaField.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "fields.schemaField.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dashboard": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dashboardInfo": {
+        "aspect": "dashboardInfo",
+        "fields": [
+          {
+            "name": "charts",
+            "path": "charts",
+            "isLineage": true,
+            "relationship": {
+              "name": "Contains",
+              "entityTypes": [
+                "chart"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "chartEdges",
+            "path": "chartEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Contains",
+              "entityTypes": [
+                "chart"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "datasets",
+            "path": "datasets",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "datasetEdges",
+            "path": "datasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "dashboards",
+            "path": "dashboards",
+            "isLineage": true,
+            "relationship": {
+              "name": "DashboardContainsDashboard",
+              "entityTypes": [
+                "dashboard"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentsSummary": {
+        "aspect": "incidentsSummary",
+        "fields": [
+          {
+            "name": "resolvedIncidentDetails",
+            "path": "resolvedIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ResolvedIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "activeIncidentDetails",
+            "path": "activeIncidentDetails",
+            "isLineage": true,
+            "relationship": {
+              "name": "ActiveIncidents",
+              "entityTypes": [
+                "incident"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "inputFields": {
+        "aspect": "inputFields",
+        "fields": [
+          {
+            "name": "schemaFieldUrn",
+            "path": "fields.schemaFieldUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "consumesField",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "globalTags",
+            "path": "fields.schemaField.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "fields.schemaField.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "fields.schemaField.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "fields.schemaField.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "notebook": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "domain": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domainProperties": {
+        "aspect": "domainProperties",
+        "fields": [
+          {
+            "name": "parentDomain",
+            "path": "parentDomain",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "container": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "access": {
+        "aspect": "access",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "roles.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "role"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "tag": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "glossaryTerm": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "schemaMetadata": {
+        "aspect": "schemaMetadata",
+        "fields": [
+          {
+            "name": "globalTags",
+            "path": "fields.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "fields.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "fields.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "fields.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignFields",
+            "path": "foreignKeys.foreignFields",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyTo",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignDataset",
+            "path": "foreignKeys.foreignDataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyToDataset",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryRelatedTerms": {
+        "aspect": "glossaryRelatedTerms",
+        "fields": [
+          {
+            "name": "isRelatedTerms",
+            "path": "isRelatedTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsA",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "hasRelatedTerms",
+            "path": "hasRelatedTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "HasA",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "values",
+            "path": "values",
+            "isLineage": true,
+            "relationship": {
+              "name": "HasValue",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "relatedTerms",
+            "path": "relatedTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsRelatedTo",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTermInfo": {
+        "aspect": "glossaryTermInfo",
+        "fields": [
+          {
+            "name": "parentNode",
+            "path": "parentNode",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "glossaryNode"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "glossaryNode": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryNodeInfo": {
+        "aspect": "glossaryNodeInfo",
+        "fields": [
+          {
+            "name": "parentNode",
+            "path": "parentNode",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "glossaryNode"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlModel": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "versionProperties": {
+        "aspect": "versionProperties",
+        "fields": [
+          {
+            "name": "versionSet",
+            "path": "versionSet",
+            "isLineage": true,
+            "relationship": {
+              "name": "VersionOf",
+              "entityTypes": [
+                "versionSet"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlModelProperties": {
+        "aspect": "mlModelProperties",
+        "fields": [
+          {
+            "name": "trainingJobs",
+            "path": "trainingJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "TrainedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "downstreamJobs",
+            "path": "downstreamJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "UsedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "mlFeatures",
+            "path": "mlFeatures",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "mlFeature"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "deployments",
+            "path": "deployments",
+            "isLineage": true,
+            "relationship": {
+              "name": "DeployedTo",
+              "entityTypes": [
+                "mlModelDeployment"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "groups",
+            "path": "groups",
+            "isLineage": true,
+            "relationship": {
+              "name": "MemberOf",
+              "entityTypes": [
+                "mlModelGroup"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlModelGroup": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlModelGroupProperties": {
+        "aspect": "mlModelGroupProperties",
+        "fields": [
+          {
+            "name": "trainingJobs",
+            "path": "trainingJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "TrainedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "downstreamJobs",
+            "path": "downstreamJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "UsedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlModelDeployment": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "container": {
+        "aspect": "container",
+        "fields": [
+          {
+            "name": "container",
+            "path": "container",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPartOf",
+              "entityTypes": [
+                "container"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlFeatureTable": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlFeatureTableProperties": {
+        "aspect": "mlFeatureTableProperties",
+        "fields": [
+          {
+            "name": "mlFeatures",
+            "path": "mlFeatures",
+            "isLineage": true,
+            "relationship": {
+              "name": "Contains",
+              "entityTypes": [
+                "mlFeature"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "mlPrimaryKeys",
+            "path": "mlPrimaryKeys",
+            "isLineage": true,
+            "relationship": {
+              "name": "KeyedBy",
+              "entityTypes": [
+                "mlPrimaryKey"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlFeatureTableKey": {
+        "aspect": "mlFeatureTableKey",
+        "fields": [
+          {
+            "name": "platform",
+            "path": "platform",
+            "isLineage": true,
+            "relationship": {
+              "name": "SourcePlatform",
+              "entityTypes": [
+                "dataPlatform"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlFeature": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlFeatureProperties": {
+        "aspect": "mlFeatureProperties",
+        "fields": [
+          {
+            "name": "sources",
+            "path": "sources",
+            "isLineage": true,
+            "relationship": {
+              "name": "DerivedFrom",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "mlPrimaryKey": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "mlPrimaryKeyProperties": {
+        "aspect": "mlPrimaryKeyProperties",
+        "fields": [
+          {
+            "name": "sources",
+            "path": "sources",
+            "isLineage": true,
+            "relationship": {
+              "name": "DerivedFrom",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "schemaField": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "businessAttributes": {
+        "aspect": "businessAttributes",
+        "fields": [
+          {
+            "name": "businessAttribute",
+            "path": "businessAttribute",
+            "isLineage": true,
+            "relationship": {
+              "name": "BusinessAttributeOf",
+              "entityTypes": [
+                "businessAttribute"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataProduct": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "applications": {
+        "aspect": "applications",
+        "fields": [
+          {
+            "name": "applications",
+            "path": "applications",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "application"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "dataProductProperties": {
+        "aspect": "dataProductProperties",
+        "fields": [
+          {
+            "name": "assets",
+            "path": "assets",
+            "isLineage": true,
+            "relationship": {
+              "name": "DataProductContains",
+              "entityTypes": [
+                "dataset",
+                "dataJob",
+                "dataFlow",
+                "chart",
+                "dashboard",
+                "notebook",
+                "container",
+                "mlModel",
+                "mlModelGroup",
+                "mlFeatureTable",
+                "mlFeature",
+                "mlPrimaryKey"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "application": {
+      "testResults": {
+        "aspect": "testResults",
+        "fields": [
+          {
+            "name": "failing",
+            "path": "failing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsFailing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "passing",
+            "path": "passing",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsPassing",
+              "entityTypes": [
+                "test"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "domains": {
+        "aspect": "domains",
+        "fields": [
+          {
+            "name": "domains",
+            "path": "domains",
+            "isLineage": true,
+            "relationship": {
+              "name": "AssociatedWith",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "assertion": {
+      "assertionInfo": {
+        "aspect": "assertionInfo",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "datasetAssertion.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "fields",
+            "path": "datasetAssertion.fields",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "freshnessAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset",
+                "dataJob"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "volumeAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "sqlAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "fieldAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "schemaAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset",
+                "dataJob"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "globalTags",
+            "path": "schemaAssertion.schema.fields.globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "schemaAssertion.schema.fields.globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "schemaAssertion.schema.fields.glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "SchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "schemaAssertion.schema.fields.glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignFields",
+            "path": "schemaAssertion.schema.foreignKeys.foreignFields",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyTo",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "foreignDataset",
+            "path": "schemaAssertion.schema.foreignKeys.foreignDataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "ForeignKeyToDataset",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "entity",
+            "path": "customAssertion.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "field",
+            "path": "customAssertion.field",
+            "isLineage": true,
+            "relationship": {
+              "name": "Asserts",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "erModelRelationship": {
+      "erModelRelationshipProperties": {
+        "aspect": "erModelRelationshipProperties",
+        "fields": [
+          {
+            "name": "source",
+            "path": "source",
+            "isLineage": true,
+            "relationship": {
+              "name": "ermodelrelationA",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "destination",
+            "path": "destination",
+            "isLineage": true,
+            "relationship": {
+              "name": "ermodelrelationB",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "glossaryTerms": {
+        "aspect": "glossaryTerms",
+        "fields": [
+          {
+            "name": "urn",
+            "path": "terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "businessAttribute": {
+      "businessAttributeInfo": {
+        "aspect": "businessAttributeInfo",
+        "fields": [
+          {
+            "name": "globalTags",
+            "path": "globalTags",
+            "isLineage": true,
+            "relationship": {
+              "name": "EditableSchemaFieldTaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "tags",
+            "path": "globalTags.tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "glossaryTerms",
+            "path": "glossaryTerms",
+            "isLineage": true,
+            "relationship": {
+              "name": "EditableSchemaFieldWithGlossaryTerm",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "urn",
+            "path": "glossaryTerms.terms.urn",
+            "isLineage": true,
+            "relationship": {
+              "name": "TermedWith",
+              "entityTypes": [
+                "glossaryTerm"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataHubIngestionSource": {
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataPlatformInstance": {
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "form": {
+      "ownership": {
+        "aspect": "ownership",
+        "fields": [
+          {
+            "name": "owner",
+            "path": "owners.owner",
+            "isLineage": true,
+            "relationship": {
+              "name": "OwnedBy",
+              "entityTypes": [
+                "corpuser",
+                "corpGroup"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "typeUrn",
+            "path": "owners.typeUrn",
+            "isLineage": true,
+            "relationship": {
+              "name": "ownershipType",
+              "entityTypes": [
+                "ownershipType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "incident": {
+      "globalTags": {
+        "aspect": "globalTags",
+        "fields": [
+          {
+            "name": "tags",
+            "path": "tags",
+            "isLineage": true,
+            "relationship": {
+              "name": "TaggedWith",
+              "entityTypes": [
+                "tag"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "incidentInfo": {
+        "aspect": "incidentInfo",
+        "fields": [
+          {
+            "name": "entities",
+            "path": "entities",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncidentOn",
+              "entityTypes": [
+                "dataset",
+                "chart",
+                "dashboard",
+                "dataFlow",
+                "dataJob",
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "structuredProperty": {
+      "propertyDefinition": {
+        "aspect": "propertyDefinition",
+        "fields": [
+          {
+            "name": "entityTypes",
+            "path": "entityTypes",
+            "isLineage": true,
+            "relationship": {
+              "name": "StructuredPropertyOf",
+              "entityTypes": [
+                "entityType"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataHubExecutionRequest": {
+      "dataHubExecutionRequestInput": {
+        "aspect": "dataHubExecutionRequestInput",
+        "fields": [
+          {
+            "name": "ingestionSource",
+            "path": "source.ingestionSource",
+            "isLineage": true,
+            "relationship": {
+              "name": "ingestionSource",
+              "entityTypes": [
+                "dataHubIngestionSource"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "query": {
+      "querySubjects": {
+        "aspect": "querySubjects",
+        "fields": [
+          {
+            "name": "entity",
+            "path": "subjects.entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsAssociatedWith",
+              "entityTypes": [
+                "dataset",
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataHubPolicy": {
+      "dataHubPolicyInfo": {
+        "aspect": "dataHubPolicyInfo",
+        "fields": [
+          {
+            "name": "roles",
+            "path": "actors.roles",
+            "isLineage": true,
+            "relationship": {
+              "name": "IsAssociatedWithRole",
+              "entityTypes": [
+                "dataHubRole"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataContract": {
+      "dataContractProperties": {
+        "aspect": "dataContractProperties",
+        "fields": [
+          {
+            "name": "entity",
+            "path": "entity",
+            "isLineage": true,
+            "relationship": {
+              "name": "ContractFor",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "schema",
+            "path": "schema",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncludesSchemaAssertion",
+              "entityTypes": [
+                "assertion"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "assertion",
+            "path": "schema.assertion",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncludesSchemaAssertion",
+              "entityTypes": [
+                "assertion"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "freshness",
+            "path": "freshness",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncludesFreshnessAssertion",
+              "entityTypes": [
+                "assertion"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "dataQuality",
+            "path": "dataQuality",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncludesDataQualityAssertion",
+              "entityTypes": [
+                "assertion"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "assertion",
+            "path": "dataQuality.assertion",
+            "isLineage": true,
+            "relationship": {
+              "name": "IncludesDataQualityAssertion",
+              "entityTypes": [
+                "assertion"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    }
+  }
+}

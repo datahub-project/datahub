@@ -12,12 +12,16 @@ from modeldocgen import (
     AspectDefinition,
     EntityCategory,
     EntityDefinition,
+    LineageData,
     Relationship,
     RelationshipAdjacency,
     RelationshipGraph,
     aspect_registry,
     capitalize_first,
     entity_registry,
+    extract_lineage_fields,
+    extract_lineage_fields_from_schema,
+    generate_lineage_json,
     generate_stitched_record,
     get_sorted_entity_names,
     load_schema_file,
@@ -929,3 +933,167 @@ class TestLoadSchemaFile:
         assert entity_def.name == "dataset"
         assert entity_def.keyAspect == "datasetKey"
         assert "datasetProperties" in entity_def.aspects
+
+
+class TestLineageGeneration:
+    """Test lineage generation functionality."""
+
+    def test_extract_lineage_fields_from_schema_simple(self):
+        """Test extracting lineage fields from a simple schema with isLineage property."""
+        clear_registries()
+
+        # Create a simple schema with a lineage field
+        schema_dict = {
+            "type": "record",
+            "name": "TestAspect",
+            "fields": [
+                {"name": "upstreams", "type": "string", "isLineage": True},
+                {"name": "description", "type": "string"},
+            ],
+        }
+        schema = avro.schema.parse(json.dumps(schema_dict))
+
+        # Extract lineage fields
+        lineage_fields = extract_lineage_fields_from_schema(schema)
+
+        # Should find one lineage field
+        assert len(lineage_fields) == 1
+        field = lineage_fields[0]
+        assert field.name == "upstreams"
+        assert field.path == "upstreams"
+        assert field.isLineage is True
+        assert field.relationship is None
+
+    def test_extract_lineage_fields_from_schema_with_relationship(self):
+        """Test extracting lineage fields from schema with Relationship property."""
+        clear_registries()
+
+        # Create a schema with a relationship field
+        schema_dict = {
+            "type": "record",
+            "name": "TestAspect",
+            "fields": [
+                {
+                    "name": "relatedDataset",
+                    "type": "string",
+                    "Relationship": {
+                        "entityTypes": ["dataset"],
+                        "name": "DownstreamOf",
+                        "isLineage": True,
+                    },
+                }
+            ],
+        }
+        schema = avro.schema.parse(json.dumps(schema_dict))
+
+        # Extract lineage fields
+        lineage_fields = extract_lineage_fields_from_schema(schema)
+
+        # Should find one lineage field with relationship info
+        assert len(lineage_fields) == 1
+        field = lineage_fields[0]
+        assert field.name == "relatedDataset"
+        assert field.path == "relatedDataset"
+        assert field.isLineage is True
+        assert field.relationship is not None
+        assert field.relationship.name == "DownstreamOf"
+        assert field.relationship.entityTypes == ["dataset"]
+        assert field.relationship.isLineage is True
+
+    def test_generate_lineage_json_empty_data(self):
+        """Test generating JSON from empty lineage data."""
+        clear_registries()
+
+        # Create empty lineage data
+        lineage_data = LineageData(entities={})
+
+        # Generate JSON
+        json_string = generate_lineage_json(lineage_data)
+
+        # Parse and verify structure
+        json_data = json.loads(json_string)
+        assert "entities" in json_data
+        assert json_data["entities"] == {}
+
+        # Verify it's valid JSON
+        assert isinstance(json_string, str)
+        assert json_string.strip().startswith("{")
+        assert json_string.strip().endswith("}")
+
+    def test_extract_lineage_fields_from_schema_nested(self):
+        """Test extracting lineage fields from nested schema structures."""
+        clear_registries()
+
+        # Create a schema with nested lineage fields
+        schema_dict = {
+            "type": "record",
+            "name": "TestAspect",
+            "fields": [
+                {
+                    "name": "upstreams",
+                    "type": {
+                        "type": "array",
+                        "items": {
+                            "type": "record",
+                            "name": "UpstreamInfo",
+                            "fields": [
+                                {
+                                    "name": "dataset",
+                                    "type": "string",
+                                    "isLineage": True,
+                                },
+                                {"name": "metadata", "type": "string"},
+                            ],
+                        },
+                    },
+                }
+            ],
+        }
+        schema = avro.schema.parse(json.dumps(schema_dict))
+
+        # Extract lineage fields
+        lineage_fields = extract_lineage_fields_from_schema(schema)
+
+        # Should find one lineage field in the nested structure
+        assert len(lineage_fields) == 1
+        field = lineage_fields[0]
+        assert field.name == "dataset"
+        assert field.path == "upstreams.dataset"
+        assert field.isLineage is True
+
+    def test_extract_lineage_fields_with_registry_data(self):
+        """Test the main extract_lineage_fields function with registry data."""
+        clear_registries()
+
+        # Setup entity and aspect in registries
+        entity = EntityDefinition(
+            name="dataset", keyAspect="datasetKey", aspects=["upstreamLineage"]
+        )
+        entity_registry["dataset"] = entity
+
+        # Create aspect schema with lineage field
+        aspect_schema_dict = {
+            "type": "record",
+            "name": "UpstreamLineage",
+            "fields": [{"name": "upstreams", "type": "string", "isLineage": True}],
+        }
+        aspect_schema = avro.schema.parse(json.dumps(aspect_schema_dict))
+        aspect_registry["upstreamLineage"] = AspectDefinition(
+            name="upstreamLineage", schema=aspect_schema
+        )
+
+        # Extract lineage fields
+        lineage_data = extract_lineage_fields()
+
+        # Verify structure
+        assert "dataset" in lineage_data.entities
+        assert "upstreamLineage" in lineage_data.entities["dataset"].aspects
+
+        aspect_data = lineage_data.entities["dataset"].aspects["upstreamLineage"]
+        assert aspect_data.aspect == "upstreamLineage"
+        assert len(aspect_data.fields) == 1
+
+        field = aspect_data.fields[0]
+        assert field.name == "upstreams"
+        assert field.path == "upstreams"
+        assert field.isLineage is True

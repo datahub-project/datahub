@@ -94,6 +94,38 @@ class EventDefinition:
     name: str
 
 
+# New dataclasses for lineage representation
+@dataclass
+class LineageRelationship:
+    name: str
+    entityTypes: List[str]
+    isLineage: bool = True
+
+
+@dataclass
+class LineageField:
+    name: str
+    path: str
+    isLineage: bool = True
+    relationship: Optional[LineageRelationship] = None
+
+
+@dataclass
+class LineageAspect:
+    aspect: str
+    fields: List[LineageField]
+
+
+@dataclass
+class LineageEntity:
+    aspects: Dict[str, LineageAspect]
+
+
+@dataclass
+class LineageData:
+    entities: Dict[str, LineageEntity]
+
+
 entity_registry: Dict[str, EntityDefinition] = {}
 
 
@@ -129,6 +161,7 @@ def add_name(self, name_attr, space_attr, new_schema):
 
 
 def load_schema_file(schema_file: str) -> None:
+    logger.debug(f"Loading schema file: {schema_file}")
 
     with open(schema_file) as f:
         raw_schema_text = f.read()
@@ -146,6 +179,7 @@ def load_schema_file(schema_file: str) -> None:
 
         aspect_definition.schema = record_schema
         aspect_registry[aspect_definition.name] = aspect_definition
+        logger.debug(f"Loaded aspect schema: {aspect_definition.name}")
     elif avro_schema.name == "MetadataChangeEvent":
         # probably an MCE schema
         field: Field = avro_schema.fields[1]
@@ -166,8 +200,217 @@ def load_schema_file(schema_file: str) -> None:
                         all_aspects.append(aspect_name)
                 entity_definition.aspects = all_aspects
                 entity_registry[entity_name] = entity_definition
+                logger.debug(f"Loaded entity schema: {entity_name} with aspects: {all_aspects}")
     else:
-        print(f"Ignoring schema {schema_file}")
+        logger.debug(f"Ignoring schema {schema_file}")
+
+
+def extract_lineage_fields_from_schema(
+    schema: avro.schema.Schema, 
+    current_path: str = ""
+) -> List[LineageField]:
+    """
+    Recursively extract lineage fields from an Avro schema.
+    
+    Args:
+        schema: The Avro schema to analyze
+        current_path: The current field path (for nested fields)
+        
+    Returns:
+        List of LineageField objects found in the schema
+    """
+    lineage_fields = []
+    
+    if isinstance(schema, avro.schema.RecordSchema):
+        logger.debug(f"Analyzing record schema at path: {current_path}")
+        for field in schema.fields:
+            field_path = f"{current_path}.{field.name}" if current_path else field.name
+            logger.debug(f"Analyzing field: {field.name} at path: {field_path}")
+            
+            # Check if this field has lineage properties
+            is_lineage = False
+            relationship_info = None
+            
+            # Check for isLineage property
+            if hasattr(field, 'other_props') and field.other_props:
+                is_lineage = field.other_props.get('isLineage', False)
+                if is_lineage:
+                    logger.debug(f"Found isLineage=true for field: {field_path}")
+                
+                # Check for Relationship property
+                if 'Relationship' in field.other_props:
+                    relationship_data = field.other_props['Relationship']
+                    logger.debug(f"Found Relationship property for field: {field_path}: {relationship_data}")
+                    
+                    # Handle both direct relationship and path-based relationship
+                    if 'entityTypes' in relationship_data:
+                        # Direct relationship
+                        relationship_info = LineageRelationship(
+                            name=relationship_data.get('name', ''),
+                            entityTypes=relationship_data.get('entityTypes', []),
+                            isLineage=relationship_data.get('isLineage', True)
+                        )
+                        is_lineage = is_lineage or relationship_info.isLineage
+                    else:
+                        # Path-based relationship - find the actual relationship data
+                        for key, value in relationship_data.items():
+                            if isinstance(value, dict) and 'entityTypes' in value:
+                                relationship_info = LineageRelationship(
+                                    name=value.get('name', ''),
+                                    entityTypes=value.get('entityTypes', []),
+                                    isLineage=value.get('isLineage', True)
+                                )
+                                is_lineage = is_lineage or relationship_info.isLineage
+                                break
+            
+            # If this field is lineage, add it to the results
+            if is_lineage:
+                lineage_field = LineageField(
+                    name=field.name,
+                    path=field_path,
+                    isLineage=True,
+                    relationship=relationship_info
+                )
+                lineage_fields.append(lineage_field)
+                logger.debug(f"Added lineage field: {field_path}")
+            
+            # Recursively check nested fields
+            nested_fields = extract_lineage_fields_from_schema(field.type, field_path)
+            lineage_fields.extend(nested_fields)
+            
+    elif isinstance(schema, avro.schema.ArraySchema):
+        logger.debug(f"Analyzing array schema at path: {current_path}")
+        # For arrays, check the items schema
+        nested_fields = extract_lineage_fields_from_schema(schema.items, current_path)
+        lineage_fields.extend(nested_fields)
+        
+    elif isinstance(schema, avro.schema.UnionSchema):
+        logger.debug(f"Analyzing union schema at path: {current_path}")
+        # For unions, check all possible schemas
+        for union_schema in schema.schemas:
+            nested_fields = extract_lineage_fields_from_schema(union_schema, current_path)
+            lineage_fields.extend(nested_fields)
+    
+    return lineage_fields
+
+
+def extract_lineage_fields() -> LineageData:
+    """
+    Extract lineage fields from all aspects in the aspect registry.
+    
+    Returns:
+        LineageData containing all lineage information organized by entity and aspect
+    """
+    logger.info("Starting lineage field extraction")
+    
+    lineage_data = LineageData(entities={})
+    
+    # Group aspects by entity
+    entity_aspects: Dict[str, List[str]] = {}
+    for entity_name, entity_def in entity_registry.items():
+        entity_aspects[entity_name] = entity_def.aspects
+        logger.debug(f"Entity {entity_name} has aspects: {entity_def.aspects}")
+    
+    # Process each aspect
+    for aspect_name, aspect_def in aspect_registry.items():
+        logger.debug(f"Processing aspect: {aspect_name}")
+        
+        if not aspect_def.schema:
+            logger.warning(f"Aspect {aspect_name} has no schema, skipping")
+            continue
+        
+        # Extract lineage fields from this aspect
+        lineage_fields = extract_lineage_fields_from_schema(aspect_def.schema)
+        
+        if lineage_fields:
+            logger.info(f"Found {len(lineage_fields)} lineage fields in aspect {aspect_name}")
+            
+            # Find which entities use this aspect
+            for entity_name, entity_aspect_list in entity_aspects.items():
+                if aspect_name in entity_aspect_list:
+                    logger.debug(f"Aspect {aspect_name} is used by entity {entity_name}")
+                    
+                    # Initialize entity if not exists
+                    if entity_name not in lineage_data.entities:
+                        lineage_data.entities[entity_name] = LineageEntity(aspects={})
+                    
+                    # Add aspect with lineage fields
+                    lineage_aspect = LineageAspect(
+                        aspect=aspect_name,
+                        fields=lineage_fields
+                    )
+                    lineage_data.entities[entity_name].aspects[aspect_name] = lineage_aspect
+        else:
+            logger.debug(f"No lineage fields found in aspect {aspect_name}")
+    
+    # Log summary
+    total_entities_with_lineage = len(lineage_data.entities)
+    total_aspects_with_lineage = sum(len(entity.aspects) for entity in lineage_data.entities.values())
+    total_lineage_fields = sum(
+        len(aspect.fields) 
+        for entity in lineage_data.entities.values() 
+        for aspect in entity.aspects.values()
+    )
+    
+    logger.info(f"Lineage extraction complete:")
+    logger.info(f"  - Entities with lineage: {total_entities_with_lineage}")
+    logger.info(f"  - Aspects with lineage: {total_aspects_with_lineage}")
+    logger.info(f"  - Total lineage fields: {total_lineage_fields}")
+    
+    return lineage_data
+
+
+def generate_lineage_json(lineage_data: LineageData) -> str:
+    """
+    Generate JSON representation of lineage data.
+    
+    Args:
+        lineage_data: The lineage data to convert to JSON
+        
+    Returns:
+        JSON string representation
+    """
+    logger.info("Generating lineage JSON")
+    
+    # Convert dataclasses to dictionaries
+    def lineage_field_to_dict(field: LineageField) -> Dict[str, Any]:
+        result = {
+            "name": field.name,
+            "path": field.path,
+            "isLineage": field.isLineage
+        }
+        if field.relationship:
+            result["relationship"] = {
+                "name": field.relationship.name,
+                "entityTypes": field.relationship.entityTypes,
+                "isLineage": field.relationship.isLineage
+            }
+        return result
+    
+    def lineage_aspect_to_dict(aspect: LineageAspect) -> Dict[str, Any]:
+        return {
+            "aspect": aspect.aspect,
+            "fields": [lineage_field_to_dict(field) for field in aspect.fields]
+        }
+    
+    def lineage_entity_to_dict(entity: LineageEntity) -> Dict[str, Any]:
+        return {
+            aspect_name: lineage_aspect_to_dict(aspect)
+            for aspect_name, aspect in entity.aspects.items()
+        }
+    
+    # Build the final JSON structure
+    json_data = {
+        "entities": {
+            entity_name: lineage_entity_to_dict(entity)
+            for entity_name, entity in lineage_data.entities.items()
+        }
+    }
+    
+    json_string = json.dumps(json_data, indent=2)
+    logger.info(f"Generated lineage JSON with {len(json_string)} characters")
+    
+    return json_string
 
 
 @dataclass
@@ -620,6 +863,7 @@ def get_sorted_entity_names(
 )
 @click.option("--png", type=str, required=False)
 @click.option("--extra-docs", type=str, required=False)
+@click.option("--lineage-output", type=str, required=False, help="generate lineage JSON file")
 def generate(
     schemas_root: str,
     registry: str,
@@ -629,11 +873,13 @@ def generate(
     dot: Optional[str],
     png: Optional[str],
     extra_docs: Optional[str],
+    lineage_output: Optional[str],
 ) -> None:
     logger.info(f"server = {server}")
     logger.info(f"file = {file}")
     logger.info(f"dot = {dot}")
     logger.info(f"png = {png}")
+    logger.info(f"lineage_output = {lineage_output}")
 
     entity_extra_docs = {}
     if extra_docs:
@@ -662,6 +908,27 @@ def generate(
             entity_registry[entity_name].doc_file_contents = entity_extra_docs[
                 entity_name
             ]
+
+    # Generate lineage JSON if requested
+    if lineage_output:
+        logger.info(f"Generating lineage JSON to {lineage_output}")
+        try:
+            lineage_data = extract_lineage_fields()
+            lineage_json = generate_lineage_json(lineage_data)
+            
+            # Ensure output directory exists
+            output_path = Path(lineage_output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write lineage JSON file
+            with open(output_path, 'w') as f:
+                f.write(lineage_json)
+            
+            logger.info(f"Successfully wrote lineage JSON to {lineage_output}")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate lineage JSON: {e}")
+            raise
 
     relationship_graph = RelationshipGraph()
     mcps = list(generate_stitched_record(relationship_graph))
