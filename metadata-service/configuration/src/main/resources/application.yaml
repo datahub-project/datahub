@@ -68,6 +68,9 @@ ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
+  batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
+  scheduler:
+    refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
