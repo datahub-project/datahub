@@ -30,7 +30,9 @@ export function getAssetDescriptionDetails({
 
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
-    const displayedDescription = editableDescription || documentation?.documentation || defaultDescription || '';
+    // Show the inferred documentation only when the editedDescription is undefined and orginal description is empty
+    const displayedDescription =
+        editedDescription ?? (originalDescription || documentation?.documentation || defaultDescription || '');
 
     const sourceDetail = documentation?.attribution?.sourceDetail;
     const inferredDescription = isInferred ? documentation.documentation : undefined;

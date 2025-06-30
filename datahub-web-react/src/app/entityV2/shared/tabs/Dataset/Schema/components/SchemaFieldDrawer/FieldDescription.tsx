@@ -175,13 +175,13 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                     />
                                 ),
                             ]}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            {isInferred && <InferenceDetailsIndicator />}
-                            {!!displayedDescription && (
+                        {!!displayedDescription && (
+                            <DescriptionWrapper>
+                                {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
+                                {isInferred && <InferenceDetailsIndicator />}
                                 <DescriptionSection description={displayedDescription} isExpandable />
-                            )}
-                        </DescriptionWrapper>
+                            </DescriptionWrapper>
+                        )}
                     </>
                 }
             />

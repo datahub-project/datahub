@@ -33,7 +33,7 @@ export function getFieldDescriptionDetails({
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
     const displayedDescription =
-        editableFieldInfo?.description || defaultDescription || documentation?.documentation || '';
+        editableFieldInfo?.description ?? (defaultDescription || documentation?.documentation || '');
 
     const sourceDetail = documentation?.attribution?.sourceDetail;
     const propagatedDescription = isPropagated ? documentation?.documentation : undefined;
