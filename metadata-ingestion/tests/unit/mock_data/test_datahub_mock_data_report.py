@@ -1,48 +1,44 @@
-from unittest.mock import Mock
-
-from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
-    DataHubMockDataReport,
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.mock_data.datahub_mock_data import (
+    DataHubMockDataConfig,
+    DataHubMockDataSource,
 )
 
 
 class TestDataHubMockDataReport:
     def test_first_urn_capture(self):
-        """Test that the first URN is captured correctly."""
-        report = DataHubMockDataReport()
+        """Test that the first URN is captured correctly when using the source."""
+        config = DataHubMockDataConfig()
+        config.gen_1.emit_lineage = True
+        config.gen_1.lineage_fan_out = 1
+        config.gen_1.lineage_hops = 0  # Only one table to make testing easier
 
-        assert report.first_urn_seen is None
+        ctx = PipelineContext(run_id="test")
+        source = DataHubMockDataSource(ctx, config)
 
-        mock_workunit = Mock()
-        mock_workunit.get_urn.return_value = (
-            "urn:li:dataset:(urn:li:dataPlatform:fake,test_table,PROD)"
+        assert source.report.first_urn_seen is None
+
+        workunits = list(source.get_workunits())
+
+        assert len(workunits) > 0
+
+        assert source.report.first_urn_seen is not None
+        assert source.report.first_urn_seen.startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:fake,"
         )
 
-        report.report_workunit(mock_workunit)
+    def test_no_urns_when_lineage_disabled(self):
+        """Test that no URNs are captured when lineage is disabled."""
+        config = DataHubMockDataConfig()
+        config.gen_1.emit_lineage = False
 
-        assert (
-            report.first_urn_seen
-            == "urn:li:dataset:(urn:li:dataPlatform:fake,test_table,PROD)"
-        )
+        ctx = PipelineContext(run_id="test")
+        source = DataHubMockDataSource(ctx, config)
 
-        mock_workunit2 = Mock()
-        mock_workunit2.get_urn.return_value = (
-            "urn:li:dataset:(urn:li:dataPlatform:fake,test_table2,PROD)"
-        )
+        assert source.report.first_urn_seen is None
 
-        report.report_workunit(mock_workunit2)
+        workunits = list(source.get_workunits())
 
-        assert (
-            report.first_urn_seen
-            == "urn:li:dataset:(urn:li:dataPlatform:fake,test_table,PROD)"
-        )
+        assert len(workunits) == 0
 
-    def test_workunit_without_urn(self):
-        """Test that workunits without get_urn method don't cause errors."""
-        report = DataHubMockDataReport()
-
-        mock_workunit = Mock()
-        del mock_workunit.get_urn
-
-        report.report_workunit(mock_workunit)
-
-        assert report.first_urn_seen is None
+        assert source.report.first_urn_seen is None
