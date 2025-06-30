@@ -3,17 +3,22 @@ import React from 'react';
 
 import LineageEntityView from '@app/lineage/manage/LineageEntityView';
 import { dataset1 } from '@src/Mocks';
-import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+import { getTestEntityRegistry, useEntityDataFunc } from '@utils/test-utils/TestPageContainer';
 
 const mockEntityRegistry = getTestEntityRegistry();
 vi.mock('../../useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
 }));
 
+vi.mock('@app/entity/shared/EntityContext', () => ({
+    useEntityData: () => {
+        return useEntityDataFunc();
+    },
+}));
+
 describe('LineageEntityView', () => {
     it('should render an entity properly in LineageEntityView', () => {
         const { getByTestId, getByText } = render(<LineageEntityView entity={dataset1} />);
-
         // expect platform logo, platform name, divider, entity type, and display name
         expect(getByTestId('platform-logo')).toBeInTheDocument();
         expect(getByText(dataset1.platform.name)).toBeInTheDocument();
@@ -25,18 +30,26 @@ describe('LineageEntityView', () => {
     it('should render the subtype name if it exists and not the type name', () => {
         const datasetWithSubtype = { ...dataset1, subTypes: { typeNames: ['view'] } };
         const { getByText, queryByText } = render(<LineageEntityView entity={datasetWithSubtype} />);
-
         expect(queryByText('Dataset')).not.toBeInTheDocument();
         expect(getByText('View')).toBeInTheDocument();
     });
 
     it('should not render a divider if there is no platform name', () => {
+        vi.mock('@app/entity/shared/EntityContext', () => ({
+            useEntityData: () => {
+                return useEntityDataFunc();
+            },
+        }));
+
         const datasetNoPlatformName = {
             ...dataset1,
             platform: { ...dataset1.platform, name: '', properties: { displayName: '' } },
         };
         const { queryByTestId } = render(<LineageEntityView entity={datasetNoPlatformName} />);
-
         expect(queryByTestId('divider')).not.toBeInTheDocument();
+    });
+
+    afterAll(() => {
+        vi.resetAllMocks();
     });
 });

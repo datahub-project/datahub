@@ -2,12 +2,14 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { StyledRightOutlined } from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Entity } from '@types';
+import { Container, Entity } from '@types';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -41,25 +43,52 @@ interface Props {
     displaySearchResult?: boolean;
 }
 
+interface DbSchemaPair {
+    db?: string;
+    schema?: string;
+}
+
+function extractDbSchema(containers?: Container[]): DbSchemaPair | undefined {
+    if (containers && containers.length === 2 && containers[0]?.properties?.name && containers[1]?.properties?.name) {
+        return {
+            db: containers[1]?.properties?.name,
+            schema: containers[0]?.properties?.name,
+        };
+    }
+    return undefined;
+}
+
 export default function LineageEntityView({ entity, displaySearchResult }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const { entityData } = useEntityData();
 
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const platformName = getPlatformName(genericProps);
+    const containers = entityData?.parentContainers?.containers;
+
+    const dbSchema = extractDbSchema(containers);
 
     return (
         <EntityWrapper shrinkPadding={displaySearchResult}>
             <PlatformContent removeMargin={displaySearchResult}>
-                {platformLogoUrl && (
-                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
-                )}
-                <span>{platformName}</span>
-                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
                 <span>
                     {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
+                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
+                {platformLogoUrl && (
+                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
+                )}
+                <span>{platformName}</span>
+                {dbSchema && (
+                    <>
+                        <StyledRightOutlined data-testid="right-arrow" />
+                        <span>{dbSchema.schema}</span>
+                        <StyledRightOutlined data-testid="right-arrow" />
+                        <span>{dbSchema.schema}</span>
+                    </>
+                )}
             </PlatformContent>
             <EntityName shrinkSize={displaySearchResult}>
                 {entityRegistry.getDisplayName(entity.type, entity)}
