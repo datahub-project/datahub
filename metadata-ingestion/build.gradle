@@ -111,7 +111,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot}"
 }
 
-task testScriptsCoverage(type: Exec, dependsOn: [installDev]) {
+task testScripts(type: Exec, dependsOn: [installDev]) {
   inputs.files(project.fileTree(dir: "scripts/tests/", include: "**/*.py"))
   outputs.dir("${venv_name}")
 
