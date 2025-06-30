@@ -5,13 +5,10 @@ import analytics, { EventType } from '@app/analytics';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import { useAppConfig } from '@app/useAppConfig';
 
 import { FacetFilterInput, QuickFilter } from '@types';
 
-export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
-    const appConfig = useAppConfig();
-    const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
+export default function useGoToSearchPage(quickFilter: QuickFilter | null, showSearchBarAutocompleteRedesign: boolean) {
     const history = useHistory();
     const selectedSortOption = useSelectedSortOption();
 

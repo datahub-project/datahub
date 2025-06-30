@@ -86,7 +86,7 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
         }
     }, [suggestionsData]);
 
-    const search = useGoToSearchPage(selectedQuickFilter);
+    const search = useGoToSearchPage(selectedQuickFilter, showSearchBarAutocompleteRedesign);
 
     const autoComplete = debounce((query: string) => {
         if (query && query.trim() !== '') {
