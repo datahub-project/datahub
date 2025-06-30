@@ -18,13 +18,25 @@ available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:acryl-spark-lineage) for the latest
 released version.
 
+**Note**: Starting from version 0.2.18, we provide separate jars for different Scala versions:
+- For Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
+- For Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
+
 ### Configuration Instructions: spark-submit
 
 When running jobs using spark-submit, the agent needs to be configured in the config file.
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.18
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.12:0.2.18
+spark.extraListeners                         datahub.spark.DatahubSparkListener
+spark.datahub.rest.server                    http://localhost:8080
+```
+
+For Scala 2.13:
+```text
+#Configuring DataHub spark agent jar for Scala 2.13
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.13:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +44,12 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage_2.12:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+```
+
+For Scala 2.13:
+```sh
+spark-submit --packages io.acryl:acryl-spark-lineage_2.13:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions: Amazon EMR
@@ -41,7 +58,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.18
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.12:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +73,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.18")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage_2.12:0.2.18")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
@@ -79,7 +96,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.18")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage_2.12:0.2.18")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -161,7 +178,7 @@ information like tokens.
 
 | Field                                                            | Required | Default                 | Description                                                                                                                                                                                                  |
 | ---------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage:0.2.15                                                                                                                                         |
+| spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage_2.12:0.2.18 (or io.acryl:acryl-spark-lineage_2.13:0.2.18 for Scala 2.13)                                                                          |
 | spark.extraListeners                                             | ✅       |                         | datahub.spark.DatahubSparkListener                                                                                                                                                                           |
 | spark.datahub.emitter                                            |          | rest                    | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                                                  |
 | spark.datahub.rest.server                                        |          | <http://localhost:8080> | Datahub server url eg: <http://localhost:8080>                                                                                                                                                               |
@@ -224,6 +241,10 @@ The following custom properties in pipelines and tasks relate to the Spark UI:
 - Other custom properties of pipelines and tasks capture the start and end times of execution etc.
 
 For Spark on Databricks, pipeline start time is the cluster start time.
+
+### Column-level Lineage and Transformation Types
+
+The Spark agent captures fine-grained lineage information, including column-level lineage with transformation types. When available, OpenLineage's [transformation types](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type) are captured and mapped to DataHub's FinegrainedLineage `TransformOption`, providing detailed insights into how data transformations occur at the column level.
 
 ### Spark versions supported
 
@@ -396,6 +417,11 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
   - Option for Enhanced Merge Into Extraction
   - Fix rdd map detection to correctly handle map transformations in the lineage.
+  - **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
+    - Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
+    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
+  - **Column-level Lineage Enhancement**: OpenLineage's transformation types are now captured and mapped to DataHub's FinegrainedLineage `TransformOption` as per the [OpenLineage column lineage specification](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type)
+  - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
 
 ### Version 0.2.17
 
