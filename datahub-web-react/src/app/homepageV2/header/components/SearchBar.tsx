@@ -24,7 +24,7 @@ const StyledButton = styled(Button)`
 export default function SearchBar() {
     const entityRegistry = useEntityRegistryV2();
     const searchViewAll = useSearchViewAll();
-    const search = useGoToSearchPage(null, true);
+    const search = useGoToSearchPage(null);
     const themeConfig = useTheme();
 
     return (

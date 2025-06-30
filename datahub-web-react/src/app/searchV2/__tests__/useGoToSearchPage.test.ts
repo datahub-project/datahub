@@ -31,7 +31,7 @@ describe('useGoToSearchPage Hook', () => {
         const mockSortOption = 'relevance';
         vi.mocked(useSelectedSortOption).mockReturnValue(mockSortOption);
 
-        const { result } = renderHook(() => useGoToSearchPage(mockQuickFilter, false));
+        const { result } = renderHook(() => useGoToSearchPage(mockQuickFilter));
 
         const query = 'testQuery';
         const filters = [{ field: 'origin', values: ['urn:li:dataPlatform:bigquery'] }];
@@ -53,7 +53,7 @@ describe('useGoToSearchPage Hook', () => {
 
         vi.mocked(useSelectedSortOption).mockReturnValue(undefined);
 
-        const { result } = renderHook(() => useGoToSearchPage(null, false));
+        const { result } = renderHook(() => useGoToSearchPage(null));
 
         const query = 'hello';
 
@@ -68,12 +68,12 @@ describe('useGoToSearchPage Hook', () => {
         );
     });
 
-    it('should always pass newFilters if feature flag is enabled', () => {
+    it('should always pass newFilters if newFilters is provided', () => {
         vi.mocked(useQueryAndFiltersFromLocation).mockReturnValue({ filters: [], query: '' });
         vi.mocked(useSelectedSortOption).mockReturnValue(undefined);
         const newFilters = [{ field: 'platform', values: ['urn:li:dataPlatform:hive'] }];
 
-        const { result } = renderHook(() => useGoToSearchPage(null, true));
+        const { result } = renderHook(() => useGoToSearchPage(null));
 
         const query = 'featureFlagTest';
 
@@ -88,11 +88,11 @@ describe('useGoToSearchPage Hook', () => {
         );
     });
 
-    it('should not override filters if feature flag is disabled and newFilters not provided', () => {
+    it('should not override filters if newFilters is not provided', () => {
         const existingFilters = [{ field: 'platform', values: ['urn:li:dataPlatform:hive'] }];
         vi.mocked(useQueryAndFiltersFromLocation).mockReturnValue({ filters: existingFilters, query: '' });
 
-        const { result } = renderHook(() => useGoToSearchPage(null, false));
+        const { result } = renderHook(() => useGoToSearchPage(null));
 
         const query = 'noOverride';
 

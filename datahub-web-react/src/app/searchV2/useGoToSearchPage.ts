@@ -8,7 +8,7 @@ import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
 import { FacetFilterInput, QuickFilter } from '@types';
 
-export default function useGoToSearchPage(quickFilter: QuickFilter | null, showSearchBarAutocompleteRedesign: boolean) {
+export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
     const history = useHistory();
     const selectedSortOption = useSelectedSortOption();
 
@@ -27,8 +27,7 @@ export default function useGoToSearchPage(quickFilter: QuickFilter | null, showS
 
             let newAppliedFilters: FacetFilterInput[] | undefined = filters;
 
-            // For the redesigned search bar we should always pass new filters even though they are empty
-            if (showSearchBarAutocompleteRedesign || (newFilters && newFilters?.length > 0)) {
+            if (newFilters && newFilters?.length > 0) {
                 newAppliedFilters = newFilters;
             }
 
@@ -39,6 +38,6 @@ export default function useGoToSearchPage(quickFilter: QuickFilter | null, showS
                 selectedSortOption,
             });
         },
-        [filters, history, quickFilter, selectedSortOption, showSearchBarAutocompleteRedesign],
+        [filters, history, quickFilter, selectedSortOption],
     );
 }
