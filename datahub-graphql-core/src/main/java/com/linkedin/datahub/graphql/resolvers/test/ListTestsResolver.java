@@ -124,12 +124,17 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
+                                    // Filter out Forms tests
                                     CriterionUtils.buildCriterion(
                                         "sourceType",
                                         Condition.EQUAL,
                                         true,
                                         "FORMS",
                                         "BULK_FORM_SUBMISSION",
-                                        "FORM_PROMPT")))))));
+                                        "FORM_PROMPT"),
+                                    // Name is a required field on TestInfo, should prevent null
+                                    // TestInfo
+                                    CriterionUtils.buildCriterion(
+                                        "name", Condition.EXISTS, false)))))));
   }
 }
