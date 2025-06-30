@@ -92,8 +92,14 @@ task installAll(type: Exec, dependsOn: [install]) {
     "touch ${sentinel_file}"
 }
 
-
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
+  def outdir = './generated/docs'
+  def docsOutdir = '../docs/generated/metamodel'
+  def datahubRoot = '..'
+  def schemasRoot = "${datahubRoot}/metadata-events/mxe-schemas/src/mainGeneratedAvroSchema/avro/"
+  def entityRegistry = "${datahubRoot}/metadata-models/src/main/resources/entity-registry.yml"
+  def metadataModelDocsRoot = "${datahubRoot}/metadata-models/docs"
+  
   inputs.files(
     file('scripts/modeldocgen.py'),
     project.fileTree(dir: "../metadata-models/docs/entities/", include: "**/*.md"),
@@ -101,27 +107,34 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
   outputs.dir('../docs/generated/metamodel')
-  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/modeldocgen.sh"
+  
+  commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot}"
+}
+
+task testScriptsCoverage(type: Exec, dependsOn: [installDev]) {
+  inputs.files(project.fileTree(dir: "scripts/tests/", include: "**/*.py"))
+  outputs.dir("${venv_name}")
+
+  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && cp ../setup.cfg . && PYTHONPATH=${project.projectDir} pytest -vvv tests/ --cov=. --cov-report=term --cov-report=html:./cov_html && rm setup.cfg"
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
     commandLine 'bash', '-c', "${venv_activate_command} ./scripts/modeldocupload.sh"
 }
 
-
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/capability_summary.py src/ tests/ examples/ && " +
-    "ruff format --check scripts/capability_summary.py src/ tests/ examples/ && " +
+    "ruff check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format --check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/capability_summary.py src/ tests/ examples/ && " +
-    "ruff format scripts/capability_summary.py src/ tests/ examples/ "
+    "ruff check --fix scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ "
 }
 
 def pytest_default_env = "PYTHONDEVMODE=1"
@@ -210,8 +223,6 @@ task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   }
   commandLine 'bash', '-c', "${venv_activate_command} ./scripts/docgen.sh"
 }
-
-
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
