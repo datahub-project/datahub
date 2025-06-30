@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import lookerLogo from '../../../../../images/lookerlogo.svg';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import lookerLogo from '@images/lookerlogo.svg';
 
 const placeholderRecipe = `\
 source:
@@ -20,7 +21,7 @@ const lookerConfig: SourceConfig = {
     type: LOOKER,
     placeholderRecipe,
     displayName: 'Looker',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/looker/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/looker/',
     logoUrl: lookerLogo,
 };
 

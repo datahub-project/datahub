@@ -77,7 +77,7 @@ class SnowsightUrlBuilder:
         region: str,
     ) -> Tuple[str, str]:
         cloud: str
-        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING:
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
@@ -325,15 +325,10 @@ class SnowflakeIdentifierBuilder:
         user_email: Optional[str],
     ) -> str:
         if user_email:
-            return self.snowflake_identifier(
-                user_email
-                if self.identifier_config.email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
+            return self.snowflake_identifier(user_email)
         return self.snowflake_identifier(
             f"{user_name}@{self.identifier_config.email_domain}"
-            if self.identifier_config.email_as_user_identifier is True
-            and self.identifier_config.email_domain is not None
+            if self.identifier_config.email_domain is not None
             else user_name
         )
 

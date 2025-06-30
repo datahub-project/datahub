@@ -12,12 +12,13 @@
                 "project_id": "project-id-1"
             },
             "name": "project-id-1",
+            "qualifiedName": "project-id-1",
             "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-0mn4n3",
+        "runId": "bigquery-2022_02_03-07_00_00-rxfj1j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -119,12 +120,13 @@
             },
             "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m4!1m3!3m2!1sproject-id-1!2sbigquery-dataset-1",
             "name": "bigquery-dataset-1",
+            "qualifiedName": "project-id-1.bigquery-dataset-1",
             "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-0mn4n3",
+        "runId": "bigquery-2022_02_03-07_00_00-rxfj1j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -857,6 +859,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD),email)"
                     ],
+                    "transformOperation": "COPY: `table-1`.`email` AS `email`",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29"
                 }
@@ -865,7 +868,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-0mn4n3",
+        "runId": "bigquery-2022_02_03-07_00_00-74473i",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -876,6 +879,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW `bigquery-dataset-1.view-1` AS\nSELECT\n  email\nFROM `bigquery-dataset-1.table-1`",
                 "language": "SQL"

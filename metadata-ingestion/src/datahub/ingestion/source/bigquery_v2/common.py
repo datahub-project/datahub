@@ -63,7 +63,7 @@ class BigQueryIdentifierBuilder:
         )
 
     def gen_user_urn(self, user_email: str) -> str:
-        return make_user_urn(user_email.split("@")[0])
+        return make_user_urn(user_email)
 
     def make_data_platform_urn(self) -> str:
         return make_data_platform_urn(self.platform)

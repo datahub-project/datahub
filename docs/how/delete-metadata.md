@@ -99,7 +99,7 @@ The start and end time fields filter on the `timestampMillis` field of the times
 
 #### Undo-ing soft deletion of entities
 
-You can restore soft-deleted entities using the `undo-by-filter` command. This reverts the effect of a soft delete. 
+You can restore soft-deleted entities using the `undo-by-filter` command. This reverts the effect of a soft delete.
 
 ```shell
 # Restore (un-soft-delete) a single soft-deleted entity
@@ -225,7 +225,7 @@ datahub delete --platform snowflake --only-soft-deleted --hard
 
 ## Deletes using the SDK and APIs
 
-The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports deletes via the following methods:
+The Python SDK's [DataHubGraph](../../python-sdk/clients/graph-client.mdx) client supports deletes via the following methods:
 
 - `soft_delete_entity`
 - `hard_delete_entity`

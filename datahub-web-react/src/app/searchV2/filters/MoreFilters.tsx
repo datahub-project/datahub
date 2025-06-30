@@ -2,15 +2,17 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
+import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
+import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
+import { getNumActiveFiltersForGroupOfFilters } from '@app/searchV2/filters/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import MoreFilterOption from './MoreFilterOption';
-import { getNumActiveFiltersForGroupOfFilters } from './utils';
-import { SearchFilterLabel } from './styledComponents';
-import useSearchFilterAnalytics from './useSearchFilterAnalytics';
-import { useFilterRendererRegistry } from './render/useFilterRenderer';
-import { FilterScenarioType } from './render/types';
-import { FilterPredicate } from './types';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const DropdownMenu = styled.div<{ padding?: string }>`
     background-color: white;

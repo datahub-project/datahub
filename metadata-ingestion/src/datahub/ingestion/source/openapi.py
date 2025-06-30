@@ -82,6 +82,9 @@ class OpenApiConfig(ConfigModel):
     get_token: dict = Field(
         default={}, description="Retrieving a token from the endpoint."
     )
+    verify_ssl: bool = Field(
+        default=True, description="Enable SSL certificate verification"
+    )
 
     @validator("bearer_token", always=True)
     def ensure_only_one_token(
@@ -102,7 +105,7 @@ class OpenApiConfig(ConfigModel):
                 # details there once, and then use that session for all requests.
                 self.token = f"Bearer {self.bearer_token}"
             else:
-                assert "url_complement" in self.get_token.keys(), (
+                assert "url_complement" in self.get_token, (
                     "When 'request_type' is set to 'get', an url_complement is needed for the request."
                 )
                 if self.get_token["request_type"] == "get":
@@ -129,12 +132,14 @@ class OpenApiConfig(ConfigModel):
                     tok_url=url4req,
                     method=self.get_token["request_type"],
                     proxies=self.proxies,
+                    verify_ssl=self.verify_ssl,
                 )
             sw_dict = get_swag_json(
                 self.url,
                 token=self.token,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
+                verify_ssl=self.verify_ssl,
             )  # load the swagger file
 
         else:  # using basic auth for accessing endpoints
@@ -144,6 +149,7 @@ class OpenApiConfig(ConfigModel):
                 password=self.password,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
+                verify_ssl=self.verify_ssl,
             )
         return sw_dict
 
@@ -317,7 +323,7 @@ class APISource(Source, ABC):
                 yield wu
 
             # Handle schema metadata if available
-            if "data" in endpoint_dets.keys():
+            if "data" in endpoint_dets:
                 # we are lucky! data is defined in the swagger for this endpoint
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
                 wu = MetadataWorkUnit(
@@ -343,6 +349,7 @@ class APISource(Source, ABC):
                         tot_url,
                         token=config.token,
                         proxies=config.proxies,
+                        verify_ssl=config.verify_ssl,
                     )
                 else:
                     response = request_call(
@@ -350,6 +357,7 @@ class APISource(Source, ABC):
                         username=config.username,
                         password=config.password,
                         proxies=config.proxies,
+                        verify_ssl=config.verify_ssl,
                     )
                 if response.status_code == 200:
                     fields2add, root_dataset_samples[dataset_name] = extract_fields(
@@ -371,7 +379,7 @@ class APISource(Source, ABC):
                 else:
                     self.report_bad_responses(response.status_code, type=endpoint_k)
             else:
-                if endpoint_k not in config.forced_examples.keys():
+                if endpoint_k not in config.forced_examples:
                     # start guessing...
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
@@ -380,6 +388,7 @@ class APISource(Source, ABC):
                             tot_url,
                             token=config.token,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     else:
                         response = request_call(
@@ -387,6 +396,7 @@ class APISource(Source, ABC):
                             username=config.username,
                             password=config.password,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
@@ -415,6 +425,7 @@ class APISource(Source, ABC):
                             tot_url,
                             token=config.token,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     else:
                         response = request_call(
@@ -422,6 +433,7 @@ class APISource(Source, ABC):
                             username=config.username,
                             password=config.password,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)

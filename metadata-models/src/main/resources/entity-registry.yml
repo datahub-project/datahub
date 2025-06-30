@@ -21,6 +21,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - applications
       - schemaMetadata
       - status
       - container
@@ -60,6 +61,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataJobInfo
@@ -85,6 +87,7 @@ entities:
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataFlowInfo
@@ -138,6 +141,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - applications
       - container
       - deprecation
       - ownership
@@ -156,6 +160,7 @@ entities:
     keyAspect: dashboardKey
     aspects:
       - domains
+      - applications
       - container
       - deprecation
       - dashboardUsageStatistics
@@ -190,6 +195,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - applications
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
@@ -259,6 +265,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - applications
       - browsePathsV2
       - structuredProperties
       - forms
@@ -284,6 +291,7 @@ entities:
       - ownership
       - deprecation
       - domains
+      - applications
       - status
       - browsePaths
       - structuredProperties
@@ -308,6 +316,7 @@ entities:
     keyAspect: dataHubIngestionSourceKey
     aspects:
       - dataHubIngestionSourceInfo
+      - ownership
   - name: dataHubSecret
     category: internal
     keyAspect: dataHubSecretKey
@@ -354,6 +363,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - applications
       - ownership
       - mlModelProperties
       - intendedUse
@@ -386,6 +396,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - applications
       - mlModelGroupProperties
       - ownership
       - status
@@ -418,6 +429,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - applications
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -438,6 +450,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - applications
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -458,6 +471,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - applications
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -578,7 +592,23 @@ entities:
       - glossaryTerms
       - globalTags
       - domains
+      - applications
       - dataProductProperties
+      - institutionalMemory
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: application
+    category: core
+    keyAspect: applicationKey
+    aspects:
+      - applicationProperties
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
       - institutionalMemory
       - status
       - structuredProperties
@@ -607,6 +637,7 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+      - structuredProperties
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
@@ -665,6 +696,12 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata
 events:
 plugins:
   aspectPayloadValidators:

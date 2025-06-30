@@ -1,13 +1,22 @@
+import os
+from enum import Enum, auto
 from typing import Dict, List, Optional
 
 from datahub.configuration.common import ConfigModel
 
 
+class ClientMode(Enum):
+    INGESTION = auto()
+    CLI = auto()
+    SDK = auto()
+
+
+DATAHUB_COMPONENT_ENV: str = os.getenv("DATAHUB_COMPONENT", "datahub").lower()
+
+
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
-    # TODO: Having a default for the server doesn't make a ton of sense. This should be handled
-    # by callers / the CLI, but the actual client should not have any magic.
     server: str
     token: Optional[str] = None
     timeout_sec: Optional[float] = None
@@ -17,3 +26,10 @@ class DatahubClientConfig(ConfigModel):
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
+    openapi_ingestion: Optional[bool] = None
+    client_mode: Optional[ClientMode] = None
+    datahub_component: Optional[str] = None
+    server_config_refresh_interval: Optional[int] = None
+
+    class Config:
+        extra = "ignore"

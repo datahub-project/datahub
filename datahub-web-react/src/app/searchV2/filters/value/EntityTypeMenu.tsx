@@ -1,12 +1,18 @@
 /* eslint-disable import/no-cycle */
 import React, { useState } from 'react';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '../../utils/constants';
-import { OptionMenu } from './styledComponents';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadAggregationOptions,
+} from '@app/searchV2/filters/value/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
 
 interface Props {
     field: FilterField;
@@ -18,6 +24,7 @@ interface Props {
     includeSubTypes?: boolean;
     includeCount?: boolean;
     className?: string;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function EntityTypeMenu({
@@ -30,6 +37,7 @@ export default function EntityTypeMenu({
     includeSubTypes = true,
     includeCount = false,
     className,
+    aggregationsEntityTypes,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -38,7 +46,12 @@ export default function EntityTypeMenu({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
+    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
+        field,
+        visible: true,
+        includeCounts: includeCount,
+        aggregationsEntityTypes,
+    });
 
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 

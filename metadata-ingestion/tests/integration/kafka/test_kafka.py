@@ -9,8 +9,9 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.testing import mce_helpers
 from tests.integration.kafka import oauth  # type: ignore
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -25,16 +26,11 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def mock_kafka_service(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "kafka", cleanup=False
-    ) as docker_services:
-        wait_for_port(docker_services, "test_zookeeper", 52181, timeout=120)
-
-    # Running docker compose twice, since the broker sometimes fails to come up on the first try.
-    with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
-        wait_for_port(docker_services, "test_broker", 29092, timeout=120)
-        wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
+        wait_for_port(docker_services, "test_zookeeper", 52181, timeout=180)
+        wait_for_port(docker_services, "test_broker", 29092, timeout=180)
+        wait_for_port(docker_services, "test_schema_registry", 8081, timeout=180)
 
         # Set up topics and produce some data
         command = f"{test_resources_dir}/send_records.sh {test_resources_dir}"

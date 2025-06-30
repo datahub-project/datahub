@@ -1,6 +1,8 @@
-import { render, fireEvent } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
-import { NameSourceStep } from '../NameSourceStep';
+
+import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
 
 describe('NameSourceStep', () => {
     it('should trim leading and trailing whitespaces from the text field on blur', () => {
@@ -10,16 +12,18 @@ describe('NameSourceStep', () => {
         };
         const state = { name: '' };
         const { getByTestId } = render(
-            <NameSourceStep
-                state={state}
-                updateState={updateStateMock}
-                prev={() => {}}
-                submit={() => {}}
-                goTo={() => {}}
-                cancel={() => {}}
-                ingestionSources={[]}
-                isEditing
-            />,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <NameSourceStep
+                    state={state}
+                    updateState={updateStateMock}
+                    prev={() => {}}
+                    submit={() => {}}
+                    goTo={() => {}}
+                    cancel={() => {}}
+                    ingestionSources={[]}
+                    isEditing
+                />
+            </MockedProvider>,
         );
         const nameInput = getByTestId('source-name-input') as HTMLInputElement;
         const SourceName = '   Test Name   ';

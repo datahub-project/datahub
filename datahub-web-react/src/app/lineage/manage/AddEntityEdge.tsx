@@ -2,14 +2,16 @@ import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
 import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
-import { Entity, EntityType } from '../../../types.generated';
-import { Direction } from '../types';
-import { getValidEntityTypes } from '../utils/manageLineageUtils';
-import LineageEntityView from './LineageEntityView';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import LineageEntityView from '@app/lineage/manage/LineageEntityView';
+import { Direction } from '@app/lineage/types';
+import { getValidEntityTypes } from '@app/lineage/utils/manageLineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType } from '@types';
 
 const AddEdgeWrapper = styled.div`
     padding: 15px 20px;

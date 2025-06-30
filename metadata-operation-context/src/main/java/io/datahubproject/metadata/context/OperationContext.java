@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -209,7 +210,8 @@ public class OperationContext implements AuthorizationSession {
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
           // Authorizer.EMPTY doesn't actually apply to system auth
-          .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
+          .authorizationContext(
+              AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
           .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
@@ -260,6 +262,11 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public EntityRegistry getEntityRegistry() {
     return entityRegistryContext.getEntityRegistry();
+  }
+
+  @Nonnull
+  public LineageRegistry getLineageRegistry() {
+    return entityRegistryContext.getLineageRegistry();
   }
 
   @Nonnull
@@ -354,6 +361,14 @@ public class OperationContext implements AuthorizationSession {
   public AuthorizationResult authorize(
       @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
     return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
+  }
+
+  public AuthorizationResult authorize(
+      @Nonnull String privilege,
+      @Nullable EntitySpec resourceSpec,
+      @Nonnull Collection<EntitySpec> subResources) {
+    return authorizationContext.authorize(
+        getSessionActorContext(), privilege, resourceSpec, subResources);
   }
 
   @Nullable

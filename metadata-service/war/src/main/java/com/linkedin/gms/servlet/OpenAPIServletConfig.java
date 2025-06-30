@@ -16,7 +16,9 @@ import org.springframework.context.annotation.Configuration;
       "io.datahubproject.openapi.v1",
       "io.datahubproject.openapi.v2",
       "io.datahubproject.openapi.v3",
+      "io.datahubproject.openapi.analytics",
       "com.linkedin.gms.factory.timeline",
+      "com.linkedin.gms.factory.event",
       "org.springdoc"
     })
 @Configuration

@@ -6,7 +6,7 @@ toc_max_heading_level: 4
 
 # DataHub CLI
 
-DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [Acryl Data](https://acryldata.io) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
+DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [DataHub](https://datahub.com) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
 
 ## Installation
 
@@ -123,8 +123,8 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 
 #### ingest list-source-runs
 
-The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
-start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name,
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based
 filtering or the --source option to filter by source name (partial or complete matches are supported).
 
 ```shell
@@ -285,6 +285,7 @@ DATAHUB_DEBUG=false
 A group of commands to interact with containers in DataHub.
 
 e.g. You can use this to apply a tag to all datasets recursively in this container.
+
 ```shell
 datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
 datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"
@@ -296,6 +297,14 @@ datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597
 
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
 The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
+
+#### restore-indices
+
+This command allows you to restore indices for one or more `urn`.
+
+```shell
+datahub check restore-indices --help
+```
 
 ### delete
 
@@ -722,7 +731,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
+Please see our [Integrations page](https://docs.datahub.com/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |

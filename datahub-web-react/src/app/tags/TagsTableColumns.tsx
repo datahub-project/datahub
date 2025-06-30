@@ -1,19 +1,20 @@
-import React from 'react';
+import { Icon, Text, colors, typography } from '@components';
 import { Dropdown } from 'antd';
-import { colors, Text, Icon, typography } from '@components';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetTagQuery } from '@src/graphql/tag.generated';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { Entity, EntityType } from '@src/types.generated';
+import React from 'react';
+import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import Highlight from 'react-highlighter';
-import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
-import { UnionType } from '@src/app/search/utils/constants';
+
+import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { getTagColor } from '@app/tags/utils';
 import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { CardIcons } from '../govern/structuredProperties/styledComponents';
-import { getTagColor } from './utils';
+import { UnionType } from '@src/app/search/utils/constants';
+import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
+import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { useGetTagQuery } from '@src/graphql/tag.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
 const TagName = styled.div`
     font-size: 14px;
@@ -99,7 +100,11 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const { data, loading: ownerLoading } = useGetTagQuery({
+    const {
+        data,
+        loading: ownerLoading,
+        refetch: refetchOwners,
+    } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
     });
@@ -115,7 +120,13 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
         <ColumnContainer>
             <OwnersContainer>
                 {ownershipData.map((ownerItem) => (
-                    <ExpandedOwner key={ownerItem.owner?.urn} entityUrn={tagUrn} owner={ownerItem as any} hidePopOver />
+                    <ExpandedOwner
+                        key={ownerItem.owner?.urn}
+                        entityUrn={tagUrn}
+                        owner={ownerItem as any}
+                        hidePopOver
+                        refetch={refetchOwners}
+                    />
                 ))}
             </OwnersContainer>
         </ColumnContainer>
@@ -225,26 +236,66 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
     );
 });
 
-export const TagActionsColumn = React.memo(({ tagUrn, onEdit }: { tagUrn: string; onEdit: () => void }) => {
-    const items = [
-        {
-            key: '0',
-            label: (
-                <MenuItem onClick={onEdit} data-testid="action-edit">
-                    Edit
-                </MenuItem>
-            ),
-        },
-    ];
+export const TagActionsColumn = React.memo(
+    ({
+        tagUrn,
+        onEdit,
+        onDelete,
+        canManageTags,
+    }: {
+        tagUrn: string;
+        onEdit: () => void;
+        onDelete: () => void;
+        canManageTags: boolean;
+    }) => {
+        const items = [
+            {
+                key: '0',
+                label: (
+                    <MenuItem onClick={onEdit} data-testid="action-edit">
+                        Edit
+                    </MenuItem>
+                ),
+            },
+            {
+                key: '1',
+                label: (
+                    <MenuItem
+                        onClick={() => {
+                            navigator.clipboard.writeText(tagUrn);
+                        }}
+                    >
+                        Copy Urn
+                    </MenuItem>
+                ),
+            },
+            ...(canManageTags
+                ? [
+                      {
+                          key: '2',
+                          label: (
+                              <MenuItem
+                                  onClick={onDelete}
+                                  data-testid="action-delete"
+                                  style={{ color: colors.red[500] }}
+                              >
+                                  Delete
+                              </MenuItem>
+                          ),
+                      },
+                  ]
+                : []),
+        ];
 
-    return (
-        <CardIcons>
-            <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                <Icon icon="MoreVert" size="md" />
-            </Dropdown>
-        </CardIcons>
-    );
-});
+        return (
+            <CardIcons>
+                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                    <Icon icon="MoreVert" size="md" />
+                </Dropdown>
+            </CardIcons>
+        );
+    },
+);
 
 export const TagColorColumn = React.memo(({ tag }: { tag: Entity }) => {
     const colorHex = getTagColor(tag);

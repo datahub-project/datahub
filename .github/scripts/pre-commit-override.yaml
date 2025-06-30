@@ -7,3 +7,9 @@ repos:
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
+      - id: update-capability-summary
+        name: update-capability-summary
+        entry: ./gradlew :metadata-ingestion:capabilitySummary
+        language: system
+        files: ^metadata-ingestion/src/datahub/ingestion/source/.*\.py$
+        pass_filenames: false

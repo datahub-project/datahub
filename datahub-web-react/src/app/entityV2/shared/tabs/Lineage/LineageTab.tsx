@@ -1,15 +1,19 @@
-import LineageGraph from '@app/lineageV2/LineageGraph';
+import { colors } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { LineageDirection } from '../../../../../types.generated';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
-import TabFullsizedContext from '../../../../shared/TabFullsizedContext';
-import { TabRenderType } from '../../types';
-import { CompactLineageTab } from './CompactLineageTab';
-import { useLineageViewState } from './hooks';
-import { LineageColumnView } from './LineageColumnView';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { CompactLineageTab } from '@app/entityV2/shared/tabs/Lineage/CompactLineageTab';
+import { LineageColumnView } from '@app/entityV2/shared/tabs/Lineage/LineageColumnView';
+import { useLineageViewState } from '@app/entityV2/shared/tabs/Lineage/hooks';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import LineageGraph from '@app/lineageV2/LineageGraph';
+import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import { getColor } from '@src/alchemy-components/theme/utils';
+
+import { LineageDirection } from '@types';
 
 const LINEAGE_SWITCH_WIDTH = 90;
 
@@ -20,7 +24,7 @@ const LineageTabWrapper = styled.div`
 `;
 
 const LineageSwitchWrapper = styled.div`
-    border: 1px solid #5d09c9;
+    border: 1px solid ${colors.violet[600]};
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
@@ -28,9 +32,9 @@ const LineageSwitchWrapper = styled.div`
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected }) => (selected ? '#5d09c9' : '#fff')};
+    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : '#fff')};
     border-radius: 3px;
-    color: ${({ selected }) => (selected ? '#fff' : '#5d09c9')};
+    color: ${({ selected, theme }) => (selected ? '#fff' : `${getColor('primary', 600, theme)}`)};
     cursor: pointer;
     display: flex;
     font-size: 10px;

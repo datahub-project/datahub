@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-
-import { colors, Icon } from '@components';
-import theme from '@components/theme';
-import styled from 'styled-components';
+import { Icon, colors } from '@components';
 import { Checkbox } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
-import { OptionLabel } from '../components';
-import { SelectOption } from './types';
-import useNestedOption from './useSelectOption';
-import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
+import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
+import useNestedOption from '@components/components/Select/Nested/useSelectOption';
+import { OptionLabel } from '@components/components/Select/components';
+import { CustomOptionRenderer } from '@components/components/Select/types';
+import theme from '@components/theme';
 
 const ParentOption = styled.div`
     display: flex;
@@ -52,24 +52,25 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
 	`}
 `;
 
-interface OptionProps {
-    option: SelectOption;
-    selectedOptions: SelectOption[];
-    parentValueToOptions: { [parentValue: string]: SelectOption[] };
+interface OptionProps<OptionType extends NestedSelectOption> {
+    option: OptionType;
+    selectedOptions: OptionType[];
+    parentValueToOptions: { [parentValue: string]: OptionType[] };
     areParentsSelectable: boolean;
-    handleOptionChange: (node: SelectOption) => void;
-    addOptions: (nodes: SelectOption[]) => void;
-    removeOptions: (nodes: SelectOption[]) => void;
-    loadData?: (node: SelectOption) => void;
+    handleOptionChange: (node: OptionType) => void;
+    addOptions: (nodes: OptionType[]) => void;
+    removeOptions: (nodes: OptionType[]) => void;
+    loadData?: (node: OptionType) => void;
     isMultiSelect?: boolean;
     isLoadingParentChildList?: boolean;
-    setSelectedOptions: React.Dispatch<React.SetStateAction<SelectOption[]>>;
+    setSelectedOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
-export const NestedOption = ({
+export const NestedOption = <OptionType extends NestedSelectOption>({
     option,
     selectedOptions,
     parentValueToOptions,
@@ -84,7 +85,8 @@ export const NestedOption = ({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
-}: OptionProps) => {
+    renderCustomOptionText,
+}: OptionProps<OptionType>) => {
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
 
@@ -148,8 +150,14 @@ export const NestedOption = ({
                     }}
                     data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >
-                    {option.isParent && <strong>{option.label}</strong>}
-                    {!option.isParent && <>{option.label}</>}
+                    {renderCustomOptionText ? (
+                        renderCustomOptionText(option)
+                    ) : (
+                        <>
+                            {option.isParent && <strong>{option.label}</strong>}
+                            {!option.isParent && <>{option.label}</>}
+                        </>
+                    )}
                     {option.isParent && (
                         <Icon
                             onClick={(e) => {

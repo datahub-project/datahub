@@ -15,7 +15,13 @@ from typing import (
 
 import avro
 import yaml
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictStr,
+    root_validator,
+    validator,
+)
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
@@ -90,7 +96,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, str]
+PropertyValue: TypeAlias = Union[StrictStr, float]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
@@ -366,12 +372,6 @@ class Ownership(ConfigModel):
         return v
 
 
-class StructuredPropertyValue(ConfigModel):
-    value: Union[str, int, float, List[str], List[int], List[float]]
-    created: Optional[str] = None
-    lastModified: Optional[str] = None
-
-
 class DatasetRetrievalConfig(BaseModel):
     include_downstreams: Optional[bool] = False
 
@@ -383,7 +383,7 @@ class Dataset(StrictModel):
     urn: Optional[str] = None
     description: Optional[str] = None
     name: Optional[str] = None
-    schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
+    schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     subtype: Optional[str] = None
@@ -483,7 +483,7 @@ class Dataset(StrictModel):
                                 f"{urn_prefix}:{prop_key}"
                                 if not prop_key.startswith(urn_prefix)
                                 else prop_key
-                                for prop_key in field.structured_properties.keys()
+                                for prop_key in field.structured_properties
                             ]
                         )
                     if field.glossaryTerms:
@@ -497,7 +497,7 @@ class Dataset(StrictModel):
                     f"{urn_prefix}:{prop_key}"
                     if not prop_key.startswith(urn_prefix)
                     else prop_key
-                    for prop_key in self.structured_properties.keys()
+                    for prop_key in self.structured_properties
                 ]
             )
         if self.glossary_terms:
@@ -509,16 +509,14 @@ class Dataset(StrictModel):
     def generate_mcp(
         self,
     ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=self.urn,
-            aspect=DatasetPropertiesClass(
-                description=self.description,
-                name=self.name,
-                customProperties=self.properties,
-                externalUrl=self.external_url,
-            ),
-        )
-        yield mcp
+        patch_builder = self.patch_builder()
+
+        patch_builder.set_custom_properties(self.properties or {})
+        patch_builder.set_description(self.description)
+        patch_builder.set_display_name(self.name)
+        patch_builder.set_external_url(self.external_url)
+
+        yield from patch_builder.build()
 
         if self.schema_metadata:
             schema_fields = set()
@@ -788,6 +786,7 @@ class Dataset(StrictModel):
         if schema_metadata:
             # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
             # Otherwise, we extract all fields
+            schema_fields = []
             if (
                 schema_metadata.platformSchema
                 and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)
@@ -981,7 +980,7 @@ class Dataset(StrictModel):
 
         def model_dump(self, **kwargs):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", set())
+            exclude = kwargs.pop("exclude", None) or set()
 
             # If id and name are identical, exclude name from the output
             if self.id == self.name and self.id is not None:

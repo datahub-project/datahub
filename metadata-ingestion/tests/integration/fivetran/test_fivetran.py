@@ -18,7 +18,7 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
@@ -48,7 +48,7 @@ def default_query_results(
     query, connector_query_results=default_connector_query_results
 ):
     fivetran_log_query = FivetranLogQuery()
-    fivetran_log_query.set_db("test")
+    fivetran_log_query.set_schema("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():
@@ -293,6 +293,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "source": {
                     "type": "fivetran",
                     "config": {
+                        "platform_instance": "my-fivetran",
                         "fivetran_log_config": {
                             "destination_platform": "snowflake",
                             "snowflake_destination_config": {

@@ -25,7 +25,6 @@ import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -153,7 +152,6 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
     if (graphDiffMode
-        && !(graphService instanceof DgraphGraphService)
         && (systemMetadata == null
             || systemMetadata.getProperties() == null
             || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
@@ -335,7 +333,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
         graphService.removeEdgesFromNode(
             opContext,
             entry.getKey(),
-            new ArrayList<>(entry.getValue()),
+            entry.getValue(),
             newRelationshipFilter(
                 new Filter().setOr(new ConjunctiveCriterionArray()),
                 RelationshipDirection.OUTGOING));
@@ -446,7 +444,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           graphService.removeEdgesFromNode(
               opContext,
               entry.getKey(),
-              new ArrayList<>(entry.getValue()),
+              entry.getValue(),
               createRelationshipFilter(
                   new Filter().setOr(new ConjunctiveCriterionArray()),
                   RelationshipDirection.OUTGOING));

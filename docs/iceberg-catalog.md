@@ -6,14 +6,14 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability/>
 
-> Note that this feature is currently in open **Beta**. With any questions or issues, please reach out to your Acryl 
+> Note that this feature is currently in open **Beta**. With any questions or issues, please reach out to your DataHub
 > representative.
 
 > Open Source DataHub: 1.0.0
 
 ## Introduction
 
-DataHub Iceberg Catalog provides integration with Apache Iceberg, allowing you to manage Iceberg tables through DataHub. This tutorial walks through setting up and using the DataHub Iceberg Catalog to create, read, and manage Iceberg tables. The catalog provides a secure way to manage Iceberg tables through DataHub's permissions model  while also enabling discovery use-cases for humans instantly.
+DataHub Iceberg Catalog provides integration with Apache Iceberg, allowing you to manage Iceberg tables through DataHub. This tutorial walks through setting up and using the DataHub Iceberg Catalog to create, read, and manage Iceberg tables. The catalog provides a secure way to manage Iceberg tables through DataHub's permissions model while also enabling discovery use-cases for humans instantly.
 
 ## Use Cases
 
@@ -24,31 +24,34 @@ DataHub Iceberg Catalog provides integration with Apache Iceberg, allowing you t
 
 ## Conceptual Mapping
 
-| Iceberg Concept | DataHub Concept | Notes |
-|-----------------|-----------------|--------|
-| Overall platform | dataPlatform | `iceberg` platform |
-| Warehouse | dataPlatformInstance | Stores info such as storage credentials |
-| Namespace | container | Hierarchical containers of subtype "Namespace" |
-| Tables, Views | dataset | Dataset URN is UUID that persists across renames |
-| Table/View Names | platformResource | Points to dataset, changes with rename operations |
+| Iceberg Concept  | DataHub Concept      | Notes                                             |
+| ---------------- | -------------------- | ------------------------------------------------- |
+| Overall platform | dataPlatform         | `iceberg` platform                                |
+| Warehouse        | dataPlatformInstance | Stores info such as storage credentials           |
+| Namespace        | container            | Hierarchical containers of subtype "Namespace"    |
+| Tables, Views    | dataset              | Dataset URN is UUID that persists across renames  |
+| Table/View Names | platformResource     | Points to dataset, changes with rename operations |
 
 ## Prerequisites
 
 Before starting, ensure you have:
 
-1. DataHub installed and running locally, and `datahub` cli is installed and setup to point to it. 
+1. DataHub installed and running locally, and `datahub` cli is installed and setup to point to it.
 2. AWS credentials and appropriate permissions configured.
 3. The following environment variables set:
+
    ```bash
    DH_ICEBERG_CLIENT_ID="your_client_id"
-   DH_ICEBERG_CLIENT_SECRET="your_client_secret" 
+   DH_ICEBERG_CLIENT_SECRET="your_client_secret"
    DH_ICEBERG_AWS_ROLE="arn:aws:iam::123456789012:role/your-role-name"  # Example format
    DH_ICEBERG_DATA_ROOT="s3://your-bucket/path"
 
    ```
+
    The `DH_ICEBERG_CLIENT_ID` is the `AWS_ACCESS_KEY_ID` and `DH_ICEBERG_CLIENT_SECRET` is the `AWS_SECRET_ACCESS_KEY`
 
 4. If using pyiceberg, configure pyiceberg to use your local datahub using one of its supported ways. For example, create `~/.pyiceberg.yaml` with
+
 ```commandline
 catalog:
   local_datahub:
@@ -56,7 +59,7 @@ catalog:
     warehouse: arctic_warehouse
 ```
 
-Note: 
+Note:
 The python code snippets in this tutorial are based on the code available in the `metadata-ingestion/examples/iceberg` folder of the DataHub repository. These snippets require `pyiceberg[duckdb] >=0.8.1` to be installed.
 For the spark examples, the tested version of spark is 3.5.3_2.12
 
@@ -78,6 +81,7 @@ Create an Iceberg warehouse in DataHub
 ```
 datahub iceberg create -w arctic_warehouse -d $DH_ICEBERG_DATA_ROOT -i $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region "us-east-1" --role $DH_ICEBERG_AWS_ROLE
 ```
+
 </TabItem>
 <TabItem value="python" label="Python (pyiceberg)">
 
@@ -108,10 +112,12 @@ os.system(
    f"datahub iceberg create --warehouse {warehouse} --data_root $DH_ICEBERG_DATA_ROOT/{warehouse} --client_id $DH_ICEBERG_CLIENT_ID --client_secret $DH_ICEBERG_CLIENT_SECRET --region 'us-east-1' --role $DH_ICEBERG_AWS_ROLE"
 )
 ```
+
 </TabItem>
 </Tabs>
 
 After provisioning the warehouse, ensure your DataHub user has the following privileges to the resource type Data Platform Instance, which were introduced with Iceberg support:
+
 - `DATA_MANAGE_VIEWS_PRIVILEGE`
 - `DATA_MANAGE_TABLES_PRIVILEGE`
 - `DATA_MANAGE_NAMESPACES_PRIVILEGE`
@@ -127,8 +133,8 @@ You can create Iceberg tables using PyIceberg with a defined schema. Here's an e
 <TabItem value="spark" label="spark-sql" default>
 
 Connect to the DataHub Iceberg Catalog using Spark SQL by defining `$GMS_HOST`, `$GMS_PORT`, `$WAREHOUSE` to connect to and `$USER_PAT` - the DataHub Personal Access Token used to connect to the catalog.  
-When using DataHub Cloud (Acryl), the Iceberg Catalog URL is `https://<your-instance>.acryl.io/gms/iceberg/`
-If you're running DataHub locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`.  
+When using DataHub Cloud, the Iceberg Catalog URL is `https://<your-instance>.acryl.io/gms/iceberg/`
+If you're running DataHub locally, set `GMS_HOST` to `localhost` and `GMS_PORT` to `8080`.
 
 For this example, set `WAREHOUSE` to `arctic_warehouse`
 
@@ -230,7 +236,7 @@ catalog.create_table(f"{namespace}.{table_name}", schema)
 
 ```sql
 INSERT INTO alpine_db.ski_resorts (resort_id, resort_name, daily_snowfall, conditions, last_updated)
-VALUES 
+VALUES
     (1, 'Snowpeak Resort', 12, 'Powder', CURRENT_TIMESTAMP()),
     (2, 'Alpine Valley', 8, 'Packed', CURRENT_TIMESTAMP()),
     (3, 'Glacier Heights', 15, 'Fresh Powder', CURRENT_TIMESTAMP());
@@ -324,28 +330,41 @@ for row in con.execute(f"SELECT * FROM {table_name}").fetchall():
 
 </TabItem>
 
-
 </Tabs>
 
 ## Reference Information
 
 ### Trust Policy Example
+
 When setting up your AWS role, you'll need to configure a trust policy. Here's an example:
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::123456789012:user/iceberg-user"  // The IAM user or role associated with your credentials
-            },
-            "Action": "sts:AssumeRole"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::123456789012:user/iceberg-user" // The IAM user or role associated with your credentials
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
 }
 ```
+
+### Vended Credentials and Session Expiry
+
+When creating a warehouse, the session expiry duration for the vended credentials can be configured via the
+`datahub iceberg` cli by passing the `--duration_seconds` parameter. If not specified, this currently defaults to 3600
+seconds. This needs to be a minimum of 900 seconds (15 minutes).
+
+With AWS, at the time of creating the role for use with the catalog, a `MaxSessionDuration` can also be set. AWS currently
+supports values between 1 hour to 12 hours. This configuration will set the upper limit for what can be configured for the
+warehouse via `--duration_seconds` flag.
+
+See `datahub iceberg create --help` for the flags and default if not specified. This can also be updated using
+`datahub iceberg update`
 
 ### Namespace and Configuration Requirements
 
@@ -361,12 +380,15 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
 
 It is possible to enable public read-only access of specific Iceberg tables if needed.
 Enabling public access requires the following steps.
+
 1. Ensure that the DATA ROOT folder in s3 has public read access policy set to enable the files with that prefix to be read without AWS credentials.
 2. Update the GMS Configuration to enable public access, ensure the GMS service is run with the following environment variables set.
-   - Set the env var `ENABLE_PUBLIC_READ` to `true`  to enable the capability. If unset, this is by default `false`.
+
+   - Set the env var `ENABLE_PUBLIC_READ` to `true` to enable the capability. If unset, this is by default `false`.
    - Set the env var `PUBLICLY_READABLE_TAG` to a specific Tag name that indicates public access when applied to an Iceberg DataSet. If unset, this defaults to the tag `PUBLICLY_READABLE`
-   
+
    Alternatively, these can be set in metadata-service/configuration/src/main/resources/application.yaml under `icebergCatalog` key. The defaults are populated under that key.
+
 3. Once GMS is started with enabling the public read capability, apply the Tag defined for public access on each Dataset that should be accessible without authentication.
 
 To access these tables that have public access, start the spark-sql with the following settings
@@ -388,23 +410,26 @@ spark-sql --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org
 ```
 
 Note the specific differences from the authenticated access:
+
 - The REST Catalog URI is gms_host:port/<b>public-iceberg/</b>
 - The DATA ROOT AWS s3 region is specified via `spark.sql.catalog.local.client.region`
 - The `X-Iceberg-Access-Delegation` header is set to <b>`false`</b> instead of `vended-credentials`
-- The `credentials-provider` is set to `credentials-provider=software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider` and no Personal Access Token is provided. 
+- The `credentials-provider` is set to `credentials-provider=software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider` and no Personal Access Token is provided.
 
-In such unauthenticated sessions, attempts to access tables that do not have access will fail with  a NoSuchTableException error instead of an authorization failure.
+In such unauthenticated sessions, attempts to access tables that do not have access will fail with a NoSuchTableException error instead of an authorization failure.
 
 ### DataHub Iceberg CLI
 
 The DataHub CLI provides several commands for managing Iceberg warehouses:
 
 1. List Warehouses:
+
    ```
    datahub iceberg list
    ```
 
 2. Update Warehouse Configuration:
+
    ```
    datahub iceberg update \
      -w $WAREHOUSE_NAME \
@@ -422,6 +447,7 @@ The DataHub CLI provides several commands for managing Iceberg warehouses:
    Note: This command deletes Containers associated with Namespaces and Datasets associated with Tables and Views in this warehouse. However, it does not delete any backing data in the warehouse data_root location - it only deletes entries from the catalog.
 
 For additional options and help, run:
+
 ```
 datahub iceberg [command] --help
 ```
@@ -431,6 +457,7 @@ datahub iceberg [command] --help
 When migrating from another Iceberg catalog, you can register existing Iceberg tables using the `system.register_table` command. This allows you to start managing existing Iceberg tables through DataHub without moving the underlying data.
 
 Example of registering an existing table:
+
 ```
 call system.register_table('myTable', 's3://my-s3-bucket/my-data-root/myNamespace/myTable/metadata/00000-f9dbba67-df4f-4742-9ba5-123aa2bb4076.metadata.json');
 
@@ -442,28 +469,31 @@ select * from myTable;
 
 DataHub provides granular access control for Iceberg operations through policies. The following privileges were introduced with Iceberg support:
 
-| Operation | Required Privilege | Resource Type |
-|-----------|-------------------|---------------|
-| CREATE or DROP namespaces | Manage Namespaces | Data Platform Instance |
-| CREATE, ALTER or DROP tables | Manage Tables | Data Platform Instance |
-| CREATE, ALTER or DROP views | Manage Views | Data Platform Instance |
-| SELECT from tables or views | Read Only data-access | Dataset |
-| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access | Dataset |
-| List tables or views | List tables, views and namespaces | Data Platform Instance |
+| Operation                              | Required Privilege                | Resource Types                  |
+| -------------------------------------- | --------------------------------- | ------------------------------- |
+| CREATE or DROP namespaces              | Manage Namespaces                 | Data Platform Instance          |
+| CREATE, ALTER or DROP tables           | Manage Tables                     | Data Platform Instance          |
+| CREATE, ALTER or DROP views            | Manage Views                      | Data Platform Instance          |
+| SELECT from tables or views            | Read Only data-access             | Dataset, Data Platform Instance |
+| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access            | Dataset, Data Platform Instance |
+| List tables or views                   | List tables, views and namespaces | Data Platform Instance          |
 
 To configure access:
+
 1. Create policies with the appropriate privileges for Iceberg users
 <p>
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-type.png"/>
 </p>
 
 2. Scope the policies by:
-    * Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
-    * Selecting specific DataSets for table and view data access privileges
-    * Selecting Tags that may be applied to DataSets or Data Platform Instances
+   - Selecting specific warehouse Data Platform Instances for namespace, table/view management, and listing privileges
+   - Selecting specific DataSets and/or Data Platform Instances for table and view data access privileges
+   - Alternatively, resources can be filtered by
+     - Selecting specific namespace Containers for namespace, table/view management, listing and data access privileges: when a container is selected, all datasets in that container and its descendant containers (in the container hierarchy) are included in the scope.
+     - Selecting Tags / Domains that may be applied to DataSets or Data Platform Instances
 
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/b5468a7907023020b55d3e8d1341876ce56a6b5f/imgs/iceberg-policy-privileges.png"/>
 </p>
 
 3. Assign the policies to relevant users or groups
@@ -472,7 +502,9 @@ To configure access:
 </p>
 
 ### Iceberg tables in DataHub
+
 Once you create tables in iceberg, each of those tables show up in DataHub as a DataSet
+
 <p>
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-dataset-schema.png"/>
 </p>
@@ -494,6 +526,7 @@ A: A DataHub Personal Access Token can be used via bearer token to authenticate 
 ### Q: What should I do if table creation fails?
 
 A: Check that:
+
 1. All required environment variables are set correctly
 2. Your AWS role has the necessary permissions
 3. The namespace exists (create it if needed)
@@ -502,24 +535,21 @@ A: Check that:
 ## Known Limitations
 
 - AWS S3 only support
-- Concurrency - supports single instance of GMS
 - Multi-table transactional `/commit` is not yet supported
 - Table operation purge is not yet implemented
 - Metric collection and credential refresh mechanisms are still in development
 
 ## Future Enhancements
 
-- Improved concurrency with multiple replicas of GMS
 - Support for Iceberg multi-table transactional `/commit`
 - Additional table APIs (scan, drop table purge)
 - Azure and GCP Support
-- Namespace permissions
 - Enhanced metrics
-- Credential refresh 
+- Credential refresh
 - Proxy to another REST Catalog to use its capabilities while DataHub has real-time metadata updates.
 
 ## Related Documentation
 
 - [Apache Iceberg Documentation](https://iceberg.apache.org/)
 - [PyIceberg Documentation](https://py.iceberg.apache.org/)
-- [DataHub Documentation](https://datahubproject.io/docs/)
+- [DataHub Documentation](https://docs.datahub.com/docs/)

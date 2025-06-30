@@ -1,20 +1,21 @@
-import { Typography, message, Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { FetchResult } from '@apollo/client';
+import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FetchResult } from '@apollo/client';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
-import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
-import { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
-import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
-import { REDESIGN_COLORS } from '../../../../shared/constants';
-import { StringMapEntry } from '../../../../../../types.generated';
-import DocumentationPropagationDetails from '../../../../../sharedV2/propagation/DocumentationPropagationDetails';
+
+import { UpdateDatasetMutation } from '@graphql/dataset.generated';
+import { StringMapEntry } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -104,12 +105,10 @@ type Props = {
     onExpanded: (expanded: boolean) => void;
     expanded: boolean;
     description: string;
-    fieldPath?: string;
     original?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
-    handleShowMore?: (_: string) => void;
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
@@ -120,9 +119,7 @@ export default function DescriptionField({
     expanded,
     onExpanded: handleExpanded,
     description,
-    fieldPath,
     onUpdate,
-    handleShowMore,
     isEdited = false,
     original,
     isReadOnly,
@@ -216,7 +213,6 @@ export default function DescriptionField({
                             <CompactMarkdownViewer
                                 content={description}
                                 lineLimit={1}
-                                handleShowMore={() => handleShowMore && handleShowMore(fieldPath || '')}
                                 fixedLineHeight
                                 customStyle={{ fontSize: '12px' }}
                                 scrollableY={false}

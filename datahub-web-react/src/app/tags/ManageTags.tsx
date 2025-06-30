@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { SearchBar, PageTitle, Pagination } from '@components';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
+import EmptyTags from '@app/tags/EmptyTags';
+import TagsTable from '@app/tags/TagsTable';
 import { Message } from '@src/app/shared/Message';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import styled from 'styled-components';
-import { PageContainer } from '../govern/structuredProperties/styledComponents';
-import EmptyTags from './EmptyTags';
-import TagsTable from './TagsTable';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -55,6 +58,11 @@ const ManageTags = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const entityRegistry = useEntityRegistry();
+    const [showCreateTagModal, setShowCreateTagModal] = useState(false);
+
+    // Check permissions using UserContext
+    const userContext = useUserContext();
+    const canCreateTags = userContext?.platformPrivileges?.createTags || userContext?.platformPrivileges?.manageTags;
 
     // Debounce search query input to reduce unnecessary renders
     useEffect(() => {
@@ -110,12 +118,45 @@ const ManageTags = () => {
         return <Message type="error" content={`Failed to load tags: ${searchError.message}`} />;
     }
 
+    // Create the Create Tag button with proper permissions handling
+    const renderCreateTagButton = () => {
+        if (!canCreateTags) {
+            return (
+                <StructuredPopover
+                    title="You do not have permission to create tags"
+                    placement="left"
+                    showArrow
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0.1}
+                >
+                    <span>
+                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
+                            Create Tag
+                        </Button>
+                    </span>
+                </StructuredPopover>
+            );
+        }
+
+        return (
+            <Button
+                onClick={() => setShowCreateTagModal(true)}
+                size="md"
+                color="violet"
+                icon={{ icon: 'Plus', source: 'phosphor' }}
+            >
+                Create Tag
+            </Button>
+        );
+    };
+
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
                 <PageTitle title="Manage Tags" subTitle="Create and edit asset & column tags" />
+                {renderCreateTagButton()}
             </HeaderContainer>
 
             <SearchContainer>
@@ -124,6 +165,7 @@ const ManageTags = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     data-testid="tag-search-input"
+                    width="280px"
                 />
             </SearchContainer>
 
@@ -147,6 +189,14 @@ const ManageTags = () => {
                     />
                 </>
             )}
+
+            <CreateNewTagModal
+                open={showCreateTagModal}
+                onClose={() => {
+                    setShowCreateTagModal(false);
+                    setTimeout(() => refetch(), 3000);
+                }}
+            />
         </PageContainer>
     );
 };

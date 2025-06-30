@@ -774,7 +774,7 @@ def get_overridden_info(
     if (
         lineage_overrides is not None
         and lineage_overrides.platform_override_map is not None
-        and original_platform in lineage_overrides.platform_override_map.keys()
+        and original_platform in lineage_overrides.platform_override_map
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
 
@@ -782,7 +782,7 @@ def get_overridden_info(
         lineage_overrides is not None
         and lineage_overrides.database_override_map is not None
         and upstream_db is not None
-        and upstream_db in lineage_overrides.database_override_map.keys()
+        and upstream_db in lineage_overrides.database_override_map
     ):
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 

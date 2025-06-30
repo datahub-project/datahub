@@ -79,6 +79,7 @@ enabled = True  # default
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
+| enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                         |
 
 ## DataHub Plugin v1
 
@@ -137,6 +138,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 | enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
 | conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
 | cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
+| platform_instance          |                      | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                        |
 | capture_ownership_info     | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
 | capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user.                                                                                                          |
 | capture_tags_info          | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
@@ -147,6 +149,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 |                            |
 | graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 | dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                         |
+| enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                       |
 
 #### Validate that the plugin is working
 

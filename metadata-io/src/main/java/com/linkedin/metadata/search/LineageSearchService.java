@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.query.FreshnessStats;
 import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -75,6 +77,7 @@ public class LineageSearchService {
                               // maintain backwards compatibility
                               .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
                               .setGroupingEntityType(DATASET_ENTITY_NAME))));
+
   private final SearchService _searchService;
   private final GraphService _graphService;
   @Nullable private final Cache cache;
@@ -133,15 +136,13 @@ public class LineageSearchService {
       @Nullable Filter inputFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
 
     long startTime = System.nanoTime();
     final String finalInput = input == null || input.isEmpty() ? "*" : input;
 
     log.debug("Cache enabled {}, Input :{}:", cacheEnabled, finalInput);
-    if (maxHops == null) {
-      maxHops = 1000;
-    }
+    maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
 
     final OperationContext finalOpContext =
         opContext
@@ -253,6 +254,7 @@ public class LineageSearchService {
               lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
+        lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
         return lineageSearchResult;
       } else {
         codePath = "tortoise";
@@ -272,6 +274,7 @@ public class LineageSearchService {
               lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
+        lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
         return lineageSearchResult;
       }
     } finally {
@@ -313,8 +316,9 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       Filter inputFilters,
       int from,
-      int size,
+      @Nullable Integer size,
       Set<String> entityNames) {
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
     // Construct result objects
     LineageSearchResult finalResult =
@@ -522,8 +526,8 @@ public class LineageSearchService {
       @Nullable Filter inputFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
-
+      @Nullable Integer size) {
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
     LineageSearchResult finalResult =
         new LineageSearchResult()
             .setEntities(new LineageSearchEntityArray(Collections.emptyList()))
@@ -743,7 +747,7 @@ public class LineageSearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
@@ -791,7 +795,7 @@ public class LineageSearchService {
         sortCriteria,
         scrollId,
         keepAlive,
-        size);
+        ConfigUtils.applyLimit(appConfig.getGraphService(), size));
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -803,11 +807,12 @@ public class LineageSearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
 
     OperationContext finalOpContext =
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS));
+    size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
     LineageScrollResult finalResult =
         new LineageScrollResult()
@@ -910,5 +915,30 @@ public class LineageSearchService {
       finalResult.setScrollId(two.getScrollId());
     }
     return finalResult;
+  }
+
+  private int applyMaxHopsLimit(
+      @Nullable LineageFlags lineageFlags, @Nullable Integer inputMaxHops) {
+    // Determine if we're in UI mode or impact analysis mode
+    boolean isLineageVisualization =
+        lineageFlags != null
+            && lineageFlags.getEntitiesExploredPerHopLimit() != null
+            && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
+
+    // Get the appropriate limit based on the mode
+    int configLimit =
+        isLineageVisualization
+            ? appConfig.getElasticSearch().getSearch().getGraph().getLineageMaxHops()
+            : appConfig.getElasticSearch().getSearch().getGraph().getImpactMaxHops();
+
+    // Apply the limit (either the config limit or the minimum of config and input)
+    int result = (inputMaxHops == null) ? configLimit : Math.min(configLimit, inputMaxHops);
+
+    // Log a warning if we had to reduce the requested hops
+    if (inputMaxHops != null && result < inputMaxHops) {
+      log.warn("Requested maxHops {} exceeded limit {}.", inputMaxHops, result);
+    }
+
+    return result;
   }
 }

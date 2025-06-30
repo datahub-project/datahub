@@ -1,11 +1,12 @@
 import { Row, Table, Tag, Typography } from 'antd';
+import { ColumnType, ColumnsType } from 'antd/lib/table';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ColumnsType, ColumnType } from 'antd/lib/table';
-import React, { useMemo } from 'react';
-import { DatasetProfile } from '../../../../../../types.generated';
-import { Highlight } from '../../../../../analyticsDashboard/components/Highlight';
-import StatsSection from '../StatsSection';
+import { Highlight } from '@app/analyticsDashboard/components/Highlight';
+import StatsSection from '@app/entityV2/dataset/profile/stats/StatsSection';
+
+import { DatasetProfile } from '@types';
 
 const ColumnStatsTable = styled(Table)`
     margin-top: 24px;
