@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 
-
 // We only shadow this jar to silence warnings about illegal reflective access
 
 /**

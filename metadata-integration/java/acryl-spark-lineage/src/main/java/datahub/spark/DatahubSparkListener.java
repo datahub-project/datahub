@@ -79,6 +79,10 @@ public class DatahubSparkListener extends SparkListener {
     this.conf = ((SparkConf) Objects.requireNonNull(conf)).clone();
 
     listener = new OpenLineageSparkListener(conf);
+    log.info(
+        "Initializing DatahubSparkListener. Version: {} with Spark version: {}",
+        VersionUtil.getVersion(),
+        sparkVersion);
   }
 
   private static SparkAppContext getSparkAppContext(

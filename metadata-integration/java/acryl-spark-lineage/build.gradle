@@ -124,6 +124,14 @@ scalaVersions.each { sv ->
 
     from(sourceSets.main.output)
 
+    // Add manifest with version information
+    manifest {
+      attributes(
+          'Implementation-Version': project.version,
+          'Scala-Version': sv
+      )
+    }
+
     // Create a completely separate configuration for each Scala version
     def scalaConfig = project.configurations.detachedConfiguration()
 
