@@ -679,6 +679,11 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPageTemplate
+    category: core
+    keyAspect: dataHubPageTemplateKey
+    aspects:
+      - dataHubPageTemplateProperties
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

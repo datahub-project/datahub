@@ -1,0 +1,19 @@
+namespace com.linkedin.template
+
+/**
+ * Info about the surface area of the product that this template is deployed in
+ */
+record DataHubPageTemplateSurface  {
+  /**
+   * Where exactly is this template bing used
+   */
+   @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  surfaceType: enum TemplateSurfaceType {
+    /**
+     * This template applies to what to display on the home page for users.
+     */
+    HOME_PAGE
+   }
+}

@@ -1,0 +1,23 @@
+namespace com.linkedin.template
+
+/**
+ * Info about the visibility of this template
+ */
+record DataHubPageTemplateVisibility  {
+  /**
+   * Audit stamp for when and by whom this template was created
+   */
+   @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  scope: enum TemplateScope {
+    /**
+     * This template is used for individual use only
+     */
+    PERSONAL
+    /**
+     * This template is used across users
+     */
+    GLOBAL
+   }
+}
