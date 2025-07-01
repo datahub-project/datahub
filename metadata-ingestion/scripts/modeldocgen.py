@@ -247,22 +247,24 @@ def extract_lineage_fields_from_schema(
                     # Handle both direct relationship and path-based relationship
                     if 'entityTypes' in relationship_data:
                         # Direct relationship
+                        relationship_is_lineage = relationship_data.get('isLineage', False)
                         relationship_info = LineageRelationship(
                             name=relationship_data.get('name', ''),
                             entityTypes=relationship_data.get('entityTypes', []),
-                            isLineage=relationship_data.get('isLineage', True)
+                            isLineage=relationship_is_lineage
                         )
-                        is_lineage = is_lineage or relationship_info.isLineage
+                        is_lineage = is_lineage or relationship_is_lineage
                     else:
                         # Path-based relationship - find the actual relationship data
                         for key, value in relationship_data.items():
                             if isinstance(value, dict) and 'entityTypes' in value:
+                                relationship_is_lineage = value.get('isLineage', False)
                                 relationship_info = LineageRelationship(
                                     name=value.get('name', ''),
                                     entityTypes=value.get('entityTypes', []),
-                                    isLineage=value.get('isLineage', True)
+                                    isLineage=relationship_is_lineage
                                 )
-                                is_lineage = is_lineage or relationship_info.isLineage
+                                is_lineage = is_lineage or relationship_is_lineage
                                 break
             
             # If this field is lineage, add it to the results
