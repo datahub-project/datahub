@@ -50,7 +50,13 @@ from acryl_datahub_cloud.sdk.entities.assertion import (
 )
 from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.emitter.mce_builder import make_ts_millis
-from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, InvalidUrnError
+from datahub.metadata.urns import (
+    AssertionUrn,
+    CorpUserUrn,
+    DatasetUrn,
+    InvalidUrnError,
+    TagUrn,
+)
 from datahub.sdk.entity_client import EntityClient
 from tests.sdk.assertions.conftest import StubEntityClient
 
@@ -1237,7 +1243,7 @@ def test_monitor_entity_mode(
         pytest.param(
             "urn:li:tag:my_tag_1",
             [models.TagAssociationClass(tag="urn:li:tag:my_tag_1")],
-            id="single string tag",
+            id="single string tag urn",
         ),
         pytest.param(
             ["urn:li:tag:my_tag_1", "urn:li:tag:my_tag_2"],
@@ -1245,7 +1251,28 @@ def test_monitor_entity_mode(
                 models.TagAssociationClass(tag="urn:li:tag:my_tag_1"),
                 models.TagAssociationClass(tag="urn:li:tag:my_tag_2"),
             ],
-            id="list of string tags",
+            id="list of string tag urns",
+        ),
+        pytest.param(
+            "my_tag_1",
+            [models.TagAssociationClass(tag="urn:li:tag:my_tag_1")],
+            id="single tag name converted to urn",
+        ),
+        pytest.param(
+            ["my_tag_1", "my_tag_2"],
+            [
+                models.TagAssociationClass(tag="urn:li:tag:my_tag_1"),
+                models.TagAssociationClass(tag="urn:li:tag:my_tag_2"),
+            ],
+            id="list of tag names converted to urns",
+        ),
+        pytest.param(
+            ["my_tag_1", "urn:li:tag:my_tag_2"],
+            [
+                models.TagAssociationClass(tag="urn:li:tag:my_tag_1"),
+                models.TagAssociationClass(tag="urn:li:tag:my_tag_2"),
+            ],
+            id="mixed list of tag names and urns",
         ),
         pytest.param(
             None,
@@ -1276,6 +1303,40 @@ def test_tag_conversion(
     assertion = _SmartFreshnessAssertionInput(**params)
     assertion_entity = assertion.to_assertion_entity()
     assert assertion_entity.tags == expected_tags
+
+
+def test_tag_name_conversion_unit_test(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Unit test specifically for the tag name to URN conversion logic."""
+    assertion_input = _SmartFreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        tags=["plain_tag", "urn:li:tag:urn_tag", "another_plain_tag"],
+        **default_created_updated_params,
+    )
+
+    # Test the internal conversion method directly
+    converted_tags = assertion_input._convert_tags()
+    assert converted_tags == [
+        "urn:li:tag:plain_tag",
+        "urn:li:tag:urn_tag",
+        "urn:li:tag:another_plain_tag",
+    ]
+
+    # Test individual tag conversion using TagUrn constructor directly
+    assert str(TagUrn("plain_tag")) == "urn:li:tag:plain_tag"
+    assert str(TagUrn("urn:li:tag:already_urn")) == "urn:li:tag:already_urn"
+
+    # Test the full assertion entity creation
+    assertion_entity = assertion_input.to_assertion_entity()
+    assert assertion_entity.tags == [
+        models.TagAssociationClass(tag="urn:li:tag:plain_tag"),
+        models.TagAssociationClass(tag="urn:li:tag:urn_tag"),
+        models.TagAssociationClass(tag="urn:li:tag:another_plain_tag"),
+    ]
 
 
 def test_assertion_creation_with_combined_parameters(

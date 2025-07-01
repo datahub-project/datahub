@@ -1114,3 +1114,31 @@ def test_operator_type_enum_matches_assertion_std_operator_class() -> None:
     assert operator_type_values == assertion_std_operator_values, (
         "OperatorType enum and AssertionStdOperatorClass should contain exactly the same values"
     )
+
+
+def test_smart_column_metric_assertion_tag_name_conversion(
+    stub_entity_client: StubEntityClient,
+) -> None:
+    """Test that tag names are properly converted to URNs in smart column metric assertions."""
+    assertion_input = _SmartColumnMetricAssertionInput(
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+        column_name="string_column",
+        metric_type=MetricType.NULL_COUNT,
+        entity_client=stub_entity_client,
+        tags=["plain_tag", "urn:li:tag:urn_tag"],
+        created_by=CorpUserUrn("urn:li:corpuser:test_user"),
+        created_at=datetime(2023, 1, 1),
+        updated_by=CorpUserUrn("urn:li:corpuser:test_user"),
+        updated_at=datetime(2023, 1, 1),
+    )
+
+    # Test the internal conversion method directly
+    converted_tags = assertion_input._convert_tags()
+    assert converted_tags == ["urn:li:tag:plain_tag", "urn:li:tag:urn_tag"]
+
+    # Test the full assertion entity creation
+    assertion_entity = assertion_input.to_assertion_entity()
+    assert assertion_entity.tags == [
+        models.TagAssociationClass(tag="urn:li:tag:plain_tag"),
+        models.TagAssociationClass(tag="urn:li:tag:urn_tag"),
+    ]

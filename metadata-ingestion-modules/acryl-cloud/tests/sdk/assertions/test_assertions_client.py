@@ -454,10 +454,10 @@ def test_create_smart_freshness_assertion_entities_client_called(
         pytest.param(
             SmartFreshnessAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
-                tags="invalid_tags",  # type: ignore[arg-type] # Test invalid input
+                tags="urn:li:tag:",  # type: ignore[arg-type] # Test invalid input - empty tag name
             ),
             InvalidUrnError,
-            "Invalid urn string: invalid_tags. Urns should start with 'urn:li:'",
+            "Expecting a TagUrn but got urn:li:tag:",
             id="invalid_tag_urn",
         ),
         pytest.param(
@@ -920,10 +920,10 @@ def test_create_smart_volume_assertion_entities_client_called(
         pytest.param(
             SmartVolumeAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
-                tags="invalid_tags",  # type: ignore[arg-type] # Test invalid input
+                tags="urn:li:tag:",  # type: ignore[arg-type] # Test invalid input - empty tag name
             ),
             InvalidUrnError,
-            "Invalid urn string: invalid_tags. Urns should start with 'urn:li:'",
+            "Expecting a TagUrn but got urn:li:tag:",
             id="invalid_tag_urn",
         ),
         pytest.param(
@@ -2741,10 +2741,10 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
                 dataset_urn=_any_dataset_urn,
                 column_name="amount",
                 metric_type="null_count",
-                tags="invalid_tags",  # type: ignore[arg-type] # Test invalid input
+                tags="urn:li:tag:",  # type: ignore[arg-type] # Test invalid input - empty tag name
             ),
             InvalidUrnError,
-            "Invalid urn string: invalid_tags. Urns should start with 'urn:li:'",
+            "Expecting a TagUrn but got urn:li:tag:",
             id="invalid_tag_urn",
         ),
         pytest.param(

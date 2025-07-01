@@ -33,7 +33,7 @@ from acryl_datahub_cloud.sdk.errors import (
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis, parse_ts_millis
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
+from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
 from datahub.sdk import Dataset
 from datahub.sdk.entity_client import EntityClient
 
@@ -1123,6 +1123,10 @@ class _AssertionInput(ABC):
         """
         Convert the tags input into a standardized format.
 
+        Tag names are automatically converted to tag URNs using TagUrn constructor. For example:
+        - "my_tag" becomes "urn:li:tag:my_tag"
+        - "urn:li:tag:my_tag" remains unchanged
+
         Returns:
             A list of tags or None if no tags are provided.
 
@@ -1133,16 +1137,19 @@ class _AssertionInput(ABC):
             return None
 
         if isinstance(self.tags, str):
-            return [self.tags]
+            return [str(TagUrn(self.tags))]
         elif isinstance(self.tags, list):
-            return self.tags
+            return [
+                str(TagUrn(tag)) if isinstance(tag, str) else tag for tag in self.tags
+            ]
         else:
             raise SDKUsageErrorWithExamples(
                 msg=f"Invalid tags: {self.tags}",
                 examples={
-                    "Tags from string": "urn:li:tag:my_tag_1",
-                    "Tags from list": [
-                        "urn:li:tag:my_tag_1",
+                    "Tags from string (tag name)": "my_tag_1",
+                    "Tags from string (tag URN)": "urn:li:tag:my_tag_1",
+                    "Tags from list (mixed)": [
+                        "my_tag_1",
                         "urn:li:tag:my_tag_2",
                     ],
                 },
