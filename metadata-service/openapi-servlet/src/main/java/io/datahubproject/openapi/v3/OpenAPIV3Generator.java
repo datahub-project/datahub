@@ -699,7 +699,7 @@ public class OpenAPIV3Generator {
             .name("sortCriteria")
             .explode(true)
             .description("Sort fields for pagination.")
-            .example(PROPERTY_URN)
+            .example(List.of(PROPERTY_URN))
             .schema(
                 newSchema()
                     .type(TYPE_ARRAY)
