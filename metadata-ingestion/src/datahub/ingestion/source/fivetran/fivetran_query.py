@@ -1,9 +1,9 @@
 from typing import List
 
-# Safeguards to prevent fetching massive amounts of data.
-MAX_TABLE_LINEAGE_PER_CONNECTOR = 120
-MAX_COLUMN_LINEAGE_PER_CONNECTOR = 1000
-MAX_JOBS_PER_CONNECTOR = 500
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    MAX_COLUMN_LINEAGE_PER_CONNECTOR,
+    MAX_JOBS_PER_CONNECTOR,
+)
 
 
 class FivetranLogQuery:
@@ -81,9 +81,17 @@ WHERE rn <= {MAX_JOBS_PER_CONNECTOR}
 ORDER BY connector_id, end_time DESC
 """
 
-    def get_table_lineage_query(self, connector_ids: List[str]) -> str:
+    def get_table_lineage_query(
+        self, connector_ids: List[str], max_table_lineage_per_connector: int
+    ) -> str:
         # Format connector_ids as a comma-separated string of quoted IDs
         formatted_connector_ids = ", ".join(f"'{id}'" for id in connector_ids)
+
+        # Build the QUALIFY clause - if limit is -1, skip the limit entirely
+        if max_table_lineage_per_connector == -1:
+            qualify_clause = ""
+        else:
+            qualify_clause = f"QUALIFY ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY created_at DESC) <= {max_table_lineage_per_connector}"
 
         return f"""\
 SELECT
@@ -108,7 +116,7 @@ FROM (
 )
 -- Ensure that we only get back one entry per source and destination pair.
 WHERE table_combo_rn = 1
-QUALIFY ROW_NUMBER() OVER (PARTITION BY connector_id ORDER BY created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
+{qualify_clause}
 ORDER BY connector_id, created_at DESC
 """
 
