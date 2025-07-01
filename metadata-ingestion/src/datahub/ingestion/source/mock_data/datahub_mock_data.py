@@ -15,6 +15,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
+    DataHubMockDataReport,
+)
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -117,13 +120,15 @@ class DataHubMockDataSource(Source):
     def __init__(self, ctx: PipelineContext, config: DataHubMockDataConfig):
         self.ctx = ctx
         self.config = config
-        self.report = SourceReport()
+        self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         # We don't want any implicit aspects to be produced
         # so we are not using get_workunits_internal
         if self.config.gen_1.emit_lineage:
             for wu in self._data_gen_1():
+                if self.report.first_urn_seen is None:
+                    self.report.first_urn_seen = wu.get_urn()
                 self.report.report_workunit(wu)
                 yield wu
 

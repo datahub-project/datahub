@@ -26,17 +26,17 @@ export const AvatarImageWrapper = styled.div<{
     $color: string;
     $size?: AvatarSizeOptions;
     $isOutlined?: boolean;
-    $hasImage?: boolean;
 }>`
     ${(props) => getAvatarSizes(props.$size)}
 
+    position: relative;
     border-radius: 50%;
     color: ${(props) => props.$color};
     border: ${(props) => props.$isOutlined && `1px solid ${colors.gray[1800]}`};
     display: flex;
     align-items: center;
     justify-content: center;
-    ${(props) => !props.$hasImage && getAvatarColorStyles(props.$color)}
+    ${(props) => getAvatarColorStyles(props.$color)}
 `;
 
 export const AvatarImage = styled.img`
