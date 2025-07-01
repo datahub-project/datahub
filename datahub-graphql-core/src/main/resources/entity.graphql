@@ -1302,6 +1302,11 @@ enum EntityType {
   An DataHub Page Template
   """
   DATAHUB_PAGE_TEMPLATE
+
+  """
+  An DataHub Page Module
+  """
+  DATAHUB_PAGE_MODULE
 }
 
 """
