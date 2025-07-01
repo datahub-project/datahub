@@ -50,10 +50,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -222,31 +219,6 @@ class SourceReport(Report):
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
 
-    def _populate_aspect_metrics(
-        self,
-        urn: str,
-        mcp: Union[
-            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
-        ],
-    ) -> None:
-        entityType = mcp.entityType
-        aspectName = mcp.aspectName
-
-        if urn not in self._urns_seen:
-            self._urns_seen.add(urn)
-            self.entities[entityType].append(urn)
-
-        if aspectName is not None:  # usually true
-            self.aspects[entityType][aspectName] += 1
-            self.aspect_urn_samples[entityType][aspectName].append(urn)
-            if isinstance(mcp.aspect, UpstreamLineageClass):
-                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                if upstream_lineage.fineGrainedLineages:
-                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
-                        urn
-                    )
-                    self.aspects[entityType]["fineGrainedLineages"] += 1
-
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
 
@@ -260,7 +232,23 @@ class SourceReport(Report):
                 mcps = list(mcps_from_mce(wu.metadata))
 
             for mcp in mcps:
-                self._populate_aspect_metrics(urn, mcp)
+                entityType = mcp.entityType
+                aspectName = mcp.aspectName
+
+                if urn not in self._urns_seen:
+                    self._urns_seen.add(urn)
+                    self.entities[entityType].append(urn)
+
+                if aspectName is not None:  # usually true
+                    self.aspects[entityType][aspectName] += 1
+                    self.aspect_urn_samples[entityType][aspectName].append(urn)
+                    if isinstance(mcp.aspect, UpstreamLineageClass):
+                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+                        if upstream_lineage.fineGrainedLineages:
+                            self.aspect_urn_samples[entityType][
+                                "fineGrainedLineages"
+                            ].append(urn)
+                            self.aspects[entityType]["fineGrainedLineages"] += 1
 
     def report_warning(
         self,

@@ -13,9 +13,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import avro.schema
 import click
+from utils import should_write_json_file
 
 from datahub.configuration.common import ConfigEnum, PermissiveConfigModel
-from utils import should_write_json_file
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -32,7 +32,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     BrowsePathsV2Class,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
     OtherSchemaClass,
@@ -194,7 +193,7 @@ def load_schema_file(schema_file: str) -> None:
                     entity_name, EntityDefinition(**entity_def)
                 )
                 entity_definition.aspect_map = get_aspects_from_snapshot(member_schema)
-                all_aspects = [a for a in entity_definition.aspect_map.keys()]
+                all_aspects = [a for a in entity_definition.aspect_map]
                 # in terms of order, we prefer the aspects from snapshot over the aspects from the config registry
                 # so we flip the aspect list here
                 for aspect_name in entity_definition.aspects:
@@ -256,7 +255,7 @@ def extract_lineage_fields_from_schema(
                         is_lineage = is_lineage or relationship_is_lineage
                     else:
                         # Path-based relationship - find the actual relationship data
-                        for key, value in relationship_data.items():
+                        for _, value in relationship_data.items():
                             if isinstance(value, dict) and 'entityTypes' in value:
                                 relationship_is_lineage = value.get('isLineage', False)
                                 relationship_info = LineageRelationship(
@@ -356,7 +355,7 @@ def extract_lineage_fields() -> LineageData:
         for aspect in entity.aspects.values()
     )
     
-    logger.info(f"Lineage extraction complete:")
+    logger.info("Lineage extraction complete:")
     logger.info(f"  - Entities with lineage: {total_entities_with_lineage}")
     logger.info(f"  - Aspects with lineage: {total_aspects_with_lineage}")
     logger.info(f"  - Total lineage fields: {total_lineage_fields}")
@@ -493,7 +492,7 @@ def make_relnship_docs(relationships: List[Relationship], direction: str) -> str
 
 def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
     entity_name = entity_display_name[0:1].lower() + entity_display_name[1:]
-    entity_def: Optional[EntityDefinition] = entity_registry.get(entity_name, None)
+    entity_def: Optional[EntityDefinition] = entity_registry.get(entity_name)
     if entity_def:
         doc = entity_def.doc_file_contents or (
             f"# {entity_def.display_name}\n{entity_def.doc}"
@@ -580,8 +579,6 @@ def generate_stitched_record(
         final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
         return final_path
 
-    datasets: List[DatasetSnapshotClass] = []
-
     for entity_name, entity_def in entity_registry.items():
         entity_display_name = entity_def.display_name
         entity_fields = []
@@ -652,7 +649,7 @@ def generate_stitched_record(
                         if entity_def.keyAspect == aspect_info.get("name"):
                             f_field.isPartOfKey = True
 
-                        if "timeseries" == aspect_info.get("type", ""):
+                        if aspect_info.get("type", "") == "timeseries":
                             # f_field.globalTags = f_field.globalTags or GlobalTagsClass(
                             #    tags=[]
                             # )
@@ -675,7 +672,7 @@ def generate_stitched_record(
                                 len(relationship_info.keys()) == 1
                             ), "We should never have more than one path spec assigned to a relationship annotation"
                             final_info = None
-                            for k, v in relationship_info.items():
+                            for _, v in relationship_info.items():
                                 final_info = v
                             relationship_info = final_info
 
@@ -950,11 +947,9 @@ def generate(
     sorted_entity_names = get_sorted_entity_names(entity_names)
 
     index = 0
-    for category, sorted_entities in sorted_entity_names:
+    for _, sorted_entities in sorted_entity_names:
         for entity_name in sorted_entities:
-            entity_def = entity_registry[entity_name]
 
-            entity_category = entity_def.category
             entity_dir = f"{generated_docs_dir}/entities/"
 
             os.makedirs(entity_dir, exist_ok=True)
