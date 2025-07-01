@@ -207,7 +207,7 @@ def oauth_callback(
     if not _state_store.consume(state):
         raise fastapi.HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid state parameter.",
+            detail="Could not find the installation state. If you were waiting for an Admin approval, our system may have timed out. In this case, we recommend you try a Manual Installation Refresh, as outlined on the bottom of the troubleshooting page: https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-troubleshoot",
         )
 
     if error:
