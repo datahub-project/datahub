@@ -453,6 +453,7 @@ type AuthConfig {
   Whether token-based auth is enabled.
   """
   tokenAuthEnabled: Boolean!
+  tokenNoExpiry: Boolean!
 }
 
 """
