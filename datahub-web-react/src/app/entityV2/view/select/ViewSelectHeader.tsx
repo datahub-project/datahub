@@ -11,6 +11,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { ViewTypesFilterOption } from './types';
 
 const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
@@ -121,7 +122,7 @@ const SearchOutlinedStyle = styled(SearchOutlined)`
 type Props = {
     privateView: boolean;
     publicView: boolean;
-    onClickViewTypeFilter: (type: string) => void;
+    onClickViewTypeFilter: (type: ViewTypesFilterOption) => void;
     onClickManageViews: () => void;
     onChangeSearch: (text: any) => void;
 };

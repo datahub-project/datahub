@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ViewSelectContent } from '@app/entityV2/view/select/ViewSelectContent';
 import { ViewSelectHeader } from '@app/entityV2/view/select/ViewSelectHeader';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { ViewTypesFilterOption } from './types';
 
 type Props = {
     children: React.ReactNode;
@@ -12,7 +13,7 @@ type Props = {
     publicView: boolean;
     onClickCreateView: () => void;
     onClickManageViews: () => void;
-    onClickViewTypeFilter: (type: string) => void;
+    onClickViewTypeFilter: (type: ViewTypesFilterOption) => void;
     onChangeSearch: (text: any) => void;
 };
 
