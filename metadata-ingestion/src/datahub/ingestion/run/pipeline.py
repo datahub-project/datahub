@@ -578,7 +578,7 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
-        source_aspects = self.source.get_report().aspects
+        source_aspects = self.source.get_report().get_aspects_dict()
 
         telemetry_instance.ping(
             "ingest_stats",
