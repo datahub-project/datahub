@@ -1,0 +1,4 @@
+namespace com.linkedin.settings.global
+
+
+record ApplicationsSettings includes FeatureSettings {}

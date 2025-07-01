@@ -54,6 +54,7 @@ query appConfig {
             }
             application {
                 showSidebarSectionWhenEmpty
+                showApplicationInNavigation
             }
         }
         telemetryConfig {
@@ -137,4 +138,8 @@ mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
 
 mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
     updateDocPropagationSettings(input: $input)
+}
+
+mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
+    updateApplicationsSettings(input: $input)
 }
