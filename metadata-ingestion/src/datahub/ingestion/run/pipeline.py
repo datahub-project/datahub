@@ -579,10 +579,10 @@ class Pipeline:
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
         source_aspects = self.source.get_report().get_aspects_dict()
-        for _, aspect_dict in source_aspects.items():
-            aspect_dict: Dict[str, int]
-            for aspect_name, aspect_count in aspect_dict.items():
-                aspect_dict[aspect_name] = stats.discretize(aspect_count)
+        entity_dict: Dict[str, int]
+        for _, entity_dict in source_aspects.items():
+            for aspect_name, aspect_count in entity_dict.items():
+                entity_dict[aspect_name] = stats.discretize(aspect_count)
 
         telemetry_instance.ping(
             "ingest_stats",
