@@ -1053,7 +1053,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPSERT);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.CREATE_ACCESS_TOKEN_EVENT.getType());
 
     // Test INGESTION_SOURCE_KEY_ASPECT_NAME
@@ -1062,7 +1063,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.CREATE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.CREATE_INGESTION_SOURCE_EVENT.getType());
 
     // Test INGESTION_INFO_ASPECT_NAME
@@ -1071,7 +1073,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPDATE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.UPDATE_INGESTION_SOURCE_EVENT.getType());
 
     // Test DATAHUB_POLICY_KEY_ASPECT_NAME
@@ -1080,7 +1083,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.CREATE_ENTITY);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.CREATE_POLICY_EVENT.getType());
 
     // Test DATAHUB_POLICY_INFO_ASPECT_NAME
@@ -1089,7 +1093,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.PATCH);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.UPDATE_POLICY_EVENT.getType());
 
     // Test CORP_USER_KEY_ASPECT_NAME
@@ -1098,7 +1103,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPSERT);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.CREATE_USER_EVENT.getType());
 
     // Test CORP_USER_INFO_ASPECT_NAME (should map to UPDATE_USER_EVENT)
@@ -1107,7 +1113,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPSERT);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.UPDATE_USER_EVENT.getType());
 
     // Test GROUP_MEMBERSHIP_ASPECT_NAME (should map to UPDATE_USER_EVENT)
@@ -1116,7 +1123,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPSERT);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.UPDATE_USER_EVENT.getType());
 
     // Test default case for create/update
@@ -1125,7 +1133,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.UPSERT);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.UPDATE_ASPECT_EVENT.getType());
 
     // Test DELETE operations
@@ -1136,7 +1145,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.DELETE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.REVOKE_ACCESS_TOKEN_EVENT.getType());
 
     // Test DATAHUB_POLICY_KEY_ASPECT_NAME delete
@@ -1145,7 +1155,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.DELETE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.DELETE_POLICY_EVENT.getType());
 
     // Test default delete case
@@ -1154,7 +1165,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.DELETE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.DELETE_ENTITY_EVENT.getType());
 
     // Test other change types (should default to ENTITY_EVENT)
@@ -1163,7 +1175,8 @@ public class EntityServiceImplTest {
     mcl.setChangeType(ChangeType.RESTATE);
 
     entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
-    assertEquals(attributesBuilder.build().get(eventTypeAttrKey),
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
         DataHubUsageEventType.ENTITY_EVENT.getType());
   }
 }

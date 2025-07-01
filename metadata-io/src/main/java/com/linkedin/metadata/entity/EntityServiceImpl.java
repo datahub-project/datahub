@@ -2013,8 +2013,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   @VisibleForTesting
-  Attributes mapEventAttributes(
-      MetadataChangeLog metadataChangeLog, OperationContext opContext) {
+  Attributes mapEventAttributes(MetadataChangeLog metadataChangeLog, OperationContext opContext) {
     AttributesBuilder attributesBuilder = Attributes.builder();
 
     Optional.ofNullable(metadataChangeLog.getSystemMetadata())
