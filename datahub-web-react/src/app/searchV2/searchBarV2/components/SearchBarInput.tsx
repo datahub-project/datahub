@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { SearchBar, colors, radius, transition } from '@src/alchemy-components';
+import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
 import { ViewSelect } from '@src/app/entityV2/view/select/ViewSelect';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -38,6 +38,8 @@ const ViewSelectContainer = styled.div``;
 
 export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
+    width: 100%;
+    min-width: 500px;
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -72,10 +74,12 @@ interface Props {
     onFocus?: () => void;
     onBlur?: () => void;
     onViewsClick?: () => void;
+    onClear?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    width?: string;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
@@ -87,10 +91,12 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             onFocus,
             onBlur,
             onViewsClick,
+            onClear,
             isDropdownOpened,
             placeholder,
             showCommandK,
             viewsEnabled,
+            width,
         },
         ref,
     ) => {
@@ -141,6 +147,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     onFocus={onFocusHandler}
                     onBlur={onBlurHandler}
                     allowClear={isDropdownOpened || isFocused}
+                    clearIcon={<Icon onClick={onClear} icon="XCircle" source="phosphor" size="2xl" />}
                     ref={ref}
                     suffix={
                         <SuffixWrapper>
@@ -155,7 +162,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                             )}
                         </SuffixWrapper>
                     }
-                    width={isShowNavBarRedesign ? '664px' : '620px'}
+                    width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
                     $isShowNavBarRedesign={isShowNavBarRedesign}
                 />

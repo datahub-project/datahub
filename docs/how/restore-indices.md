@@ -179,7 +179,7 @@ For Rest.li, see [Restore Indices API](../api/restli/restore-indices.md).
 
 ### CLI
 
-The [datahub CLI](../cli.md) also supports a utility command for restoring indices. Check the `datahub check restore-indices --help` help text for more details.
+The [datahub CLI](../cli.md) also supports a utility command for restoring indices.
 
 ## Best Practices
 
