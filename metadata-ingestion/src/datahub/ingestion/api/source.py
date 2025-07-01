@@ -50,7 +50,10 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -220,7 +223,11 @@ class SourceReport(Report):
         return self._structured_logs.infos
 
     def _populate_aspect_metrics(
-        self, urn: str, mcp: MetadataChangeProposalWrapper
+        self,
+        urn: str,
+        mcp: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
     ) -> None:
         entityType = mcp.entityType
         aspectName = mcp.aspectName
