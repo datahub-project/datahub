@@ -1,4 +1,5 @@
 import json
+from typing import Any, Dict
 
 import pytest
 
@@ -151,7 +152,7 @@ class TestLineageHelper:
 
     def test_get_lineage_fields_no_fields(self, monkeypatch):
         """Test getting lineage fields when none exist."""
-        mock_data = {"entities": {"dataset": {"upstreamLineage": {}}}}
+        mock_data: Dict[str, Any] = {"entities": {"dataset": {"upstreamLineage": {}}}}
         self.setup_mock_load_data(monkeypatch, mock_data)
 
         result = get_lineage_fields("dataset", "upstreamLineage")
