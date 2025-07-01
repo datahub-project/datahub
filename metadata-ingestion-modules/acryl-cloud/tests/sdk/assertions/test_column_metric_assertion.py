@@ -1,4 +1,4 @@
-"""Tests for the SmartColumnMetricAssertion class."""
+"""Tests for the ColumnMetricAssertion class."""
 
 from datetime import datetime, timezone
 
@@ -7,18 +7,14 @@ import pytest
 from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     AssertionMode,
 )
-from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
-    SmartColumnMetricAssertion,
+from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
+    ColumnMetricAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SCHEDULE,
-    DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
-    FixedRangeExclusionWindow,
-    InferenceSensitivity,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -32,54 +28,42 @@ from datahub.metadata.urns import (
 )
 
 
-def test_smart_column_metric_assertion_creation_min_fields(
+def test_column_metric_assertion_creation_min_fields(
     any_assertion_urn: AssertionUrn,
 ) -> None:
-    """Make sure the SmartColumnMetricAssertion can be created with the minimum required fields."""
-    SmartColumnMetricAssertion(
+    """Make sure the ColumnMetricAssertion can be created with the minimum required fields."""
+    ColumnMetricAssertion(
         urn=any_assertion_urn,
         dataset_urn=DatasetUrn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
         ),
-        display_name="Smart Column Metric Assertion",
+        display_name="Column Metric Assertion",
         mode=AssertionMode.ACTIVE,
         column_name="test_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-        sensitivity=InferenceSensitivity.LOW,
-        exclusion_windows=[
-            FixedRangeExclusionWindow(
-                start=datetime(2021, 1, 1, tzinfo=timezone.utc),
-                end=datetime(2021, 1, 2, tzinfo=timezone.utc),
-            )
-        ],
-        training_data_lookback_days=30,
+        operator=models.AssertionStdOperatorClass.GREATER_THAN,
+        criteria_parameters=10,
         detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
         tags=[],
     )
 
 
-def test_smart_column_metric_assertion_all_attributes_are_readonly(
+def test_column_metric_assertion_all_attributes_are_readonly(
     any_assertion_urn: AssertionUrn,
 ) -> None:
-    """Test that all attributes of SmartColumnMetricAssertion are read-only."""
-    assertion = SmartColumnMetricAssertion(
+    """Test that all attributes of ColumnMetricAssertion are read-only."""
+    assertion = ColumnMetricAssertion(
         urn=any_assertion_urn,
         dataset_urn=DatasetUrn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
         ),
-        display_name="Smart Column Metric Assertion",
+        display_name="Column Metric Assertion",
         mode=AssertionMode.ACTIVE,
         column_name="test_column",
         metric_type=models.FieldMetricTypeClass.NULL_COUNT,
-        sensitivity=InferenceSensitivity.LOW,
-        exclusion_windows=[
-            FixedRangeExclusionWindow(
-                start=datetime(2021, 1, 1, tzinfo=timezone.utc),
-                end=datetime(2021, 1, 2, tzinfo=timezone.utc),
-            )
-        ],
-        training_data_lookback_days=30,
+        operator=models.AssertionStdOperatorClass.GREATER_THAN,
+        criteria_parameters=10,
         detection_mechanism=DetectionMechanism.ALL_ROWS_QUERY(),
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
         created_by=CorpUserUrn.from_string("urn:li:corpuser:acryl-cloud-user"),
@@ -137,9 +121,9 @@ def column_metric_assertion_entity_with_all_fields(
                 ),
             ),
         ),
-        description="Smart Column Metric Assertion",
+        description="Column Metric Assertion",
         source=models.AssertionSourceClass(
-            type=models.AssertionSourceTypeClass.INFERRED,
+            type=models.AssertionSourceTypeClass.NATIVE,
             created=models.AuditStampClass(
                 actor="urn:li:corpuser:acryl-cloud-user-created",
                 time=1609459200000,  # 2021-01-01 00:00:00 UTC
@@ -151,7 +135,7 @@ def column_metric_assertion_entity_with_all_fields(
         ),
         tags=[
             models.TagAssociationClass(
-                tag="urn:li:tag:smart_column_metric_assertion_tag",
+                tag="urn:li:tag:column_metric_assertion_tag",
             )
         ],
         on_failure=[
@@ -203,10 +187,6 @@ def column_metric_monitor_with_all_fields(
                                 ),
                             ),
                         ],
-                        trainingDataLookbackWindowDays=99,  # To differentiate from the default value
-                        sensitivity=models.AssertionMonitorSensitivityClass(
-                            level=1,  # LOW
-                        ),
                     ),
                 ),
             ),
@@ -228,140 +208,67 @@ def minimal_monitor(any_monitor_urn: MonitorUrn) -> Monitor:
     )
 
 
-@pytest.mark.parametrize(
-    "expected_log_message",
-    [
-        pytest.param(
-            "Monitor {monitor_urn} does not have an `monitor.info.assertionMonitor` field, defaulting to InferenceSensitivity.MEDIUM",
-            id="minimal_monitor",
-        ),
-    ],
-)
-def test_smart_column_metric_assertion_log_messages(
-    expected_log_message: str,
-    caplog: pytest.LogCaptureFixture,
-    request: pytest.FixtureRequest,
-    any_assertion_urn: AssertionUrn,
-    minimal_monitor: Monitor,
-) -> None:
-    """Test that SmartColumnMetricAssertion emits the correct log messages when fields are missing."""
-    monitor = minimal_monitor
-
-    # Create a simple assertion directly instead of using the fixture
-    assertion = Assertion(
-        id=any_assertion_urn,
-        info=models.FieldAssertionInfoClass(
-            type=models.FieldAssertionTypeClass.FIELD_METRIC,
-            entity="urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)",
-            fieldMetricAssertion=models.FieldMetricAssertionClass(
-                field=models.SchemaFieldSpecClass(
-                    path="test_column",
-                    type="string",
-                    nativeType="VARCHAR",
-                ),
-                metric=models.FieldMetricTypeClass.NULL_COUNT,
-                operator=models.AssertionStdOperatorClass.GREATER_THAN,
-                parameters=models.AssertionStdParametersClass(
-                    value=models.AssertionStdParameterClass(
-                        value="5",
-                        type=models.AssertionStdParameterTypeClass.NUMBER,
-                    ),
-                ),
-            ),
-        ),
-    )
-
-    SmartColumnMetricAssertion._from_entities(
-        assertion=assertion,
-        monitor=monitor,
-    )
-    # Find the expected log message among all captured log messages
-    expected_message = expected_log_message.format(monitor_urn=monitor.urn)
-    log_messages = [record.message for record in caplog.records]
-    assert expected_message in log_messages, (
-        f"Expected message '{expected_message}' not found in log messages: {log_messages}"
-    )
-
-
-def test_smart_column_metric_assertion_from_entities_all_fields(
+def test_column_metric_assertion_from_entities_all_fields(
     column_metric_monitor_with_all_fields: Monitor,
     column_metric_assertion_entity_with_all_fields: Assertion,
 ) -> None:
-    """Test that SmartColumnMetricAssertion can be created from entities with all fields populated."""
-    smart_column_metric_assertion = SmartColumnMetricAssertion._from_entities(
+    """Test that ColumnMetricAssertion can be created from entities with all fields populated."""
+    column_metric_assertion = ColumnMetricAssertion._from_entities(
         assertion=column_metric_assertion_entity_with_all_fields,
         monitor=column_metric_monitor_with_all_fields,
     )
 
     assert (
-        smart_column_metric_assertion.urn
+        column_metric_assertion.urn
         == column_metric_assertion_entity_with_all_fields.urn
     )
-    assert smart_column_metric_assertion.dataset_urn == DatasetUrn.from_string(
+    assert column_metric_assertion.dataset_urn == DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
     )
-    assert smart_column_metric_assertion.display_name == "Smart Column Metric Assertion"
-    assert smart_column_metric_assertion.mode == AssertionMode.ACTIVE
+    assert column_metric_assertion.display_name == "Column Metric Assertion"
+    assert column_metric_assertion.mode == AssertionMode.ACTIVE
 
     # Check column metric specific fields
-    assert smart_column_metric_assertion.column_name == "test_column"
+    assert column_metric_assertion.column_name == "test_column"
+    assert column_metric_assertion.metric_type == models.FieldMetricTypeClass.NULL_COUNT
     assert (
-        smart_column_metric_assertion.metric_type
-        == models.FieldMetricTypeClass.NULL_COUNT
+        column_metric_assertion.operator
+        == models.AssertionStdOperatorClass.GREATER_THAN
     )
-    # Smart assertions always use BETWEEN operator and (0, 0) criteria_parameters
-    assert (
-        smart_column_metric_assertion.operator
-        == models.AssertionStdOperatorClass.BETWEEN
-    )
-    assert smart_column_metric_assertion.criteria_parameters == (0, 0)
-
-    # Check smart functionality fields
-    assert smart_column_metric_assertion.sensitivity == InferenceSensitivity.LOW
-    assert smart_column_metric_assertion.exclusion_windows == [
-        FixedRangeExclusionWindow(
-            start=datetime(2021, 1, 1, tzinfo=timezone.utc),
-            end=datetime(2021, 1, 2, tzinfo=timezone.utc),
-        )
-    ]
-    assert (
-        smart_column_metric_assertion.training_data_lookback_days
-        != ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
-    )
-    assert smart_column_metric_assertion.training_data_lookback_days == 99
+    assert column_metric_assertion.criteria_parameters == "10"
 
     # Check common fields
-    assert smart_column_metric_assertion.created_by == CorpUserUrn.from_string(
+    assert column_metric_assertion.created_by == CorpUserUrn.from_string(
         "urn:li:corpuser:acryl-cloud-user-created"
     )
-    assert smart_column_metric_assertion.created_at == datetime(
+    assert column_metric_assertion.created_at == datetime(
         2021, 1, 1, tzinfo=timezone.utc
     )
-    assert smart_column_metric_assertion.updated_by == CorpUserUrn.from_string(
+    assert column_metric_assertion.updated_by == CorpUserUrn.from_string(
         "urn:li:corpuser:acryl-cloud-user-updated"
     )
-    assert smart_column_metric_assertion.updated_at == datetime(
+    assert column_metric_assertion.updated_at == datetime(
         2021, 1, 2, tzinfo=timezone.utc
     )
-    assert smart_column_metric_assertion.tags == [
-        TagUrn.from_string("urn:li:tag:smart_column_metric_assertion_tag")
+    assert column_metric_assertion.tags == [
+        TagUrn.from_string("urn:li:tag:column_metric_assertion_tag")
     ]
-    assert smart_column_metric_assertion.incident_behavior == [
+    assert column_metric_assertion.incident_behavior == [
         AssertionIncidentBehavior.RAISE_ON_FAIL,
         AssertionIncidentBehavior.RESOLVE_ON_PASS,
     ]
-    assert smart_column_metric_assertion.detection_mechanism is not None
+    assert column_metric_assertion.detection_mechanism is not None
     assert isinstance(
-        smart_column_metric_assertion.detection_mechanism,
+        column_metric_assertion.detection_mechanism,
         DetectionMechanism.ALL_ROWS_QUERY,
     )
-    assert smart_column_metric_assertion.detection_mechanism.additional_filter is None
+    assert column_metric_assertion.detection_mechanism.additional_filter is None
 
 
-def test_smart_column_metric_assertion_from_entities_minimal(
+def test_column_metric_assertion_from_entities_minimal(
     minimal_monitor: Monitor,
 ) -> None:
-    """Test that SmartColumnMetricAssertion can be created from entities with minimal fields."""
+    """Test that ColumnMetricAssertion can be created from entities with minimal fields."""
     assertion = Assertion(
         id=AssertionUrn("urn:li:assertion:minimal_assertion"),
         info=models.FieldAssertionInfoClass(
@@ -385,58 +292,45 @@ def test_smart_column_metric_assertion_from_entities_minimal(
         ),
     )
 
-    smart_column_metric_assertion = SmartColumnMetricAssertion._from_entities(
+    column_metric_assertion = ColumnMetricAssertion._from_entities(
         assertion=assertion,
         monitor=minimal_monitor,
     )
 
-    assert smart_column_metric_assertion.urn == AssertionUrn(
+    assert column_metric_assertion.urn == AssertionUrn(
         "urn:li:assertion:minimal_assertion"
     )
-    assert smart_column_metric_assertion.dataset_urn == DatasetUrn.from_string(
+    assert column_metric_assertion.dataset_urn == DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
     )
     assert (
-        smart_column_metric_assertion.display_name == ""
+        column_metric_assertion.display_name == ""
     )  # Default empty string when no description
     assert (
-        smart_column_metric_assertion.incident_behavior == []
+        column_metric_assertion.incident_behavior == []
     )  # Default empty list when no actions
-    assert smart_column_metric_assertion.tags == []  # Default empty list when no tags
+    assert column_metric_assertion.tags == []  # Default empty list when no tags
 
     # Check column metric specific fields
-    assert smart_column_metric_assertion.column_name == "minimal_column"
+    assert column_metric_assertion.column_name == "minimal_column"
+    assert column_metric_assertion.metric_type == models.FieldMetricTypeClass.NULL_COUNT
     assert (
-        smart_column_metric_assertion.metric_type
-        == models.FieldMetricTypeClass.NULL_COUNT
+        column_metric_assertion.operator
+        == models.AssertionStdOperatorClass.GREATER_THAN
     )
-    # Smart assertions always use BETWEEN operator and (0, 0) criteria_parameters
-    assert (
-        smart_column_metric_assertion.operator
-        == models.AssertionStdOperatorClass.BETWEEN
-    )
-    assert smart_column_metric_assertion.criteria_parameters == (0, 0)
+    assert column_metric_assertion.criteria_parameters == "5"
 
     # No created by, created at, updated by, updated at when no source or last updated:
-    assert smart_column_metric_assertion.created_by is None
-    assert smart_column_metric_assertion.created_at is None
-    assert smart_column_metric_assertion.updated_by is None
-    assert smart_column_metric_assertion.updated_at is None
+    assert column_metric_assertion.created_by is None
+    assert column_metric_assertion.created_at is None
+    assert column_metric_assertion.updated_by is None
+    assert column_metric_assertion.updated_at is None
 
-    # Check smart functionality fields with default values
-    assert smart_column_metric_assertion.sensitivity == DEFAULT_SENSITIVITY
-    assert smart_column_metric_assertion.exclusion_windows == []
-    assert (
-        smart_column_metric_assertion.training_data_lookback_days
-        == ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
-    )
-    assert (
-        smart_column_metric_assertion.detection_mechanism == DEFAULT_DETECTION_MECHANISM
-    )
+    assert column_metric_assertion.detection_mechanism == DEFAULT_DETECTION_MECHANISM
 
 
 def test_column_metric_assertion_with_range_values() -> None:
-    """Test SmartColumnMetricAssertion with range values instead of single value."""
+    """Test ColumnMetricAssertion with range values instead of single value."""
     assertion = Assertion(
         id=AssertionUrn("urn:li:assertion:range_assertion"),
         info=models.FieldAssertionInfoClass(
@@ -479,26 +373,23 @@ def test_column_metric_assertion_with_range_values() -> None:
         ),
     )
 
-    smart_column_metric_assertion = SmartColumnMetricAssertion._from_entities(
+    column_metric_assertion = ColumnMetricAssertion._from_entities(
         assertion=assertion,
         monitor=monitor,
     )
 
-    assert smart_column_metric_assertion.column_name == "range_column"
+    assert column_metric_assertion.column_name == "range_column"
     assert (
-        smart_column_metric_assertion.metric_type
+        column_metric_assertion.metric_type
         == models.FieldMetricTypeClass.NULL_PERCENTAGE
     )
-    # Smart assertions always use BETWEEN operator and (0, 0) criteria_parameters
-    assert (
-        smart_column_metric_assertion.operator
-        == models.AssertionStdOperatorClass.BETWEEN
-    )
-    assert smart_column_metric_assertion.criteria_parameters == (0, 0)
+    assert column_metric_assertion.operator == models.AssertionStdOperatorClass.BETWEEN
+    # Should have range parameters for BETWEEN operator
+    assert column_metric_assertion.criteria_parameters == ("5", "10")
 
 
 def test_column_metric_assertion_with_no_parameter_operator() -> None:
-    """Test SmartColumnMetricAssertion with operators that don't require parameters."""
+    """Test ColumnMetricAssertion with operators that don't require parameters."""
     assertion = Assertion(
         id=AssertionUrn("urn:li:assertion:no_param_assertion"),
         info=models.FieldAssertionInfoClass(
@@ -511,7 +402,7 @@ def test_column_metric_assertion_with_no_parameter_operator() -> None:
                     nativeType="VARCHAR",
                 ),
                 metric=models.FieldMetricTypeClass.NULL_COUNT,
-                operator=models.AssertionStdOperatorClass.NOT_NULL,
+                operator=models.AssertionStdOperatorClass.NULL,
                 parameters=models.AssertionStdParametersClass(),  # Empty parameters
             ),
         ),
@@ -532,26 +423,20 @@ def test_column_metric_assertion_with_no_parameter_operator() -> None:
         ),
     )
 
-    smart_column_metric_assertion = SmartColumnMetricAssertion._from_entities(
+    column_metric_assertion = ColumnMetricAssertion._from_entities(
         assertion=assertion,
         monitor=monitor,
     )
 
-    assert smart_column_metric_assertion.column_name == "no_param_column"
-    assert (
-        smart_column_metric_assertion.metric_type
-        == models.FieldMetricTypeClass.NULL_COUNT
-    )
-    # Smart assertions always use BETWEEN operator and (0, 0) criteria_parameters
-    assert (
-        smart_column_metric_assertion.operator
-        == models.AssertionStdOperatorClass.BETWEEN
-    )
-    assert smart_column_metric_assertion.criteria_parameters == (0, 0)
+    assert column_metric_assertion.column_name == "no_param_column"
+    assert column_metric_assertion.metric_type == models.FieldMetricTypeClass.NULL_COUNT
+    assert column_metric_assertion.operator == models.AssertionStdOperatorClass.NULL
+    # No parameters for NULL operator
+    assert column_metric_assertion.criteria_parameters is None
 
 
 def test_column_metric_assertion_with_changed_rows_detection_mechanism() -> None:
-    """Test SmartColumnMetricAssertion with CHANGED_ROWS_QUERY detection mechanism."""
+    """Test ColumnMetricAssertion with CHANGED_ROWS_QUERY detection mechanism."""
     assertion = Assertion(
         id=AssertionUrn("urn:li:assertion:changed_rows_assertion"),
         info=models.FieldAssertionInfoClass(
@@ -610,17 +495,14 @@ def test_column_metric_assertion_with_changed_rows_detection_mechanism() -> None
         ),
     )
 
-    smart_column_metric_assertion = SmartColumnMetricAssertion._from_entities(
+    column_metric_assertion = ColumnMetricAssertion._from_entities(
         assertion=assertion,
         monitor=monitor,
     )
 
-    assert smart_column_metric_assertion.detection_mechanism is not None
+    assert column_metric_assertion.detection_mechanism is not None
     assert isinstance(
-        smart_column_metric_assertion.detection_mechanism,
+        column_metric_assertion.detection_mechanism,
         DetectionMechanism.CHANGED_ROWS_QUERY,
     )
-    assert (
-        smart_column_metric_assertion.detection_mechanism.column_name
-        == "watermark_column"
-    )
+    assert column_metric_assertion.detection_mechanism.column_name == "watermark_column"

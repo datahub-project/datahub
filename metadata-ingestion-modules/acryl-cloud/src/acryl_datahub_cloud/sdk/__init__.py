@@ -15,13 +15,13 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     InferenceSensitivity,
     TimeWindowSize,
 )
-from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
-    FreshnessAssertionScheduleCheckType,
-)
-from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     MetricType,
     OperatorType,
     ValueType,
+)
+from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
+    FreshnessAssertionScheduleCheckType,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     SqlAssertionCondition,

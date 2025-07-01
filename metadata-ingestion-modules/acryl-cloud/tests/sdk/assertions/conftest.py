@@ -740,6 +740,19 @@ def column_metric_stub_datahub_client(
 
 
 @pytest.fixture
+def native_column_metric_stub_entity_client() -> StubEntityClient:
+    """A stub entity client for native column metric assertions."""
+    return StubEntityClient()
+
+
+@pytest.fixture
+def native_column_metric_stub_datahub_client(
+    native_column_metric_stub_entity_client: StubEntityClient,
+) -> StubDataHubClient:
+    return StubDataHubClient(entity_client=native_column_metric_stub_entity_client)
+
+
+@pytest.fixture
 def stub_entity_client() -> StubEntityClient:
     """A generic stub entity client that can be used for all types of assertions."""
     return StubEntityClient()

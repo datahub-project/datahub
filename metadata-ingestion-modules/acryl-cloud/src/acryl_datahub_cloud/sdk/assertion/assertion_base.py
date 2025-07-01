@@ -28,9 +28,11 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     TimeWindowSizeInputTypes,
     _DetectionMechanismTypes,
 )
-from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     MetricInputType,
     OperatorInputType,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     SmartColumnMetricAssertionParameters,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (

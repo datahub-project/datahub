@@ -9,24 +9,18 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     _AssertionPublic,
     _HasColumnMetricFunctionality,
     _HasSchedule,
-    _HasSmartFunctionality,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SCHEDULE,
-    DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
-    ExclusionWindowTypes,
-    InferenceSensitivity,
     _DetectionMechanismTypes,
 )
-from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
-    OperatorType,
-)
-from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
+    ColumnMetricAssertionParameters,
     MetricInputType,
+    OperatorInputType,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -36,17 +30,15 @@ from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
 logger = logging.getLogger(__name__)
 
 
-class SmartColumnMetricAssertion(
+class ColumnMetricAssertion(
     _HasColumnMetricFunctionality,
-    _HasSmartFunctionality,
     _HasSchedule,
     _AssertionPublic,
 ):
     """
-    A class that represents a smart column metric assertion.
+    A class that represents a column metric assertion.
     This assertion is used to validate the value of a common field / column metric (e.g. aggregation) such as null count + percentage,
-    min, max, median, and more. It uses AI to infer the assertion parameters. The operator is automatically set to BETWEEN with
-    criteria_parameters of (0, 0) since the actual values will be inferred by AI.
+    min, max, median, and more. It uses native source types without AI inference.
     """
 
     def __init__(
@@ -56,13 +48,13 @@ class SmartColumnMetricAssertion(
         dataset_urn: DatasetUrn,
         column_name: str,
         metric_type: MetricInputType,
-        # TODO: Evaluate these params:
+        operator: OperatorInputType,
+        # Consolidated criteria parameters
+        criteria_parameters: Optional[ColumnMetricAssertionParameters] = None,
+        # Standard assertion parameters:
         display_name: str,
         mode: AssertionMode,
         schedule: models.CronScheduleClass = DEFAULT_SCHEDULE,
-        sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
-        exclusion_windows: list[ExclusionWindowTypes],
-        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
         incident_behavior: list[AssertionIncidentBehavior],
         detection_mechanism: Optional[
             _DetectionMechanismTypes
@@ -74,16 +66,13 @@ class SmartColumnMetricAssertion(
         updated_at: Optional[datetime] = None,
     ):
         """
-        Initialize a smart column metric assertion.
+        Initialize a column metric assertion.
 
         Args:
             urn: The URN of the assertion.
             dataset_urn: The URN of the dataset to monitor.
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active/inactive).
-            sensitivity: The sensitivity of the assertion (low/medium/high).
-            exclusion_windows: The exclusion windows to apply to the assertion.
-            training_data_lookback_days: The number of days of data to use for training.
             incident_behavior: The behavior when incidents occur.
             detection_mechanism: The mechanism used to detect changes.
             tags: The tags to apply to the assertion.
@@ -106,12 +95,6 @@ class SmartColumnMetricAssertion(
             updated_by=updated_by,
             updated_at=updated_at,
         )
-        _HasSmartFunctionality.__init__(
-            self,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
-        )
         _HasSchedule.__init__(
             self,
             schedule=schedule,
@@ -120,36 +103,32 @@ class SmartColumnMetricAssertion(
             self,
             column_name=column_name,
             metric_type=metric_type,
-            operator=OperatorType.BETWEEN,  # Fixed operator for smart assertions
-            criteria_parameters=(
-                0,
-                0,
-            ),  # Fixed criteria_parameters for smart assertions
+            operator=operator,
+            criteria_parameters=criteria_parameters,
         )
 
     @classmethod
     def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
-        Create a SmartColumnMetricAssertion from an Assertion and Monitor entity.
+        Create a ColumnMetricAssertion from an Assertion and Monitor entity.
 
         Args:
             assertion: The Assertion entity.
             monitor: The Monitor entity.
 
         Returns:
-            A SmartColumnMetricAssertion instance.
+            A ColumnMetricAssertion instance.
         """
         return cls(
             urn=assertion.urn,
             dataset_urn=assertion.dataset,
             column_name=cls._get_column_name(assertion),
             metric_type=cls._get_metric_type(assertion),
+            operator=cls._get_operator(assertion),
+            criteria_parameters=cls._get_criteria_parameters(assertion),
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
             schedule=cls._get_schedule(monitor),
-            sensitivity=cls._get_sensitivity(monitor),
-            exclusion_windows=cls._get_exclusion_windows(monitor),
-            training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
             tags=cls._get_tags(assertion),

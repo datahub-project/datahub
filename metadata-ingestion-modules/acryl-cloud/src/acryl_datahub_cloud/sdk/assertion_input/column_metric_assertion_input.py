@@ -14,15 +14,12 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
     AssertionInfoInputType,
     DetectionMechanismInputTypes,
-    ExclusionWindowInputTypes,
     FieldSpecType,
-    InferenceSensitivity,
     _AllRowsQuery,
     _AllRowsQueryDataHubDatasetProfile,
     _AssertionInput,
     _ChangedRowsQuery,
     _DatasetProfile,
-    _HasSmartAssertionInputs,
     _try_parse_and_validate_schema_classes_enum,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
@@ -30,7 +27,7 @@ from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     FIELD_METRIC_TYPE_CONFIG,
     FIELD_VALUES_OPERATOR_CONFIG,
     MetricInputType,
-    OperatorType,
+    OperatorInputType,
     RangeInputType,
     RangeTypeInputType,
     RangeTypeParsedType,
@@ -48,30 +45,22 @@ from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
 
-# Keep the smart-specific name for backward compatibility
-ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION = (
-    ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION
-)
-
 # New unified criteria parameters type
-SmartColumnMetricAssertionParameters = Union[
+ColumnMetricAssertionParameters = Union[
     None,  # For operators that don't require parameters (NULL, NOT_NULL)
     ValueInputType,  # Single value
     RangeInputType,  # Range as tuple
 ]
 
-DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION: _AllRowsQuery = (
-    _AllRowsQuery()
-)
+DEFAULT_DETECTION_MECHANISM_COLUMN_METRIC_ASSERTION: _AllRowsQuery = _AllRowsQuery()
 
 
-class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
+class _ColumnMetricAssertionInput(_AssertionInput):
     """
-    Input used to create a smart column metric assertion.
+    Input used to create a column metric assertion.
 
     This assertion is used to validate the value of a common field / column metric (e.g. aggregation) such as null count + percentage,
-    min, max, median, and more. It uses AI to infer the assertion parameters. The operator is fixed to BETWEEN and criteria_parameters
-    are set to (0, 0) since the actual values will be inferred by AI.
+    min, max, median, and more.
 
     Example using the entity models, not comprehensive for all options:
 
@@ -92,21 +81,17 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                     nativeType="string",  # The native type of the column
                 ),
                 metric=models.FieldMetricTypeClass.NULL_COUNT_PERCENTAGE,  # The metric to validate
-                operator=models.AssertionStdOperatorClass.BETWEEN,  # Fixed operator for smart assertions
+                operator=models.AssertionStdOperatorClass.GREATER_THAN,  # The operator to use
                 parameters=models.AssertionStdParametersClass(
-                    minValue=models.AssertionStdParameterClass(
-                        value="0",  # Fixed min value for smart assertions
-                        type=models.AssertionStdParameterTypeClass.NUMBER,
-                    ),
-                    maxValue=models.AssertionStdParameterClass(
-                        value="0",  # Fixed max value for smart assertions
-                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                    value=models.AssertionStdParameterClass(
+                        value=10,  # The value to validate
+                        type=models.AssertionStdParameterTypeClass.NUMBER,  # The type of the value
                     ),
                 ),
             ),
         ),
         source=models.AssertionSourceClass(
-            type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            type=models.AssertionSourceTypeClass.NATIVE,  # Column metric assertions are of type native
             created=AuditStampClass(
                 time=1717929600,
                 actor="urn:li:corpuser:jdoe",  # The actor who created the assertion
@@ -146,24 +131,6 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                     ),
                 ),
             ),
-            settings=models.AssertionMonitorSettingsClass(
-                adjustmentSettings=models.AssertionAdjustmentSettingsClass(
-                    algorithm=models.AdjustmentAlgorithmClass.CUSTOM,  # TODO: Do we need to set this in the SDK?
-                    algorithmName="stddev",  # TODO: Do we need to set this in the SDK? What are acceptable values?
-                    context={
-                        "stdDev": "1.0",  # TODO: Do we need to set this in the SDK? What are acceptable values?
-                    },
-                    exclusionWindows=[models.AssertionExclusionWindowClass(
-                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
-                        start=1717929600,
-                        end=1717929600,
-                    )],
-                    trainingDataLookbackWindowDays=10,  # The number of days to look back for training data
-                    sensitivity=models.AssertionMonitorSensitivityClass(
-                        level=1,  # The sensitivity level
-                    ),
-                ),
-            ),
         ),
     )
     ```
@@ -177,37 +144,37 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         entity_client: EntityClient,
         column_name: str,
         metric_type: MetricInputType,
+        operator: OperatorInputType,
+        # Criteria parameters
+        criteria_parameters: Optional[ColumnMetricAssertionParameters] = None,
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
-        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
-        training_data_lookback_days: Optional[int] = None,
         incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        gms_criteria_type_info: Optional[tuple] = None,
     ):
         """
-        Initialize a smart column metric assertion input.
+        Initialize a column metric assertion input.
 
         Args:
             dataset_urn: The dataset urn.
             entity_client: The entity client.
             column_name: The name of the column to validate.
             metric_type: The metric type to validate.
+            operator: The operator to use.
+            criteria_parameters: The criteria parameters (single value, range tuple, or None). Type will be automatically inferred.
             urn: The urn of the assertion.
             display_name: The display name of the assertion.
             enabled: Whether the assertion is enabled.
             schedule: The schedule of the assertion.
             detection_mechanism: The detection mechanism of the assertion.
-            sensitivity: The sensitivity of the assertion.
-            exclusion_windows: The exclusion windows of the assertion.
-            training_data_lookback_days: The training data lookback days of the assertion.
             incident_behavior: The incident behavior of the assertion. Accepts strings, enum values, lists, or None.
             tags: The tags of the assertion.
             created_by: The creator of the assertion.
@@ -227,53 +194,52 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            source_type=models.AssertionSourceTypeClass.NATIVE,  # Column metric assertions are of type native
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
-            default_detection_mechanism=DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION,
-        )
-        _HasSmartAssertionInputs.__init__(
-            self,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
+            default_detection_mechanism=DEFAULT_DETECTION_MECHANISM_COLUMN_METRIC_ASSERTION,
         )
 
-        # Validate Smart Column Metric Assertion specific parameters
+        # Column metric assertions (non-smart) don't use exclusion_windows, sensitivity or training_data_lookback_days
+
+        # Validate Column Metric Assertion specific parameters
         self.metric_type = _try_parse_and_validate_schema_classes_enum(
             metric_type, models.FieldMetricTypeClass
         )
         self.column_name = self._try_parse_and_validate_column_name_is_valid_type(
             column_name
         )
-
-        # Smart assertions use fixed operator and criteria_parameters since they are inferred by AI
         self.operator = _try_parse_and_validate_schema_classes_enum(
-            OperatorType.BETWEEN, models.AssertionStdOperatorClass
+            operator, models.AssertionStdOperatorClass
         )
 
-        # Initialize instance variables with fixed values for smart assertions
-        self.criteria_parameters: Optional[SmartColumnMetricAssertionParameters] = (
-            0,
-            0,
-        )
+        # Initialize instance variables with proper type annotations
+        self.criteria_parameters: Optional[ColumnMetricAssertionParameters] = None
         self.criteria_type: Optional[Union[ValueTypeInputType, RangeTypeInputType]] = (
-            ValueType.NUMBER,
-            ValueType.NUMBER,
+            None
         )
+
+        # Process criteria parameters with GMS type information if available
+        if gms_criteria_type_info is not None:
+            self._process_criteria_parameters_with_gms_type(
+                criteria_parameters, gms_criteria_type_info[1]
+            )
+        else:
+            self._process_criteria_parameters(criteria_parameters)
 
         # Validate compatibility:
-        # Skip operator validation for smart assertions since operator is a placeholder (AI inferred)
-        # Only validate metric type compatibility
+        self._validate_field_type_and_operator_compatibility(
+            self.column_name, self.operator
+        )
         self._validate_field_type_and_metric_type_compatibility(
             self.column_name, self.metric_type
         )
 
     def _infer_criteria_type_from_parameters(
         self,
-        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_parameters: Optional[ColumnMetricAssertionParameters],
     ) -> Optional[Union[ValueTypeInputType, RangeTypeInputType]]:
         """
         Infer the criteria type from the parameters based on Python types.
@@ -321,7 +287,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
 
     def _process_criteria_parameters_with_gms_type(
         self,
-        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_parameters: Optional[ColumnMetricAssertionParameters],
         gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
     ) -> None:
         """Process criteria_parameters using explicit type information from GMS."""
@@ -346,7 +312,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
 
     def _process_criteria_parameters(
         self,
-        criteria_parameters: Optional[SmartColumnMetricAssertionParameters],
+        criteria_parameters: Optional[ColumnMetricAssertionParameters],
     ) -> None:
         """Process the new consolidated criteria_parameters with automatic type inference."""
         if criteria_parameters is None:
@@ -518,13 +484,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                         ),
                     ),
                 ],
-                settings=models.AssertionMonitorSettingsClass(
-                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
-                        sensitivity=self._convert_sensitivity(),
-                        exclusionWindows=self._convert_exclusion_windows(),
-                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
-                    ),
-                ),
+                settings=None,
             ),
         )
 
@@ -532,13 +492,13 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         self, filter: Optional[models.DatasetFilterClass]
     ) -> AssertionInfoInputType:
         """
-        Create a FieldAssertionInfoClass for a smart column metric assertion.
+        Create a FieldAssertionInfoClass for a column metric assertion.
 
         Args:
             filter: Optional filter to apply to the assertion.
 
         Returns:
-            A FieldAssertionInfoClass configured for smart column metric.
+            A FieldAssertionInfoClass configured for column metric.
         """
         # Get the field spec for the column
         field_spec = self._get_schema_field_spec(self.column_name)
@@ -562,7 +522,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
 
     def _convert_schedule(self) -> models.CronScheduleClass:
         """
-        Create a schedule for a smart column metric assertion.
+        Create a schedule for a column metric assertion.
 
         Returns:
             A CronScheduleClass with appropriate schedule settings.
@@ -592,7 +552,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         self, source_type: str, field: Optional[FieldSpecType]
     ) -> models.AssertionEvaluationParametersClass:
         """
-        Get evaluation parameters for a smart column metric assertion.
+        Get evaluation parameters for a column metric assertion.
         Converts SchemaFieldSpecClass to FreshnessFieldSpecClass if needed.
         """
         if field is not None:
@@ -655,7 +615,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             # Note: This is only valid on the all rows query
         else:
             raise SDKNotYetSupportedError(
-                f"Detection mechanism {self.detection_mechanism} is not supported for smart column metric assertions, please use a supported detection mechanism: {', '.join(SUPPORTED_DETECTION_MECHANISMS)}"
+                f"Detection mechanism {self.detection_mechanism} is not supported for column metric assertions, please use a supported detection mechanism: {', '.join(SUPPORTED_DETECTION_MECHANISMS)}"
             )
 
         return source_type, field
@@ -716,7 +676,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         column_name: str,
         allowed_column_types: list[
             models.DictWrapper
-        ] = ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION,
+        ] = ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION,
     ) -> str:
         """
         Parse and validate a column name. Determine from the field spec if the column exists and is of the appropriate type for the metric type.
@@ -727,7 +687,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             field_spec,
             column_name,
             allowed_column_types,
-            "smart column metric assertion",
+            "column metric assertion",
         )
         return column_name
 
@@ -775,7 +735,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
 
         if field_type not in FIELD_METRIC_TYPE_CONFIG:
             raise SDKUsageError(
-                f"Column {column_name} is of type {field_type}, which is not supported for smart column metric assertions"
+                f"Column {column_name} is of type {field_type}, which is not supported for column metric assertions"
             )
 
         allowed_metric_types = FIELD_METRIC_TYPE_CONFIG[field_type]
@@ -899,7 +859,7 @@ def _validate_unsupported_types(value_type: ValueTypeInputType) -> None:
         models.AssertionStdParameterTypeClass.SET,
     ):
         raise SDKNotYetSupportedError(
-            "List and set value types are not supported for smart column metric assertions"
+            "List and set value types are not supported for column metric assertions"
         )
 
     valid_types = {
