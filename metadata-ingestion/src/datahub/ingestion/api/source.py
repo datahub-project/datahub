@@ -53,6 +53,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
+from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -205,6 +206,10 @@ class SourceReport(Report):
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
+    subtypes: Dict[str, Dict[str, int]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(int))
+    )
+
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
     @property
@@ -239,8 +244,11 @@ class SourceReport(Report):
                     self._urns_seen.add(urn)
                     self.entities[entityType].append(urn)
 
-                if aspectName is not None:  # usually true
+                if aspectName is not None:
                     self.aspects[entityType][aspectName] += 1
+                    if aspectName == "subTypes":
+                        for subtype in mcp.aspect.typeNames:
+                            self.subtypes[entityType][subtype] += 1
                     self.aspect_urn_samples[entityType][aspectName].append(urn)
                     if isinstance(mcp.aspect, UpstreamLineageClass):
                         upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
@@ -339,12 +347,26 @@ class SourceReport(Report):
             "infos": Report.to_pure_python_obj(self.infos),
         }
 
+    @staticmethod
+    def _discretize_dict_values(
+        nested_dict: Dict[str, Dict[str, int]],
+    ) -> Dict[str, Dict[str, int]]:
+        """Helper method to discretize values in a nested dictionary structure."""
+        result = {}
+        for outer_key, inner_dict in nested_dict.items():
+            discretized_dict: Dict[str, int] = {}
+            for inner_key, count in inner_dict.items():
+                discretized_dict[inner_key] = stats.discretize(count)
+            result[outer_key] = discretized_dict
+        return result
+
     def get_aspects_dict(self) -> Dict[str, Dict[str, int]]:
         """Convert the nested defaultdict aspects to a regular dict for serialization."""
-        result = {}
-        for entity_type, aspect_counts in self.aspects.items():
-            result[entity_type] = dict(aspect_counts)
-        return result
+        return self._discretize_dict_values(self.aspects)
+
+    def get_subtypes_dict(self) -> Dict[str, Dict[str, int]]:
+        """Convert the nested defaultdict subtypes to a regular dict for serialization."""
+        return self._discretize_dict_values(self.subtypes)
 
     def compute_stats(self) -> None:
         super().compute_stats()
