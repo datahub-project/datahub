@@ -997,7 +997,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             field = SchemaField(
                 fieldPath=metric.get("metric_name", ""),
                 type=SchemaFieldDataType(data_type),
-                nativeDataType="",
+                nativeDataType=metric_type or "",
                 description=metric.get("description", ""),
                 nullable=True,
             )
