@@ -30,6 +30,7 @@ export const ContentWrapper = styled.div`
 `;
 
 export const ContentContainer = styled.div`
+    position: relative; // to enable z-index
     padding: 40px 160px 16px 160px;
     background-color: ${colors.white};
     height: 100%;
