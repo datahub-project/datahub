@@ -59,11 +59,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       log.debug(
           "User {} listing policies with filters {}", context.getActorUrn(), filters.toString());
 
-      final Filter filter =
-          ResolverUtils.buildFilter(
-              facetFilters,
-              Collections.emptyList(),
-              context.getOperationContext().getAspectRetriever());
+      final Filter filter = ResolverUtils.buildFilter(facetFilters, Collections.emptyList());
 
       return _policyFetcher
           .fetchPolicies(context.getOperationContext(), start, query, count, filter)

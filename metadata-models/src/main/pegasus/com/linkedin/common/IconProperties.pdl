@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Properties describing an icon associated with an entity
+ */
+
+record IconProperties {
+  /**
+   * The source of the icon: e.g. Antd, Material, etc
+   */
+  iconLibrary: IconLibrary
+
+  /**
+   * The name of the icon
+   */
+  name: string
+
+  /**
+   * Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
+   */
+  style: string
+}

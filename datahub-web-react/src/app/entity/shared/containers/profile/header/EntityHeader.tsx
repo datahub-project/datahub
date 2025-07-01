@@ -1,27 +1,32 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
-import PlatformContent from './PlatformContent';
-import { getPlatformName } from '../../../utils';
-import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
-import EntityCount from './EntityCount';
-import { EntityHealth } from './EntityHealth';
-import EntityName from './EntityName';
-import { DeprecationPill } from '../../../components/styled/DeprecationPill';
-import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
-import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
-import ExternalUrlButton from '../../../ExternalUrlButton';
-import ShareButton from '../../../../../shared/share/ShareButton';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { useUserContext } from '../../../../../context/useUserContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import EntityDropdown, { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import ExternalUrlButton from '@app/entity/shared/ExternalUrlButton';
+import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
+import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
+import EntityHeaderLoadingSection from '@app/entity/shared/containers/profile/header/EntityHeaderLoadingSection';
+import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
+import EntityName from '@app/entity/shared/containers/profile/header/EntityName';
+import PlatformContent from '@app/entity/shared/containers/profile/header/PlatformContent';
+import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
+import EntityActions, { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { getPlatformName } from '@app/entity/shared/utils';
+import ShareButton from '@app/shared/share/ShareButton';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useIsEditableDatasetNameEnabled } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, PlatformPrivileges } from '@types';
 
 const TitleWrapper = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    gap: 8px;
 
     .ant-typography-edit-content {
         padding-top: 7px;
@@ -59,6 +64,7 @@ const TopButtonsWrapper = styled.div`
 export function getCanEditName(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
+    isEditableDatasetNameEnabled: boolean,
     privileges?: PlatformPrivileges,
 ) {
     switch (entityType) {
@@ -71,6 +77,8 @@ export function getCanEditName(
             return true; // TODO: add permissions for data products
         case EntityType.BusinessAttribute:
             return privileges?.manageBusinessAttributes;
+        case EntityType.Dataset:
+            return isEditableDatasetNameEnabled && entityData?.privileges?.canEditProperties;
         default:
             return false;
     }
@@ -94,8 +102,15 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityName = entityData?.name;
     const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
+    const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        isNameEditable &&
+        getCanEditName(
+            entityType,
+            entityData,
+            isEditableDatasetNameEnabled,
+            me?.platformPrivileges as PlatformPrivileges,
+        );
     const entityRegistry = useEntityRegistry();
 
     return (
@@ -106,7 +121,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                         <>
                             <PlatformContent />
                             <TitleWrapper>
-                                <EntityName isNameEditable={canEditName} />
+                                <EntityName isNameEditable={canEditName || false} />
                                 {entityData?.deprecation?.deprecated && (
                                     <DeprecationPill
                                         urn={urn}
@@ -121,6 +136,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
                                 )}
+                                <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
                             </TitleWrapper>
                             <EntityCount
                                 entityCount={entityCount}

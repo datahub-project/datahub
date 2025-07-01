@@ -1,5 +1,7 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
+        urn
+        type
         ...dashboardFields
         privileges {
             ...entityPrivileges
@@ -24,6 +26,7 @@ query getDashboard($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

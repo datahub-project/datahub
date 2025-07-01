@@ -3,7 +3,10 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceCapability
+from datahub.ingestion.api.source import (
+    Source,
+    SourceCapability as SourceCapability,
+)
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -21,6 +24,8 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
         ):
             # add the create method only if it has not been overridden from the base Source.create method
             cls.create = classmethod(default_create)
+
+            # TODO: Once we're on Python 3.10, we should call abc.update_abstractmethods here.
 
         return cls
 
@@ -99,6 +104,7 @@ def capability(
             for base in cls.__bases__
         ):
             cls.__capabilities = {}
+
             cls.get_capabilities = lambda: cls.__capabilities.values()
 
             # If the superclasses have capability annotations, copy those over.

@@ -11,6 +11,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "619"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
             "name": "chord_progressions_avro.avro",
             "description": "",
             "tags": []
@@ -18,7 +19,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -59,18 +61,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "FourthChord",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
                     "nullable": false,
                     "type": {
@@ -95,6 +85,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "[version=2.0].[type=Record].[type=string].ProgressionQuality",
                     "nullable": false,
                     "type": {
@@ -111,7 +113,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -133,7 +136,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -145,8 +149,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847620000
@@ -154,7 +158,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -169,12 +174,14 @@
                 "env": "PROD",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -189,7 +196,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -204,7 +212,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -221,7 +230,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -236,7 +246,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -251,12 +278,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -271,7 +300,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -286,7 +316,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -303,22 +334,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -338,7 +355,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -353,12 +387,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -373,7 +409,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -388,7 +425,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -405,22 +443,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -444,7 +468,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -459,12 +500,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -479,7 +522,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -494,7 +538,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -511,22 +556,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -554,7 +585,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -569,7 +601,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -601,7 +634,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -616,6 +650,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "604"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket-2?prefix=folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
             "name": "chord_progressions_csv.csv",
             "description": "",
             "tags": []
@@ -623,7 +658,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -716,7 +752,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -738,7 +775,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -750,8 +788,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847630000
@@ -759,7 +797,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -774,12 +813,14 @@
                 "env": "PROD",
                 "bucket_name": "my-test-bucket-2"
             },
-            "name": "my-test-bucket-2"
+            "name": "my-test-bucket-2",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -794,7 +835,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -809,7 +851,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -826,7 +869,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -841,7 +885,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6d8484efac8152d10620c6c0699d02d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:680e54d5e3a7705caa1d99893fab4924"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -856,12 +917,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -876,7 +939,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -891,7 +955,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -908,22 +973,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f6d8484efac8152d10620c6c0699d02d",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:680e54d5e3a7705caa1d99893fab4924"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -943,7 +994,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6e8c28494477b4a90cf5fd395217bae0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f6d8484efac8152d10620c6c0699d02d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -958,12 +1026,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -978,7 +1048,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -993,7 +1064,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1010,22 +1082,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6e8c28494477b4a90cf5fd395217bae0",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f6d8484efac8152d10620c6c0699d02d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1049,7 +1107,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce2eca2107ef4c0b47a8f4a65eff971c",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6e8c28494477b4a90cf5fd395217bae0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1064,12 +1139,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1084,7 +1161,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1099,7 +1177,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1116,22 +1195,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ce2eca2107ef4c0b47a8f4a65eff971c",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:6e8c28494477b4a90cf5fd395217bae0"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1159,7 +1224,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1174,7 +1240,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1189,7 +1256,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1221,7 +1289,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1236,7 +1305,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1251,7 +1321,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1266,7 +1337,52 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_specs_of_different_buckets.json"
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847620000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket-2/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847630000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_specs_of_different_buckets.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

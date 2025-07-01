@@ -1,5 +1,7 @@
 query getMLFeature($urn: String!) {
     mlFeature(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLFeature
         privileges {
             ...entityPrivileges
@@ -18,5 +20,6 @@ query getMLFeature($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

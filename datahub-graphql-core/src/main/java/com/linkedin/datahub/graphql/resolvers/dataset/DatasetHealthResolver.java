@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
@@ -131,7 +135,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             datasetUrn,
-            ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+            ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             500,
@@ -197,16 +201,12 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
     final ArrayList<Criterion> criteria = new ArrayList<>();
 
     // Add filter for asserteeUrn == datasetUrn
-    Criterion datasetUrnCriterion =
-        new Criterion().setField("asserteeUrn").setCondition(Condition.EQUAL).setValue(datasetUrn);
+    Criterion datasetUrnCriterion = buildCriterion("asserteeUrn", Condition.EQUAL, datasetUrn);
     criteria.add(datasetUrnCriterion);
 
     // Add filter for result == result
     Criterion startTimeCriterion =
-        new Criterion()
-            .setField("status")
-            .setCondition(Condition.EQUAL)
-            .setValue(Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE);
+        buildCriterion("status", Condition.EQUAL, ASSERTION_RUN_EVENT_STATUS_COMPLETE);
     criteria.add(startTimeCriterion);
 
     filter.setOr(

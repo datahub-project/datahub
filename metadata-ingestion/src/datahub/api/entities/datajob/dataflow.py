@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
+    DataPlatformInstanceClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -16,6 +17,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -28,7 +30,7 @@ class DataFlow:
     """The DataHub representation of data-flow.
 
     Args:
-        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
+        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://docs.datahub.com/docs/what/urn/.
         id (str): Identifier of DataFlow in orchestrator.
         orchestrator (str): orchestrator. for example airflow.
         cluster (Optional[str]): [deprecated] Please use env.
@@ -38,8 +40,8 @@ class DataFlow:
         url (Optional[str]): URL pointing to DataFlow.
         tags (Set[str]): tags that need to be apply on DataFlow.
         owners (Set[str]): owners that need to be apply on DataFlow.
-        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://datahubproject.io/docs/platform-instances/.
-        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://datahubproject.io/docs/graphql/enums/#fabrictype.
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://docs.datahub.com/docs/platform-instances/.
+        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://docs.datahub.com/docs/graphql/enums/#fabrictype.
     """
 
     urn: DataFlowUrn = field(init=False)
@@ -110,7 +112,18 @@ class DataFlow:
         )
         return [tags]
 
+    def _get_env(self) -> Optional[str]:
+        env: Optional[str] = None
+        if self.env and self.env.upper() in builder.ALL_ENV_TYPES:
+            env = self.env.upper()
+        else:
+            logger.debug(
+                f"{self.env} is not a valid environment type so Environment filter won't work."
+            )
+        return env
+
     def generate_mce(self) -> MetadataChangeEventClass:
+        env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -120,6 +133,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
+                        env=env,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
@@ -130,6 +144,7 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+        env = self._get_env()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
@@ -137,9 +152,32 @@ class DataFlow:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
+            ),
+        )
+        yield mcp
+
+        if self.platform_instance:
+            instance = builder.make_dataplatform_instance_urn(
+                platform=self.orchestrator,
+                instance=self.platform_instance,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=builder.make_data_platform_urn(self.orchestrator),
+                    instance=instance,
+                ),
+            )
+            yield mcp
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(

@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -171,7 +172,7 @@ public class OwnerUtils {
     if (!owner.getOwner().equals(ownerUrn)) {
       return false;
     }
-    if (owner.getTypeUrn() != null) {
+    if (owner.getTypeUrn() != null && ownershipTypeUrn != null) {
       return owner.getTypeUrn().equals(ownershipTypeUrn);
     }
     if (ownershipTypeUrn == null) {
@@ -195,7 +196,12 @@ public class OwnerUtils {
   }
 
   public static void validateAuthorizedToUpdateOwners(
-      @Nonnull QueryContext context, Urn resourceUrn) {
+      @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
+
+    if (GlossaryUtils.canUpdateGlossaryEntity(resourceUrn, context, entityClient)) {
+      return;
+    }
+
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
@@ -205,11 +211,7 @@ public class OwnerUtils {
 
     boolean authorized =
         AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            resourceUrn.getEntityType(),
-            resourceUrn.toString(),
-            orPrivilegeGroups);
+            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
     if (!authorized) {
       throw new AuthorizationException(
           "Unauthorized to update owners. Please contact your DataHub administrator.");
@@ -334,5 +336,16 @@ public class OwnerUtils {
   public static String mapOwnershipTypeToEntity(String type) {
     final String typeName = SYSTEM_ID + type.toLowerCase();
     return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName).toString();
+  }
+
+  public static boolean isAuthorizedToUpdateOwners(@Nonnull QueryContext context, Urn resourceUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
+    return AuthorizationUtils.isAuthorized(
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

@@ -35,7 +35,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -94,7 +94,7 @@ public class AddTagsResolverTest {
                     ImmutableList.of(
                         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -146,7 +146,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetFailureTagDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -177,7 +177,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -208,7 +208,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 

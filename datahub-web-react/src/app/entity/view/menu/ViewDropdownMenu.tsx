@@ -1,25 +1,27 @@
+import { MoreOutlined } from '@ant-design/icons';
+import { useApolloClient } from '@apollo/client';
+import { Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useApolloClient } from '@apollo/client';
-import { MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
-import { useUpdateGlobalViewsSettingsMutation } from '../../../../graphql/app.generated';
-import { useDeleteViewMutation } from '../../../../graphql/view.generated';
-import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '../cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { ViewBuilderMode } from '../builder/types';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { EditViewItem } from './item/EditViewItem';
-import { PreviewViewItem } from './item/PreviewViewItem';
-import { RemoveUserDefaultItem } from './item/RemoveUserDefaultItem';
-import { SetUserDefaultItem } from './item/SetUserDefaultItem';
-import { RemoveGlobalDefaultItem } from './item/RemoveGlobalDefaultItem';
-import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
-import { DeleteViewItem } from './item/DeleteViewItem';
-import analytics, { EventType } from '../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entity/view/cacheUtils';
+import { DeleteViewItem } from '@app/entity/view/menu/item/DeleteViewItem';
+import { EditViewItem } from '@app/entity/view/menu/item/EditViewItem';
+import { PreviewViewItem } from '@app/entity/view/menu/item/PreviewViewItem';
+import { RemoveGlobalDefaultItem } from '@app/entity/view/menu/item/RemoveGlobalDefaultItem';
+import { RemoveUserDefaultItem } from '@app/entity/view/menu/item/RemoveUserDefaultItem';
+import { SetGlobalDefaultItem } from '@app/entity/view/menu/item/SetGlobalDefaultItem';
+import { SetUserDefaultItem } from '@app/entity/view/menu/item/SetUserDefaultItem';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
+
+import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
+import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
+import { useDeleteViewMutation } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 const MenuButton = styled(MoreOutlined)`
     width: 20px;
@@ -30,17 +32,6 @@ const MenuButton = styled(MoreOutlined)`
     }
     :hover {
         cursor: pointer;
-    }
-`;
-
-const MenuStyled = styled(Menu)`
-    &&& {
-        .ant-dropdown-menu-item:not(:hover) {
-            background: none;
-        }
-        .ant-dropdown-menu-item:hover {
-            background: #f5f5f5;
-        }
     }
 `;
 
@@ -240,28 +231,42 @@ export const ViewDropdownMenu = ({
     const showRemoveGlobalDefaultView = canManageGlobalViews && isGlobalView && isGlobalDefault;
     const showSetGlobalDefaultView = canManageGlobalViews && isGlobalView && !isGlobalDefault;
 
+    const items = [
+        {
+            key: 0,
+            label: (canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
+                <PreviewViewItem key="0" onClick={onPreviewView} />
+            ),
+        },
+        {
+            key: 1,
+            label: (isUserDefault && <RemoveUserDefaultItem key="1" onClick={() => setUserDefault(null)} />) || (
+                <SetUserDefaultItem key="1" onClick={() => setUserDefault(view.urn)} />
+            ),
+        },
+        showRemoveGlobalDefaultView
+            ? {
+                  key: 2,
+                  label: <RemoveGlobalDefaultItem key="2" onClick={() => setGlobalDefault(null)} />,
+              }
+            : null,
+        showSetGlobalDefaultView
+            ? {
+                  key: 2,
+                  label: <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />,
+              }
+            : null,
+        canManageView
+            ? {
+                  key: 3,
+                  label: <DeleteViewItem key="3" onClick={confirmDeleteView} />,
+              }
+            : null,
+    ];
+
     return (
         <>
-            <Dropdown
-                overlay={
-                    <MenuStyled>
-                        {(canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
-                            <PreviewViewItem key="0" onClick={onPreviewView} />
-                        )}
-                        {(isUserDefault && <RemoveUserDefaultItem key="1" onClick={() => setUserDefault(null)} />) || (
-                            <SetUserDefaultItem key="1" onClick={() => setUserDefault(view.urn)} />
-                        )}
-                        {showRemoveGlobalDefaultView && (
-                            <RemoveGlobalDefaultItem key="2" onClick={() => setGlobalDefault(null)} />
-                        )}
-                        {showSetGlobalDefaultView && (
-                            <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />
-                        )}
-                        {canManageView && <DeleteViewItem key="3" onClick={confirmDeleteView} />}
-                    </MenuStyled>
-                }
-                trigger={[trigger]}
-            >
+            <Dropdown menu={{ items }} trigger={[trigger]}>
                 <MenuButton data-testid="views-table-dropdown" style={{ display: visible ? undefined : 'none' }} />
             </Dropdown>
             {viewBuilderState.visible && (

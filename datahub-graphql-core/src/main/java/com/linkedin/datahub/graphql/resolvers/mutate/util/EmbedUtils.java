@@ -28,10 +28,6 @@ public class EmbedUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_EMBED_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 }

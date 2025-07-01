@@ -1,6 +1,7 @@
 query getTag($urn: String!) {
     tag(urn: $urn) {
         urn
+        type
         name
         description
         properties {

@@ -33,9 +33,7 @@ public class CreateDynamicFormAssignmentResolver
     final CreateDynamicFormAssignmentInput input =
         bindArgument(environment.getArgument("input"), CreateDynamicFormAssignmentInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getFormUrn());
-    final DynamicFormAssignment formAssignment =
-        FormUtils.mapDynamicFormAssignment(
-            input, context.getOperationContext().getAspectRetriever());
+    final DynamicFormAssignment formAssignment = FormUtils.mapDynamicFormAssignment(input);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

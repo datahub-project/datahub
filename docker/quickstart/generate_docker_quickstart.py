@@ -120,11 +120,6 @@ def modify_docker_config(base_path, docker_yaml_config):
                 elif volumes[i].startswith("./"):
                     volumes[i] = "." + volumes[i]
 
-    # 10. Set docker compose version to 3.
-    # We need at least this version, since we use features like start_period for
-    # healthchecks (with services dependencies based on them) and shell-like variable interpolation.
-    docker_yaml_config["version"] = "3.9"
-
 
 def dedup_env_vars(merged_docker_config):
     for service in merged_docker_config["services"]:

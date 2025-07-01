@@ -6,14 +6,14 @@ import logging
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -23,8 +23,10 @@ from typing import (
 )
 
 import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
+from typing_extensions import assert_never
 
-from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -34,6 +36,7 @@ from datahub.metadata.schema_classes import (
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    FabricTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass as GlossaryTerms,
@@ -49,15 +52,24 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.metadata.urns import (
+    ChartUrn,
+    DashboardUrn,
+    DataFlowUrn,
+    DataJobUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    OwnershipTypeUrn,
+    TagUrn,
+)
 from datahub.utilities.urn_encoder import UrnEncoder
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.tag_urn import TagUrn
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
 
-DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
+DEFAULT_ENV = FabricTypeClass.PROD
+ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
+
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 DATASET_URN_TO_LOWER: bool = (
@@ -85,13 +97,11 @@ def get_sys_time() -> int:
 
 
 @overload
-def make_ts_millis(ts: None) -> None:
-    ...
+def make_ts_millis(ts: None) -> None: ...
 
 
 @overload
-def make_ts_millis(ts: datetime) -> int:
-    ...
+def make_ts_millis(ts: datetime) -> int: ...
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
@@ -101,10 +111,22 @@ def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
     return int(ts.timestamp() * 1000)
 
 
+@overload
+def parse_ts_millis(ts: float) -> datetime: ...
+
+
+@overload
+def parse_ts_millis(ts: None) -> None: ...
+
+
+def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+
+
 def make_data_platform_urn(platform: str) -> str:
-    if platform.startswith("urn:li:dataPlatform:"):
-        return platform
-    return f"urn:li:dataPlatform:{platform}"
+    return DataPlatformUrn(platform).urn()
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
@@ -165,11 +187,15 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
 
 
 def make_container_urn(guid: Union[str, "DatahubKey"]) -> str:
-    from datahub.emitter.mcp_builder import DatahubKey
+    if isinstance(guid, str) and guid.startswith("urn:li:container"):
+        return guid
+    else:
+        from datahub.emitter.mcp_builder import DatahubKey
 
-    if isinstance(guid, DatahubKey):
-        guid = guid.guid()
-    return f"urn:li:container:{guid}"
+        if isinstance(guid, DatahubKey):
+            guid = guid.guid()
+
+        return f"urn:li:container:{guid}"
 
 
 def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
@@ -217,7 +243,7 @@ def make_user_urn(username: str) -> str:
     Makes a user urn if the input is not a user or group urn already
     """
     return (
-        f"urn:li:corpuser:{username}"
+        f"urn:li:corpuser:{UrnEncoder.encode_string(username)}"
         if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
     )
@@ -230,7 +256,7 @@ def make_group_urn(groupname: str) -> str:
     if groupname and groupname.startswith(("urn:li:corpGroup:", "urn:li:corpuser:")):
         return groupname
     else:
-        return f"urn:li:corpGroup:{groupname}"
+        return f"urn:li:corpGroup:{UrnEncoder.encode_string(groupname)}"
 
 
 def make_tag_urn(tag: str) -> str:
@@ -243,7 +269,12 @@ def make_tag_urn(tag: str) -> str:
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
-    return f"urn:li:{owner_type.value}:{owner}"
+    if owner_type == OwnerType.USER:
+        return make_user_urn(owner)
+    elif owner_type == OwnerType.GROUP:
+        return make_group_urn(owner)
+    else:
+        assert_never(owner_type)
 
 
 def make_ownership_type_urn(type: str) -> str:
@@ -277,7 +308,12 @@ def make_data_flow_urn(
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
-    return f"urn:li:dataJob:({flow_urn},{job_id})"
+    data_flow_urn = DataFlowUrn.from_string(flow_urn)
+    data_job_urn = DataJobUrn.create_from_ids(
+        data_flow_urn=data_flow_urn.urn(),
+        job_id=job_id,
+    )
+    return data_job_urn.urn()
 
 
 def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
@@ -300,10 +336,11 @@ def make_dashboard_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:dashboard:({platform},{name})"
+    return DashboardUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
@@ -318,10 +355,11 @@ def make_chart_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:chart:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:chart:({platform},{name})"
+    return ChartUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
@@ -367,19 +405,12 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def _get_enum_options(_class: Type[object]) -> Iterable[str]:
-    return [
-        f
-        for f in dir(_class)
-        if not callable(getattr(_class, f)) and not f.startswith("_")
-    ]
-
-
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
-        return OwnershipTypeClass.CUSTOM, ownership_type
+        ownership_type_urn = OwnershipTypeUrn.from_string(ownership_type)
+        return OwnershipTypeClass.CUSTOM, ownership_type_urn.urn()
     ownership_type = ownership_type.upper()
-    if ownership_type in _get_enum_options(OwnershipTypeClass):
+    if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None
     raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
@@ -412,15 +443,25 @@ def make_lineage_mce(
     return mce
 
 
-def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
-    SnapshotType = type(mce.proposedSnapshot)
-
+def can_add_aspect_to_snapshot(
+    SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
+) -> bool:
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
 
     supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    # TODO: This is specific to snapshot types. We have a more general method
+    # in `entity_supports_aspect`, which should be used instead. This method
+    # should be deprecated, and all usages should be replaced.
+
+    SnapshotType = type(mce.proposedSnapshot)
+
+    return can_add_aspect_to_snapshot(SnapshotType, AspectType)
 
 
 def assert_can_add_aspect(
@@ -476,7 +517,7 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
 
 def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
-        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags]
     )
 
 

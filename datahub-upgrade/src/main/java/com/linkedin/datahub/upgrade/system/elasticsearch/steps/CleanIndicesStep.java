@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Set;
@@ -54,9 +55,9 @@ public class CleanIndicesStep implements UpgradeStep {
                 reindexConfig -> ESIndexBuilder.cleanIndex(searchClient, esConfig, reindexConfig));
       } catch (Exception e) {
         log.error("CleanUpIndicesStep failed.", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

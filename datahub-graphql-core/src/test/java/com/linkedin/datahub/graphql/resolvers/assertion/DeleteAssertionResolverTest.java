@@ -31,7 +31,7 @@ public class DeleteAssertionResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
     Mockito.when(
@@ -77,7 +77,7 @@ public class DeleteAssertionResolverTest {
   public void testGetSuccessNoAssertionInfoFound() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
     Mockito.when(
@@ -117,7 +117,7 @@ public class DeleteAssertionResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(false);
 
@@ -149,7 +149,7 @@ public class DeleteAssertionResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
     Mockito.when(
@@ -186,7 +186,7 @@ public class DeleteAssertionResolverTest {
         .when(mockClient)
         .deleteEntity(any(), Mockito.any());
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
         .thenReturn(true);
 

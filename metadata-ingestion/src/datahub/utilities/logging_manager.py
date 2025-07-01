@@ -35,6 +35,8 @@ DATAHUB_PACKAGES = [
     "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
+IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
+
 
 NO_COLOR = os.environ.get("NO_COLOR", False)
 
@@ -128,9 +130,9 @@ class _ColorLogFormatter(logging.Formatter):
         # Mimic our default format, but with color.
         message_fg = self.MESSAGE_COLORS.get(record.levelname)
         return (
-            f'{click.style(f"[{self.formatTime(record, self.datefmt)}]", fg="green", dim=True)} '
+            f"{click.style(f'[{self.formatTime(record, self.datefmt)}]', fg='green', dim=True)} "
             f"{click.style(f'{record.levelname:8}', fg=message_fg)} "
-            f'{click.style(f"{{{record.name}:{record.lineno}}}", fg="blue", dim=True)} - '
+            f"{click.style(f'{{{record.name}:{record.lineno}}}', fg='blue', dim=True)} - "
             f"{click.style(record.getMessage(), fg=message_fg)}"
         )
 
@@ -159,6 +161,10 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        # We do not expect `line` to have a trailing newline.
+        if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
+            line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
+
         self._buffer.append(line)
 
     def clear(self) -> None:
@@ -183,7 +189,13 @@ class _BufferLogHandler(logging.Handler):
             message = self.format(record)
         except TypeError as e:
             message = f"Error formatting log message: {e}\nMessage: {record.msg}, Args: {record.args}"
-        self._storage.write(message)
+
+        # For exception stack traces, the message is split over multiple lines,
+        # but we store it as a single string. Because we truncate based on line
+        # length, it's better for us to split it into multiple lines so that we
+        # don't lose any information on deeper stack traces.
+        for line in message.split("\n"):
+            self._storage.write(line)
 
 
 def _remove_all_handlers(logger: logging.Logger) -> None:
@@ -278,3 +290,4 @@ logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
+logging.getLogger("pyodata").setLevel(logging.WARNING)

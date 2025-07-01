@@ -1,15 +1,22 @@
-import React from 'react';
-import { Button, Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Button, Pagination, Spin, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
-import { SearchCfg } from '../../../../../../conf';
-import { EntityAndType } from '../../../types';
-import { UnionType } from '../../../../../search/utils/constants';
-import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
-import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
-import MatchingViewsLabel from './MatchingViewsLabel';
-import { ANTD_GRAY } from '../../../constants';
+
+import {
+    EntityActionProps,
+    EntitySearchResults,
+} from '@app/entity/shared/components/styled/search/EntitySearchResults';
+import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
+import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
+import { UnionType } from '@app/search/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { SearchCfg } from '@src/conf';
+
+import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -129,6 +136,12 @@ export const EmbeddedListSearchResults = ({
     onLineageClick,
     isLineageTab = false,
 }: Props) => {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
+
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -169,9 +182,9 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {!loading && !isServerOverloadError && (
                         <EntitySearchResults
-                            searchResults={searchResponse?.searchResults || []}
+                            searchResults={combinedSiblingSearchResults || []}
                             additionalPropertiesList={
-                                searchResponse?.searchResults?.map((searchResult) => ({
+                                combinedSiblingSearchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
                                     // eslint-disable-next-line @typescript-eslint/dot-notation
                                     degree: searchResult['degree'],

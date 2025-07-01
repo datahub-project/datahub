@@ -27,7 +27,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SQLSourceReport,
     SqlWorkUnit,
     get_schema_metadata,
 )
@@ -35,6 +34,7 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
@@ -116,7 +116,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 class VerticaSource(SQLAlchemySource):
@@ -469,7 +469,12 @@ class VerticaSource(SQLAlchemySource):
         foreign_keys = self._get_foreign_keys(
             dataset_urn, inspector, schema, projection
         )
-        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
+        schema_fields = self.get_schema_fields(
+            dataset_name,
+            columns,
+            inspector,
+            pk_constraints,
+        )
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -531,7 +536,7 @@ class VerticaSource(SQLAlchemySource):
             )
 
             if not self.is_dataset_eligible_for_profiling(
-                dataset_name, sql_config, inspector, profile_candidates
+                dataset_name, schema, inspector, profile_candidates
             ):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
@@ -673,7 +678,7 @@ class VerticaSource(SQLAlchemySource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        schema_fields = self.get_schema_fields(dataset_name, columns)
+        schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
 
         schema_metadata = get_schema_metadata(
             self.report,

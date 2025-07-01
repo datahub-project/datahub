@@ -8,7 +8,6 @@
 # To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
 # port to this file.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     image: acryldata/datahub-frontend-react:head
@@ -40,7 +39,7 @@ services:
     - SKIP_ELASTICSEARCH_CHECK=false
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - METADATA_SERVICE_AUTH_ENABLED=false
+    - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001
     - BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false
     - SEARCH_SERVICE_ENABLE_CACHE=false
@@ -48,10 +47,12 @@ services:
     - SHOW_BROWSE_V2=true
     - ER_MODEL_RELATIONSHIP_FEATURE_ENABLED=false
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    - THEME_V2_ENABLED=${THEME_V2_ENABLED:-true}
+    - THEME_V2_TOGGLEABLE=${THEME_V2_TOGGLEABLE:-true}
+    - SHOW_NAV_BAR_REDESIGN=${SHOW_NAV_BAR_REDESIGN:-true}
+    - PLATFORM_BROWSE_V2=${PLATFORM_BROWSE_V2:-true}
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-    - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
-    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
     - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin

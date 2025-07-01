@@ -4,11 +4,14 @@ import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_template_language import (
+    load_and_preprocess_file,
+)
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
-    _EXPLORE_FILE_EXTENSION,
+    BASE_PROJECT_NAME,
+    EXPLORE_FILE_EXTENSION,
+    LookMLSourceConfig,
     LookMLSourceReport,
 )
 
@@ -30,6 +33,12 @@ class LookerField:
 
 
 @dataclass
+class LookerConstant:
+    name: str
+    value: str
+
+
+@dataclass
 class LookerModel:
     connection: str
     includes: List[str]
@@ -43,6 +52,7 @@ class LookerModel:
         root_project_name: Optional[str],
         base_projects_folders: Dict[str, pathlib.Path],
         path: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
     ) -> "LookerModel":
         logger.debug(f"Loading model from {path}")
@@ -54,6 +64,7 @@ class LookerModel:
             root_project_name,
             base_projects_folders,
             path,
+            source_config,
             reporter,
             seen_so_far=set(),
             traversal_path=pathlib.Path(path).stem,
@@ -64,11 +75,15 @@ class LookerModel:
         explore_files = [
             x.include
             for x in resolved_includes
-            if x.include.endswith(_EXPLORE_FILE_EXTENSION)
+            if x.include.endswith(EXPLORE_FILE_EXTENSION)
         ]
         for included_file in explore_files:
             try:
-                parsed = load_lkml(included_file)
+                parsed = load_and_preprocess_file(
+                    path=included_file,
+                    reporter=reporter,
+                    source_config=source_config,
+                )
                 included_explores = parsed.get("explores", [])
                 explores.extend(included_explores)
             except Exception as e:
@@ -94,6 +109,7 @@ class LookerModel:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         path: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
         seen_so_far: Set[str],
         traversal_path: str = "",  # a cosmetic parameter to aid debugging
@@ -143,9 +159,9 @@ class LookerModel:
                 # As such, we try to handle it but are as defensive as possible.
 
                 non_base_project_name = project_name
-                if project_name == _BASE_PROJECT_NAME and root_project_name is not None:
+                if project_name == BASE_PROJECT_NAME and root_project_name is not None:
                     non_base_project_name = root_project_name
-                if non_base_project_name != _BASE_PROJECT_NAME and inc.startswith(
+                if non_base_project_name != BASE_PROJECT_NAME and inc.startswith(
                     f"/{non_base_project_name}/"
                 ):
                     # This might be a local include. Let's make sure that '/{project_name}' doesn't
@@ -177,16 +193,16 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
-                    message=f"Cannot resolve include {inc}",
-                    context=f"Path: {path}",
+                    message="Cannot resolve included file",
+                    context=f"Include: {inc}, path: {path}, traversal_path: {traversal_path}",
                 )
             elif not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
-                    message=f"Did not resolve anything for wildcard include {inc}",
-                    context=f"Path: {path}",
+                    message="Did not find anything matching the wildcard include",
+                    context=f"Include: {inc}, path: {path}, traversal_path: {traversal_path}",
                 )
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
@@ -206,7 +222,11 @@ class LookerModel:
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
                 try:
-                    parsed = load_lkml(included_file)
+                    parsed = load_and_preprocess_file(
+                        path=included_file,
+                        reporter=reporter,
+                        source_config=source_config,
+                    )
                     seen_so_far.add(included_file)
                     if "includes" in parsed:  # we have more includes to resolve!
                         resolved.extend(
@@ -216,11 +236,10 @@ class LookerModel:
                                 root_project_name,
                                 base_projects_folder,
                                 included_file,
+                                source_config,
                                 reporter,
                                 seen_so_far,
-                                traversal_path=traversal_path
-                                + "."
-                                + pathlib.Path(included_file).stem,
+                                traversal_path=f"{traversal_path} -> {pathlib.Path(included_file).stem}",
                             )
                         )
                 except Exception as e:
@@ -259,6 +278,7 @@ class LookerViewFile:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         raw_file_content: str,
+        source_config: LookMLSourceConfig,
         reporter: LookMLSourceReport,
     ) -> "LookerViewFile":
         logger.debug(f"Loading view file at {absolute_file_path}")
@@ -272,6 +292,7 @@ class LookerViewFile:
             root_project_name,
             base_projects_folder,
             absolute_file_path,
+            source_config,
             reporter,
             seen_so_far=seen_so_far,
         )

@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { UnionType } from '../../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 
 export default function BusinessAttributeRelatedEntity() {
     const { entityData } = useEntityData();
@@ -18,7 +18,7 @@ export default function BusinessAttributeRelatedEntity() {
         ]) ||
         [];
 
-    entityData?.isAChildren?.relationships.forEach((businessAttribute) => {
+    entityData?.isAChildren?.relationships?.forEach((businessAttribute) => {
         const childUrn = businessAttribute.entity?.urn;
 
         if (childUrn) {

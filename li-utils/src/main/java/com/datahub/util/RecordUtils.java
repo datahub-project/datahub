@@ -78,6 +78,14 @@ public class RecordUtils {
     }
   }
 
+  public static String toJsonString(@Nonnull List<? extends RecordTemplate> recordTemplates) {
+    StringBuilder json = new StringBuilder();
+    for (RecordTemplate recordTemplate : recordTemplates) {
+      json.append(toJsonString(recordTemplate));
+    }
+    return json.toString();
+  }
+
   /**
    * Creates a {@link RecordTemplate} object from a serialized JSON string.
    *
@@ -97,6 +105,18 @@ public class RecordUtils {
     }
 
     return toRecordTemplate(type, dataMap);
+  }
+
+  @Nonnull
+  public static DataMap toDataMap(@Nonnull String jsonString) {
+    DataMap dataMap;
+    try {
+      dataMap = DATA_TEMPLATE_CODEC.stringToMap(jsonString);
+    } catch (IOException e) {
+      throw new ModelConversionException("Failed to deserialize DataMap: " + jsonString);
+    }
+
+    return dataMap;
   }
 
   /**

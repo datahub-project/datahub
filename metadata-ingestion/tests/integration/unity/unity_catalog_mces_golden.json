@@ -12,13 +12,15 @@
                 "catalog": "hive_metastore"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore",
-            "name": "hive_metastore"
+            "name": "hive_metastore",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -101,13 +103,15 @@
                 "unity_schema": "bronze_kambi"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi",
-            "name": "bronze_kambi"
+            "name": "bronze_kambi",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -288,13 +292,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/view1"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -374,8 +384,7 @@
                     },
                     "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
@@ -387,8 +396,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
@@ -400,8 +408,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
@@ -413,8 +420,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
@@ -426,8 +432,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
@@ -439,8 +444,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
@@ -456,8 +460,7 @@
                     },
                     "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
@@ -469,8 +472,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
@@ -482,8 +484,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
@@ -495,8 +496,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
@@ -508,8 +508,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
@@ -521,8 +520,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
@@ -538,8 +536,7 @@
                     },
                     "nativeDataType": "array<struct<id:bigint,name:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
@@ -551,8 +548,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
@@ -564,8 +560,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
@@ -577,8 +572,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
@@ -590,8 +584,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
@@ -603,8 +596,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
@@ -616,8 +608,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
@@ -629,8 +620,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
@@ -646,8 +636,7 @@
                     },
                     "nativeDataType": "array<bigint>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
@@ -659,8 +648,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
@@ -672,8 +660,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
@@ -685,8 +672,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
@@ -698,8 +684,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
@@ -711,8 +696,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
@@ -724,8 +708,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
@@ -737,8 +720,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -746,7 +728,8 @@
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -885,8 +868,7 @@
                     },
                     "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
@@ -898,8 +880,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
@@ -911,8 +892,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
@@ -924,8 +904,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
@@ -937,8 +916,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
@@ -950,8 +928,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
@@ -967,8 +944,7 @@
                     },
                     "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
@@ -980,8 +956,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
@@ -993,8 +968,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
@@ -1006,8 +980,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
@@ -1019,8 +992,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
@@ -1032,8 +1004,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
@@ -1049,8 +1020,7 @@
                     },
                     "nativeDataType": "array<struct<id:bigint,name:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
@@ -1062,8 +1032,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
@@ -1075,8 +1044,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
@@ -1088,8 +1056,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
@@ -1101,8 +1068,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
@@ -1114,8 +1080,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
@@ -1127,8 +1092,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
@@ -1140,8 +1104,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
@@ -1157,8 +1120,7 @@
                     },
                     "nativeDataType": "array<bigint>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
@@ -1170,8 +1132,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
@@ -1183,8 +1144,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
@@ -1196,8 +1156,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
@@ -1209,8 +1168,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
@@ -1222,8 +1180,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
@@ -1235,8 +1192,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
@@ -1248,8 +1204,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -1257,7 +1212,8 @@
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1385,13 +1341,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/bet"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1595,13 +1557,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-06-22 05:14:56"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/external_metastore"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1618,13 +1586,15 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
-            "description": ""
+            "description": "",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1671,13 +1641,19 @@
                 "op": "add",
                 "path": "/customProperties/table_id",
                 "value": "hive_metastore.bronze_kambi.delta_error_table"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/delta_error_table"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -1791,8 +1767,7 @@
                     },
                     "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
@@ -1804,8 +1779,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
@@ -1817,8 +1791,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
@@ -1830,8 +1803,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
@@ -1843,8 +1815,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
@@ -1856,8 +1827,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
@@ -1873,8 +1843,7 @@
                     },
                     "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
@@ -1886,8 +1855,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
@@ -1899,8 +1867,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
@@ -1912,8 +1879,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
@@ -1925,8 +1891,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
@@ -1938,8 +1903,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
@@ -1955,8 +1919,7 @@
                     },
                     "nativeDataType": "array<struct<id:bigint,name:string>>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
@@ -1968,8 +1931,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
@@ -1981,8 +1943,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
@@ -1994,8 +1955,7 @@
                     },
                     "nativeDataType": "bigint",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
@@ -2007,8 +1967,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
@@ -2020,8 +1979,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
@@ -2033,8 +1991,7 @@
                     },
                     "nativeDataType": "boolean",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
@@ -2046,8 +2003,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
@@ -2063,8 +2019,7 @@
                     },
                     "nativeDataType": "array<bigint>",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
@@ -2076,8 +2031,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
@@ -2089,8 +2043,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
@@ -2102,8 +2055,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
@@ -2115,8 +2067,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
@@ -2128,8 +2079,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
@@ -2141,8 +2091,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
@@ -2154,8 +2103,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 }
             ]
         }
@@ -2163,7 +2111,8 @@
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2316,13 +2265,15 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
             "name": "quickstart_schema",
-            "description": "A new Unity Catalog schema called quickstart_schema"
+            "description": "A new Unity Catalog schema called quickstart_schema",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2671,13 +2622,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-10-19 13:21:38.688000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2966,13 +2923,19 @@
                 "op": "add",
                 "path": "/customProperties/created_at",
                 "value": "2022-10-19 13:21:38.688000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -3032,8 +2995,8 @@
         "json": {
             "timestampMillis": 1705308660402,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 3,
             "columnCount": 3,
@@ -3163,8 +3126,8 @@
         "json": {
             "timestampMillis": 1705308660402,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 2,
@@ -3187,8 +3150,8 @@
         "json": {
             "timestampMillis": 1716198037325,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 3,
             "columnCount": 3,
@@ -3243,8 +3206,8 @@
         "json": {
             "timestampMillis": 1708671016385,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 2,

@@ -1,0 +1,421 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "05e878c2-3b10-7944-446a-09c3c958df39",
+                    "upstreamFields": [
+                        {
+                            "name": "Region (People)",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "092029cd-706b-93c5-f2ea-68b020adb647",
+                    "upstreamFields": [
+                        {
+                            "name": "Product ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "10d720d9-d4dc-f0dd-6f6d-f2078a808aed",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1b83e377-52f1-24f3-992b-2559e8b6ca70",
+                    "upstreamFields": [
+                        {
+                            "name": "Product",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1e420a77-19a5-c303-abbc-de977b5f4ef9",
+                    "upstreamFields": [
+                        {
+                            "name": "Sub-Category",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "28ec64fc-8a21-65dd-6125-2f73fc625f26",
+                    "upstreamFields": [
+                        {
+                            "name": "Row ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "32c2bd6f-cc3e-62e0-1e6a-f5ae480ac329",
+                    "upstreamFields": [
+                        {
+                            "name": "Order ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3934cbed-ff3d-de73-aefa-8bccc8bc9797",
+                    "upstreamFields": [
+                        {
+                            "name": "Customer ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4de34be4-76ea-7080-f0d4-7f108466015b",
+                    "upstreamFields": [
+                        {
+                            "name": "Ship Mode",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "54e48e4f-5519-15c1-4a1b-97dc909899a1",
+                    "upstreamFields": [
+                        {
+                            "name": "Customer ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5a03c6b4-b21c-27b0-65f9-2d5ae81b5ed0",
+                    "upstreamFields": [
+                        {
+                            "name": "Order ID (Returns)",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5baa65db-612b-a18e-957f-8685b6b85571",
+                    "upstreamFields": [
+                        {
+                            "name": "City",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "61b4d0d2-3b7c-a61f-e4bd-a95b6fde8478",
+                    "upstreamFields": [
+                        {
+                            "name": "Sales",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "6966d863-35e8-9c0a-6094-c6d27a1fd787",
+                    "upstreamFields": [
+                        {
+                            "name": "Region",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "6a7b2e6d-3484-0df3-d98e-328a111691df",
+                    "upstreamFields": [
+                        {
+                            "name": "Quantity",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7d3bd4e3-1683-7450-d55d-592e1a47a817",
+                    "upstreamFields": [
+                        {
+                            "name": "Ship Date",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "839c51f8-344f-b1c0-4e3a-9d53bd2dd6bd",
+                    "upstreamFields": [
+                        {
+                            "name": "Orders",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8bd692d0-3d64-3678-8deb-a6c9469f7475",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit Ratio",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9722bc5a-16be-4f16-91db-708598db866e",
+                    "upstreamFields": [
+                        {
+                            "name": "Returns",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "983ea4b7-3690-1805-4a7a-a8bea49f920c",
+                    "upstreamFields": [
+                        {
+                            "name": "Manufacturer",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "997587cb-024f-1a56-e37c-2fb7277642e6",
+                    "upstreamFields": [
+                        {
+                            "name": "Location",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a4c088c6-03e9-8dc3-3e69-764ab8610bf5",
+                    "upstreamFields": [
+                        {
+                            "name": "Returned",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a69ba55b-4434-6988-e276-06183ba7ee63",
+                    "upstreamFields": [
+                        {
+                            "name": "Category",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b4d8bf7b-74aa-3b34-ba07-a5947aceae44",
+                    "upstreamFields": [
+                        {
+                            "name": "Regional Manager",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "bb4583d3-90db-6272-b939-22537dac2de4",
+                    "upstreamFields": [
+                        {
+                            "name": "Postal Code",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c9fdaec1-d715-bab0-a5e6-7cb2a4096d0c",
+                    "upstreamFields": [
+                        {
+                            "name": "Profit (bin)",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cbf261c1-b86b-2f51-7aa7-9ec601acdadf",
+                    "upstreamFields": [
+                        {
+                            "name": "Segment",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cc311fea-3737-9f07-b1bf-f4811309668d",
+                    "upstreamFields": [
+                        {
+                            "name": "Top Customers by Profit",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d90ed70b-2846-f23d-360c-7a72e3a8d62d",
+                    "upstreamFields": [
+                        {
+                            "name": "Country/Region",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e1906cb6-1a86-90ee-512c-c2ecf5069d96",
+                    "upstreamFields": [
+                        {
+                            "name": "Discount",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e502bf72-d0a6-80ed-eefb-47e10608a21d",
+                    "upstreamFields": [
+                        {
+                            "name": "Order Date",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ea384863-64ca-b5fa-7e15-d3273b5026e6",
+                    "upstreamFields": [
+                        {
+                            "name": "Product Name",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "eaad917f-9a67-d25b-2f18-7c740e9064a7",
+                    "upstreamFields": [
+                        {
+                            "name": "Customer ID",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fd71baa7-0996-a23f-7029-3df44e89fff0",
+                    "upstreamFields": [
+                        {
+                            "name": "State",
+                            "datasource": {
+                                "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

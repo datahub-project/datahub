@@ -4,13 +4,11 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_INFO_ASPECT_NAME;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -111,12 +109,6 @@ public class DataJobInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<Data
               PatchOperationType.ADD.getValue(), BASE_PATH + LAST_MODIFIED_KEY, lastModifiedNode));
     }
     return this;
-  }
-
-  @Override
-  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
-    pathValues.addAll(customPropertiesPatchBuilder.getSubPaths());
-    return pathValues;
   }
 
   @Override

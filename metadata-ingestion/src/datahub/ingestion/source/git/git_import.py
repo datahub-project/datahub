@@ -21,6 +21,8 @@ class GitClone:
     def clone(
         self, ssh_key: Optional[SecretStr], repo_url: str, branch: Optional[str] = None
     ) -> Path:
+        # Note: this does a shallow clone.
+
         unique_dir = str(uuid4())
         keys_dir = f"{self.tmp_dir}/{unique_dir}/keys"
         checkout_dir = f"{self.tmp_dir}/{unique_dir}/checkout"
@@ -55,20 +57,33 @@ class GitClone:
             )
         logger.debug(f"ssh_command={git_ssh_cmd}")
 
-        logger.info(
-            f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}', this can take some time..."
-        )
-        self.last_repo_cloned = git.Repo.clone_from(
-            repo_url,
-            checkout_dir,
-            env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
-        )
-        logger.info("✅ Cloning complete!")
-
-        if branch is not None:
+        if branch is None:
+            logger.info(
+                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (default branch), this can take some time..."
+            )
+            self.last_repo_cloned = git.Repo.clone_from(
+                repo_url,
+                checkout_dir,
+                env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
+                depth=1,
+            )
+        else:
+            # Because we accept branch names, tags, and commit hashes in the branch parameter,
+            # we can't just use the --branch flag of Git clone. Doing a blobless clone allows
+            # us to quickly checkout the right commit.
+            logger.info(
+                f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (branch: {branch}), this can take some time..."
+            )
+            self.last_repo_cloned = git.Repo.clone_from(
+                repo_url,
+                checkout_dir,
+                env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
+                filter="blob:none",
+            )
             logger.info(f"Checking out branch {branch}")
             self.last_repo_cloned.git.checkout(branch)
 
+        logger.info("✅ Cloning complete!")
         return pathlib.Path(checkout_dir)
 
     def get_last_repo_cloned(self) -> Optional[git.Repo]:

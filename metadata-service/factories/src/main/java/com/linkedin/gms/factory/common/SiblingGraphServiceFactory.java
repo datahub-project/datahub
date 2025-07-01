@@ -13,21 +13,17 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @Configuration
-@Import({GraphServiceFactory.class, EntityServiceFactory.class})
+@Import({EntityServiceFactory.class})
 public class SiblingGraphServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
   private EntityService<?> _entityService;
 
-  @Autowired
-  @Qualifier("graphService")
-  private GraphService graphService;
-
   @Bean(name = "siblingGraphService")
   @Primary
   @Nonnull
-  protected SiblingGraphService getInstance() {
+  protected SiblingGraphService getInstance(final GraphService graphService) {
     return new SiblingGraphService(_entityService, graphService);
   }
 }

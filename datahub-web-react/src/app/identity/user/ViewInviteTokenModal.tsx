@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import * as QueryString from 'query-string';
-import { useLocation } from 'react-router';
 import { UserOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
+import { Button, Tooltip } from '@components';
+import { Modal, Select, Typography, message } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
-import { PageRoutes } from '../../../conf/Global';
-import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
-import { DataHubRole } from '../../../types.generated';
-import { mapRoleIcon } from './UserUtils';
-import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { PageRoutes } from '@conf/Global';
+
+import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
+import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
+import { DataHubRole } from '@types';
 
 const ModalSection = styled.div`
     display: flex;
@@ -41,20 +43,6 @@ const CopyText = styled(Typography.Text)`
     align-items: center;
 `;
 
-const CopyButton = styled(Button)`
-    background-color: #1890ff;
-    color: white;
-
-    &:focus:not(:hover) {
-        background-color: #1890ff;
-        color: white;
-    }
-`;
-
-const RefreshButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
-`;
-
 const RoleSelect = styled(Select)`
     min-width: 105px;
 `;
@@ -65,11 +53,11 @@ const RoleIcon = styled.span`
 `;
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export default function ViewInviteTokenModal({ visible, onClose }: Props) {
+export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const baseUrl = window.location.origin;
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -110,7 +98,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
 
     // Code related to getting or creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
-        skip: !visible,
+        skip: !open,
         variables: { input: { roleUrn: selectedRole?.urn } },
     });
 
@@ -167,7 +155,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     <b>Share Invite Link</b>
                 </Typography.Text>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
             <ModalSection>
@@ -192,23 +180,24 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                         <pre>{inviteLink}</pre>
                     </CopyText>
                     <Tooltip title="Copy invite link.">
-                        <CopyButton
+                        <Button
                             onClick={() => {
                                 navigator.clipboard.writeText(inviteLink);
                                 message.success('Copied invite link to clipboard');
                             }}
                         >
-                            COPY
-                        </CopyButton>
+                            Copy
+                        </Button>
                     </Tooltip>
                     <Tooltip title="Generate a new link. Any old links will no longer be valid.">
-                        <RefreshButton
+                        <Button
+                            variant="outline"
                             onClick={() => {
                                 createInviteToken(selectedRole?.urn);
                             }}
                         >
-                            REFRESH
-                        </RefreshButton>
+                            Refresh
+                        </Button>
                     </Tooltip>
                 </InviteLinkDiv>
                 <ModalSectionFooter type="secondary">

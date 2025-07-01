@@ -1,22 +1,22 @@
 # Adding a custom Dataset Data Platform
 
-A Data Platform represents a 3rd party system from which [Metadata Entities](https://datahubproject.io/docs/metadata-modeling/metadata-model/) are ingested from. Each Dataset that is ingested is associated with a single platform, for example MySQL, Snowflake, Redshift, or BigQuery.
+A Data Platform represents a 3rd party system from which [Metadata Entities](https://docs.datahub.com/docs/metadata-modeling/metadata-model/) are ingested from. Each Dataset that is ingested is associated with a single platform, for example MySQL, Snowflake, Redshift, or BigQuery.
 
 There are some cases in which you may want to add a custom Data Platform identifier for a Dataset. For example,
 you have an internal data system that is not widely available, or you're using a Data Platform that is not natively supported by DataHub.
 
-To do so, you can either change the default Data Platforms that are ingested into DataHub *prior to deployment time*, or ingest
+To do so, you can either change the default Data Platforms that are ingested into DataHub _prior to deployment time_, or ingest
 a new Data Platform at runtime. You can use the first option if you're able to periodically merge new Data Platforms from the OSS
 repository into your own. It will cause the custom Data Platform to be re-ingested each time you deploy DataHub, meaning that
-your custom Data Platform will persist even between full cleans (nukes) of DataHub. 
+your custom Data Platform will persist even between full cleans (nukes) of DataHub.
 
 ## Changing Default Data Platforms
 
-Simply make a change to the [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json) 
+Simply make a change to the [data_platforms.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml)
 file to add a custom Data Platform:
 
 ```
-[ 
+[
   .....
   {
     "urn": "urn:li:dataPlatform:MyCustomDataPlatform",
@@ -32,7 +32,7 @@ file to add a custom Data Platform:
 ## Ingesting Data Platform at runtime
 
 You can also ingest a Data Platform at runtime using either a file-based ingestion source, or using a normal curl to the
-[GMS Rest.li APIs](https://datahubproject.io/docs/metadata-service#restli-api). 
+[GMS Rest.li APIs](https://docs.datahub.com/docs/metadata-service#restli-api).
 
 ### Using the cli
 
@@ -45,7 +45,7 @@ datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data 
 **Step 1** Define a JSON file containing your custom Data Platform
 
 ```
-// my-custom-data-platform.json 
+// my-custom-data-platform.json
 [
   {
     "auditHeader": null,
@@ -69,19 +69,19 @@ datahub put platform --name MyCustomDataPlatform --display_name "My Custom Data 
 ]
 ```
 
-**Step 2**: Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes) 
+**Step 2**: Define an [ingestion recipe](https://docs.datahub.com/docs/metadata-ingestion/#recipes)
 
 ```
 ---
-# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
   config:
     path: "./my-custom-data-platform.json"
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  ... 
+  ...
 ```
 
 ### Using Rest.li API

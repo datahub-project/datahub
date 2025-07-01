@@ -294,6 +294,30 @@ where
 ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
+    constraints_for_table: str = """
+select
+    kcu.constraint_name as constraint_name,
+    kcu.table_catalog as table_catalog,
+    kcu.table_schema as table_schema,
+    kcu.table_name as table_name,
+    kcu.column_name as column_name,
+    tc.constraint_type,
+    ccu.table_catalog as referenced_catalog,
+    ccu.table_schema as referenced_schema,
+    ccu.table_name as referenced_table,
+    ccu.column_name as referenced_column
+from
+     `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.KEY_COLUMN_USAGE as kcu
+join  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE as ccu on
+    kcu.constraint_catalog = ccu.constraint_catalog
+    and kcu.constraint_schema = ccu.constraint_schema
+    and kcu.constraint_name = ccu.constraint_name
+join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc on
+    tc.constraint_catalog = ccu.constraint_catalog
+    and tc.constraint_schema = ccu.constraint_schema
+    and tc.constraint_name = ccu.constraint_name
+"""
+
 
 BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """
 resource.type=("bigquery_project")
@@ -363,9 +387,7 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )
-""".strip(
-    "\t \n"
-)
+""".strip("\t \n")
 
 
 def bigquery_audit_metadata_query_template_lineage(

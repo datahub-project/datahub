@@ -48,4 +48,25 @@ record SearchFlags {
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
+
+  /**
+   * Include mentioned fields inside elastic highlighting query
+   */
+   customHighlightingFields:optional array[string]
+
+  /**
+   * invoke query rewrite chain for filters based on configured rewriters
+   */
+   rewriteQuery: optional boolean = true
+
+   /**
+    * Include default facets when getting facets to aggregate on in search requests.
+    * By default we include these, but custom aggregation requests don't need them.
+    */
+  includeDefaultFacets: optional boolean = true
+
+  /**
+   * Include only latest versions in version sets, default true
+   */
+   filterNonLatestVersions: optional boolean = true
 }

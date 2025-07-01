@@ -1,7 +1,8 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import AcrylLogo from '../../images/acryl-light-mark.svg';
+
+import DataHubLogo from '@images/datahublogo.png';
 
 const BannerWrapper = styled.div`
     padding: 12px;
@@ -16,7 +17,6 @@ const BannerWrapper = styled.div`
 
 const Logo = styled.img`
     margin-right: 12px;
-    height: 40px;
     width: 40px;
 `;
 
@@ -40,20 +40,20 @@ const TextContent = styled.div`
 export default function AcrylDemoBanner() {
     return (
         <BannerWrapper>
-            <Logo src={AcrylLogo} />
+            <Logo src={DataHubLogo} />
             <TextWrapper>
-                <Title>Schedule a Demo of Managed DataHub</Title>
+                <Title>Schedule a Demo of DataHub Cloud</Title>
                 <TextContent>
                     DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
-                        href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
+                        href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
                         Schedule a demo
                     </StyledLink>{' '}
-                    of Acryl DataHub to see the advanced features that take it to the next level or purchase Acryl Cloud
-                    on{' '}
+                    of DataHub Cloud to see the advanced features that take it to the next level or purchase DataHub
+                    Cloud on{' '}
                     <StyledLink
                         href="https://aws.amazon.com/marketplace/pp/prodview-ratzv4k453pck?sr=0-1&ref_=beagle&applicationId=AWSMPContessa"
                         target="_blank"

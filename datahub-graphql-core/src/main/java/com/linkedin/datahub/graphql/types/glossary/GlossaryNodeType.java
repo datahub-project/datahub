@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
+import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
@@ -11,12 +12,22 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryNodeMapper;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,9 +36,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class GlossaryNodeType
-    implements com.linkedin.datahub.graphql.types.EntityType<GlossaryNode, String> {
+    implements SearchableEntityType<GlossaryNode, String>,
+        com.linkedin.datahub.graphql.types.EntityType<GlossaryNode, String> {
 
   static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
@@ -35,7 +49,8 @@ public class GlossaryNodeType
           GLOSSARY_NODE_INFO_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -88,5 +103,40 @@ public class GlossaryNodeType
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load GlossaryNodes", e);
     }
+  }
+
+  @Override
+  public SearchResults search(
+      @Nonnull String query,
+      @Nullable List<FacetFilterInput> filters,
+      int start,
+      @Nullable Integer count,
+      @Nonnull final QueryContext context)
+      throws Exception {
+    final Map<String, String> facetFilters =
+        ResolverUtils.buildFacetFilters(filters, ImmutableSet.of());
+    final SearchResult searchResult =
+        _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            GLOSSARY_NODE_ENTITY_NAME,
+            query,
+            facetFilters,
+            start,
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
+  }
+
+  @Override
+  public AutoCompleteResults autoComplete(
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter filters,
+      @Nullable Integer limit,
+      @Nonnull final QueryContext context)
+      throws Exception {
+    final AutoCompleteResult result =
+        _entityClient.autoComplete(
+            context.getOperationContext(), GLOSSARY_NODE_ENTITY_NAME, query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

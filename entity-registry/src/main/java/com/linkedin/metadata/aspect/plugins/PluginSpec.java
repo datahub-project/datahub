@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.plugins;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -13,7 +12,7 @@ import lombok.EqualsAndHashCode;
 @AllArgsConstructor
 @EqualsAndHashCode
 public abstract class PluginSpec {
-  protected static String ENTITY_WILDCARD = "*";
+  protected static String WILDCARD = "*";
 
   @Nonnull
   public abstract AspectPluginConfig getConfig();
@@ -25,20 +24,13 @@ public abstract class PluginSpec {
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityUrn.getEntityType(), aspectSpec);
+      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    return shouldApply(changeType, entityUrn.getEntityType(), aspectName);
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entitySpec.getName(), aspectSpec.getName());
-  }
-
-  public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull String entityName, @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityName, aspectSpec.getName());
+      @Nullable ChangeType changeType, @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return shouldApply(changeType, entitySpec.getName(), aspectName);
   }
 
   public boolean shouldApply(
@@ -49,8 +41,8 @@ public abstract class PluginSpec {
   }
 
   protected boolean isEntityAspectSupported(
-      @Nonnull EntitySpec entitySpec, @Nonnull AspectSpec aspectSpec) {
-    return isEntityAspectSupported(entitySpec.getName(), aspectSpec.getName());
+      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return isEntityAspectSupported(entitySpec.getName(), aspectName);
   }
 
   protected boolean isEntityAspectSupported(
@@ -58,7 +50,7 @@ public abstract class PluginSpec {
     return (getConfig().getSupportedEntityAspectNames().stream()
             .anyMatch(
                 supported ->
-                    ENTITY_WILDCARD.equals(supported.getEntityName())
+                    WILDCARD.equals(supported.getEntityName())
                         || supported.getEntityName().equals(entityName)))
         && isAspectSupported(aspectName);
   }
@@ -67,13 +59,16 @@ public abstract class PluginSpec {
     return getConfig().getSupportedEntityAspectNames().stream()
         .anyMatch(
             supported ->
-                ENTITY_WILDCARD.equals(supported.getAspectName())
+                WILDCARD.equals(supported.getAspectName())
                     || supported.getAspectName().equals(aspectName));
   }
 
   protected boolean isChangeTypeSupported(@Nullable ChangeType changeType) {
     return (changeType == null && getConfig().getSupportedOperations().isEmpty())
         || getConfig().getSupportedOperations().stream()
-            .anyMatch(supported -> supported.equalsIgnoreCase(String.valueOf(changeType)));
+            .anyMatch(
+                supported ->
+                    WILDCARD.equals(supported)
+                        || supported.equalsIgnoreCase(String.valueOf(changeType)));
   }
 }

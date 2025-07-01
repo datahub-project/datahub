@@ -119,16 +119,18 @@ public class CustomizedQueryHandler {
   public static FunctionScoreQueryBuilder functionScoreQueryBuilder(
       @Nonnull ObjectMapper objectMapper,
       @Nonnull QueryConfiguration customQueryConfiguration,
-      QueryBuilder queryBuilder) {
+      QueryBuilder queryBuilder,
+      String query) {
     return toFunctionScoreQueryBuilder(
-        objectMapper, queryBuilder, customQueryConfiguration.getFunctionScore());
+        objectMapper, queryBuilder, customQueryConfiguration.getFunctionScore(), query);
   }
 
   public static Optional<FunctionScoreQueryBuilder> functionScoreQueryBuilder(
       @Nonnull ObjectMapper objectMapper,
       @Nonnull AutocompleteConfiguration customAutocompleteConfiguration,
       QueryBuilder queryBuilder,
-      @Nullable QueryConfiguration customQueryConfiguration) {
+      @Nullable QueryConfiguration customQueryConfiguration,
+      String query) {
 
     Optional<FunctionScoreQueryBuilder> result = Optional.empty();
 
@@ -143,14 +145,17 @@ public class CustomizedQueryHandler {
       result =
           Optional.of(
               toFunctionScoreQueryBuilder(
-                  objectMapper, queryBuilder, customQueryConfiguration.getFunctionScore()));
+                  objectMapper, queryBuilder, customQueryConfiguration.getFunctionScore(), query));
     } else if (customAutocompleteConfiguration.getFunctionScore() != null
         && !customAutocompleteConfiguration.getFunctionScore().isEmpty()) {
       log.debug("Applying custom autocomplete function scores.");
       result =
           Optional.of(
               toFunctionScoreQueryBuilder(
-                  objectMapper, queryBuilder, customAutocompleteConfiguration.getFunctionScore()));
+                  objectMapper,
+                  queryBuilder,
+                  customAutocompleteConfiguration.getFunctionScore(),
+                  query));
     }
 
     return result;
@@ -159,7 +164,8 @@ public class CustomizedQueryHandler {
   private static FunctionScoreQueryBuilder toFunctionScoreQueryBuilder(
       @Nonnull ObjectMapper objectMapper,
       @Nonnull QueryBuilder queryBuilder,
-      @Nonnull Map<String, Object> params) {
+      @Nonnull Map<String, Object> params,
+      String query) {
     try {
       HashMap<String, Object> body = new HashMap<>(params);
       if (!body.isEmpty()) {
@@ -168,7 +174,12 @@ public class CustomizedQueryHandler {
 
       body.put("query", objectMapper.readValue(queryBuilder.toString(), Map.class));
 
-      String jsonFragment = objectMapper.writeValueAsString(Map.of("function_score", body));
+      String jsonFragment =
+          objectMapper
+              .writeValueAsString(Map.of("function_score", body))
+              .replace("\"{{query_string}}\"", objectMapper.writeValueAsString(query))
+              .replace(
+                  "\"{{unquoted_query_string}}\"", objectMapper.writeValueAsString(unquote(query)));
       XContentParser parser =
           XContentType.JSON
               .xContent()

@@ -58,7 +58,7 @@ public class LineageExporter<O> {
       Set<String> urns, Set<String> visitedUrns, Set<String> visitedIds, int hops) {
     Set<String> nextIds = new HashSet<>();
     if (!urns.isEmpty()) {
-      BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+      BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
       boolQueryBuilder.must(QueryBuilders.termQuery("relationshipType", "DownstreamOf"));
 
@@ -70,7 +70,6 @@ public class LineageExporter<O> {
                 boolQueryBuilder.should(
                     QueryBuilders.termsQuery("destination.urn", batch.toArray(String[]::new)));
               });
-      boolQueryBuilder.minimumShouldMatch(1);
 
       // Exclude visited
       Lists.partition(Arrays.asList(visitedIds.toArray(String[]::new)), queryStatementSize)
@@ -144,7 +143,10 @@ public class LineageExporter<O> {
               batch ->
                   boolQueryBuilder.should(
                       QueryBuilders.idsQuery().addIds(batch.toArray(String[]::new))));
-      boolQueryBuilder.minimumShouldMatch(1);
+
+      if (!boolQueryBuilder.should().isEmpty()) {
+        boolQueryBuilder.minimumShouldMatch(1);
+      }
 
       // Exclude visited
       Lists.partition(Arrays.asList(visitedIds.toArray(String[]::new)), queryStatementSize)

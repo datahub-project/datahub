@@ -1,0 +1,8 @@
+namespace com.linkedin.settings.global
+
+
+record DocPropagationFeatureSettings includes FeatureSettings {
+    
+    columnPropagationEnabled: boolean = true
+    
+}

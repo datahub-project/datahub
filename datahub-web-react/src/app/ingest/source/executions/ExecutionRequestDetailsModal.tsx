@@ -1,25 +1,28 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
-import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { downloadFile } from '../../../search/utils/csvUtils';
-import { Message } from '../../../shared/Message';
-import IngestedAssets from '../IngestedAssets';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import IngestedAssets from '@app/ingest/source/IngestedAssets';
+import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
 import {
+    RUNNING,
+    SUCCEEDED_WITH_WARNINGS,
+    SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
     getIngestionSourceStatus,
     getStructuredReport,
-    RUNNING,
-    SUCCESS,
-} from '../utils';
-import { ExecutionRequestResult } from '../../../../types.generated';
-import { StructuredReport } from './reporting/StructuredReport';
+} from '@app/ingest/source/utils';
+import { downloadFile } from '@app/search/utils/csvUtils';
+import { Message } from '@app/shared/Message';
+
+import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
+import { ExecutionRequestResult } from '@types';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -113,11 +116,11 @@ type DetailsContainerProps = {
 
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -128,7 +131,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
 
@@ -155,14 +158,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
-    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
         recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
 
     const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
     const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
@@ -175,14 +178,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Sync Details</StyledTitle>
+                    <StyledTitle level={4}>Execution Run Details</StyledTitle>
                 </HeaderSection>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading sync details..." />}
-            {error && message.error('Failed to load sync details :(')}
+            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
+            {error && message.error('Failed to load execution run details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
@@ -190,9 +193,11 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {status === SUCCESS && (
+                {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
-                        {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
+                        {data?.executionRequest?.id && (
+                            <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                        )}
                     </IngestedAssetsSection>
                 )}
                 <LogsSection>

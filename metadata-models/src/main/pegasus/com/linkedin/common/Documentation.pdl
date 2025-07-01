@@ -1,0 +1,32 @@
+namespace com.linkedin.common
+
+/**
+ * Aspect used for storing all applicable documentations on assets.
+ * This aspect supports multiple documentations from different sources.
+ * There is an implicit assumption that there is only one documentation per
+   source.
+ * For example, if there are two documentations from the same source, the
+   latest one will overwrite the previous one.
+ * If there are two documentations from different sources, both will be
+   stored.
+  * Future evolution considerations:
+  * The first entity that uses this aspect is Schema Field. We will expand this
+    aspect to other entities eventually.
+  * The values of the documentation are not currently searchable. This will be
+    changed once this aspect develops opinion on which documentation entry is
+    the authoritative one.
+  * Ensuring that there is only one documentation per source is a business
+    rule that is not enforced by the aspect yet. This will currently be enforced by the
+    application that uses this aspect. We will eventually enforce this rule in
+    the aspect using AspectMutators.
+ */
+@Aspect = {
+  "name": "documentation"
+}
+record Documentation {
+
+  /**
+   * Documentations associated with this asset. We could be receiving docs from different sources
+   */
+  documentations: array[DocumentationAssociation]
+}

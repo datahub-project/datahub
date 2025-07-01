@@ -41,11 +41,11 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
           final QueryContext context = environment.getContext();
           final String tokenId = bindArgument(environment.getArgument("tokenId"), String.class);
 
-          log.info("User {} revoking access token {}", context.getActorUrn(), tokenId);
+          log.info("User {} revoking access token", context.getActorUrn());
 
           if (isAuthorizedToRevokeToken(context, tokenId)) {
             try {
-              _statefulTokenService.revokeAccessToken(tokenId);
+              _statefulTokenService.revokeAccessToken(context.getOperationContext(), tokenId);
             } catch (Exception e) {
               throw new RuntimeException("Failed to revoke access token", e);
             }

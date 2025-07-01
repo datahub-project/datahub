@@ -39,7 +39,7 @@ public class UpdateEmbedResolverTest {
 
   @Test
   public void testGetSuccessNoExistingEmbed() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -68,7 +68,6 @@ public class UpdateEmbedResolverTest {
             Urn.createFromString(TEST_ENTITY_URN), EMBED_ASPECT_NAME, newEmbed);
 
     verifySingleIngestProposal(mockService, 1, proposal);
-    ;
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -79,7 +78,7 @@ public class UpdateEmbedResolverTest {
     Embed originalEmbed = new Embed().setRenderUrl("https://otherurl.com");
 
     // Create resolver
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -132,7 +131,7 @@ public class UpdateEmbedResolverTest {
                     .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
@@ -154,7 +153,7 @@ public class UpdateEmbedResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
     // Execute resolver
@@ -171,7 +170,7 @@ public class UpdateEmbedResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .ingestProposal(any(), Mockito.any());

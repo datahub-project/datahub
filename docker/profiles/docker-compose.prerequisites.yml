@@ -14,11 +14,13 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-consumers
 x-mysql-profiles-dev: &mysql-profiles-dev
   - debug
+  - debug-min
   - debug-frontend
   - debug-backend
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -26,11 +28,14 @@ x-mysql-profiles: &mysql-profiles
   - quickstart-storage
   - quickstart-consumers
   - debug
+  - debug-min
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
@@ -55,6 +60,7 @@ x-elasticsearch-profiles: &elasticsearch-profiles
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
+  - quickstart-datahub-actions
   - quickstart-backend
   - quickstart-frontend
   - quickstart-storage
@@ -63,32 +69,44 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-consumers
 x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug
+  - debug-min
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres
   - debug-cassandra
   - debug-consumers
   - debug-neo4j
+  - debug-backend-aws
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
+  - quickstart-actions
   - quickstart-frontend
   - quickstart-storage
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
   - debug
+  - debug-min
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres
   - debug-cassandra
   - debug-consumers
   - debug-neo4j
+  - debug-backend-aws
+
+# AWS Infra profiles
+x-profiles-aws: &aws-profiles
+  - debug-backend-aws
 
 # Debug vs Quickstart Profiles
 x-profiles-quickstart: &profiles-quickstart
   - quickstart
   - quickstart-backend
+  - quickstart-actions
   - quickstart-frontend
   - quickstart-storage
   - quickstart-cassandra
@@ -96,6 +114,8 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-consumers
 x-profiles-dev: &profiles-dev
   - debug
+  - debug-min
+  - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-postgres
@@ -103,6 +123,7 @@ x-profiles-dev: &profiles-dev
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 
 services:
   mysql:
@@ -135,7 +156,7 @@ services:
   mysql-setup-dev:
     <<: *mysql-setup
     profiles: *mysql-profiles-dev
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:debug
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
@@ -166,7 +187,7 @@ services:
   postgres-setup-dev:
     <<: *postgres-setup
     profiles: *postgres-profiles-dev
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:debug
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-debug}
   cassandra:
     profiles: *cassandra-profiles
     hostname: cassandra
@@ -210,7 +231,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: confluentinc/cp-kafka:7.4.0
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     command:
       - /bin/bash
       - -c
@@ -234,7 +255,7 @@ services:
     env_file: kafka-broker/env/docker.env
     environment:
       KAFKA_NODE_ID: 1
-      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
       KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -272,7 +293,7 @@ services:
     environment:
       <<: *kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:debug
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-debug}
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search
@@ -296,7 +317,7 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup-dev: &elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     profiles: *elasticsearch-profiles
     hostname: elasticsearch-setup
     env_file: elasticsearch-setup/env/docker.env
@@ -347,13 +368,30 @@ services:
     <<: *opensearch-setup
     profiles: *opensearch-profiles-dev
     hostname: opensearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
     depends_on:
       opensearch:
         condition: service_healthy
+  aws-localstack:
+    profiles: *aws-profiles
+    hostname: localstack
+    image: ${LOCALSTACK_IMAGE:-localstack/localstack:4}
+    ports:
+      - ${DATAHUB_MAPPED_LOCALSTACK_PORT:-4566}:4566                     # LocalStack's main service port
+    environment:
+      - AWS_DEFAULT_REGION=${LOCALSTACK_REGION:-us-east-1}
+      - SERVICES=${LOCALSTACK_SERVICES:-s3,sqs,iam,sts}
+    volumes:
+      - localstackdata:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 networks:
   default:
@@ -367,3 +405,4 @@ volumes:
   mysqldata:
   cassandradata:
   postgresdata:
+  localstackdata:

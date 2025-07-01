@@ -1,0 +1,25 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Uri
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.TimeStamp
+
+/**
+ * Iceberg Catalog metadata associated with an Iceberg table/view
+ */
+@Aspect = {
+  "name": "icebergCatalogInfo"
+}
+record IcebergCatalogInfo {
+
+  /**
+   * When Datahub is the REST Catalog for an Iceberg Table, stores the current metadata pointer.
+   * If the Iceberg table is managed by an external catalog, the metadata pointer is not set.
+   */
+  metadataPointer: optional string
+
+  view: optional boolean
+
+  // tableProperties: map[string, string] = { }
+}

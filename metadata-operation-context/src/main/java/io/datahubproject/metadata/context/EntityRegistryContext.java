@@ -7,21 +7,25 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Builder
 @Getter
+@EqualsAndHashCode
 public class EntityRegistryContext implements ContextInterface {
   public static final EntityRegistryContext EMPTY =
       EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY);
 
-  @Nonnull private final EntityRegistry entityRegistry;
+  @EqualsAndHashCode.Exclude @Nonnull private final EntityRegistry entityRegistry;
+  @EqualsAndHashCode.Exclude @Nonnull private final LineageRegistry lineageRegistry;
   @Nonnull private final Map<String, Set<String>> entityToAspectsMap;
 
   public Set<String> getEntityAspectNames(String entityType) {
@@ -64,7 +68,10 @@ public class EntityRegistryContext implements ContextInterface {
     }
 
     public EntityRegistryContext build(@Nonnull EntityRegistry entityRegistry) {
-      return new EntityRegistryContext(entityRegistry, buildEntityToValidAspects(entityRegistry));
+      return new EntityRegistryContext(
+          entityRegistry,
+          new LineageRegistry(entityRegistry),
+          buildEntityToValidAspects(entityRegistry));
     }
 
     private static Map<String, Set<String>> buildEntityToValidAspects(

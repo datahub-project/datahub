@@ -1,12 +1,16 @@
 package com.linkedin.metadata.aspect.plugins.validation;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.util.Pair;
-import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 
+@Value
+@EqualsAndHashCode(callSuper = false)
 public class AspectValidationException extends Exception {
 
   public static AspectValidationException forItem(BatchItem item, String msg) {
@@ -14,46 +18,51 @@ public class AspectValidationException extends Exception {
   }
 
   public static AspectValidationException forItem(BatchItem item, String msg, Exception e) {
-    return new AspectValidationException(item.getUrn(), item.getAspectName(), msg, e);
+    return new AspectValidationException(item, msg, ValidationSubType.VALIDATION, e);
   }
 
-  @Nonnull private final Urn entityUrn;
-  @Nonnull private final String aspectName;
-  @Nullable private final String msg;
+  public static AspectValidationException forPrecondition(BatchItem item, String msg) {
+    return forPrecondition(item, msg, null);
+  }
 
-  public AspectValidationException(@Nonnull Urn entityUrn, @Nonnull String aspectName, String msg) {
-    this(entityUrn, aspectName, msg, null);
+  public static AspectValidationException forFilter(BatchItem item, String msg) {
+    return new AspectValidationException(item, msg, ValidationSubType.FILTER);
+  }
+
+  public static AspectValidationException forAuth(BatchItem item, String msg) {
+    return new AspectValidationException(item, msg, ValidationSubType.AUTHORIZATION);
+  }
+
+  public static AspectValidationException forPrecondition(BatchItem item, String msg, Exception e) {
+    return new AspectValidationException(item, msg, ValidationSubType.PRECONDITION, e);
+  }
+
+  @Nonnull BatchItem item;
+  @Nonnull ChangeType changeType;
+  @Nonnull Urn entityUrn;
+  @Nonnull String aspectName;
+  @Nonnull ValidationSubType subType;
+  @Nullable String msg;
+
+  public AspectValidationException(@Nonnull BatchItem item, String msg, ValidationSubType subType) {
+    this(item, msg, subType, null);
   }
 
   public AspectValidationException(
-      @Nonnull Urn entityUrn, @Nonnull String aspectName, @Nonnull String msg, Exception e) {
+      @Nonnull BatchItem item,
+      @Nonnull String msg,
+      @Nullable ValidationSubType subType,
+      Exception e) {
     super(msg, e);
-    this.entityUrn = entityUrn;
-    this.aspectName = aspectName;
+    this.item = item;
+    this.changeType = item.getChangeType();
+    this.entityUrn = item.getUrn();
+    this.aspectName = item.getAspectName();
     this.msg = msg;
+    this.subType = subType != null ? subType : ValidationSubType.VALIDATION;
   }
 
-  public Pair<Urn, String> getExceptionKey() {
+  public Pair<Urn, String> getAspectGroup() {
     return Pair.of(entityUrn, aspectName);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-
-    AspectValidationException that = (AspectValidationException) o;
-
-    if (!entityUrn.equals(that.entityUrn)) return false;
-    if (!aspectName.equals(that.aspectName)) return false;
-    return Objects.equals(msg, that.msg);
-  }
-
-  @Override
-  public int hashCode() {
-    int result = entityUrn.hashCode();
-    result = 31 * result + aspectName.hashCode();
-    result = 31 * result + (msg != null ? msg.hashCode() : 0);
-    return result;
   }
 }

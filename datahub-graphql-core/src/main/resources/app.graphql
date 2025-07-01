@@ -1,22 +1,27 @@
 # DataHub UI Application-Specific GraphQL Types
 
 extend type Query {
-    """
-    Fetch details associated with the authenticated user, provided via an auth cookie or header
-    """
-    me: AuthenticatedUser
+  """
+  Fetch details associated with the authenticated user, provided via an auth cookie or header
+  """
+  me: AuthenticatedUser
 
-    """
-    Fetch configurations
-    Used by DataHub UI
-    """
-    appConfig: AppConfig
+  """
+  Fetch configurations
+  Used by DataHub UI
+  """
+  appConfig: AppConfig
 
-    """
-    Fetch the Global Settings related to the Views feature.
-    Requires the 'Manage Global Views' Platform Privilege.
-    """
-    globalViewsSettings: GlobalViewsSettings
+  """
+  Fetch the Global Settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  globalViewsSettings: GlobalViewsSettings
+
+  """
+  Fetch the global settings related to the docs propagation feature.
+  """
+  docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -25,6 +30,13 @@ extend type Mutation {
   Requires the 'Manage Global Views' Platform Privilege.
   """
   updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
+
+  """
+  Update the doc propagation settings.
+  """
+  updateDocPropagationSettings(
+    input: UpdateDocPropagationSettingsInput!
+  ): Boolean!
 }
 
 """
@@ -122,6 +134,11 @@ type PlatformPrivileges {
   manageTags: Boolean!
 
   """
+  Whether the user should be able to view the tags management page.
+  """
+  viewManageTags: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete global views.
   """
   manageGlobalViews: Boolean!
@@ -130,7 +147,7 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
-  
+
   """
   Whether the user can create and delete posts pinned to the home page.
   """
@@ -146,6 +163,69 @@ type PlatformPrivileges {
   """
   manageBusinessAttributes: Boolean!
 
+  """
+  Whether the user can create, edit, and delete structured properties.
+  """
+  manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
+}
+
+"""
+Variants of APIs used in the Search bar to get data
+"""
+enum SearchBarAPI {
+  AUTOCOMPLETE_FOR_MULTIPLE
+  SEARCH_ACROSS_ENTITIES
+}
+
+"""
+Configurations related to the Search bar
+"""
+type SearchBarConfig {
+  """
+  API variant
+  """
+  apiVariant: SearchBarAPI!
+}
+
+"""
+Variants of APIs used in the Search bar to get data
+"""
+enum PersonalSidebarSection {
+  """
+  The section containing groups you are in
+  """
+  YOUR_GROUPS
+  """
+  The section containing assets you own
+  """
+  YOUR_ASSETS
+  """
+  The section containing domains you own
+  """
+  YOUR_DOMAINS
+  """
+  The section containing glossary nodes you own
+  """
+  YOUR_GLOSSARY_NODES
+  """
+  The section containing tags you own
+  """
+  YOUR_TAGS
+}
+
+"""
+Configurations related to the Search bar
+"""
+type HomePageConfig {
+  """
+  The section that comes first on the personal sidebar on the homepage
+  """
+  firstInPersonalSidebar: PersonalSidebarSection!
 }
 
 """
@@ -209,9 +289,24 @@ type AppConfig {
   viewsConfig: ViewsConfig!
 
   """
+  Configurations related to the Search bar
+  """
+  searchBarConfig: SearchBarConfig!
+
+  """
   Feature flags telling the UI whether a feature is enabled or not
   """
   featureFlags: FeatureFlagsConfig!
+
+  """
+  Configuration related to the DataHub Chrome Extension
+  """
+  chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configuration related to the home page
+  """
+  homePageConfig: HomePageConfig!
 }
 
 """
@@ -252,6 +347,31 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
+
+  """
+  Configuration for custom theme-ing
+  """
+  theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
 }
 
 """
@@ -263,7 +383,6 @@ type QueriesTabConfig {
   """
   queriesTabResultSize: Int
 }
-
 
 """
 Configuration for different entity profiles
@@ -290,10 +409,10 @@ type EntityProfileConfig {
 Configuration for a search result
 """
 type SearchResultsVisualConfig {
-    """
-    Whether a search result should highlight the name/description if it was matched on those fields.
-    """
-    enableNameHighlight: Boolean
+  """
+  Whether a search result should highlight the name/description if it was matched on those fields.
+  """
+  enableNameHighlight: Boolean
 }
 
 """
@@ -335,7 +454,6 @@ type AuthConfig {
   """
   tokenAuthEnabled: Boolean!
 }
-
 
 """
 Configurations related to the Policies Feature
@@ -469,7 +587,12 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  Whether to show the new lineage visualization.
+  """
+  lineageGraphV2: Boolean!
+
+  """
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
   """
@@ -497,6 +620,108 @@ type FeatureFlagsConfig {
   Whether data contracts should be enabled
   """
   dataContractsEnabled: Boolean!
+
+  """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
+
+  """
+  Allows the V2 theme to be turned on.
+  Includes new UX for home page, search, entity profiles, and lineage.
+  If false, then the V2 experience will be unavailable even if themeV2Default or themeV2Toggleable are true.
+  """
+  themeV2Enabled: Boolean!
+
+  """
+  Sets the default theme to V2.
+  If `themeV2Toggleable` is set, then users can toggle between V1 and V2.
+  If not, then the default is the only option.
+  """
+  themeV2Default: Boolean!
+
+  """
+  Allows the V2 theme to be toggled by users.
+  """
+  themeV2Toggleable: Boolean!
+
+  """
+  Enables links to schema field-level lineage on lineage explorer.
+  """
+  schemaFieldCLLEnabled: Boolean!
+
+  """
+  If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  """
+  showSeparateSiblings: Boolean!
+
+  """
+  If turned on, show the manage structured properties tab in the govern dropdown
+  """
+  showManageStructuredProperties: Boolean!
+
+  """
+  If turned on, hides DBT Sources from lineage by:
+  i) Hiding the source in the lineage graph, if it has no downstreams
+  ii) Swapping to the source's sibling urn on V2 lineage graph
+  iii) Representing source sibling as a merged node, with both icons on graph and combined version in sidebar
+  """
+  hideDbtSourceInLineage: Boolean!
+
+  """
+  If turned on, schema field lineage will always fetch ghost entities and present them as real
+  """
+  schemaFieldLineageIgnoreStatus: Boolean!
+
+  """
+  If turned on, show the newly designed nav bar in the V2 experience
+  """
+  showNavBarRedesign: Boolean!
+
+  """
+  If turned on, we display auto complete results. Otherwise, do not.
+  """
+  showAutoCompleteResults: Boolean!
+
+  """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the "has siblings" filter in search
+  """
+  showHasSiblingsFilter: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
+
+  """
+  If enabled, users will be able to view the tags management experience
+  """
+  showManageTags: Boolean!
+
+  """
+  If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  """
+  showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
+  If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
 }
 
 """
@@ -519,4 +744,48 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update doc propagation settings.
+"""
+input UpdateDocPropagationSettingsInput {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the doc propagation feature
+"""
+type DocPropagationSettings {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+"""
+Configurations related to DataHub Chrome extension
+"""
+type ChromeExtensionConfig {
+  """
+  Whether the Chrome Extension is enabled
+  """
+  enabled: Boolean!
+
+  """
+  Whether lineage is enabled
+  """
+  lineageEnabled: Boolean!
+}
+
+"""
+Configuration for any custom theme-ing
+"""
+type ThemeConfig {
+  """
+  The optional custom theme ID to determine which theme config we use in the frontend
+  """
+  themeId: String
 }

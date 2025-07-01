@@ -1,16 +1,20 @@
-import functools
 import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import click
+import click.testing
+import requests
+import tenacity
+from joblib import Parallel, delayed
+from packaging import version
+from requests.structures import CaseInsensitiveDict
 
 from datahub.cli import cli_utils, env_utils
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
-from joblib import Parallel, delayed
-
-import requests_wrapper as requests
 from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
@@ -23,7 +27,7 @@ def get_frontend_session():
 
 
 def login_as(username: str, password: str):
-    return cli_utils.get_session_login_as(
+    return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
     )
 
@@ -83,14 +87,14 @@ def is_k8s_enabled():
     return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
 
 
-def wait_for_healthcheck_util():
-    assert not check_endpoint(f"{get_frontend_url()}/admin")
-    assert not check_endpoint(f"{get_gms_url()}/health")
+def wait_for_healthcheck_util(auth_session):
+    assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
+    assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
 
 
-def check_endpoint(url):
+def check_endpoint(auth_session, url):
     try:
-        get = requests.get(url)
+        get = auth_session.get(url)
         if get.status_code == 200:
             return
         else:
@@ -99,7 +103,25 @@ def check_endpoint(url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
-def ingest_file_via_rest(filename: str) -> Pipeline:
+def run_datahub_cmd(
+    command: List[str],
+    *,
+    input: Optional[str] = None,
+    env: Optional[Dict[str, str]] = None,
+) -> click.testing.Result:
+    # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
+    click_version: str = click.__version__  # type: ignore
+    if version.parse(click_version) >= version.parse("8.2.0"):
+        runner = click.testing.CliRunner()
+    else:
+        # Once we're pinned to click >= 8.2.0, we can remove this.
+        runner = click.testing.CliRunner(mix_stderr=False)  # type: ignore
+    return runner.invoke(datahub, command, input=input, env=env)
+
+
+def ingest_file_via_rest(
+    auth_session, filename: str, mode: str = "ASYNC_BATCH"
+) -> Pipeline:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -108,7 +130,11 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
             },
             "sink": {
                 "type": "datahub-rest",
-                "config": {"server": get_gms_url()},
+                "config": {
+                    "server": auth_session.gms_url(),
+                    "token": auth_session.gms_token(),
+                    "mode": mode,
+                },
             },
         }
     )
@@ -118,31 +144,21 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     return pipeline
 
 
-@functools.lru_cache(maxsize=1)
-def get_datahub_graph() -> DataHubGraph:
-    return DataHubGraph(DatahubClientConfig(server=get_gms_url()))
+def delete_urn(graph_client, urn: str) -> None:
+    graph_client.hard_delete_entity(urn)
 
 
-def delete_urn(urn: str) -> None:
-    get_datahub_graph().hard_delete_entity(urn)
-
-
-def delete_urns(urns: List[str]) -> None:
+def delete_urns(graph_client, urns: List[str]) -> None:
     for urn in urns:
-        delete_urn(urn)
+        delete_urn(graph_client, urn)
 
 
-def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
+def delete_urns_from_file(
+    graph_client, filename: str, shared_data: bool = False
+) -> None:
     if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
         return
-    session = requests.Session()
-    session.headers.update(
-        {
-            "X-RestLi-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-        }
-    )
 
     def delete(entry):
         is_mcp = "entityUrn" in entry
@@ -154,7 +170,7 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
             snapshot_union = entry["proposedSnapshot"]
             snapshot = list(snapshot_union.values())[0]
             urn = snapshot["urn"]
-        delete_urn(urn)
+        delete_urn(graph_client, urn)
 
     with open(filename) as f:
         d = json.load(f)
@@ -221,3 +237,113 @@ def create_datahub_step_state_aspects(
     ]
     with open(onboarding_filename, "w") as f:
         json.dump(aspects_dict, f, indent=2)
+
+
+class TestSessionWrapper:
+    """
+    Many of the tests do not consider async writes. This
+    class intercepts mutations using the requests library
+    to simulate sync requests.
+    """
+
+    def __init__(self, requests_session):
+        self._upstream = requests_session
+        self._frontend_url = get_frontend_url()
+        self._gms_url = get_gms_url()
+        self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+    def __getattr__(self, name):
+        # Intercept method calls
+        attr = getattr(self._upstream, name)
+
+        if callable(attr):
+
+            def wrapper(*args, **kwargs):
+                # Pre-processing can be done here
+                if name in ("get", "head", "post", "put", "delete", "option", "patch"):
+                    if "headers" not in kwargs:
+                        kwargs["headers"] = CaseInsensitiveDict()
+                    kwargs["headers"].update(
+                        {"Authorization": f"Bearer {self._gms_token}"}
+                    )
+
+                result = attr(*args, **kwargs)
+
+                # Post-processing can be done here
+                if name in ("post", "put"):
+                    # Wait for sync if writing
+                    # delete is excluded for efficient test clean-up
+                    self._wait(*args, **kwargs)
+
+                return result
+
+            return wrapper
+
+        return attr
+
+    def gms_token(self):
+        return self._gms_token
+
+    def gms_token_id(self):
+        return self._gms_token_id
+
+    def frontend_url(self):
+        return self._frontend_url
+
+    def gms_url(self):
+        return self._gms_url
+
+    def _wait(self, *args, **kwargs):
+        if "/logIn" not in args[0]:
+            print("TestSessionWrapper sync wait.")
+            wait_for_writes_to_sync()
+
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(10),
+        wait=tenacity.wait_exponential(multiplier=1, min=4, max=30),
+        retry=tenacity.retry_if_exception_type(Exception),
+    )
+    def _generate_gms_token(self):
+        actor_urn = self._upstream.cookies["actor"]
+        json = {
+            "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+                createAccessToken(input: $input) {
+                  accessToken
+                  metadata {
+                    id
+                  }
+                }
+            }""",
+            "variables": {
+                "input": {
+                    "type": "PERSONAL",
+                    "actorUrn": actor_urn,
+                    "duration": "ONE_DAY",
+                    "name": "Test Session Token",
+                    "description": "Token generated for smoke-tests",
+                }
+            },
+        }
+
+        response = self._upstream.post(
+            f"{self._frontend_url}/api/v2/graphql", json=json
+        )
+        response.raise_for_status()
+        return (
+            response.json()["data"]["createAccessToken"]["metadata"]["id"],
+            response.json()["data"]["createAccessToken"]["accessToken"],
+        )
+
+    def destroy(self):
+        if self._gms_token_id:
+            json = {
+                "query": """mutation revokeAccessToken($tokenId: String!) {
+                revokeAccessToken(tokenId: $tokenId)
+            }""",
+                "variables": {"tokenId": self._gms_token_id},
+            }
+
+            response = self._upstream.post(
+                f"{self._frontend_url}/api/v2/graphql", json=json
+            )
+            response.raise_for_status()

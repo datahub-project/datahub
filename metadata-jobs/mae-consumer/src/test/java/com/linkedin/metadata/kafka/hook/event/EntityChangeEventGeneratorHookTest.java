@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka.hook.event;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.getSchemaFieldUrn;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -309,11 +309,16 @@ public class EntityChangeEventGeneratorHookTest {
     final Ownership newOwners = new Ownership();
     final Urn ownerUrn1 = Urn.createFromString("urn:li:corpuser:test1");
     final Urn ownerUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    final Urn ownerUrn3 = Urn.createFromString("urn:li:corpuser:test3");
     newOwners.setOwners(
         new OwnerArray(
             ImmutableList.of(
                 new Owner().setOwner(ownerUrn1).setType(OwnershipType.TECHNICAL_OWNER),
-                new Owner().setOwner(ownerUrn2).setType(OwnershipType.BUSINESS_OWNER))));
+                new Owner().setOwner(ownerUrn2).setType(OwnershipType.BUSINESS_OWNER),
+                new Owner()
+                    .setOwner(ownerUrn3)
+                    .setType(OwnershipType.CUSTOM)
+                    .setTypeUrn(Urn.createFromString("urn:li:ownershipType:my_custom_type")))));
     final Ownership prevOwners = new Ownership();
     prevOwners.setOwners(new OwnerArray());
     event.setAspect(GenericRecordUtils.serializeAspect(newOwners));
@@ -354,7 +359,24 @@ public class EntityChangeEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.BUSINESS_OWNER.toString()),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent2, true);
+    verifyProducePlatformEvent(_mockClient, platformEvent2, false);
+
+    PlatformEvent platformEvent3 =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.OWNER,
+            ChangeOperation.ADD,
+            ownerUrn3.toString(),
+            ImmutableMap.of(
+                "ownerUrn",
+                ownerUrn3.toString(),
+                "ownerType",
+                OwnershipType.CUSTOM.toString(),
+                "ownerTypeUrn",
+                "urn:li:ownershipType:my_custom_type"),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent3, true);
   }
 
   @Test
@@ -933,7 +955,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
@@ -945,7 +967,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
@@ -957,7 +979,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,
@@ -1008,7 +1030,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.ADD,
             null,
@@ -1020,7 +1042,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
@@ -1032,7 +1054,7 @@ public class EntityChangeEventGeneratorHookTest {
         _mockClient,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
-            getSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
+            generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.REMOVE,
             null,

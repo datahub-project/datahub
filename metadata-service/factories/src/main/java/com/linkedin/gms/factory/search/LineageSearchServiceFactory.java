@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.search;
 
-import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -9,11 +8,9 @@ import javax.annotation.Nonnull;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @Configuration
-@Import({GraphServiceFactory.class})
 public class LineageSearchServiceFactory {
 
   public static final String LINEAGE_SEARCH_SERVICE_CACHE_NAME = "relationshipSearchService";
@@ -32,6 +29,6 @@ public class LineageSearchServiceFactory {
         graphService,
         cacheEnabled ? cacheManager.getCache(LINEAGE_SEARCH_SERVICE_CACHE_NAME) : null,
         cacheEnabled,
-        configurationProvider.getCache().getSearch().getLineage());
+        configurationProvider);
   }
 }

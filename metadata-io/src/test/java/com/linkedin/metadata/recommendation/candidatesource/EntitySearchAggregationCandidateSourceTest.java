@@ -1,5 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -11,8 +12,9 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -32,6 +34,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class EntitySearchAggregationCandidateSourceTest {
+  private final EntityService<?> entityService = mock(EntityService.class);
   private final EntitySearchService entitySearchService = mock(EntitySearchService.class);
   private final EntityRegistry entityRegistry = mock(EntityRegistry.class);
   private EntitySearchAggregationSource valueBasedCandidateSource;
@@ -54,7 +57,7 @@ public class EntitySearchAggregationCandidateSourceTest {
 
   private EntitySearchAggregationSource buildCandidateSource(
       String identifier, boolean isValueUrn) {
-    return new EntitySearchAggregationSource(entitySearchService, entityRegistry) {
+    return new EntitySearchAggregationSource(entityService, entitySearchService, entityRegistry) {
       @Override
       protected String getSearchFieldName() {
         return identifier;
@@ -142,7 +145,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value1"));
+        buildCriterion("testValue", Condition.EQUAL, "value1"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(
@@ -165,7 +168,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value3"));
+        buildCriterion("testValue", Condition.EQUAL, "value3"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -178,7 +181,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value2"));
+        buildCriterion("testValue", Condition.EQUAL, "value2"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(
@@ -191,6 +194,10 @@ public class EntitySearchAggregationCandidateSourceTest {
     Urn testUrn1 = new TestEntityUrn("testUrn1", "testUrn1", "testUrn1");
     Urn testUrn2 = new TestEntityUrn("testUrn2", "testUrn2", "testUrn2");
     Urn testUrn3 = new TestEntityUrn("testUrn3", "testUrn3", "testUrn3");
+    Mockito.when(entityService.exists(any(), eq(testUrn1), eq(false))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn2), eq(false))).thenReturn(true);
+    Mockito.when(entityService.exists(any(), eq(testUrn3), eq(false))).thenReturn(true);
+
     Mockito.when(
             entitySearchService.aggregateByValue(
                 any(OperationContext.class), any(), eq("testUrn"), same(filter), anyInt()))
@@ -208,7 +215,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn1.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn1.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(
@@ -233,7 +240,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn3.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn3.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -246,10 +253,22 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn2.toString()));
+        buildCriterion("testUrn", Condition.EQUAL, testUrn2.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(
         urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, filter).isPresent());
+
+    // Non existent entity is filtered out.
+    Urn nonExistentUrn = new TestEntityUrn("testUrn4", "testUrn4", "testUrn4");
+    Mockito.when(
+            entitySearchService.aggregateByValue(
+                any(OperationContext.class), any(), eq("testUrn"), same(filter), anyInt()))
+        .thenReturn(ImmutableMap.of(nonExistentUrn.toString(), 1L, testUrn2.toString(), 2L));
+    candidates = urnBasedCandidateSource.getRecommendations(opContext, CONTEXT, filter);
+    assertEquals(candidates.size(), 1);
+    content = candidates.get(0);
+    assertEquals(content.getValue(), testUrn2.toString());
+    assertEquals(content.getEntity(), testUrn2);
   }
 }

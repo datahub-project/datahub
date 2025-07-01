@@ -5,18 +5,19 @@ import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -40,21 +41,31 @@ public class SystemUpdateConfig {
   public SystemUpdate systemUpdate(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
       final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep) {
-    return new SystemUpdate(blockingSystemUpgrades, nonBlockingSystemUpgrades, dataHubStartupStep);
+      final DataHubStartupStep dataHubStartupStep,
+      @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking,
+      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
+    return new SystemUpdate(
+        blockingSystemUpgrades,
+        nonBlockingSystemUpgrades,
+        dataHubStartupStep,
+        bootstrapMCPBlocking,
+        bootstrapMCPNonBlocking);
   }
 
   @Bean(name = "systemUpdateBlocking")
   public SystemUpdateBlocking systemUpdateBlocking(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep) {
-    return new SystemUpdateBlocking(blockingSystemUpgrades, List.of(), dataHubStartupStep);
+      final DataHubStartupStep dataHubStartupStep,
+      @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking) {
+    return new SystemUpdateBlocking(
+        blockingSystemUpgrades, dataHubStartupStep, bootstrapMCPBlocking);
   }
 
   @Bean(name = "systemUpdateNonBlocking")
   public SystemUpdateNonBlocking systemUpdateNonBlocking(
-      final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades) {
-    return new SystemUpdateNonBlocking(List.of(), nonBlockingSystemUpgrades, null);
+      final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
+      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
+    return new SystemUpdateNonBlocking(nonBlockingSystemUpgrades, bootstrapMCPNonBlocking);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
@@ -84,7 +95,8 @@ public class SystemUpdateConfig {
   protected KafkaEventProducer duheKafkaEventProducer(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties,
-      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+      @Qualifier("duheSchemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
         new KafkaProducer<>(
@@ -116,8 +128,9 @@ public class SystemUpdateConfig {
   @ConditionalOnProperty(
       name = "kafka.schemaRegistry.type",
       havingValue = InternalSchemaRegistryFactory.TYPE)
-  protected SchemaRegistryConfig schemaRegistryConfig(
-      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+  protected KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig(
+      @Qualifier("duheSchemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
     return duheSchemaRegistryConfig;
   }
 }

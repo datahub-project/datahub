@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.siblings;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,17 +72,28 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private final SystemEntityClient systemEntityClient;
   private final EntitySearchService entitySearchService;
-  private final boolean _isEnabled;
+  private final boolean isEnabled;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${siblings.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
     entitySearchService = searchService;
-    _isEnabled = isEnabled;
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public SiblingAssociationHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final EntitySearchService searchService,
+      @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, searchService, isEnabled, "");
   }
 
   @Value("${siblings.enabled:false}")
@@ -99,7 +112,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
@@ -413,10 +426,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion urnCriterion = new Criterion();
-    urnCriterion.setField("siblings.keyword");
-    urnCriterion.setValue(entityUrn.toString());
-    urnCriterion.setCondition(Condition.EQUAL);
+    final Criterion urnCriterion =
+        buildCriterion("siblings.keyword", Condition.EQUAL, entityUrn.toString());
+
     andCriterion.add(urnCriterion);
 
     conjunction.setAnd(andCriterion);

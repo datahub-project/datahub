@@ -22,25 +22,7 @@ public class EbeanConfiguration {
   private long waitTimeoutMillis;
   private boolean autoCreateDdl;
   private boolean postgresUseIamAuth;
-  private LockingConfiguration locking;
+  private String batchGetMethod;
 
-  public static final EbeanConfiguration testDefault =
-      EbeanConfiguration.builder().locking(LockingConfiguration.testDefault).build();
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class LockingConfiguration {
-    private boolean enabled;
-    private long durationSeconds;
-    private long maximumLocks;
-
-    public static final LockingConfiguration testDefault =
-        LockingConfiguration.builder()
-            .enabled(true)
-            .durationSeconds(60)
-            .maximumLocks(10000)
-            .build();
-  }
+  public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }

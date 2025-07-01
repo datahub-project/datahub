@@ -3,10 +3,13 @@ from typing import List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_TEMP_TABLES_PATTERNS,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
@@ -28,19 +31,17 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
-    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize()}'"
-        ")"
-    )
-    ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}'"
-        ")"
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
+        SnowflakeObjectDomain.VIEW.capitalize(),
+        SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+        SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
+        SnowflakeObjectDomain.STREAM.capitalize(),
+    }
+
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
 
     @staticmethod
@@ -62,14 +63,6 @@ class SnowflakeQuery:
     @staticmethod
     def current_warehouse() -> str:
         return "select CURRENT_WAREHOUSE()"
-
-    @staticmethod
-    def current_database() -> str:
-        return "select CURRENT_DATABASE()"
-
-    @staticmethod
-    def current_schema() -> str:
-        return "select CURRENT_SCHEMA()"
 
     @staticmethod
     def show_databases() -> str:
@@ -99,8 +92,8 @@ class SnowflakeQuery:
         order by database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def schemas_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
@@ -111,8 +104,8 @@ class SnowflakeQuery:
         order by schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def tables_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -124,15 +117,18 @@ class SnowflakeQuery:
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
         clustering_key AS "CLUSTERING_KEY",
-        auto_clustering_on AS "AUTO_CLUSTERING_ON"
+        auto_clustering_on AS "AUTO_CLUSTERING_ON",
+        is_dynamic AS "IS_DYNAMIC",
+        is_iceberg AS "IS_ICEBERG",
+        is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
         and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
-    def tables_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def tables_for_schema(schema_name: str, db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -144,11 +140,42 @@ class SnowflakeQuery:
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
         clustering_key AS "CLUSTERING_KEY",
-        auto_clustering_on AS "AUTO_CLUSTERING_ON"
+        auto_clustering_on AS "AUTO_CLUSTERING_ON",
+        is_dynamic AS "IS_DYNAMIC",
+        is_iceberg AS "IS_ICEBERG",
+        is_hybrid AS "IS_HYBRID"
         FROM {db_clause}information_schema.tables t
         where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
+
+    @staticmethod
+    def procedures_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
+        return f"""
+        SELECT procedure_catalog AS "PROCEDURE_CATALOG",
+        procedure_schema AS "PROCEDURE_SCHEMA",
+        procedure_name AS "PROCEDURE_NAME",
+        procedure_language AS "PROCEDURE_LANGUAGE",
+        argument_signature AS "ARGUMENT_SIGNATURE",
+        data_type AS "PROCEDURE_RETURN_TYPE",
+        procedure_definition AS "PROCEDURE_DEFINITION",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT"
+        FROM {db_clause}information_schema.procedures
+        order by procedure_schema, procedure_name"""
+
+    @staticmethod
+    def get_all_tags():
+        return """
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        FROM snowflake.account_usage.tag_references
+        GROUP BY TAG_DATABASE , TAG_SCHEMA, tag_name
+        ORDER BY TAG_DATABASE, TAG_SCHEMA, TAG_NAME  ASC;
+        """
 
     @staticmethod
     def get_all_tags_on_object_with_propagation(
@@ -227,6 +254,19 @@ class SnowflakeQuery:
 SHOW VIEWS IN DATABASE "{db_name}"
 LIMIT {limit} {from_clause};
 """
+
+    @staticmethod
+    def get_secure_view_definitions() -> str:
+        # https://docs.snowflake.com/en/sql-reference/account-usage/views
+        return """
+            SELECT
+                TABLE_CATALOG as "TABLE_CATALOG",
+                TABLE_SCHEMA as "TABLE_SCHEMA",
+                TABLE_NAME as "TABLE_NAME",
+                VIEW_DEFINITION as "VIEW_DEFINITION"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
+            WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
+        """
 
     @staticmethod
     def columns_for_schema(
@@ -327,26 +367,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ORDER BY query_start_time DESC
         ;"""
 
-    @staticmethod
-    def view_dependencies() -> str:
-        return """
-        SELECT
-          concat(
-            referenced_database, '.', referenced_schema,
-            '.', referenced_object_name
-          ) AS "VIEW_UPSTREAM",
-          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_VIEW",
-          referencing_object_domain AS "REFERENCING_OBJECT_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
     # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
     # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
@@ -354,50 +374,21 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def table_to_table_lineage_history_v2(
         start_time_millis: int,
         end_time_millis: int,
-        include_view_lineage: bool = True,
         include_column_lineage: bool = True,
-        upstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        upstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
         else:
             return SnowflakeQuery.table_upstreams_only(
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
-
-    @staticmethod
-    def view_dependencies_v2() -> str:
-        return """
-        SELECT
-            ARRAY_UNIQUE_AGG(
-                OBJECT_CONSTRUCT(
-                    'upstream_object_name', concat(
-                                    referenced_database, '.', referenced_schema,
-                                    '.', referenced_object_name
-                                ),
-                    'upstream_object_domain', referenced_object_domain
-                )
-                ) as "UPSTREAM_TABLES",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_TABLE_NAME",
-          ANY_VALUE(referencing_object_domain) AS "DOWNSTREAM_TABLE_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        GROUP BY
-            DOWNSTREAM_TABLE_NAME
-        """
 
     @staticmethod
     def show_external_tables() -> str:
@@ -407,7 +398,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def copy_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
-        downstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        downstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         temp_table_filter = create_deny_regex_sql_filter(
             downstreams_deny_pattern,
@@ -450,7 +441,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         include_top_n_queries: bool,
         email_domain: Optional[str],
         email_filter: AllowDenyPattern,
-        table_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        table_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -655,12 +646,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
@@ -825,12 +813,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
@@ -934,4 +919,24 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
                 ORDER BY MEASUREMENT_TIME ASC;
 
-"""
+            """
+
+    @staticmethod
+    def get_all_users() -> str:
+        return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
+
+    @staticmethod
+    def streams_for_database(
+        db_name: str,
+        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
+        stream_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # SHOW STREAMS can return a maximum of 10000 rows.
+        # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
+        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
+
+        # To work around this, we paginate through the results using the FROM clause.
+        from_clause = (
+            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
+        )
+        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""

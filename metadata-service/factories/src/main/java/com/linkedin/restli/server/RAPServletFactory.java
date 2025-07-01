@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,12 +26,17 @@ public class RAPServletFactory {
   @Value("#{systemEnvironment['RESTLI_SERVLET_THREADS']}")
   private Integer environmentThreads;
 
+  @Value("${RESTLI_TIMEOUT_SECONDS:60}")
+  private int restliTimeoutSeconds;
+
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
 
   @Bean(name = "restliSpringInjectResourceFactory")
-  public SpringInjectResourceFactory springInjectResourceFactory() {
-    return new SpringInjectResourceFactory();
+  public SpringInjectResourceFactory springInjectResourceFactory(final ApplicationContext ctx) {
+    SpringInjectResourceFactory springInjectResourceFactory = new SpringInjectResourceFactory();
+    springInjectResourceFactory.setApplicationContext(ctx);
+    return springInjectResourceFactory;
   }
 
   @Bean("parseqEngineThreads")
@@ -68,6 +74,7 @@ public class RAPServletFactory {
     RestLiServer restLiServer = new RestLiServer(config, springInjectResourceFactory, parseqEngine);
     return new RAPJakartaServlet(
         new FilterChainDispatcher(
-            new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()));
+            new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()),
+        restliTimeoutSeconds);
   }
 }

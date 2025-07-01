@@ -1,0 +1,119 @@
+plugins {
+    id 'base'
+}
+
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+if (!project.hasProperty("extra_pip_requirements")) {
+    ext.extra_pip_requirements = ""
+}
+
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
+
+task checkPythonVersion(type: Exec) {
+  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
+}
+
+task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  def sentinel_file = "${venv_name}/.venv_environment_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "${python_executable} -m venv ${venv_name} && " +
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
+      "touch ${sentinel_file}"
+}
+
+task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+  def sentinel_file = "${venv_name}/.build_install_package_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e . ${extra_pip_requirements} &&" +
+    "touch ${sentinel_file}"
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
+  inputs.file file('setup.py')
+  outputs.file("${sentinel_file}")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev]  ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
+}
+
+task lint(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/"
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ "
+}
+
+task installDevTest(type: Exec, dependsOn: [installDev]) {
+  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${sentinel_file}")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev,integration-tests] && " +
+    "touch ${sentinel_file}"
+}
+
+task testQuick(type: Exec, dependsOn: installDevTest) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
+}
+
+
+task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest -m 'not slow_integration' -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+
+task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
+      'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+}
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn testQuick
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
+}
+clean.dependsOn cleanPythonCache

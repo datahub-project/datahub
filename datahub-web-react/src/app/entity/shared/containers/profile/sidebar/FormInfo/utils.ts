@@ -1,4 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import {
     FieldFormPromptAssociation,
     FormAssociation,
@@ -7,9 +11,7 @@ import {
     FormType,
     ResolvedAuditStamp,
     SchemaField,
-} from '../../../../../../../types.generated';
-import { SCHEMA_FIELD_PROMPT_TYPES } from '../../../../entityForm/constants';
-import { GenericEntityProperties } from '../../../../types';
+} from '@types';
 
 export function getFormAssociations(entityData: GenericEntityProperties | null) {
     return [...(entityData?.forms?.incompleteForms || []), ...(entityData?.forms?.completedForms || [])];
@@ -197,7 +199,7 @@ export function findPromptAssociation(prompt: FormPrompt, allPrompts: Array<Form
 // Get the prompts for a given form
 export function getPromptsForForm(formUrn: string, entityData: GenericEntityProperties | null) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.prompts || [];
+    return formAssociation?.form?.info?.prompts || [];
 }
 
 /*
@@ -279,7 +281,7 @@ export function isVerificationComplete(entityData: GenericEntityProperties | nul
 
 export function isFormVerificationType(entityData: GenericEntityProperties | null, formUrn: string) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.type === FormType.Verification;
+    return formAssociation?.form?.info?.type === FormType.Verification;
 }
 
 /*
@@ -317,6 +319,6 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
 export function getBulkByQuestionPrompts(formUrn: string, entityData: GenericEntityProperties | null) {
     const formAssociation = getFormAssociation(formUrn, entityData);
     return (
-        formAssociation?.form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
+        formAssociation?.form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
     );
 }

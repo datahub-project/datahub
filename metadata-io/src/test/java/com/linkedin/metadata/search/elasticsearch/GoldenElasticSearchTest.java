@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.GoldenTestBase;

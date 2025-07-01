@@ -28,7 +28,6 @@ import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.dataloader.DataLoader;
-import org.dataloader.DataLoaderRegistry;
 
 /**
  * Simple wrapper around a {@link GraphQL} instance providing APIs for building an engine and
@@ -100,7 +99,7 @@ public class GraphQLEngine {
     /*
      * Init DataLoaderRegistry - should be created for each request.
      */
-    DataLoaderRegistry register = createDataLoaderRegistry(_dataLoaderSuppliers, context);
+    LazyDataLoaderRegistry register = new LazyDataLoaderRegistry(context, _dataLoaderSuppliers);
 
     /*
      * Construct execution input
@@ -217,15 +216,5 @@ public class GraphQLEngine {
           graphQLQueryDepthLimit,
           graphQLQueryIntrospectionEnabled);
     }
-  }
-
-  private DataLoaderRegistry createDataLoaderRegistry(
-      final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
-      final QueryContext context) {
-    final DataLoaderRegistry registry = new DataLoaderRegistry();
-    for (String key : dataLoaderSuppliers.keySet()) {
-      registry.register(key, dataLoaderSuppliers.get(key).apply(context));
-    }
-    return registry;
   }
 }

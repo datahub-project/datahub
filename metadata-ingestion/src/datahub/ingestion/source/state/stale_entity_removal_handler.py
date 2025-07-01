@@ -11,7 +11,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import (
+    STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
+    GenericCheckpointState,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -27,10 +30,6 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
-    "dataProcessInstance",
-}
-
 
 class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
     """
@@ -42,11 +41,10 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
-        default=40.0,
+        default=75.0,
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_docs=True,
     )
 
 
@@ -75,7 +73,10 @@ def auto_stale_entity_removal(
 
         if wu.is_primary_source:
             entity_type = guess_entity_type(urn)
-            if entity_type is not None:
+            if (
+                entity_type is not None
+                and entity_type not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+            ):
                 stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
         else:
             stale_entity_removal_handler.add_urn_to_skip(urn)
@@ -109,17 +110,13 @@ class StaleEntityRemovalHandler(
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.stateful_ingestion_config: Optional[
-            StatefulStaleMetadataRemovalConfig
-        ] = config.stateful_ingestion
-        self.checkpointing_enabled: bool = (
-            True
-            if (
-                self.state_provider.is_stateful_ingestion_configured()
-                and self.stateful_ingestion_config
-                and self.stateful_ingestion_config.remove_stale_metadata
-            )
-            else False
+        self.stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = (
+            config.stateful_ingestion
+        )
+        self.checkpointing_enabled: bool = bool(
+            self.state_provider.is_stateful_ingestion_configured()
+            and self.stateful_ingestion_config
+            and self.stateful_ingestion_config.remove_stale_metadata
         )
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
@@ -257,13 +254,33 @@ class StaleEntityRemovalHandler(
 
         assert self.stateful_ingestion_config
 
-        copy_previous_state_and_fail = False
+        copy_previous_state_and_exit = False
+
+        # If the source already had a failure, skip soft-deletion.
+        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
+        if self.source.get_report().failures:
+            self.source.get_report().report_warning(
+                title="Skipping stateful ingestion / stale entity removal",
+                message="The soft-deletion of stale entities will be skipped because the source reported a failure.",
+            )
+            copy_previous_state_and_exit = True
+
+        if (
+            not copy_previous_state_and_exit
+            and self.source.get_report().events_produced == 0
+        ):
+            self.source.get_report().report_failure(
+                title="Skipping stateful ingestion / stale entity removal",
+                message="The source did not produce any metadata. Despite stateful ingestion being enabled, we will not delete any metadata. "
+                "This is a fail-safe mechanism to prevent the accidental deletion of all entities.",
+            )
+            copy_previous_state_and_exit = True
 
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
             last_checkpoint_state
         )
-        if (
+        if not copy_previous_state_and_exit and (
             entity_difference_percent
             > self.stateful_ingestion_config.fail_safe_threshold
             # Adding this check to protect against cases where get_percent_entities_changed returns over 100%.
@@ -273,32 +290,23 @@ class StaleEntityRemovalHandler(
         ):
             # Log the failure. This would prevent the current state from getting committed.
             self.source.get_report().report_failure(
-                "stale-entity-removal",
-                f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
-                f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
+                title="Skipping stateful ingestion / stale entity removal",
+                message=f"\
+The previous run produced {last_checkpoint_state.urn_count()} entities, whereas this run produced {cur_checkpoint_state.urn_count()} entities. \
+Comparing the entities produced this run vs the previous run, we would be deleting {entity_difference_percent:.1f}% of the entities produced by the previous run. \
+This percentage is above the threshold (currently {self.stateful_ingestion_config.fail_safe_threshold}), so we will skip soft-deleting stale entities.\
+\
+To update this threshold, add this to your recipe: \
+\
+stateful_ingestion:\
+  fail_safe_threshold: <new value>\
+",
             )
-            copy_previous_state_and_fail = True
+            copy_previous_state_and_exit = True
 
-        if self.source.get_report().events_produced == 0:
-            self.source.get_report().report_failure(
-                "stale-entity-removal",
-                "Skipping stale entity soft-deletion because the source produced no events. "
-                "This is a fail-safe mechanism to prevent accidental deletion of all entities.",
-            )
-            copy_previous_state_and_fail = True
-
-        # If the source already had a failure, skip soft-deletion.
-        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
-        if self.source.get_report().failures:
-            self.source.get_report().report_warning(
-                "stale-entity-removal",
-                "Skipping stale entity soft-deletion and copying urns from last state since source already had failures.",
-            )
-            copy_previous_state_and_fail = True
-
-        if copy_previous_state_and_fail:
+        if copy_previous_state_and_exit:
             logger.info(
-                f"Copying urns from last state (size {last_checkpoint_state.urns}) to current state (size {cur_checkpoint_state.urns}) "
+                f"Copying urns from last state (size {len(last_checkpoint_state.urns)}) to current state (size {len(cur_checkpoint_state.urns)}) "
                 "to ensure stale entities from previous runs are deleted on the next successful run."
             )
             for urn in last_checkpoint_state.urns:

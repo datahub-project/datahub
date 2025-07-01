@@ -211,11 +211,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       @Nonnull final Urn urn,
       @Nonnull final DisjunctivePrivilegeGroup orPrivilegesGroup) {
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        urn.getEntityType(),
-        urn.toString(),
-        orPrivilegesGroup);
+        context, urn.getEntityType(), urn.toString(), orPrivilegesGroup);
   }
 
   private void checkLineageEdgePrivileges(
@@ -226,16 +222,15 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     if (!isAuthorized(context, upstreamUrn, editLineagePrivileges)) {
       throw new AuthorizationException(
           String.format(
-              "Unauthorized to edit %s lineage. Please contact your DataHub administrator.",
-              upstreamUrn.getEntityType()));
+              "Unauthorized to edit %s lineage for %s", upstreamUrn, upstreamUrn.getEntityType()));
     }
 
     Urn downstreamUrn = UrnUtils.getUrn(lineageEdge.getDownstreamUrn());
     if (!isAuthorized(context, downstreamUrn, editLineagePrivileges)) {
       throw new AuthorizationException(
           String.format(
-              "Unauthorized to edit %s lineage. Please contact your DataHub administrator.",
-              downstreamUrn.getEntityType()));
+              "Unauthorized to edit %s lineage for %s",
+              downstreamUrn, downstreamUrn.getEntityType()));
     }
   }
 

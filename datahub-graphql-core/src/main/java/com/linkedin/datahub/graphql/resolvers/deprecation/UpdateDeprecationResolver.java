@@ -100,11 +100,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static Boolean validateUpdateDeprecationInput(
@@ -128,6 +124,14 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
     } else {
       // Note is required field in GMS. Set to empty string if not provided.
       deprecation.setNote(EMPTY_STRING);
+    }
+
+    try {
+      deprecation.setReplacement(
+          input.getReplacement() != null ? Urn.createFromString(input.getReplacement()) : null,
+          SetMode.REMOVE_IF_NULL);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
     }
     try {
       deprecation.setActor(Urn.createFromString(context.getActorUrn()));

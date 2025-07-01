@@ -61,6 +61,7 @@ import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,12 +71,16 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @Slf4j
+@Accessors(chain = true)
 public class EntityApiDelegateImpl<I, O, S> {
   private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
@@ -86,7 +91,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
-  private final HttpServletRequest request;
+  @Setter @Getter private HttpServletRequest request;
 
   private static final String BUSINESS_ATTRIBUTE_ERROR_MESSAGE =
       "business attribute is disabled, enable it using featureflag : BUSINESS_ATTRIBUTE_ENTITY_ENABLED";
@@ -173,11 +178,6 @@ public class EntityApiDelegateImpl<I, O, S> {
     try {
       Urn entityUrn = Urn.createFromString(urn);
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -187,6 +187,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -237,11 +242,6 @@ public class EntityApiDelegateImpl<I, O, S> {
       Urn entityUrn = Urn.createFromString(urn);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(
-          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
-      }
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
@@ -251,6 +251,11 @@ public class EntityApiDelegateImpl<I, O, S> {
               _authorizationChain,
               auth,
               true);
+
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
 
       if (_entityService.exists(opContext, entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -607,13 +612,6 @@ public class EntityApiDelegateImpl<I, O, S> {
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-        authentication, _authorizationChain, READ, entitySpec.getName())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
-    }
-
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -624,12 +622,23 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    // TODO multi-field sort
-    SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
-    sortCriterion.setOrder(
-        com.linkedin.metadata.query.filter.SortOrder.valueOf(
-            Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
+
+    List<SortCriterion> sortCriteria =
+        Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
+            .map(
+                sortField -> {
+                  SortCriterion sortCriterion = new SortCriterion();
+                  sortCriterion.setField(sortField);
+                  sortCriterion.setOrder(
+                      com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                          Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+                  return sortCriterion;
+                })
+            .collect(Collectors.toList());
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(
@@ -637,12 +646,12 @@ public class EntityApiDelegateImpl<I, O, S> {
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(authentication, _authorizationChain, result)) {
+    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }

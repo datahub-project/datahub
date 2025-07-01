@@ -1,6 +1,7 @@
-import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '../../../types.generated';
-import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { ColumnEdge, FetchedEntity, NodeData } from '@app/lineage/types';
+
+import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '@types';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
     return highlightedEdges
@@ -71,10 +72,10 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
  */
 export function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
-    fetchedEntities: { [x: string]: FetchedEntity },
+    fetchedEntities: Map<string, FetchedEntity>,
 ) {
     let populatedColumnsByUrn = { ...columnsByUrn };
-    Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
+    Array.from(fetchedEntities.entries()).forEach(([urn, fetchedEntity]) => {
         if (fetchedEntity.schemaMetadata && !columnsByUrn[urn]) {
             populatedColumnsByUrn = {
                 ...populatedColumnsByUrn,
@@ -122,7 +123,7 @@ export function getPopulatedColumnsByUrn(
 
 export function populateColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
-    fetchedEntities: { [x: string]: FetchedEntity },
+    fetchedEntities: Map<string, FetchedEntity>,
     setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
 ) {
     setColumnsByUrn(getPopulatedColumnsByUrn(columnsByUrn, fetchedEntities));
@@ -149,7 +150,7 @@ export function filterColumns(
     setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
 ) {
     const formattedFilterText = filterText.toLocaleLowerCase();
-    const filteredFields = node.data.schemaMetadata?.fields.filter((field) =>
+    const filteredFields = node.data.schemaMetadata?.fields?.filter((field) =>
         field.fieldPath.toLocaleLowerCase().includes(formattedFilterText),
     );
     if (filteredFields) {

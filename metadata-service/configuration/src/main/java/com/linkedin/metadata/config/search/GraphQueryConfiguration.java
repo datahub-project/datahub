@@ -1,13 +1,20 @@
 package com.linkedin.metadata.config.search;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder(toBuilder = true)
+@Accessors(chain = true)
 public class GraphQueryConfiguration {
 
   private long timeoutSeconds;
   private int batchSize;
-  private int maxResult;
   // When set to true, the graph walk (typically in search-across-lineage or scroll-across-lineage)
   // will return all paths between the source and destination nodes within the hops limit.
   private boolean enableMultiPathSearch;
@@ -18,14 +25,18 @@ public class GraphQueryConfiguration {
    */
   private boolean boostViaNodes;
 
-  public static GraphQueryConfiguration testDefaults;
+  /** Whether soft-delete status is tracked on entity URNs on graph edges */
+  private boolean graphStatusEnabled;
 
-  static {
-    testDefaults = new GraphQueryConfiguration();
-    testDefaults.setBatchSize(1000);
-    testDefaults.setTimeoutSeconds(10);
-    testDefaults.setMaxResult(10000);
-    testDefaults.setEnableMultiPathSearch(true);
-    testDefaults.setBoostViaNodes(true);
-  }
+  /** Maximum lineage hops */
+  private int lineageMaxHops;
+
+  /** Maximum impact analysis max hops */
+  private int impactMaxHops;
+
+  /** Maximum threads used in lineage queries * */
+  private int maxThreads;
+
+  /** reduce query nesting * */
+  private boolean queryOptimization;
 }

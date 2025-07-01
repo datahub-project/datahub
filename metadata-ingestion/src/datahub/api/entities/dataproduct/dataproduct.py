@@ -117,7 +117,7 @@ class DataProduct(ConfigModel):
     @pydantic.validator("assets", each_item=True)
     def assets_must_be_urns(cls, v: str) -> str:
         try:
-            Urn.create_from_string(v)
+            Urn.from_string(v)
         except Exception as e:
             raise ValueError(f"asset {v} is not an urn: {e}") from e
 
@@ -321,9 +321,9 @@ class DataProduct(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
-        data_product_properties: Optional[
-            DataProductPropertiesClass
-        ] = graph.get_aspect(id, DataProductPropertiesClass)
+        data_product_properties: Optional[DataProductPropertiesClass] = (
+            graph.get_aspect(id, DataProductPropertiesClass)
+        )
         domains: Optional[DomainsClass] = graph.get_aspect(id, DomainsClass)
         assert domains, "Data Product must have an associated domain. Found none."
         owners: Optional[OwnershipClass] = graph.get_aspect(id, OwnershipClass)
@@ -343,27 +343,31 @@ class DataProduct(ConfigModel):
         tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
         return DataProduct(
             id=id,
-            display_name=data_product_properties.name
-            if data_product_properties
-            else None,
+            display_name=(
+                data_product_properties.name if data_product_properties else None
+            ),
             domain=domains.domains[0],
-            description=data_product_properties.description
-            if data_product_properties
-            else None,
-            assets=[e.destinationUrn for e in data_product_properties.assets or []]
-            if data_product_properties
-            else None,
+            description=(
+                data_product_properties.description if data_product_properties else None
+            ),
+            assets=(
+                [e.destinationUrn for e in data_product_properties.assets or []]
+                if data_product_properties
+                else None
+            ),
             owners=yaml_owners,
-            terms=[term.urn for term in glossary_terms.terms]
-            if glossary_terms
-            else None,
+            terms=(
+                [term.urn for term in glossary_terms.terms] if glossary_terms else None
+            ),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            properties=data_product_properties.customProperties
-            if data_product_properties
-            else None,
-            external_url=data_product_properties.externalUrl
-            if data_product_properties
-            else None,
+            properties=(
+                data_product_properties.customProperties
+                if data_product_properties
+                else None
+            ),
+            external_url=(
+                data_product_properties.externalUrl if data_product_properties else None
+            ),
         )
 
     def _patch_ownership(
@@ -434,7 +438,7 @@ class DataProduct(ConfigModel):
             for replace_index, replace_value in patches_replace.items():
                 list_to_manipulate[replace_index] = replace_value
 
-            for drop_index, drop_value in patches_drop.items():
+            for drop_value in patches_drop.values():
                 list_to_manipulate.remove(drop_value)
 
             for add_value in patches_add:

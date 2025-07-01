@@ -48,6 +48,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
                 direction: INCOMING
                 start: 0
                 count: $membersCount
+                includeSoftDelete: false
             }
         ) {
             start
@@ -86,6 +87,7 @@ query getAllGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                 direction: INCOMING
                 start: $start
                 count: $count
+                includeSoftDelete: false
             }
         ) {
             start
@@ -121,7 +123,15 @@ query getAllGroupMembers($urn: String!, $start: Int!, $count: Int!) {
 
 query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
     corpGroup(urn: $urn) {
-        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: $start, count: $count }) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup"]
+                direction: INCOMING
+                start: $start
+                count: $count
+                includeSoftDelete: false
+            }
+        ) {
             start
             count
             total
@@ -155,7 +165,15 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
 
 query getNativeGroupMembers($urn: String!, $start: Int!, $count: Int!) {
     corpGroup(urn: $urn) {
-        relationships(input: { types: ["IsMemberOfNativeGroup"], direction: INCOMING, start: $start, count: $count }) {
+        relationships(
+            input: {
+                types: ["IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: $start
+                count: $count
+                includeSoftDelete: false
+            }
+        ) {
             start
             count
             total
@@ -209,7 +227,13 @@ query listGroups($input: ListGroupsInput!) {
                 pictureLink
             }
             memberCount: relationships(
-                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+                input: {
+                    types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                    direction: INCOMING
+                    start: 0
+                    count: 1
+                    includeSoftDelete: false
+                }
             ) {
                 total
             }

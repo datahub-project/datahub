@@ -1,0 +1,28 @@
+name: "metadata_change_sync"
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+filter:
+  event_type: "MetadataChangeLogEvent_v1"
+  event:
+    changeType: "UPSERT"
+action:
+  type: "metadata_change_sync"
+  config:
+    gms_server: ${DEST_DATAHUB_GMS_URL}
+    # If you have METADATA_SERVICE_AUTH_ENABLED enabled in GMS, you'll need to configure the auth token here
+    gms_auth_token: ${DEST_DATAHUB_GMS_TOKEN}
+    # you can provide a list of aspects you would like to exclude
+    # By default, we are excluding these aspects:
+    # dataHubAccessTokenInfo, dataHubAccessTokenKey, dataHubSecretKey, dataHubSecretValue, dataHubExecutionRequestInput
+    # dataHubExecutionRequestKey, dataHubExecutionRequestResult
+    aspects_to_exclude: []
+    aspects_to_include: ['schemaMetadata','editableSchemaMetadata','ownership','domain']
+    # you can provide extra headers in the request in key value format
+    extra_headers: {}
+    # you can provide a regex pattern for URNs to include
+    # By default, we are including all URNs
+    urn_regex: ".*"

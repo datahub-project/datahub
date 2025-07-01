@@ -27,7 +27,7 @@ public class CreateTagResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
@@ -53,14 +53,13 @@ public class CreateTagResolverTest {
             key, TAG_ENTITY_NAME, TAG_PROPERTIES_ASPECT_NAME, props);
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
   }
 
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
@@ -77,7 +76,7 @@ public class CreateTagResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockClient)

@@ -1,12 +1,19 @@
 package com.linkedin.datahub.upgrade;
 
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
+import com.linkedin.metadata.dao.throttle.NoOpSensor;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import io.datahubproject.metadata.context.TraceContext;
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -28,6 +35,12 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
 
   @Autowired private ESIndexBuilder esIndexBuilder;
 
+  @Qualifier("kafkaThrottle")
+  @Autowired
+  private ThrottleSensor kafkaThrottle;
+
+  @Autowired private TraceContext traceContext;
+
   @Test
   public void testRestoreIndicesInit() {
     /*
@@ -45,5 +58,16 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
     assertTrue(esIndexBuilder.getElasticSearchConfiguration().getBuildIndices().isCloneIndices());
     assertFalse(
         esIndexBuilder.getElasticSearchConfiguration().getBuildIndices().isAllowDocCountMismatch());
+  }
+
+  @Test
+  public void testNoThrottle() {
+    assertEquals(
+        new NoOpSensor(), kafkaThrottle, "No kafka throttle controls expected in datahub-upgrade");
+  }
+
+  @Test
+  public void testTraceContext() {
+    assertNotNull(traceContext);
   }
 }

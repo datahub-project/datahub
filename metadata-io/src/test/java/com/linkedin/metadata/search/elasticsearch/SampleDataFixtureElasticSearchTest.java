@@ -1,8 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase;
 import io.datahubproject.metadata.context.OperationContext;
@@ -36,6 +37,11 @@ public class SampleDataFixtureElasticSearchTest extends SampleDataFixtureTestBas
   @Autowired
   @Qualifier("sampleDataOperationContext")
   protected OperationContext operationContext;
+
+  @Getter
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  protected CustomSearchConfiguration customSearchConfiguration;
 
   @Test
   public void initTest() {

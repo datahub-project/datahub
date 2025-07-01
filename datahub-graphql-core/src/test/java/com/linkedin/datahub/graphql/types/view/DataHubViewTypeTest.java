@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.view;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
@@ -25,7 +26,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
@@ -74,13 +74,11 @@ public class DataHubViewTypeTest {
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test")
-                                                          .setCondition(Condition.EQUAL))))))))
+                                                      buildCriterion(
+                                                          "test",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"))))))))
                   .setEntityTypes(
                       new StringArray(
                           ImmutableList.of(
@@ -110,38 +108,30 @@ public class DataHubViewTypeTest {
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test")
-                                                          .setCondition(Condition.EQUAL),
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL)))),
+                                                      buildCriterion(
+                                                          "test",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"),
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2")))),
                                       new ConjunctiveCriterion()
                                           .setAnd(
                                               new CriterionArray(
                                                   ImmutableList.of(
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL),
-                                                      new Criterion()
-                                                          .setValues(
-                                                              new StringArray(
-                                                                  ImmutableList.of(
-                                                                      "value1", "value2")))
-                                                          .setField("test2")
-                                                          .setCondition(Condition.EQUAL))))))))
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"),
+                                                      buildCriterion(
+                                                          "test2",
+                                                          Condition.EQUAL,
+                                                          "value1",
+                                                          "value2"))))))))
                   .setEntityTypes(
                       new StringArray(
                           ImmutableList.of(

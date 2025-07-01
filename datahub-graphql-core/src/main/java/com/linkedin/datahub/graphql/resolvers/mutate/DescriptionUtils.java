@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.application.ApplicationProperties;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
@@ -138,11 +139,11 @@ public class DescriptionUtils {
                 entityService,
                 null);
     if (tagProperties == null) {
-      // If there are no properties for the tag already, then we should throw since the properties
-      // model also requires a name.
-      throw new IllegalArgumentException("Properties for this Tag do not yet exist!");
+      tagProperties =
+          new TagProperties().setName(resourceUrn.getId()).setDescription(newDescription);
+    } else {
+      tagProperties.setDescription(newDescription);
     }
-    tagProperties.setDescription(newDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -336,11 +337,7 @@ public class DescriptionUtils {
                         PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToUpdateDomainDescription(
@@ -353,11 +350,7 @@ public class DescriptionUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToUpdateContainerDescription(
@@ -370,11 +363,7 @@ public class DescriptionUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean isAuthorizedToUpdateDescription(
@@ -387,11 +376,7 @@ public class DescriptionUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static void updateMlModelDescription(
@@ -546,6 +531,32 @@ public class DescriptionUtils {
         resourceUrn,
         Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
         properties,
+        actor,
+        entityService);
+  }
+
+  public static void updateApplicationDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+    ApplicationProperties applicationProperties =
+        (ApplicationProperties)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+                entityService,
+                new ApplicationProperties());
+    if (applicationProperties != null) {
+      applicationProperties.setDescription(newDescription);
+    }
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+        applicationProperties,
         actor,
         entityService);
   }

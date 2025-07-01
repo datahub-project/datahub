@@ -1,6 +1,8 @@
 package io.datahubproject.test.search.config;
 
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import static io.datahubproject.test.search.BulkProcessorTestUtils.replaceBulkProcessorListener;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.version.GitVersion;
@@ -64,18 +66,21 @@ public class SearchTestContainerConfiguration {
   @Nonnull
   public ESBulkProcessor getBulkProcessor(
       @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
-    return ESBulkProcessor.builder(searchClient)
-        .async(true)
-        /*
-         * Force a refresh as part of this request. This refresh policy does not scale for high indexing or search throughput but is useful
-         * to present a consistent view to for indices with very low traffic. And it is wonderful for tests!
-         */
-        .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
-        .bulkRequestsLimit(10000)
-        .bulkFlushPeriod(REFRESH_INTERVAL_SECONDS - 1)
-        .retryInterval(1L)
-        .numRetries(1)
-        .build();
+    ESBulkProcessor esBulkProcessor =
+        ESBulkProcessor.builder(searchClient)
+            .async(true)
+            /*
+             * Force a refresh as part of this request. This refresh policy does not scale for high indexing or search throughput but is useful
+             * to present a consistent view to for indices with very low traffic. And it is wonderful for tests!
+             */
+            .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .bulkRequestsLimit(10000)
+            .bulkFlushPeriod(REFRESH_INTERVAL_SECONDS - 1)
+            .retryInterval(1L)
+            .numRetries(1)
+            .build();
+    replaceBulkProcessorListener(esBulkProcessor);
+    return esBulkProcessor;
   }
 
   @Primary
@@ -85,16 +90,6 @@ public class SearchTestContainerConfiguration {
       @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        searchClient,
-        1,
-        1,
-        3,
-        1,
-        Map.of(),
-        false,
-        false,
-        false,
-        new ElasticSearchConfiguration(),
-        gitVersion);
+        searchClient, 1, 1, 3, 1, Map.of(), false, false, false, TEST_ES_SEARCH_CONFIG, gitVersion);
   }
 }

@@ -3,6 +3,7 @@ plugins {
     id 'java-library'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
 // Dependencies for open api
@@ -17,6 +18,7 @@ dependencies {
     implementation externalDependency.servletApi
     implementation externalDependency.jakartaValidation
     implementation externalDependency.jakartaAnnotationApi
+    implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.slf4jApi
 
@@ -30,7 +32,7 @@ dependencies {
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
     it.setInputFile(
         file(
-            "$projectDir/src/main/resources/schema-registry-open-api-v7.4.0.yaml"
+            "$projectDir/src/main/resources/schema-registry-open-api-v7.9.1.yaml"
         )
     )
     it.setOutputDir(file("$projectDir/generated"))

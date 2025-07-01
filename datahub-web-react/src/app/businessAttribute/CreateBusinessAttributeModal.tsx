@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select, Collapse } from 'antd';
-import styled from 'styled-components';
 import { EditOutlined } from '@ant-design/icons';
+import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { useCreateBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
-import { CreateBusinessAttributeInput, EntityType } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { useEntityRegistry } from '../useEntityRegistry';
-import DescriptionModal from '../entity/shared/components/legacy/DescriptionModal';
-import { SchemaFieldDataType } from './businessAttributeUtils';
-import { validateCustomUrnId } from '../shared/textUtil';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
+import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useCreateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { CreateBusinessAttributeInput, EntityType } from '@types';
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onCreateBusinessAttribute: () => void;
 };
@@ -51,7 +53,7 @@ const StyledButton = styled(Button)`
 // Ensures that any newly added datatype is automatically included in the user dropdown.
 const DATA_TYPES = Object.values(SchemaFieldDataType);
 
-export default function CreateBusinessAttributeModal({ visible, onClose, onCreateBusinessAttribute }: Props) {
+export default function CreateBusinessAttributeModal({ open, onClose, onCreateBusinessAttribute }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
     const [createBusinessAttribute] = useCreateBusinessAttributeMutation();
@@ -120,7 +122,7 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
         <>
             <Modal
                 title="Create Business Attribute"
-                visible={visible}
+                open={open}
                 onCancel={onModalClose}
                 footer={
                     <>

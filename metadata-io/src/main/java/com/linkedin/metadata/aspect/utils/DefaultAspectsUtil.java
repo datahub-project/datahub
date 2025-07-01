@@ -12,7 +12,9 @@ import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
@@ -20,15 +22,17 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.entity.EntityApiUtils;
+import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -82,7 +86,7 @@ public class DefaultAspectsUtil {
     return AspectsBatchImpl.builder()
         .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
-        .build();
+        .build(opContext);
   }
 
   public static List<MCPItem> getAdditionalChanges(
@@ -96,7 +100,8 @@ public class DefaultAspectsUtil {
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
-    Set<Urn> urnsWithExistingKeyAspects = entityService.exists(opContext, itemsByUrn.keySet());
+    Set<Urn> urnsWithExistingKeyAspects =
+        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()
@@ -124,15 +129,19 @@ public class DefaultAspectsUtil {
               // pick the first item as a template (use entity information)
               MCPItem templateItem = aspectsEntry.getValue().get(0);
 
-              // generate default aspects (including key aspect, always upserts)
+              // generate default aspects (including key aspect)
               return defaultAspects.stream()
                   .map(
                       entry ->
-                          ChangeItemImpl.ChangeItemImplBuilder.build(
-                              getProposalFromAspectForDefault(
-                                  entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
-                              templateItem.getAuditStamp(),
-                              opContext.getAspectRetrieverOpt().get()))
+                          ChangeItemImpl.builder()
+                              .build(
+                                  getProposalFromAspectForDefault(
+                                      entry.getKey(),
+                                      entry.getValue(),
+                                      entityKeyAspect,
+                                      templateItem),
+                                  templateItem.getAuditStamp(),
+                                  opContext.getAspectRetriever()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());
@@ -213,7 +222,7 @@ public class DefaultAspectsUtil {
     if (!fetchAspects.isEmpty()) {
 
       Set<String> latestAspects =
-          entityService.getLatestAspectsForUrn(opContext, urn, fetchAspects).keySet();
+          entityService.getLatestAspectsForUrn(opContext, urn, fetchAspects, true).keySet();
 
       return fetchAspects.stream()
           .filter(aspectName -> !latestAspects.contains(aspectName))
@@ -345,10 +354,22 @@ public class DefaultAspectsUtil {
     proposal.setAspectName(aspectName);
     // already checked existence, default aspects should be changeType CREATE
     proposal.setChangeType(ChangeType.CREATE);
+    proposal.setHeaders(
+        new StringMap(
+            Map.of(
+                CreateIfNotExistsValidator.FILTER_EXCEPTION_HEADER,
+                CreateIfNotExistsValidator.FILTER_EXCEPTION_VALUE)));
 
     // Set fields determined from original
     if (templateItem.getSystemMetadata() != null) {
-      proposal.setSystemMetadata(templateItem.getSystemMetadata());
+      SystemMetadata systemMetadata = null;
+      try {
+        systemMetadata = new SystemMetadata(templateItem.getSystemMetadata().copy().data());
+      } catch (CloneNotSupportedException e) {
+        throw new RuntimeException(e);
+      }
+      systemMetadata.setVersion(null, SetMode.REMOVE_IF_NULL);
+      proposal.setSystemMetadata(systemMetadata);
     }
     if (templateItem.getUrn() != null) {
       proposal.setEntityUrn(templateItem.getUrn());

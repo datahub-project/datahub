@@ -14,6 +14,18 @@ To mitigate these downsides, we are committed to providing cross-language client
 
 Ultimately, we intend to realize a state in which the Entities and Aspect schemas can be altered without requiring generated code and without maintaining a single mega-model schema (looking at you, Snapshot.pdl). The intention is that changes to the metadata model become even easier than they are today.
 
+### Synchronous Ingestion Architecture
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/sync-ingestion.svg"/>
+</p>
+
+### Asynchronous Ingestion Architecture
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/async-ingestion.svg"/>
+</p>
+
 ## Modeling
 
 A Metadata Change Proposal is defined (in PDL) as follows
@@ -40,7 +52,7 @@ record MetadataChangeProposal {
    * Key aspect of the entity being written
    */
   entityKeyAspect: optional GenericAspect
-	
+
   /**
    * Type of change being proposed
    */
@@ -60,10 +72,14 @@ record MetadataChangeProposal {
    **/
   systemMetadata: optional SystemMetadata
 
+  /**
+  * Headers - intended to mimic http headers
+  */
+  headers: optional map[string, string]
 }
 ```
 
-Each proposal comprises of the following:
+Each proposal is comprised of the following:
 
 1. entityType
 
@@ -81,13 +97,14 @@ Each proposal comprises of the following:
 
    Type of change you are proposing: one of
 
-    - UPSERT: Insert if not exists, update otherwise
-    - CREATE: Insert if not exists, fail otherwise
-    - UPDATE: Update if exists, fail otherwise
-    - DELETE: Delete
-    - PATCH: Patch the aspect instead of doing a full replace
+   - UPSERT: Insert if not exists, update otherwise
+   - CREATE: Insert aspect if not exists, fail otherwise
+   - CREATE_ENTITY: Insert if entity does not exist, fail otherwise
+   - UPDATE: Update if exists, fail otherwise
+   - DELETE: Delete
+   - PATCH: Patch the aspect instead of doing a full replace
 
-   Only UPSERT, CREATE, DELETE, PATCH are supported as of now.
+   Only UPSERT, CREATE, CREATE_ENTITY, DELETE, PATCH are supported as of now.
 
 5. aspectName
 
@@ -97,18 +114,22 @@ Each proposal comprises of the following:
 
    To support strongly typed aspects, without having to keep track of a union of all existing aspects, we introduced a new object called GenericAspect.
 
-    ```xml
-    record GenericAspect {
-        value: bytes
-        contentType: string
-    }
-    ```
+   ```xml
+   record GenericAspect {
+       value: bytes
+       contentType: string
+   }
+   ```
 
    It contains the type of serialization and the serialized value. Note, currently we only support "application/json" as contentType but will be adding more forms of serialization in the future. Validation of the serialized object happens in GMS against the schema matching the aspectName.
 
 7. systemMetadata
 
    Extra metadata about the proposal like run_id or updated timestamp.
+
+8. headers
+
+   Optional headers which are meant to mimic http headers. These are currently used for implementing conditional write logic.
 
 GMS processes the proposal and produces the Metadata Change Log, which looks like this.
 
@@ -132,11 +153,9 @@ Following the change in our event models, we introduced 4 new topics. The old to
 
    Analogous to the MCE topic, proposals that get produced into the MetadataChangeProposal_v1 topic, will get ingested to GMS asynchronously, and any failed ingestion will produce a failed MCP in the FailedMetadataChangeProposal_v1 topic.
 
-
 2. **MetadataChangeLog_Versioned_v1**
 
    Analogous to the MAE topic, MCLs for versioned aspects will get produced into this topic. Since versioned aspects have a source of truth that can be separately backed up, the retention of this topic is short (by default 7 days). Note both this and the next topic are consumed by the same MCL processor.
-
 
 3. **MetadataChangeLog_Timeseries_v1**
 
@@ -157,3 +176,51 @@ entities:
     aspects:
       - datasetProfile
 ```
+
+## Features
+
+### Conditional Writes
+
+Conditional write semantics use extra information contained in the MCP `headers` field to possibly avoid writing new aspects
+if the conditions are not met.
+
+#### If-Version-Match
+
+Each time an aspect is updated a `version` is incremented to represent the change to the aspect. This `version` is stored and returned
+in `SystemMetadata`.
+
+A writer can provide a header with the expected `version` when initiating the request. If the expected `version` does not
+match the actual `version` stored in the database, the write will fail. This prevents overwriting an aspect that has
+been modified by another process.
+
+Note: If the aspect doesn't exist yet, then the `version` is `-1`. A writer can use this `version` to only create
+an aspect if it doesn't. Also see _Change Types: [`CREATE`, `CREATE_ENTITY`]_ section below.
+
+#### If-Modified-Since / If-Unmodified-Since
+
+A writer may also specify time-based conditions using http header semantics. Similar to version based conditional writes
+this method can be used to prevent the write if the target aspect was modified after a reading the aspect. Per the
+http specification dates must comply with ISO-8601 standard.
+
+`If-Unmodified-Since`:
+A writer can specify that the aspect must NOT have been modified after a specific time, following [If-Unmodified-Since](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Unmodified-Since) http headers.
+
+`If-Modified-Since`
+A writer can specify that the aspect must have been modified after a specific time, following [If-Modified-Since](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Modified-Since) http headers.
+
+#### Change Types: [`CREATE`, `CREATE_ENTITY`]
+
+Another form of conditional writes which considers the existence of an aspect or entity uses the following Change Types.
+
+`CREATE` - Create the aspect if it doesn't already exist.
+
+`CREATE_ENTITY` - Create the aspect if no aspects exist for the entity.
+
+By default, a validation exception is thrown if the `CREATE`/`CREATE_ENTITY` constraint is violated. If the write operation
+should be dropped without considering it an exception, then add the following header: `If-None-Match: *` to the MCP.
+
+### Synchronous ElasticSearch Updates
+
+The writes to the elasticsearch are asynchronous by default. A writer can add a custom header
+`X-DataHub-Sync-Index-Update` to the MCP `headers` with value set to `true` to enable a synchronous update of
+elasticsearch for specific MCPs that may benefit from it.

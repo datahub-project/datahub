@@ -1,7 +1,7 @@
 import contextlib
 import dataclasses
 import enum
-import itertools
+import functools
 import json
 import logging
 import os
@@ -14,6 +14,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
@@ -23,32 +24,47 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
+    CorpGroupUrn,
     CorpUserUrn,
     DataPlatformUrn,
     DatasetUrn,
     QueryUrn,
     SchemaFieldUrn,
+    Urn,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.schema_resolver import (
+    SchemaResolver,
+    SchemaResolverInterface,
+    _SchemaResolverWithExtras,
+)
+from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
+    DownstreamColumnRef,
     SqlParsingResult,
+    _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    generate_hash,
+    _parse_statement,
     get_query_fingerprint,
     try_format_query,
 )
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
+)
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.perf_timer import PerfTimer
@@ -69,6 +85,8 @@ _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
     os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
 ]
+MAX_UPSTREAM_TABLES_COUNT = 300
+MAX_FINEGRAINEDLINEAGE_COUNT = 2000
 
 
 @dataclasses.dataclass
@@ -79,6 +97,21 @@ class LoggedQuery:
     user: Optional[UrnStr]
     default_db: Optional[str]
     default_schema: Optional[str]
+
+
+@dataclasses.dataclass
+class ObservedQuery:
+    query: str
+    session_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
+    query_hash: Optional[str] = None
+    usage_multiplier: int = 1
+
+    # Use this to store additional key-value information about the query for debugging.
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass
@@ -99,13 +132,17 @@ class QueryMetadata:
     query_type: QueryType
     lineage_type: str  # from models.DatasetLineageTypeClass
     latest_timestamp: Optional[datetime]
-    actor: Optional[CorpUserUrn]
+    actor: Optional[Union[CorpUserUrn, CorpGroupUrn]]
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
+    column_usage: Dict[UrnStr, Set[UrnStr]]  # TODO: Change to an OrderedSet
     confidence_score: float
 
     used_temp_tables: bool = True
+
+    extra_info: Optional[dict] = None
+    origin: Optional[Urn] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -120,6 +157,47 @@ class QueryMetadata:
             actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
 
+    def get_subjects(
+        self,
+        downstream_urn: Optional[str],
+        include_fields: bool,
+    ) -> List[UrnStr]:
+        query_subject_urns = OrderedSet[UrnStr]()
+        for upstream in self.upstreams:
+            query_subject_urns.add(upstream)
+            if include_fields:
+                for column in sorted(self.column_usage.get(upstream, [])):
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(upstream, column)
+                    )
+        if downstream_urn:
+            query_subject_urns.add(downstream_urn)
+            if include_fields:
+                for column_lineage in self.column_lineage:
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(
+                            downstream_urn, column_lineage.downstream.column
+                        )
+                    )
+        return list(query_subject_urns)
+
+    def make_query_properties(self) -> models.QueryPropertiesClass:
+        return models.QueryPropertiesClass(
+            statement=models.QueryStatementClass(
+                value=self.formatted_query_string,
+                language=models.QueryLanguageClass.SQL,
+            ),
+            source=models.QuerySourceClass.SYSTEM,
+            created=self.make_created_audit_stamp(),
+            lastModified=self.make_last_modified_audit_stamp(),
+        )
+
+
+def make_query_subjects(urns: List[UrnStr]) -> models.QuerySubjectsClass:
+    return models.QuerySubjectsClass(
+        subjects=[models.QuerySubjectClass(entity=urn) for urn in urns]
+    )
+
 
 @dataclasses.dataclass
 class KnownQueryLineageInfo:
@@ -128,10 +206,68 @@ class KnownQueryLineageInfo:
     downstream: UrnStr
     upstreams: List[UrnStr]
     column_lineage: Optional[List[ColumnLineageInfo]] = None
+    column_usage: Optional[Dict[UrnStr, Set[UrnStr]]] = None
 
     timestamp: Optional[datetime] = None
     session_id: Optional[str] = None
     query_type: QueryType = QueryType.UNKNOWN
+    query_id: Optional[str] = None
+
+
+@dataclasses.dataclass
+class KnownLineageMapping:
+    upstream_urn: UrnStr
+    downstream_urn: UrnStr
+    lineage_type: str = models.DatasetLineageTypeClass.COPY
+
+
+@dataclasses.dataclass
+class TableRename:
+    original_urn: UrnStr
+    new_urn: UrnStr
+    query: Optional[str] = None
+    session_id: str = _MISSING_SESSION_ID
+    timestamp: Optional[datetime] = None
+
+
+@dataclasses.dataclass
+class TableSwap:
+    urn1: UrnStr
+    urn2: UrnStr
+    query: Optional[str] = None
+    session_id: str = _MISSING_SESSION_ID
+    timestamp: Optional[datetime] = None
+
+    def id(self) -> str:
+        # TableSwap(A,B) is same as TableSwap(B,A)
+        return str(hash(frozenset([self.urn1, self.urn2])))
+
+
+@dataclasses.dataclass
+class PreparsedQuery:
+    # If not provided, we will generate one using the fingerprint generator.
+    query_id: Optional[QueryId]
+
+    query_text: str
+
+    upstreams: List[UrnStr]
+    downstream: Optional[UrnStr] = None
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
+    column_usage: Optional[Dict[UrnStr, Set[UrnStr]]] = None
+    inferred_schema: Optional[List[models.SchemaFieldClass]] = None
+    confidence_score: float = 1.0
+
+    query_count: int = 1
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
+    timestamp: Optional[datetime] = None
+    session_id: str = _MISSING_SESSION_ID
+    query_type: QueryType = QueryType.UNKNOWN
+    query_type_props: QueryTypeProps = dataclasses.field(
+        default_factory=lambda: QueryTypeProps()
+    )
+    # Use this to store additional key-value information about the query for debugging.
+    extra_info: Optional[dict] = None
+    origin: Optional[Urn] = None
 
 
 @dataclasses.dataclass
@@ -162,11 +298,16 @@ class SqlAggregatorReport(Report):
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_parsing_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    parse_statement_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    format_query_cache_stats: Optional[dict] = dataclasses.field(default=None)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
+    num_preparsed_queries: int = 0
     num_known_mapping_lineage: int = 0
     num_table_renames: int = 0
+    num_table_swaps: int = 0
 
     # Temp tables.
     num_temp_sessions: Optional[int] = None
@@ -178,23 +319,46 @@ class SqlAggregatorReport(Report):
     queries_with_non_authoritative_session: LossyList[QueryId] = dataclasses.field(
         default_factory=LossyList
     )
+    make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
+    num_lineage_skipped_due_to_filters: int = 0
+    num_table_lineage_trimmed_due_to_large_size: int = 0
+    num_column_lineage_trimmed_due_to_large_size: int = 0
+
+    # Queries.
     num_queries_entities_generated: int = 0
+    num_queries_used_in_lineage: Optional[int] = None
+    num_queries_skipped_due_to_filters: int = 0
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
+    num_query_usage_stats_generated: int = 0
+    num_query_usage_stats_outside_window: int = 0
+
+    # Operation-related.
+    num_operations_generated: int = 0
+    num_operations_skipped_due_to_filters: int = 0
+
+    # Tool Metadata Extraction
+    tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
+        if self._aggregator._closed:
+            return
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
         self.num_temp_sessions = len(self._aggregator._temp_lineage_map)
         self.num_inferred_temp_schemas = len(self._aggregator._inferred_temp_schemas)
+
+        self.sql_parsing_cache_stats = _sqlglot_lineage_cached.cache_info()._asdict()
+        self.parse_statement_cache_stats = _parse_statement.cache_info()._asdict()
+        self.format_query_cache_stats = try_format_query.cache_info()._asdict()
 
         return super().compute_stats()
 
@@ -206,13 +370,18 @@ class SqlParsingAggregator(Closeable):
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = builder.DEFAULT_ENV,
+        schema_resolver: Optional[SchemaResolver] = None,
         graph: Optional[DataHubGraph] = None,
+        eager_graph_load: bool = True,
         generate_lineage: bool = True,
         generate_queries: bool = True,
+        generate_query_subject_fields: bool = True,
         generate_usage_statistics: bool = False,
+        generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
-        is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
+        is_temp_table: Optional[Callable[[str], bool]] = None,
+        is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
     ) -> None:
@@ -222,39 +391,66 @@ class SqlParsingAggregator(Closeable):
 
         self.generate_lineage = generate_lineage
         self.generate_queries = generate_queries
+        self.generate_query_subject_fields = generate_query_subject_fields
         self.generate_usage_statistics = generate_usage_statistics
+        self.generate_query_usage_statistics = generate_query_usage_statistics
         self.generate_operations = generate_operations
-        if self.generate_queries and not self.generate_lineage:
-            raise ValueError("Queries will only be generated if lineage is enabled")
+        if self.generate_queries and not (
+            self.generate_lineage or self.generate_query_usage_statistics
+        ):
+            logger.warning(
+                "Queries will not be generated, as neither lineage nor query usage statistics are enabled"
+            )
 
         self.usage_config = usage_config
-        if self.generate_usage_statistics and self.usage_config is None:
+        if (
+            self.generate_usage_statistics or self.generate_query_usage_statistics
+        ) and self.usage_config is None:
             raise ValueError("Usage statistics generation requires a usage config")
 
         self.report = SqlAggregatorReport(_aggregator=self)
 
         # can be used by BQ where we have a "temp_table_dataset_prefix"
-        self.is_temp_table = is_temp_table
+        self._is_temp_table = is_temp_table
+        self._is_allowed_table = is_allowed_table
 
         self.format_queries = format_queries
         self.query_log = query_log
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
+        self._closed: bool = False
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
-        if graph is None:
+        if schema_resolver is not None:
+            # If explicitly provided, use it.
+            assert self.platform.platform_name == schema_resolver.platform
+            assert self.platform_instance == schema_resolver.platform_instance
+            assert self.env == schema_resolver.env
+            self._schema_resolver = schema_resolver
+        elif graph is not None and eager_graph_load and self._need_schemas:
+            # Bulk load schemas using the graph client.
+            self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
+                platform=self.platform.urn(),
+                platform_instance=self.platform_instance,
+                env=self.env,
+            )
+        else:
+            # Otherwise, use a lazy-loading schema resolver.
             self._schema_resolver = self._exit_stack.enter_context(
                 SchemaResolver(
                     platform=self.platform.platform_name,
                     platform_instance=self.platform_instance,
                     env=self.env,
+                    graph=graph,
                 )
             )
-        else:
-            self._schema_resolver = None  # type: ignore
-            self._initialize_schema_resolver_from_graph(graph)
+        # Schema resolver for special case (_MISSING_SESSION_ID)
+        # This is particularly useful for via temp table lineage if session id is not available.
+        self._missing_session_schema_resolver = _SchemaResolverWithExtras(
+            base_resolver=self._schema_resolver, extra_schemas={}
+        )
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -299,8 +495,7 @@ class SqlParsingAggregator(Closeable):
 
         # Map of session ID -> {temp table name -> query id}
         # Needs to use the query_map to find the info about the query.
-        # This assumes that a temp table is created at most once per session.
-        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, QueryId]](
+        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, OrderedSet[QueryId]]](
             shared_connection=self._shared_connection, tablename="temp_lineage_map"
         )
         self._exit_stack.push(self._temp_lineage_map)
@@ -318,19 +513,51 @@ class SqlParsingAggregator(Closeable):
         )
         self._exit_stack.push(self._table_renames)
 
+        # Map of table swaps, from unique swap id to TableSwap
+        self._table_swaps = FileBackedDict[TableSwap](
+            shared_connection=self._shared_connection, tablename="table_swaps"
+        )
+        self._exit_stack.push(self._table_swaps)
+
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
+        # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
+        # configs that won't be respected here. Using it is misleading.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
             self._usage_aggregator = UsageAggregator(config=self.usage_config)
 
+        # Query usage aggregator.
+        # Map of query ID -> { bucket -> count }
+        self._query_usage_counts: Optional[FileBackedDict[Dict[datetime, int]]] = None
+        if self.generate_query_usage_statistics:
+            self._query_usage_counts = FileBackedDict[Dict[datetime, int]](
+                shared_connection=self._shared_connection,
+                tablename="query_usage_counts",
+            )
+            self._exit_stack.push(self._query_usage_counts)
+
+        # Tool Extractor
+        self._tool_meta_extractor = ToolMetaExtractor.create(graph)
+        self.report.tool_meta_report = self._tool_meta_extractor.report
+
     def close(self) -> None:
+        # Compute stats once before closing connections
+        self.report.compute_stats()
+        self._closed = True
         self._exit_stack.close()
 
     @property
     def _need_schemas(self) -> bool:
-        return self.generate_lineage or self.generate_usage_statistics
+        # Unless the aggregator is totally disabled, we will need schema information.
+        return (
+            self.generate_lineage
+            or self.generate_usage_statistics
+            or self.generate_queries
+            or self.generate_operations
+            or self.generate_query_usage_statistics
+        )
 
     def register_schema(
         self, urn: Union[str, DatasetUrn], schema: models.SchemaMetadataClass
@@ -352,40 +579,72 @@ class SqlParsingAggregator(Closeable):
 
             yield wu
 
-    def _initialize_schema_resolver_from_graph(self, graph: DataHubGraph) -> None:
-        # requires a graph instance
-        # if no schemas are currently registered in the schema resolver
-        # and we need the schema resolver (e.g. lineage or usage is enabled)
-        # then use the graph instance to fetch all schemas for the
-        # platform/instance/env combo
-        if not self._need_schemas:
-            return
-
-        if (
-            self._schema_resolver is not None
-            and self._schema_resolver.schema_count() > 0
-        ):
-            # TODO: Have a mechanism to override this, e.g. when table ingestion is enabled but view ingestion is not.
-            logger.info(
-                "Not fetching any schemas from the graph, since "
-                f"there are {self._schema_resolver.schema_count()} schemas already registered."
-            )
-            return
-
-        # TODO: The initialize_schema_resolver_from_datahub method should take in a SchemaResolver
-        # that it can populate or add to, rather than creating a new one and dropping any schemas
-        # that were already loaded into the existing one.
-        self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
-            platform=self.platform.urn(),
-            platform_instance=self.platform_instance,
-            env=self.env,
-        )
-
     def _maybe_format_query(self, query: str) -> str:
         if self.format_queries:
             with self.report.sql_formatting_timer:
                 return try_format_query(query, self.platform.platform_name)
         return query
+
+    @functools.lru_cache(maxsize=128)
+    def _name_from_urn(self, urn: UrnStr) -> Optional[str]:
+        urn_obj = DatasetUrn.from_string(urn)
+        if urn_obj.platform != self.platform.urn():
+            # If this is external (e.g. s3), we don't know the name.
+            return None
+
+        name = urn_obj.name
+        if (
+            platform_instance := self._schema_resolver.platform_instance
+        ) and name.startswith(platform_instance):
+            # Remove the platform instance from the name.
+            name = name[len(platform_instance) + 1 :]
+        return name
+
+    def is_temp_table(self, urn: UrnStr) -> bool:
+        if self._is_temp_table is None:
+            return False
+        name = self._name_from_urn(urn)
+        if name is None:
+            # External tables are not temp tables.
+            return False
+        return self._is_temp_table(name)
+
+    def is_allowed_table(self, urn: UrnStr, allow_external: bool = True) -> bool:
+        if self.is_temp_table(urn):
+            return False
+        if self._is_allowed_table is None:
+            return True
+        name = self._name_from_urn(urn)
+        if name is None:
+            # Treat external tables specially.
+            return allow_external
+        return self._is_allowed_table(name)
+
+    def add(
+        self,
+        item: Union[
+            KnownQueryLineageInfo,
+            KnownLineageMapping,
+            PreparsedQuery,
+            ObservedQuery,
+            TableRename,
+            TableSwap,
+        ],
+    ) -> None:
+        if isinstance(item, KnownQueryLineageInfo):
+            self.add_known_query_lineage(item)
+        elif isinstance(item, KnownLineageMapping):
+            self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
+        elif isinstance(item, PreparsedQuery):
+            self.add_preparsed_query(item)
+        elif isinstance(item, ObservedQuery):
+            self.add_observed_query(item)
+        elif isinstance(item, TableRename):
+            self.add_table_rename(item)
+        elif isinstance(item, TableSwap):
+            self.add_table_swap(item)
+        else:
+            raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
     def add_known_query_lineage(
         self, known_query_lineage: KnownQueryLineageInfo, merge_lineage: bool = False
@@ -408,12 +667,13 @@ class SqlParsingAggregator(Closeable):
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
-        with self.report.sql_fingerprinting_timer:
-            query_fingerprint = get_query_fingerprint(
-                known_query_lineage.query_text,
-                platform=self.platform.platform_name,
-                fast=True,
-            )
+        query_fingerprint = known_query_lineage.query_id
+        if not query_fingerprint:
+            with self.report.sql_fingerprinting_timer:
+                query_fingerprint = get_query_fingerprint(
+                    known_query_lineage.query_text,
+                    platform=self.platform.platform_name,
+                )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
@@ -428,6 +688,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=known_query_lineage.upstreams,
                 column_lineage=known_query_lineage.column_lineage or [],
+                column_usage=known_query_lineage.column_usage or {},
                 confidence_score=1.0,
             ),
             merge_lineage=merge_lineage,
@@ -453,20 +714,26 @@ class SqlParsingAggregator(Closeable):
         Because this method takes in urns, it does not require that the urns
         are part of the platform that the aggregator is configured for.
 
-        TODO: In the future, this method will also generate CLL if we have
-        schemas for either the upstream or downstream.
-
         The known lineage mapping does not contribute to usage statistics or operations.
 
         Args:
             upstream_urn: The upstream dataset URN.
             downstream_urn: The downstream dataset URN.
         """
-
+        logger.debug(
+            f"Adding lineage to the map, downstream: {downstream_urn}, upstream: {upstream_urn}"
+        )
         self.report.num_known_mapping_lineage += 1
 
         # We generate a fake "query" object to hold the lineage.
         query_id = self._known_lineage_query_id()
+
+        # Generate CLL if schema of downstream is known
+        column_lineage: List[ColumnLineageInfo] = (
+            self._generate_identity_column_lineage(
+                upstream_urn=upstream_urn, downstream_urn=downstream_urn
+            )
+        )
 
         # Register the query.
         self._add_to_query_map(
@@ -479,13 +746,33 @@ class SqlParsingAggregator(Closeable):
                 latest_timestamp=None,
                 actor=None,
                 upstreams=[upstream_urn],
-                column_lineage=[],
+                column_lineage=column_lineage,
+                column_usage={},
                 confidence_score=1.0,
             )
         )
 
         # Register the lineage.
         self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(query_id)
+
+    def _generate_identity_column_lineage(
+        self, *, upstream_urn: UrnStr, downstream_urn: UrnStr
+    ) -> List[ColumnLineageInfo]:
+        column_lineage: List[ColumnLineageInfo] = []
+        if self._schema_resolver.has_urn(downstream_urn):
+            schema = self._schema_resolver._resolve_schema_info(downstream_urn)
+            if schema:
+                column_lineage = [
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream_urn, column=field_path
+                        ),
+                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
+                    )
+                    for field_path in schema
+                ]
+
+        return column_lineage
 
     def add_view_definition(
         self,
@@ -513,15 +800,7 @@ class SqlParsingAggregator(Closeable):
 
     def add_observed_query(
         self,
-        query: str,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-        query_timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
-        session_id: Optional[
-            str
-        ] = None,  # can only see temp tables with the same session
-        usage_multiplier: int = 1,
+        observed: ObservedQuery,
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
     ) -> None:
@@ -533,54 +812,107 @@ class SqlParsingAggregator(Closeable):
 
         This assumes that queries come in order of increasing timestamps.
         """
-
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
-        session_id = session_id or _MISSING_SESSION_ID
+        session_id = observed.session_id or _MISSING_SESSION_ID
 
-        # Load in the temp tables for this session.
-        schema_resolver: SchemaResolverInterface = (
-            self._make_schema_resolver_for_session(session_id)
-        )
-        session_has_temp_tables = schema_resolver.includes_temp_tables()
+        with self.report.make_schema_resolver_timer:
+            # Load in the temp tables for this session.
+            schema_resolver: SchemaResolverInterface = (
+                self._make_schema_resolver_for_session(session_id)
+            )
+            session_has_temp_tables = schema_resolver.includes_temp_tables()
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(
-            query,
-            default_db=default_db,
-            default_schema=default_schema,
+            observed.query,
+            default_db=observed.default_db,
+            default_schema=observed.default_schema,
             schema_resolver=schema_resolver,
             session_id=session_id,
-            timestamp=query_timestamp,
-            user=user,
+            timestamp=observed.timestamp,
+            user=observed.user,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {query[:100]}"
+                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
             return  # we can't do anything with this query
-        elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-            self.report.num_observed_queries_column_timeout += 1
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
+            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+                self.report.num_observed_queries_column_timeout += 1
+
+        query_fingerprint = observed.query_hash or parsed.query_fingerprint
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=query_fingerprint,
+                query_text=observed.query,
+                query_count=observed.usage_multiplier,
+                timestamp=observed.timestamp,
+                user=observed.user,
+                session_id=session_id,
+                query_type=parsed.query_type,
+                query_type_props=parsed.query_type_props,
+                upstreams=parsed.in_tables,
+                downstream=parsed.out_tables[0] if parsed.out_tables else None,
+                column_lineage=parsed.column_lineage,
+                # TODO: We need a full list of columns referenced, not just the out tables.
+                column_usage=compute_upstream_fields(parsed),
+                inferred_schema=infer_output_schema(parsed),
+                confidence_score=parsed.debug_info.confidence,
+                extra_info=observed.extra_info,
+            ),
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=True,
+        )
+
+    def add_preparsed_query(
+        self,
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
+        session_has_temp_tables: bool = True,
+        _is_internal: bool = False,
+    ) -> None:
+        # Adding tool specific metadata extraction here allows it
+        # to work for both ObservedQuery and PreparsedQuery as
+        # add_preparsed_query it used within add_observed_query.
+        self._tool_meta_extractor.extract_bi_metadata(parsed)
+
+        if not _is_internal:
+            self.report.num_preparsed_queries += 1
+
+        if parsed.timestamp:
+            # Sanity check - some of our usage subroutines require the timestamp to be in UTC.
+            # Ideally we'd actually reject missing tzinfo too, but we can tighten that later.
+            assert parsed.timestamp.tzinfo in {None, timezone.utc}
+
+        query_fingerprint = parsed.query_id
+        if not query_fingerprint:
+            query_fingerprint = get_query_fingerprint(
+                parsed.query_text,
+                platform=self.platform.platform_name,
+            )
 
         # Format the query.
-        formatted_query = self._maybe_format_query(query)
+        formatted_query = self._maybe_format_query(parsed.query_text)
 
         # Register the query's usage.
         if not self._usage_aggregator:
             pass  # usage is not enabled
-        elif query_timestamp is None:
+        elif parsed.timestamp is None:
             self.report.usage_skipped_missing_timestamp += 1
         else:
-            # TODO: We need a full list of columns referenced, not just the out tables.
-            upstream_fields = compute_upstream_fields(parsed)
-            for upstream_urn in parsed.in_tables:
-                # If the upstream table is a temp table, don't log usage for it.
-                if (self.is_temp_table and self.is_temp_table(upstream_urn)) or (
+            upstream_fields = parsed.column_usage or {}
+            for upstream_urn in parsed.upstreams:
+                # If the upstream table is a temp table or otherwise denied by filters, don't log usage for it.
+                if not self.is_allowed_table(upstream_urn, allow_external=False) or (
                     require_out_table_schema
                     and not self._schema_resolver.has_urn(upstream_urn)
                 ):
@@ -588,41 +920,44 @@ class SqlParsingAggregator(Closeable):
 
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
-                    start_time=query_timestamp,
+                    start_time=parsed.timestamp,
                     query=formatted_query,
-                    user=user.urn() if user else None,
+                    user=parsed.user.urn() if parsed.user else None,
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
-                    count=usage_multiplier,
+                    count=parsed.query_count,
                 )
 
-        if not parsed.out_tables:
-            return
-        out_table = parsed.out_tables[0]
-        query_fingerprint = parsed.query_fingerprint
-        assert query_fingerprint is not None
-
-        # Handle table renames.
-        is_renamed_table = False
-        if out_table in self._table_renames:
-            out_table = self._table_renames[out_table]
-            is_renamed_table = True
+        if self._query_usage_counts is not None and parsed.timestamp is not None:
+            assert self.usage_config is not None
+            bucket = get_time_bucket(
+                parsed.timestamp, self.usage_config.bucket_duration
+            )
+            counts = self._query_usage_counts.for_mutation(query_fingerprint, {})
+            counts[bucket] = counts.get(bucket, 0) + parsed.query_count
 
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
                 formatted_query_string=formatted_query,
-                session_id=session_id,
+                session_id=parsed.session_id,
                 query_type=parsed.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
-                latest_timestamp=query_timestamp,
-                actor=user,
-                upstreams=parsed.in_tables,
+                latest_timestamp=parsed.timestamp,
+                actor=parsed.user,
+                upstreams=parsed.upstreams,
                 column_lineage=parsed.column_lineage or [],
-                confidence_score=parsed.debug_info.confidence,
+                column_usage=parsed.column_usage or {},
+                confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                extra_info=parsed.extra_info,
+                origin=parsed.origin,
             )
         )
+
+        if not parsed.downstream:
+            return
+        out_table = parsed.downstream
 
         # Register the query's lineage.
         if (
@@ -631,26 +966,26 @@ class SqlParsingAggregator(Closeable):
                 parsed.query_type.is_create()
                 and parsed.query_type_props.get("temporary")
             )
+            or self.is_temp_table(out_table)
             or (
-                not is_renamed_table
-                and (
-                    (self.is_temp_table and self.is_temp_table(out_table))
-                    or (
-                        require_out_table_schema
-                        and not self._schema_resolver.has_urn(out_table)
-                    )
-                )
+                require_out_table_schema
+                and not self._schema_resolver.has_urn(out_table)
             )
         ):
             # Infer the schema of the output table and track it for later.
-            inferred_schema = infer_output_schema(parsed)
-            if inferred_schema is not None:
-                self._inferred_temp_schemas[query_fingerprint] = inferred_schema
+            if parsed.inferred_schema is not None:
+                self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
 
             # Also track the lineage for the temp table, for merging purposes later.
-            self._temp_lineage_map.for_mutation(session_id, {})[
-                out_table
-            ] = query_fingerprint
+            self._temp_lineage_map.for_mutation(parsed.session_id, {}).setdefault(
+                out_table, OrderedSet()
+            ).add(query_fingerprint)
+
+            # Also update schema resolver for missing session id
+            if parsed.session_id == _MISSING_SESSION_ID and parsed.inferred_schema:
+                self._missing_session_schema_resolver.add_temp_tables(
+                    {out_table: parsed.inferred_schema}
+                )
 
         else:
             # Non-temp tables immediately generate lineage.
@@ -660,37 +995,109 @@ class SqlParsingAggregator(Closeable):
 
     def add_table_rename(
         self,
-        original_urn: UrnStr,
-        new_urn: UrnStr,
+        table_rename: TableRename,
     ) -> None:
         """Add a table rename to the aggregator.
 
-        This will so that all _future_ observed queries that reference the original urn
-        will instead generate usage and lineage for the new urn.
-
-        Currently, this does not affect any queries that have already been observed.
-        TODO: Add a mechanism to update the lineage for queries that have already been observed.
-
-        Args:
-            original_urn: The original dataset URN.
-            new_urn: The new dataset URN.
+        This will make all observed queries that reference the original urn
+        will instead generate lineage for the new urn.
         """
 
         self.report.num_table_renames += 1
 
         # This will not work if the table is renamed multiple times.
-        self._table_renames[original_urn] = new_urn
+        self._table_renames[table_rename.original_urn] = table_rename.new_urn
+
+        original_table = self._name_from_urn(table_rename.original_urn)
+        new_table = self._name_from_urn(table_rename.new_urn)
+
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=table_rename.query
+                or f"--Datahub generated query text--\n"
+                f"alter table {original_table} rename to {new_table}",
+                upstreams=[table_rename.original_urn],
+                downstream=table_rename.new_urn,
+                column_lineage=self._generate_identity_column_lineage(
+                    downstream_urn=table_rename.new_urn,
+                    upstream_urn=table_rename.original_urn,
+                ),
+                session_id=table_rename.session_id,
+                timestamp=table_rename.timestamp,
+            )
+        )
+
+    def add_table_swap(self, table_swap: TableSwap) -> None:
+        """Add a table swap to the aggregator.
+
+        Args:
+            table_swap.urn1, table_swap.urn2: The dataset URNs to swap.
+        """
+
+        if table_swap.id() in self._table_swaps:
+            # We have already processed this table swap once
+            return
+
+        self.report.num_table_swaps += 1
+        self._table_swaps[table_swap.id()] = table_swap
+        table1 = self._name_from_urn(table_swap.urn1)
+        table2 = self._name_from_urn(table_swap.urn2)
+
+        # NOTE: Both queries are different on purpose. Currently, we can not
+        # store (A->B) and (B->A) lineage against same query.
+
+        # NOTE: we do not store upstreams for temp table on purpose, as that would
+        # otherwise overwrite original upstream query of temp table because
+        # currently a temporay table can have only one upstream query.
+
+        if not self.is_temp_table(table_swap.urn2):
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=None,
+                    query_text=f"--Datahub generated query text--"
+                    f"\nalter table {table1} swap with {table2}",
+                    upstreams=[table_swap.urn1],
+                    downstream=table_swap.urn2,
+                    column_lineage=self._generate_identity_column_lineage(
+                        upstream_urn=table_swap.urn1, downstream_urn=table_swap.urn2
+                    ),
+                    session_id=table_swap.session_id,
+                    timestamp=table_swap.timestamp,
+                )
+            )
+
+        if not self.is_temp_table(table_swap.urn1):
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=None,
+                    query_text=f"--Datahub generated query text--\n"
+                    f"alter table {table2} swap with {table1}",
+                    upstreams=[table_swap.urn2],
+                    downstream=table_swap.urn1,
+                    column_lineage=self._generate_identity_column_lineage(
+                        upstream_urn=table_swap.urn2, downstream_urn=table_swap.urn1
+                    ),
+                    session_id=table_swap.session_id,
+                    timestamp=table_swap.timestamp,
+                )
+            )
 
     def _make_schema_resolver_for_session(
         self, session_id: str
     ) -> SchemaResolverInterface:
         schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id in self._temp_lineage_map:
+        if session_id == _MISSING_SESSION_ID:
+            schema_resolver = self._missing_session_schema_resolver
+        elif session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
-            for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
-                temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
-                    query_id
-                )
+            for temp_table_urn, query_ids in self._temp_lineage_map[session_id].items():
+                for query_id in query_ids:
+                    temp_table_schemas[temp_table_urn] = (
+                        self._inferred_temp_schemas.get(query_id)
+                    )
+                    if temp_table_schemas:
+                        break
 
             if temp_table_schemas:
                 schema_resolver = self._schema_resolver.with_temp_tables(
@@ -715,9 +1122,9 @@ class SqlParsingAggregator(Closeable):
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[
-                view_urn
-            ] = f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            self.report.views_parse_failures[view_urn] = (
+                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
@@ -743,6 +1150,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=parsed.in_tables,
                 column_lineage=parsed.column_lineage or [],
+                column_usage=compute_upstream_fields(parsed),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
@@ -758,7 +1166,7 @@ class SqlParsingAggregator(Closeable):
         schema_resolver: SchemaResolverInterface,
         session_id: str = _MISSING_SESSION_ID,
         timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
     ) -> SqlParsingResult:
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
@@ -824,6 +1232,7 @@ class SqlParsingAggregator(Closeable):
                 # here just in case more schemas got registered in the interim.
                 current.upstreams = new.upstreams
                 current.column_lineage = new.column_lineage
+                current.column_usage = new.column_usage
                 current.confidence_score = new.confidence_score
             else:
                 # In the case of known query lineage, we might get things one at a time.
@@ -838,13 +1247,17 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
-        # diff from v1 - we generate operations here, and it also
-        # generates MCPWs instead of workunits
-        yield from self._gen_lineage_mcps()
-        yield from self._gen_usage_statistics_mcps()
-        yield from self._gen_operation_mcps()
+        queries_generated: Set[QueryId] = set()
 
-    def _gen_lineage_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        yield from self._gen_lineage_mcps(queries_generated)
+        self.report.num_queries_used_in_lineage = len(queries_generated)
+        yield from self._gen_usage_statistics_mcps()
+        yield from self._gen_operation_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
+
+    def _gen_lineage_mcps(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_lineage:
             return
 
@@ -856,7 +1269,6 @@ class SqlParsingAggregator(Closeable):
         self._view_definitions.clear()
 
         # Generate lineage and queries.
-        queries_generated: Set[QueryId] = set()
         for downstream_urn in sorted(self._lineage_map):
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
@@ -879,6 +1291,10 @@ class SqlParsingAggregator(Closeable):
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        if not self.is_allowed_table(downstream_urn):
+            self.report.num_lineage_skipped_due_to_filters += 1
+            return
+
         query_ids = self._lineage_map[downstream_urn]
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
@@ -947,12 +1363,19 @@ class SqlParsingAggregator(Closeable):
         upstream_aspect.fineGrainedLineages = []
         for downstream_column, all_upstream_columns in cll.items():
             # Group by query ID.
-            for query_id, upstream_columns_for_query in itertools.groupby(
-                sorted(all_upstream_columns.items(), key=lambda x: x[1]),
+            for query_id, upstream_columns_for_query in groupby_unsorted(
+                all_upstream_columns.items(),
                 key=lambda x: x[1],
             ):
                 upstream_columns = [x[0] for x in upstream_columns_for_query]
                 required_queries.add(query_id)
+                query = queries_map[query_id]
+
+                column_logic = None
+                for lineage_info in query.column_lineage:
+                    if lineage_info.downstream.column == downstream_column:
+                        column_logic = lineage_info.logic
+                        break
 
                 upstream_aspect.fineGrainedLineages.append(
                     models.FineGrainedLineageClass(
@@ -970,12 +1393,44 @@ class SqlParsingAggregator(Closeable):
                             if self.can_generate_query(query_id)
                             else None
                         ),
-                        confidenceScore=queries_map[query_id].confidence_score,
+                        confidenceScore=query.confidence_score,
+                        transformOperation=(
+                            (
+                                f"COPY: {column_logic.column_logic}"
+                                if column_logic.is_direct_copy
+                                else f"SQL: {column_logic.column_logic}"
+                            )
+                            if column_logic
+                            else None
+                        ),
                     )
                 )
+
+        if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:
+            logger.warning(
+                f"Too many upstream tables for {downstream_urn}: {len(upstream_aspect.upstreams)}"
+                f"Keeping only {MAX_UPSTREAM_TABLES_COUNT} table level upstreams/"
+            )
+            upstream_aspect.upstreams = upstream_aspect.upstreams[
+                :MAX_UPSTREAM_TABLES_COUNT
+            ]
+            self.report.num_table_lineage_trimmed_due_to_large_size += 1
+        if len(upstream_aspect.fineGrainedLineages) > MAX_FINEGRAINEDLINEAGE_COUNT:
+            logger.warning(
+                f"Too many upstream columns for {downstream_urn}: {len(upstream_aspect.fineGrainedLineages)}"
+                f"Keeping only {MAX_FINEGRAINEDLINEAGE_COUNT} column level upstreams/"
+            )
+            upstream_aspect.fineGrainedLineages = upstream_aspect.fineGrainedLineages[
+                :MAX_FINEGRAINEDLINEAGE_COUNT
+            ]
+            self.report.num_column_lineage_trimmed_due_to_large_size += 1
+
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
         )
+
+        if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
+            return
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,
@@ -983,49 +1438,20 @@ class SqlParsingAggregator(Closeable):
         )
 
         for query_id in required_queries:
-            if not self.can_generate_query(query_id):
-                continue
-
             # Avoid generating the same query twice.
             if query_id in queries_generated:
                 continue
             queries_generated.add(query_id)
-            self.report.num_queries_entities_generated += 1
 
             query = queries_map[query_id]
-            yield from MetadataChangeProposalWrapper.construct_many(
-                entityUrn=self._query_urn(query_id),
-                aspects=[
-                    models.QueryPropertiesClass(
-                        statement=models.QueryStatementClass(
-                            value=query.formatted_query_string,
-                            language=models.QueryLanguageClass.SQL,
-                        ),
-                        source=models.QuerySourceClass.SYSTEM,
-                        created=query.make_created_audit_stamp(),
-                        lastModified=query.make_last_modified_audit_stamp(),
-                    ),
-                    models.QuerySubjectsClass(
-                        subjects=[
-                            models.QuerySubjectClass(entity=dataset_urn)
-                            for dataset_urn in itertools.chain(
-                                [downstream_urn], query.upstreams
-                            )
-                        ]
-                    ),
-                    models.DataPlatformInstanceClass(
-                        platform=self.platform.urn(),
-                    ),
-                ],
-            )
+            yield from self._gen_query(query, downstream_urn)
 
     @classmethod
     def _query_urn(cls, query_id: QueryId) -> str:
         return QueryUrn(query_id).urn()
 
     @classmethod
-    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
-        composed_of_queries = list(composed_of_queries)
+    def _composite_query_id(cls, composed_of_queries: List[QueryId]) -> str:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
@@ -1043,8 +1469,100 @@ class SqlParsingAggregator(Closeable):
         # never conflict with a real query fingerprint.
         return query_id.startswith("known_")
 
+    def _gen_remaining_queries(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        if not self.generate_queries or not self.generate_query_usage_statistics:
+            return
+
+        assert self._query_usage_counts is not None
+        for query_id in self._query_usage_counts:
+            if query_id in queries_generated:
+                continue
+            queries_generated.add(query_id)
+
+            yield from self._gen_query(self._query_map[query_id])
+
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)
+
+    def _gen_query(
+        self, query: QueryMetadata, downstream_urn: Optional[str] = None
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        query_id = query.query_id
+        if not self.can_generate_query(query_id):
+            return
+
+        # If a query doesn't involve any allowed tables, skip it.
+        if downstream_urn is None and not any(
+            self.is_allowed_table(urn) for urn in query.upstreams
+        ):
+            self.report.num_queries_skipped_due_to_filters += 1
+            return
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=self._query_urn(query_id),
+            aspects=[
+                query.make_query_properties(),
+                make_query_subjects(
+                    query.get_subjects(
+                        downstream_urn=downstream_urn,
+                        include_fields=self.generate_query_subject_fields,
+                    )
+                ),
+                models.DataPlatformInstanceClass(
+                    platform=self.platform.urn(),
+                ),
+            ],
+        )
+        self.report.num_queries_entities_generated += 1
+
+        if self._query_usage_counts is not None:
+            assert self.usage_config is not None
+
+            # This is slightly lossy, since we only store one unique
+            # user per query instead of tracking all of them.
+            # We also lose information because we don't keep track
+            # of users / lastExecutedAt timestamps per bucket.
+            user = query.actor
+
+            query_counter = self._query_usage_counts.get(query_id)
+            if not query_counter:
+                return
+
+            all_buckets = self.usage_config.buckets()
+
+            for bucket, count in query_counter.items():
+                if bucket not in all_buckets:
+                    # What happens if we get a query with a timestamp that's outside our configured window?
+                    # Theoretically this should never happen, since the audit logs are also fetched
+                    # for the window. However, it's useful to have reporting for it, just in case.
+                    self.report.num_query_usage_stats_outside_window += 1
+                    continue
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self._query_urn(query_id),
+                    aspect=models.QueryUsageStatisticsClass(
+                        timestampMillis=make_ts_millis(bucket),
+                        eventGranularity=models.TimeWindowSizeClass(
+                            unit=self.usage_config.bucket_duration, multiple=1
+                        ),
+                        queryCount=count,
+                        uniqueUserCount=1,
+                        userCounts=(
+                            [
+                                models.DatasetUserUsageCountsClass(
+                                    user=user.urn(),
+                                    count=count,
+                                )
+                            ]
+                            if user
+                            else None
+                        ),
+                    ),
+                )
+
+                self.report.num_query_usage_stats_generated += 1
 
     def _resolve_query_with_temp_tables(
         self,
@@ -1063,6 +1581,13 @@ class SqlParsingAggregator(Closeable):
             column_lineage: List[ColumnLineageInfo]
             confidence_score: float
 
+            def _merge_lineage_from(self, other_query: "QueryLineageInfo") -> None:
+                self.upstreams += other_query.upstreams
+                self.column_lineage += other_query.column_lineage
+                self.confidence_score = min(
+                    self.confidence_score, other_query.confidence_score
+                )
+
         def _recurse_into_query(
             query: QueryMetadata, recursion_path: List[QueryId]
         ) -> QueryLineageInfo:
@@ -1079,15 +1604,27 @@ class SqlParsingAggregator(Closeable):
             # Find all the temp tables that this query depends on.
             temp_upstream_queries: Dict[UrnStr, QueryLineageInfo] = {}
             for upstream in query.upstreams:
-                upstream_query_id = self._temp_lineage_map.get(session_id, {}).get(
+                upstream_query_ids = self._temp_lineage_map.get(session_id, {}).get(
                     upstream
                 )
-                if upstream_query_id:
-                    upstream_query = self._query_map.get(upstream_query_id)
-                    if upstream_query:
-                        temp_upstream_queries[upstream] = _recurse_into_query(
-                            upstream_query, recursion_path
-                        )
+                if upstream_query_ids:
+                    for upstream_query_id in upstream_query_ids:
+                        upstream_query = self._query_map.get(upstream_query_id)
+                        if (
+                            upstream_query
+                            and upstream_query.query_id not in composed_of_queries
+                        ):
+                            temp_query_lineage_info = _recurse_into_query(
+                                upstream_query, recursion_path
+                            )
+                            if upstream in temp_upstream_queries:
+                                temp_upstream_queries[upstream]._merge_lineage_from(
+                                    temp_query_lineage_info
+                                )
+                            else:
+                                temp_upstream_queries[upstream] = (
+                                    temp_query_lineage_info
+                                )
 
             # Compute merged upstreams.
             new_upstreams = OrderedSet[UrnStr]()
@@ -1153,19 +1690,26 @@ class SqlParsingAggregator(Closeable):
         # - Update the lineage info
         # - Update the query text to combine the queries
 
-        composite_query_id = self._composite_query_id(composed_of_queries)
+        ordered_queries = [
+            self._query_map[query_id] for query_id in reversed(composed_of_queries)
+        ]
+        if all(q.latest_timestamp for q in ordered_queries):
+            ordered_queries = sorted(
+                ordered_queries,
+                key=lambda query: make_ts_millis(query.latest_timestamp) or 0,
+            )
+        composite_query_id = self._composite_query_id(
+            [q.query_id for q in ordered_queries]
+        )
         composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
-        self.report.queries_with_temp_upstreams[
-            composite_query_id
-        ] = composed_of_queries_truncated
+        self.report.queries_with_temp_upstreams[composite_query_id] = (
+            composed_of_queries_truncated
+        )
 
         merged_query_text = ";\n\n".join(
-            [
-                self._query_map[query_id].formatted_query_string
-                for query_id in reversed(composed_of_queries)
-            ]
+            deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
         resolved_query = dataclasses.replace(
@@ -1190,13 +1734,21 @@ class SqlParsingAggregator(Closeable):
             # TODO: We should change the usage aggregator to return MCPWs directly.
             yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
-    def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_operation_mcps(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_operations:
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
             for query_id in query_ids:
                 yield from self._gen_operation_for_downstream(downstream_urn, query_id)
+
+                # Avoid generating the same query twice.
+                if query_id in queries_generated:
+                    continue
+                queries_generated.add(query_id)
+                yield from self._gen_query(self._query_map[query_id], downstream_urn)
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query_id: QueryId
@@ -1210,13 +1762,19 @@ class SqlParsingAggregator(Closeable):
             # We don't generate operations for SELECTs.
             return
 
+        if not self.is_allowed_table(downstream_urn):
+            self.report.num_operations_skipped_due_to_filters += 1
+            return
+
+        self.report.num_operations_generated += 1
         aspect = models.OperationClass(
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
-            customProperties=(
-                {"query_urn": self._query_urn(query_id)}
+            sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
+            queries=(
+                [self._query_urn(query_id)]
                 if self.can_generate_query(query_id)
                 else None
             ),

@@ -21,7 +21,7 @@ def _add_prefix_to_paths(
 
 
 def list_urns_with_path(
-    model: Union[DictWrapper, MetadataChangeProposalWrapper]
+    model: Union[DictWrapper, MetadataChangeProposalWrapper],
 ) -> List[Tuple[str, _Path]]:
     """List urns in the given model with their paths.
 
@@ -131,7 +131,7 @@ def _modify_at_path(
         _modify_at_path(getattr(model, path[0]), path[1:], new_value)
 
 
-def _lowercase_dataset_urn(dataset_urn: str) -> str:
+def lowercase_dataset_urn(dataset_urn: str) -> str:
     cur_urn = DatasetUrn.from_string(dataset_urn)
     new_urn = DatasetUrn(
         platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
@@ -145,14 +145,14 @@ def lowercase_dataset_urns(
         MetadataChangeEventClass,
         MetadataChangeProposalClass,
         MetadataChangeProposalWrapper,
-    ]
+    ],
 ) -> None:
     def modify_urn(urn: str) -> str:
         if guess_entity_type(urn) == "dataset":
-            return _lowercase_dataset_urn(urn)
+            return lowercase_dataset_urn(urn)
         elif guess_entity_type(urn) == "schemaField":
             cur_urn = Urn.from_string(urn)
-            cur_urn._entity_ids[0] = _lowercase_dataset_urn(cur_urn._entity_ids[0])
+            cur_urn._entity_ids[0] = lowercase_dataset_urn(cur_urn._entity_ids[0])
             return str(cur_urn)
         return urn
 

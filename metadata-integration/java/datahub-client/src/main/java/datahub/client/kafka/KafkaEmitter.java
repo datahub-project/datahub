@@ -31,14 +31,25 @@ public class KafkaEmitter implements Emitter {
   private final Properties kafkaConfigProperties;
   private AvroSerializer _avroSerializer;
   private static final int ADMIN_CLIENT_TIMEOUT_MS = 5000;
+  private final String mcpKafkaTopic;
 
   /**
    * The default constructor
    *
-   * @param config
-   * @throws IOException
+   * @param config KafkaEmitterConfig
+   * @throws IOException when Avro Serialization fails
    */
   public KafkaEmitter(KafkaEmitterConfig config) throws IOException {
+    this(config, DEFAULT_MCP_KAFKA_TOPIC);
+  }
+
+  /**
+   * Constructor that takes in KafkaEmitterConfig and mcp Kafka Topic Name
+   *
+   * @param config KafkaEmitterConfig
+   * @throws IOException when Avro Serialization fails
+   */
+  public KafkaEmitter(KafkaEmitterConfig config, String mcpKafkaTopic) throws IOException {
     this.config = config;
     kafkaConfigProperties = new Properties();
     kafkaConfigProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
@@ -51,8 +62,10 @@ public class KafkaEmitter implements Emitter {
     kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
     kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
     kafkaConfigProperties.putAll(config.getProducerConfig());
+
     producer = new KafkaProducer<>(kafkaConfigProperties);
     _avroSerializer = new AvroSerializer();
+    this.mcpKafkaTopic = mcpKafkaTopic;
   }
 
   @Override
@@ -72,8 +85,7 @@ public class KafkaEmitter implements Emitter {
       throws IOException {
     GenericRecord genricRecord = _avroSerializer.serialize(mcp);
     ProducerRecord<Object, Object> record =
-        new ProducerRecord<>(
-            KafkaEmitter.DEFAULT_MCP_KAFKA_TOPIC, mcp.getEntityUrn().toString(), genricRecord);
+        new ProducerRecord<>(this.mcpKafkaTopic, mcp.getEntityUrn().toString(), genricRecord);
     org.apache.kafka.clients.producer.Callback callback =
         new org.apache.kafka.clients.producer.Callback() {
 
@@ -159,7 +171,7 @@ public class KafkaEmitter implements Emitter {
     return builder.build();
   }
 
-  public Properties getKafkaConfgiProperties() {
+  public Properties getKafkaConfigProperties() {
     return kafkaConfigProperties;
   }
 }

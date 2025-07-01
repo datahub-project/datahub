@@ -1,9 +1,11 @@
-import React from 'react';
 import { Modal, Typography } from 'antd';
-import { DataContract } from '../../../../../../../../types.generated';
-import ClickOutside from '../../../../../../../shared/ClickOutside';
-import { DataContractBuilderState } from './types';
-import { DataContractBuilder } from './DataContractBuilder';
+import React from 'react';
+
+import { DataContractBuilder } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
+import { DataContractBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+import ClickOutside from '@app/shared/ClickOutside';
+
+import { DataContract } from '@types';
 
 const modalStyle = {};
 const modalBodyStyle = {
@@ -52,7 +54,7 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
                 title={<Typography.Text>{titleText}</Typography.Text>}
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
+                open
                 onCancel={onCancel}
             >
                 <DataContractBuilder

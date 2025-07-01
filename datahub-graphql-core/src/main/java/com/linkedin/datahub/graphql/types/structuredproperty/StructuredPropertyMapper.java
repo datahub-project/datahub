@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.types.structuredproperty;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,8 +17,11 @@ import com.linkedin.datahub.graphql.generated.PropertyCardinality;
 import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertySettings;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeUrnMapper;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -26,7 +31,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class StructuredPropertyMapper
     implements ModelMapper<EntityResponse, StructuredPropertyEntity> {
 
@@ -45,10 +52,15 @@ public class StructuredPropertyMapper
     final StructuredPropertyEntity result = new StructuredPropertyEntity();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.STRUCTURED_PROPERTY);
+    // set the default required values for a structured property in case references are still being
+    // cleaned up
+    setDefaultProperty(result);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<StructuredPropertyEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, (this::mapStructuredPropertyDefinition));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME, (this::mapStructuredPropertySettings));
     return mappingHelper.getResult();
   }
 
@@ -73,6 +85,13 @@ public class StructuredPropertyMapper
     }
     if (gmsDefinition.hasTypeQualifier()) {
       definition.setTypeQualifier(mapTypeQualifier(gmsDefinition.getTypeQualifier()));
+    }
+    if (gmsDefinition.getCreated() != null) {
+      definition.setCreated(MapperUtils.createResolvedAuditStamp(gmsDefinition.getCreated()));
+    }
+    if (gmsDefinition.getLastModified() != null) {
+      definition.setLastModified(
+          MapperUtils.createResolvedAuditStamp(gmsDefinition.getLastModified()));
     }
     definition.setEntityTypes(
         gmsDefinition.getEntityTypes().stream()
@@ -99,6 +118,21 @@ public class StructuredPropertyMapper
     return allowedValues;
   }
 
+  private void mapStructuredPropertySettings(
+      @Nonnull StructuredPropertyEntity extendedProperty, @Nonnull DataMap dataMap) {
+    com.linkedin.structured.StructuredPropertySettings gmsSettings =
+        new com.linkedin.structured.StructuredPropertySettings(dataMap);
+    StructuredPropertySettings settings = new StructuredPropertySettings();
+
+    settings.setIsHidden(gmsSettings.isIsHidden());
+    settings.setShowInSearchFilters(gmsSettings.isShowInSearchFilters());
+    settings.setShowInAssetSummary(gmsSettings.isShowInAssetSummary());
+    settings.setShowAsAssetBadge(gmsSettings.isShowAsAssetBadge());
+    settings.setShowInColumnsTable(gmsSettings.isShowInColumnsTable());
+
+    extendedProperty.setSettings(settings);
+  }
+
   private DataTypeEntity createDataTypeEntity(final Urn dataTypeUrn) {
     final DataTypeEntity dataType = new DataTypeEntity();
     dataType.setUrn(dataTypeUrn.toString());
@@ -110,8 +144,21 @@ public class StructuredPropertyMapper
     final TypeQualifier typeQualifier = new TypeQualifier();
     List<String> allowedTypes = gmsTypeQualifier.get(ALLOWED_TYPES);
     if (allowedTypes != null) {
+      // filter out correct allowedTypes
+      List<String> validAllowedTypes =
+          allowedTypes.stream()
+              .filter(EntityTypeUrnMapper::isValidEntityType)
+              .collect(Collectors.toList());
+      if (validAllowedTypes.size() != allowedTypes.size()) {
+        log.error(
+            String.format(
+                "Property has invalid allowed types set. Current list of allowed types: %s",
+                allowedTypes));
+      }
       typeQualifier.setAllowedTypes(
-          allowedTypes.stream().map(this::createEntityTypeEntity).collect(Collectors.toList()));
+          validAllowedTypes.stream()
+              .map(this::createEntityTypeEntity)
+              .collect(Collectors.toList()));
     }
     return typeQualifier;
   }
@@ -125,5 +172,23 @@ public class StructuredPropertyMapper
     entityType.setUrn(entityTypeUrnStr);
     entityType.setType(EntityType.ENTITY_TYPE);
     return entityType;
+  }
+
+  /*
+   * In the case that a property is deleted and the references haven't been cleaned up yet (this process is async)
+   * set a default property to prevent APIs breaking. The UI queries for whether the entity exists and it will
+   * be filtered out.
+   */
+  private void setDefaultProperty(final StructuredPropertyEntity result) {
+    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
+    definition.setQualifiedName("");
+    definition.setCardinality(PropertyCardinality.SINGLE);
+    definition.setImmutable(true);
+    definition.setValueType(
+        createDataTypeEntity(UrnUtils.getUrn("urn:li:dataType:datahub.string")));
+    definition.setEntityTypes(
+        ImmutableList.of(
+            createEntityTypeEntity(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    result.setDefinition(definition);
   }
 }

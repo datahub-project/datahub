@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
                 },
                 {
                     "auditStamp": {
@@ -31,7 +31,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
                 },
                 {
                     "auditStamp": {
@@ -44,7 +44,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
                 },
                 {
                     "auditStamp": {
@@ -57,22 +57,10 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
+                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
                 }
             ],
             "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),customer_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
-                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -83,7 +71,19 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -95,19 +95,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),return_date)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -119,7 +107,19 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),return_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -131,7 +131,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_reason)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                    "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
                 }
             ]
         }
@@ -139,7 +139,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "entityUrn": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -162,15 +162,12 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "entityUrn": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
         "json": {
             "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
-                },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
                 },
@@ -179,6 +176,21 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_reason)"
                 }
             ]
         }
@@ -186,7 +198,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "entityUrn": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -197,7 +209,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "entityUrn": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -220,20 +232,29 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "entityUrn": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
-                },
-                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
                 }
             ]
         }
@@ -241,7 +262,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "entityUrn": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

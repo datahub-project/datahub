@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
-import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
-import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
-import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
-import ViewResetTokenModal from './ViewResetTokenModal';
-import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
-import SelectRole from './SelectRole';
-import { USERS_ASSIGN_ROLE_ID } from '../../onboarding/config/UsersOnboardingConfig';
+import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components/macro';
+
+import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import SelectRole from '@app/identity/user/SelectRole';
+import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
+import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
 
 type Props = {
     user: CorpUser;
@@ -84,6 +87,29 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
 
+    const items = [
+        {
+            key: 'reset',
+            label: (
+                <MenuItemStyle
+                    disabled={!shouldShowPasswordReset}
+                    onClick={() => setIsViewingResetToken(true)}
+                    data-testid="reset-menu-item"
+                >
+                    <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                </MenuItemStyle>
+            ),
+        },
+        {
+            key: 'delete',
+            label: (
+                <MenuItemStyle onClick={onDeleteEntity}>
+                    <DeleteOutlined /> &nbsp;Delete
+                </MenuItemStyle>
+            ),
+        },
+    ];
+
     return (
         <List.Item>
             <UserItemContainer>
@@ -117,23 +143,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     selectRoleOptions={selectRoleOptions}
                     refetch={refetch}
                 />
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            <Menu.Item
-                                disabled={!shouldShowPasswordReset}
-                                onClick={() => setIsViewingResetToken(true)}
-                                data-testid="reset-menu-item"
-                            >
-                                <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
-                            </Menu.Item>
-                            <Menu.Item onClick={onDeleteEntity}>
-                                <DeleteOutlined /> &nbsp;Delete
-                            </Menu.Item>
-                        </Menu>
-                    }
-                >
+                <Dropdown trigger={['click']} menu={{ items }}>
                     <MenuIcon
                         fontSize={20}
                         data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
@@ -141,7 +151,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal
-                visible={isViewingResetToken}
+                open={isViewingResetToken}
                 userUrn={user.urn}
                 username={user.username}
                 onClose={() => setIsViewingResetToken(false)}

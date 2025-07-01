@@ -3,11 +3,11 @@ import TabItem from '@theme/TabItem';
 
 # DataHub Quickstart Guide
 
-:::tip Managed DataHub
+:::tip DataHub Cloud
 
 This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with Managed DataHub](./managed-datahub/welcome-acryl.md)**
+If you're interested in a managed version, [DataHub](https://www.datahub.com) provides a fully managed, premium version of DataHub. <br />
+**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
 
 :::
 
@@ -95,7 +95,7 @@ Finished pulling docker images!
 ✔ DataHub is now running
 Ingest some demo data using `datahub docker ingest-sample-data`,
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
-Need support? Get in touch on Slack: https://slack.datahubproject.io/
+Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
 
 :::note Mac M1/M2

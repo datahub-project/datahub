@@ -6,7 +6,6 @@ import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import com.linkedin.metadata.models.registry.config.LoadStatus;
 import com.linkedin.util.Pair;
 import java.io.File;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -204,8 +203,8 @@ public class PluginEntityRegistryLoader {
       loadResultBuilder.plugins(entityRegistry.getPluginFactory().getPluginLoadResult());
 
       log.info("Loaded registry {} successfully", entityRegistry);
-    } catch (RuntimeException | EntityRegistryException | IOException e) {
-      log.debug("{}: Failed to load registry {} with {}", this, registryName, e.getMessage());
+    } catch (Exception | EntityRegistryException e) {
+      log.error("{}: Failed to load registry {} with {}", this, registryName, e.getMessage(), e);
       StringWriter sw = new StringWriter();
       PrintWriter pw = new PrintWriter(sw);
       e.printStackTrace(pw);

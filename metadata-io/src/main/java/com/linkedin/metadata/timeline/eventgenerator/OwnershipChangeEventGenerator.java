@@ -3,19 +3,19 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
-import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.entity.OwnerChangeEvent;
+import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -62,6 +62,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                           entityUrn))
                   .ownerUrn(targetOwner.getOwner())
                   .ownerType(targetOwner.getType())
+                  .ownerTypeUrn(targetOwner.getTypeUrn())
                   .auditStamp(auditStamp)
                   .build());
         }
@@ -84,6 +85,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                         entityUrn))
                 .ownerUrn(baseOwner.getOwner())
                 .ownerType(baseOwner.getType())
+                .ownerTypeUrn(baseOwner.getTypeUrn())
                 .auditStamp(auditStamp)
                 .build());
         ++baseOwnerIdx;
@@ -104,6 +106,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                         entityUrn))
                 .ownerUrn(targetOwner.getOwner())
                 .ownerType(targetOwner.getType())
+                .ownerTypeUrn(targetOwner.getTypeUrn())
                 .auditStamp(auditStamp)
                 .build());
         ++targetOwnerIdx;
@@ -128,6 +131,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                       entityUrn))
               .ownerUrn(baseOwner.getOwner())
               .ownerType(baseOwner.getType())
+              .ownerTypeUrn(baseOwner.getTypeUrn())
               .auditStamp(auditStamp)
               .build());
       ++baseOwnerIdx;
@@ -150,6 +154,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                       entityUrn))
               .ownerUrn(targetOwner.getOwner())
               .ownerType(targetOwner.getType())
+              .ownerTypeUrn(targetOwner.getTypeUrn())
               .auditStamp(auditStamp)
               .build());
       ++targetOwnerIdx;

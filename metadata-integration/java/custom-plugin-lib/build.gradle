@@ -1,6 +1,6 @@
 plugins {
   id 'java-library'
-  id 'com.github.johnrengelman.shadow'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
@@ -68,7 +68,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-custom-plugin-lib'
         description = 'DataHub Java Custom Plugin dependencies'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {

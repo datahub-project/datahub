@@ -1,10 +1,11 @@
-import React from 'react';
 import { Button, Modal, Typography } from 'antd';
+import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
-import CopyQuery from './CopyQuery';
-import { ANTD_GRAY } from '../../../constants';
-import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import CopyQuery from '@app/entity/shared/tabs/Dataset/Queries/CopyQuery';
+import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -72,7 +73,7 @@ type Props = {
 export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
     return (
         <StyledModal
-            visible
+            open
             width={MODAL_WIDTH}
             title={null}
             closable={false}

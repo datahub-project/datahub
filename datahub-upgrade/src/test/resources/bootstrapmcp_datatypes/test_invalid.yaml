@@ -1,0 +1,5 @@
+bootstrap:
+  templates:
+    - name: data-types
+      version: v1
+      mcps_location: "bootstrapmcp_datatypes/test_data_types_invalid.yaml"

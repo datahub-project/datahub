@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "metastore"
             },
-            "name": "metastore"
+            "name": "metastore",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -90,6 +91,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:5bd3e4d159b00200dfe53d79a486ce7f",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4ec3d97ca6750de28020a0d393c289d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd3e4d159b00200dfe53d79a486ce7f",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -99,7 +116,8 @@
                 "database": "metastore",
                 "schema": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -150,22 +168,6 @@
             "typeNames": [
                 "Schema"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5bd3e4d159b00200dfe53d79a486ce7f",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f4ec3d97ca6750de28020a0d393c289d"
         }
     },
     "systemMetadata": {
@@ -236,7 +238,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258696"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -266,7 +268,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -316,8 +318,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].recordid",
@@ -333,7 +334,7 @@
                                 "nativeDataType": "map<int,string>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"map<int,string>\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
                             }
                         ]
                     }
@@ -426,7 +427,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258696"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -461,7 +462,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -571,8 +572,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=string].b",
@@ -584,8 +584,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -672,8 +671,13 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258695"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -697,11 +701,6 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
-                "value": "0"
-            },
-            {
-                "op": "add",
                 "path": "/customProperties/table_type",
                 "value": "MANAGED_TABLE"
             },
@@ -713,7 +712,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -763,8 +762,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -776,8 +774,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -789,8 +786,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
@@ -802,8 +798,7 @@
                                 },
                                 "nativeDataType": "struct<name:varchar(50),id:tinyint>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
@@ -815,8 +810,7 @@
                                 },
                                 "nativeDataType": "varchar(50)",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
@@ -828,8 +822,7 @@
                                 },
                                 "nativeDataType": "tinyint",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -926,11 +919,6 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numFiles",
-                "value": "1"
-            },
-            {
-                "op": "add",
                 "path": "/customProperties/numRows",
                 "value": "1"
             },
@@ -941,13 +929,18 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258689"
+                "path": "/customProperties/totalSize",
+                "value": "33"
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
-                "value": "33"
+                "path": "/customProperties/numFiles",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1746461120"
             },
             {
                 "op": "add",
@@ -972,7 +965,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1023,8 +1016,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -1041,8 +1033,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -1054,8 +1045,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -1071,8 +1061,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1164,6 +1153,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1746461116"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/numFiles",
                 "value": "0"
             },
@@ -1171,11 +1165,6 @@
                 "op": "add",
                 "path": "/customProperties/COLUMN_STATS_ACCURATE",
                 "value": "{\"BASIC_STATS\":\"true\"}"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258680"
             },
             {
                 "op": "add",
@@ -1200,7 +1189,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1250,8 +1239,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -1263,8 +1251,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:array<int>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1276,8 +1263,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1293,8 +1279,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1386,6 +1371,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1746461116"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/numFiles",
                 "value": "0"
             },
@@ -1393,11 +1383,6 @@
                 "op": "add",
                 "path": "/customProperties/COLUMN_STATS_ACCURATE",
                 "value": "{\"BASIC_STATS\":\"true\"}"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258680"
             },
             {
                 "op": "add",
@@ -1422,7 +1407,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1472,8 +1457,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].bar",
@@ -1485,8 +1469,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1574,7 +1557,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258672"
+                "value": "1746461113"
             },
             {
                 "op": "add",
@@ -1589,7 +1572,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2025-05-05"
             },
             {
                 "op": "add",
@@ -1635,6 +1618,18 @@
                         },
                         "fields": [
                             {
+                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
                                 "fieldPath": "[version=2.0].[type=string].baz",
                                 "nullable": true,
                                 "type": {
@@ -1645,21 +1640,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=int].foo",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartitioningKey": true
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].bar",
@@ -1671,8 +1652,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1785,8 +1765,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=null].service",
@@ -1798,8 +1777,7 @@
                                 },
                                 "nativeDataType": "array(row(\"type\" varchar,\"provider\" array(integer)))",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array(row(\\\"type\\\" varchar,\\\"provider\\\" array(integer)))\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }

@@ -14,9 +14,7 @@ public class ConnectionUtils {
    */
   public static boolean canManageConnections(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_CONNECTIONS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_CONNECTIONS_PRIVILEGE);
   }
 
   private ConnectionUtils() {}

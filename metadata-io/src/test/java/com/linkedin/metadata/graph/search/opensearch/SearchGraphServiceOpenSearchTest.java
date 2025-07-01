@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.search.opensearch;
 
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.metadata.graph.search.SearchGraphServiceTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -9,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 @Import({OpenSearchSuite.class, SearchTestContainerConfiguration.class})
@@ -39,6 +40,6 @@ public class SearchGraphServiceOpenSearchTest extends SearchGraphServiceTestBase
 
   @Test
   public void initTest() {
-    AssertJUnit.assertNotNull(_searchClient);
+    assertNotNull(_searchClient);
   }
 }

@@ -1,0 +1,21 @@
+namespace com.linkedin.platformresource
+
+/**
+* A set of symbols for loose agreements between producers and consumers of
+  platform resources
+  See @PlatformResourceInfo.resourceType for where this can be populated into
+  **/
+enum PlatformResourceType {
+    /**
+     * e.g. a Slack member resource, Looker user resource, etc.
+     */
+    USER_INFO, 
+    /**
+     * e.g. a Slack channel
+     */
+    CONVERSATION
+    /**
+      * e.g. Looker mapping of all user ids
+      */
+    USER_ID_MAPPING
+}

@@ -1,18 +1,22 @@
 package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.DEFAULT_CONFIG;
+import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.MAPPER;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -27,15 +31,18 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
-import com.linkedin.metadata.search.opensearch.SearchDAOOpenSearchTest;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -47,15 +54,14 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   protected abstract OperationContext getOperationContext();
 
+  protected abstract ESSearchDAO getESSearchDao();
+
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
   @Test
   public void testTransformFilterForEntitiesNoChange() {
     Criterion c =
-        new Criterion()
-            .setValue("urn:li:tag:abc")
-            .setValues(new StringArray(ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField("tags.keyword");
+        buildCriterion("tags.keyword", Condition.EQUAL, "urn:li:tag:abc", "urn:li:tag:def");
 
     Filter f =
         new Filter()
@@ -81,13 +87,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformFilterForEntitiesWithChanges() {
 
-    Criterion c =
-        new Criterion()
-            .setValue("dataset")
-            .setValues(new StringArray(ImmutableList.of("dataset")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField("_entityType");
+    Criterion c = buildCriterion("_entityType", Condition.EQUAL, "dataset");
 
     Filter f =
         new Filter()
@@ -108,12 +108,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
-        new Criterion()
-            .setValue("smpldat_datasetindex_v2")
-            .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField(ES_INDEX_FIELD);
+        buildCriterion(ES_INDEX_FIELD, Condition.EQUAL, "smpldat_datasetindex_v2");
 
     Filter expectedNewFilter =
         new Filter()
@@ -127,13 +122,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformFilterForEntitiesWithUnderscore() {
 
-    Criterion c =
-        new Criterion()
-            .setValue("data_job")
-            .setValues(new StringArray(ImmutableList.of("data_job")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField("_entityType");
+    Criterion c = buildCriterion("_entityType", Condition.EQUAL, "data_job");
 
     Filter f =
         new Filter()
@@ -154,12 +143,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
-        new Criterion()
-            .setValue("smpldat_datajobindex_v2")
-            .setValues(new StringArray(ImmutableList.of("smpldat_datajobindex_v2")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField(ES_INDEX_FIELD);
+        buildCriterion(ES_INDEX_FIELD, Condition.EQUAL, "smpldat_datajobindex_v2");
 
     Filter expectedNewFilter =
         new Filter()
@@ -173,20 +157,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformFilterForEntitiesWithSomeChanges() {
 
-    Criterion criterionChanged =
-        new Criterion()
-            .setValue("dataset")
-            .setValues(new StringArray(ImmutableList.of("dataset")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField("_entityType");
+    Criterion criterionChanged = buildCriterion("_entityType", Condition.EQUAL, "dataset");
+
     Criterion criterionUnchanged =
-        new Criterion()
-            .setValue("urn:li:tag:abc")
-            .setValues(new StringArray(ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField("tags.keyword");
+        buildCriterion("tags.keyword", Condition.EQUAL, "urn:li:tag:abc", "urn:li:tag:def");
 
     Filter f =
         new Filter()
@@ -208,12 +182,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
-        new Criterion()
-            .setValue("smpldat_datasetindex_v2")
-            .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
-            .setNegated(false)
-            .setCondition(Condition.EQUAL)
-            .setField(ES_INDEX_FIELD);
+        buildCriterion(ES_INDEX_FIELD, Condition.EQUAL, "smpldat_datasetindex_v2");
 
     Filter expectedNewFilter =
         new Filter()
@@ -232,8 +201,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -322,8 +293,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(
@@ -453,29 +426,21 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   @Test
   public void testExplain() {
-    ESSearchDAO searchDAO =
-        new ESSearchDAO(
-            getSearchClient(),
-            false,
-            this instanceof SearchDAOOpenSearchTest
-                ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
-                : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
     ExplainResponse explainResponse =
-        searchDAO.explain(
-            getOperationContext()
-                .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
-            "*",
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
-                + "ca_border_wait_times,PROD)",
-            DATASET_ENTITY_NAME,
-            null,
-            null,
-            null,
-            null,
-            10,
-            null);
+        getESSearchDao()
+            .explain(
+                getOperationContext()
+                    .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
+                "*",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
+                    + "ca_border_wait_times,PROD)",
+                DATASET_ENTITY_NAME,
+                null,
+                null,
+                null,
+                null,
+                10,
+                List.of());
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");
@@ -483,6 +448,34 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         explainResponse.getId(),
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
-    assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
+    assertEquals(explainResponse.getExplanation().getValue(), 1.25f);
+  }
+
+  /**
+   * Ensure default search configuration matches the test fixture configuration (allowing for some
+   * differences)
+   */
+  @Test
+  public void testConfig() throws IOException {
+    final CustomSearchConfiguration defaultConfig;
+    try (InputStream stream = new ClassPathResource(DEFAULT_CONFIG).getInputStream()) {
+      defaultConfig = MAPPER.readValue(stream, CustomSearchConfiguration.class);
+    }
+
+    final CustomSearchConfiguration fixtureConfig =
+        MAPPER.readValue(
+            MAPPER.writeValueAsBytes(getCustomSearchConfiguration()),
+            CustomSearchConfiguration.class);
+
+    // test specifics
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(1).getFunctionScore().get("functions"))
+        .remove(1);
+
+    ((List<Map<String, Object>>)
+            fixtureConfig.getQueryConfigurations().get(2).getFunctionScore().get("functions"))
+        .remove(1);
+
+    assertEquals(fixtureConfig, defaultConfig);
   }
 }

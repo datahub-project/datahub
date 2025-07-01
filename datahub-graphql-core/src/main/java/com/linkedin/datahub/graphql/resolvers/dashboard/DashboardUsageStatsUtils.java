@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -319,27 +322,22 @@ public class DashboardUsageStatsUtils {
     final ArrayList<Criterion> criteria = new ArrayList<>();
 
     // Add filter for urn == dashboardUrn
-    Criterion dashboardUrnCriterion =
-        new Criterion().setField(ES_FIELD_URN).setCondition(Condition.EQUAL).setValue(dashboardUrn);
+    Criterion dashboardUrnCriterion = buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn);
     criteria.add(dashboardUrnCriterion);
 
     if (startTime != null) {
       // Add filter for start time
       Criterion startTimeCriterion =
-          new Criterion()
-              .setField(ES_FIELD_TIMESTAMP)
-              .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-              .setValue(Long.toString(startTime));
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime));
       criteria.add(startTimeCriterion);
     }
 
     if (endTime != null) {
       // Add filter for end time
       Criterion endTimeCriterion =
-          new Criterion()
-              .setField(ES_FIELD_TIMESTAMP)
-              .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-              .setValue(Long.toString(endTime));
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime));
       criteria.add(endTimeCriterion);
     }
 
@@ -348,18 +346,11 @@ public class DashboardUsageStatsUtils {
       // stats
       // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
       Criterion onlyTimeBucketsCriterion =
-          new Criterion()
-              .setField(ES_FIELD_EVENT_GRANULARITY)
-              .setCondition(Condition.CONTAIN)
-              .setValue("unit");
+          buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit");
       criteria.add(onlyTimeBucketsCriterion);
     } else {
       // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion =
-          new Criterion()
-              .setField(ES_FIELD_EVENT_GRANULARITY)
-              .setCondition(Condition.IS_NULL)
-              .setValue("");
+      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
       criteria.add(excludeTimeBucketsCriterion);
     }
 

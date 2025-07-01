@@ -3,24 +3,12 @@ import json
 import pytest
 import tenacity
 
-from tests.utils import get_frontend_url, get_sleep_info, wait_for_healthcheck_util
+from tests.utils import get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
-@pytest.fixture(scope="session")
-def wait_for_healthchecks():
-    wait_for_healthcheck_util()
-    yield
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
-
-
-def _get_ingestionSources(frontend_session):
+def _get_ingestionSources(auth_session):
     json_q = {
         "query": """query listIngestionSources($input: ListIngestionSourcesInput!) {\n
             listIngestionSources(input: $input) {\n
@@ -35,8 +23,8 @@ def _get_ingestionSources(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -51,8 +39,8 @@ def _get_ingestionSources(frontend_session):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_ingestion_source_count(frontend_session, expected_count):
-    res_data = _get_ingestionSources(frontend_session)
+def _ensure_ingestion_source_count(auth_session, expected_count):
+    res_data = _get_ingestionSources(auth_session)
     after_count = res_data["data"]["listIngestionSources"]["total"]
     assert after_count == expected_count
     return after_count
@@ -61,7 +49,7 @@ def _ensure_ingestion_source_count(frontend_session, expected_count):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_secret_increased(frontend_session, before_count):
+def _ensure_secret_increased(auth_session, before_count):
     json_q = {
         "query": """query listSecrets($input: ListSecretsInput!) {\n
             listSecrets(input: $input) {\n
@@ -77,8 +65,8 @@ def _ensure_secret_increased(frontend_session, before_count):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -96,7 +84,7 @@ def _ensure_secret_increased(frontend_session, before_count):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_secret_not_present(frontend_session):
+def _ensure_secret_not_present(auth_session):
     # Get the secret value back
     json_q = {
         "query": """query getSecretValues($input: GetSecretValuesInput!) {\n
@@ -108,8 +96,8 @@ def _ensure_secret_not_present(frontend_session):
         "variables": {"input": {"secrets": ["SMOKE_TEST"]}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -128,7 +116,7 @@ def _ensure_secret_not_present(frontend_session):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_ingestion_source_present(
-    frontend_session, ingestion_source_urn, num_execs=None
+    auth_session, ingestion_source_urn, num_execs=None
 ):
     json_q = {
         "query": """query ingestionSource($urn: String!) {\n
@@ -146,8 +134,8 @@ def _ensure_ingestion_source_present(
         "variables": {"urn": ingestion_source_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -168,7 +156,7 @@ def _ensure_ingestion_source_present(
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_execution_request_present(frontend_session, execution_request_urn):
+def _ensure_execution_request_present(auth_session, execution_request_urn):
     json_q = {
         "query": """query executionRequest($urn: String!) {\n
             executionRequest(urn: $urn) {\n
@@ -190,8 +178,8 @@ def _ensure_execution_request_present(frontend_session, execution_request_urn):
         "variables": {"urn": execution_request_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -203,8 +191,7 @@ def _ensure_execution_request_present(frontend_session, execution_request_urn):
     return res_data
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_list_get_remove_secret(frontend_session):
+def test_create_list_get_remove_secret(auth_session):
     # Get count of existing secrets
     json_q = {
         "query": """query listSecrets($input: ListSecretsInput!) {\n
@@ -221,8 +208,8 @@ def test_create_list_get_remove_secret(frontend_session):
         "variables": {"input": {"start": "0", "count": "20"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -242,8 +229,8 @@ def test_create_list_get_remove_secret(frontend_session):
         "variables": {"input": {"name": "SMOKE_TEST", "value": "mytestvalue"}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -256,7 +243,7 @@ def test_create_list_get_remove_secret(frontend_session):
     secret_urn = res_data["data"]["createSecret"]
 
     # Get new count of secrets
-    _ensure_secret_increased(frontend_session, before_count)
+    _ensure_secret_increased(auth_session, before_count)
 
     # Update existing secret
     json_q = {
@@ -272,8 +259,8 @@ def test_create_list_get_remove_secret(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -296,8 +283,8 @@ def test_create_list_get_remove_secret(frontend_session):
         "variables": {"input": {"secrets": ["SMOKE_TEST"]}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -320,8 +307,8 @@ def test_create_list_get_remove_secret(frontend_session):
         "variables": {"urn": secret_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -332,13 +319,13 @@ def test_create_list_get_remove_secret(frontend_session):
     assert "errors" not in res_data
 
     # Re-fetch the secret values and see that they are not there.
-    _ensure_secret_not_present(frontend_session)
+    _ensure_secret_not_present(auth_session)
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_list_get_remove_ingestion_source(frontend_session):
+@pytest.mark.dependency()
+def test_create_list_get_remove_ingestion_source(auth_session):
     # Get count of existing ingestion sources
-    res_data = _get_ingestionSources(frontend_session)
+    res_data = _get_ingestionSources(auth_session)
 
     before_count = res_data["data"]["listIngestionSources"]["total"]
 
@@ -362,8 +349,8 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -376,7 +363,7 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
     ingestion_source_urn = res_data["data"]["createIngestionSource"]
 
     # Assert that there are more ingestion sources now.
-    after_count = _ensure_ingestion_source_count(frontend_session, before_count + 1)
+    after_count = _ensure_ingestion_source_count(auth_session, before_count + 1)
 
     # Get the ingestion source back
     json_q = {
@@ -399,8 +386,8 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
         "variables": {"urn": ingestion_source_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -431,8 +418,8 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
         "variables": {"urn": ingestion_source_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -444,16 +431,15 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
     assert "errors" not in res_data
 
     # Ensure the ingestion source has been removed.
-    _ensure_ingestion_source_count(frontend_session, after_count - 1)
+    _ensure_ingestion_source_count(auth_session, after_count - 1)
 
 
 @pytest.mark.dependency(
     depends=[
-        "test_healthchecks",
         "test_create_list_get_remove_ingestion_source",
     ]
 )
-def test_create_list_get_ingestion_execution_request(frontend_session):
+def test_create_list_get_ingestion_execution_request(auth_session):
     # Create new ingestion source
     json_q = {
         "query": """mutation createIngestionSource($input: UpdateIngestionSourceInput!) {\n
@@ -474,8 +460,8 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
@@ -495,24 +481,22 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
         "variables": {"input": {"ingestionSourceUrn": ingestion_source_urn}},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()
 
     assert res_data
     assert res_data["data"]
-    assert (
-        res_data["data"]["createIngestionExecutionRequest"] is not None
-    ), f"res_data was {res_data}"
+    assert res_data["data"]["createIngestionExecutionRequest"] is not None, (
+        f"res_data was {res_data}"
+    )
     assert "errors" not in res_data
 
     execution_request_urn = res_data["data"]["createIngestionExecutionRequest"]
 
-    res_data = _ensure_ingestion_source_present(
-        frontend_session, ingestion_source_urn, 1
-    )
+    res_data = _ensure_ingestion_source_present(auth_session, ingestion_source_urn, 1)
 
     ingestion_source = res_data["data"]["ingestionSource"]
 
@@ -522,9 +506,7 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
     )
 
     # Get the ingestion request back via direct lookup
-    res_data = _ensure_execution_request_present(
-        frontend_session, execution_request_urn
-    )
+    res_data = _ensure_execution_request_present(auth_session, execution_request_urn)
 
     execution_request = res_data["data"]["executionRequest"]
     assert execution_request["urn"] == execution_request_urn
@@ -557,8 +539,8 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
         "variables": {"urn": ingestion_source_urn},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
     )
     response.raise_for_status()
     res_data = response.json()

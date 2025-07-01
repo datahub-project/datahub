@@ -1,5 +1,8 @@
 namespace com.linkedin.post
 
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
 /**
  * Information about a DataHub Post.
  */
@@ -10,6 +13,7 @@ record PostInfo {
   /**
    * Type of the Post.
    */
+  @Searchable = { }
   type: PostType
 
   /**
@@ -32,4 +36,25 @@ record PostInfo {
     "fieldType": "COUNT"
   }
   lastModified: long
+
+  /**
+   * The audit stamp at which the request was last updated
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "created",
+        "fieldType": "COUNT"
+      }
+  }
+  auditStamp: optional AuditStamp
+
+  /**
+   * Optional Entity URN that the post is associated with.
+   */
+  @Relationship = {
+    "name": "PostTarget",
+    "entityTypes": [ "dataset", "schemaField", "chart", "container", "dashboard", "dataFlow", "dataJob", "dataProduct", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct" ]
+  }
+  @Searchable = {}
+  target: optional Urn
 }

@@ -111,8 +111,13 @@ public class DatasetUpdateInputMapper
 
     if (datasetUpdateInput.getEditableProperties() != null) {
       final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
-      editableDatasetProperties.setDescription(
-          datasetUpdateInput.getEditableProperties().getDescription());
+      if (datasetUpdateInput.getEditableProperties().getDescription() != null) {
+        editableDatasetProperties.setDescription(
+            datasetUpdateInput.getEditableProperties().getDescription());
+      }
+      if (datasetUpdateInput.getEditableProperties().getName() != null) {
+        editableDatasetProperties.setName(datasetUpdateInput.getEditableProperties().getName());
+      }
       editableDatasetProperties.setLastModified(auditStamp);
       editableDatasetProperties.setCreated(auditStamp);
       proposals.add(

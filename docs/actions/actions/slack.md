@@ -4,14 +4,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability />
 
-
 # Slack
 
-| <!-- --> | <!-- --> |
-| --- | --- |
-| **Status** | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) |
+| <!-- -->                 | <!-- -->                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Status**               | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)                          |
 | **Version Requirements** | ![Minimum Version Requirements](https://img.shields.io/badge/acryl_datahub_actions-v0.0.9+-green.svg) |
-
 
 ## Overview
 
@@ -20,17 +18,16 @@ This Action integrates DataHub with Slack to send notifications to a configured 
 ### Capabilities
 
 - Sending notifications of important events to a Slack channel
-   - Adding or Removing a tag from an entity (dataset, dashboard etc.)
-   - Updating documentation at the entity or field (column) level. 
-   - Adding or Removing ownership from an entity (dataset, dashboard, etc.)
-   - Creating a Domain
-   - and many more.
+  - Adding or Removing a tag from an entity (dataset, dashboard etc.)
+  - Updating documentation at the entity or field (column) level.
+  - Adding or Removing ownership from an entity (dataset, dashboard, etc.)
+  - Creating a Domain
+  - and many more.
 
 ### User Experience
 
-On startup, the action will produce a welcome message that looks like the one below. 
+On startup, the action will produce a welcome message that looks like the one below.
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_welcome_message.png)
-
 
 On each event, the action will produce a notification message that looks like the one below.
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_notification_message.png)
@@ -43,20 +40,22 @@ Watch the townhall demo to see this in action:
 - `EntityChangeEvent_v1`
 - Currently, the `MetadataChangeLog_v1` event is **not** processed by the Action.
 
-## Action Quickstart 
+## Action Quickstart
 
 ### Prerequisites
 
-Ensure that you have configured the Slack App in your Slack workspace. 
+Ensure that you have configured the Slack App in your Slack workspace.
 
 #### Install the DataHub Slack App into your Slack workspace
 
-The following steps should be performed by a Slack Workspace Admin. 
-- Navigate to  https://api.slack.com/apps/
+The following steps should be performed by a Slack Workspace Admin.
+
+- Navigate to https://api.slack.com/apps/
 - Click Create New App
 - Use “From an app manifest” option
 - Select your workspace
 - Paste this Manifest in YAML. We suggest changing the name and `display_name` to be `DataHub App YOUR_TEAM_NAME` but this is not required. This name will show up in your Slack workspace.
+
 ```yml
 display_information:
   name: DataHub App
@@ -91,21 +90,20 @@ settings:
 
 - Click **Install to Workspace**
 - It will show you permissions the Slack App is asking for, what they mean and a default channel in which you want to add the slack app
-    - Note that the Slack App will only be able to post in channels that the app has been added to. This is made clear by slack’s Authentication screen also.
+  - Note that the Slack App will only be able to post in channels that the app has been added to. This is made clear by slack’s Authentication screen also.
 - Select the channel you'd like notifications to go to and click **Allow**
 - Go to the DataHub App page
-    - You can find your workspace's list of apps at https://api.slack.com/apps/
+  - You can find your workspace's list of apps at https://api.slack.com/apps/
 
 #### Getting Credentials and Configuration
 
-Now that you've created your app and installed it in your workspace, you need a few pieces of information before you can activate your Slack action. 
+Now that you've created your app and installed it in your workspace, you need a few pieces of information before you can activate your Slack action.
 
 #### 1. The Signing Secret
 
 On your app's Basic Information page, you will see a App Credentials area. Take note of the Signing Secret information, you will need it later.
 
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_app_credentials.png)
-
 
 #### 2. The Bot Token
 
@@ -117,7 +115,7 @@ Here you'll find a “Bot User OAuth Token” which DataHub will need to communi
 
 #### 3. The Slack Channel
 
-Finally, you need to figure out which Slack channel you will send notifications to. Perhaps it should be called #datahub-notifications or maybe, #data-notifications or maybe you already have a channel where important notifications about datasets and pipelines are already being routed to. Once you have decided what channel to send notifications to, make sure to add the app to the channel. 
+Finally, you need to figure out which Slack channel you will send notifications to. Perhaps it should be called #datahub-notifications or maybe, #data-notifications or maybe you already have a channel where important notifications about datasets and pipelines are already being routed to. Once you have decided what channel to send notifications to, make sure to add the app to the channel.
 
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_add_app.png)
 
@@ -131,29 +129,27 @@ Alternately, if you are on the browser, you can figure it out from the URL. e.g.
 - Notice `TUMKD5EGJ/C029A3M079U` in the URL
   - Channel ID = `C029A3M079U` from above
 
-
 In the next steps, we'll show you how to configure the Slack Action based on the credentials and configuration values that you have collected.
- 
+
 ### Installation Instructions (Deployment specific)
 
-#### Managed DataHub
+#### DataHub Cloud
 
-Head over to the [Configuring Notifications](../../managed-datahub/saas-slack-setup.md#configuring-notifications) section in the Managed DataHub guide to configure Slack notifications for your Managed DataHub instance.
-
+Head over to the [Configuring Notifications](../../managed-datahub/slack/saas-slack-setup.md#configuring-notifications) section in the DataHub Cloud guide to configure Slack notifications for your DataHub Cloud instance.
 
 #### Quickstart
 
-If you are running DataHub using the docker quickstart option, there are no additional software installation steps. The `datahub-actions` container comes pre-installed with the Slack action. 
+If you are running DataHub using the docker quickstart option, there are no additional software installation steps. The `datahub-actions` container comes pre-installed with the Slack action.
 
 All you need to do is export a few environment variables to activate and configure the integration. See below for the list of environment variables to export.
 
-| Env Variable | Required for Integration | Purpose |
-| --- | --- | --- |
-| DATAHUB_ACTIONS_SLACK_ENABLED | ✅ | Set to "true" to enable the Slack action | 
-| DATAHUB_ACTIONS_SLACK_SIGNING_SECRET | ✅ | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above |
-| DATAHUB_ACTIONS_SLACK_BOT_TOKEN | ✅ | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above |
-| DATAHUB_ACTIONS_SLACK_CHANNEL | ✅ | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to |
-| DATAHUB_ACTIONS_SLACK_DATAHUB_BASE_URL | ❌ | Defaults to "http://localhost:9002". Set to the location where your DataHub UI is running. On a local quickstart this is usually "http://localhost:9002", so you shouldn't need to modify this |
+| Env Variable                           | Required for Integration | Purpose                                                                                                                                                                                        |
+| -------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DATAHUB_ACTIONS_SLACK_ENABLED          | ✅                       | Set to "true" to enable the Slack action                                                                                                                                                       |
+| DATAHUB_ACTIONS_SLACK_SIGNING_SECRET   | ✅                       | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above                                                                                  |
+| DATAHUB_ACTIONS_SLACK_BOT_TOKEN        | ✅                       | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above                                                                                       |
+| DATAHUB_ACTIONS_SLACK_CHANNEL          | ✅                       | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to                                                                                               |
+| DATAHUB_ACTIONS_SLACK_DATAHUB_BASE_URL | ❌                       | Defaults to "http://localhost:9002". Set to the location where your DataHub UI is running. On a local quickstart this is usually "http://localhost:9002", so you shouldn't need to modify this |
 
 :::note
 
@@ -161,8 +157,8 @@ You will have to restart the `datahub-actions` docker container after you have e
 
 :::
 
-
 For example:
+
 ```shell
 export DATAHUB_ACTIONS_SLACK_ENABLED=true
 export DATAHUB_ACTIONS_SLACK_SIGNING_SECRET=<slack-signing-secret>
@@ -176,18 +172,17 @@ datahub docker quickstart --stop && datahub docker quickstart
 
 Similar to the quickstart scenario, there are no specific software installation steps. The `datahub-actions` container comes pre-installed with the Slack action. You just need to export a few environment variables and make them available to the `datahub-actions` container to activate and configure the integration. See below for the list of environment variables to export.
 
-| Env Variable | Required for Integration | Purpose |
-| --- | --- | --- |
-| DATAHUB_ACTIONS_SLACK_ENABLED | ✅ | Set to "true" to enable the Slack action | 
-| DATAHUB_ACTIONS_SLACK_SIGNING_SECRET | ✅ | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above |
-| DATAHUB_ACTIONS_SLACK_BOT_TOKEN | ✅ | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above |
-| DATAHUB_ACTIONS_SLACK_CHANNEL | ✅ | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to |
-| DATAHUB_ACTIONS_DATAHUB_BASE_URL | ✅| Set to the location where your DataHub UI is running. For example, if your DataHub UI is hosted at "https://datahub.my-company.biz", set this to "https://datahub.my-company.biz"|
-
+| Env Variable                         | Required for Integration | Purpose                                                                                                                                                                           |
+| ------------------------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DATAHUB_ACTIONS_SLACK_ENABLED        | ✅                       | Set to "true" to enable the Slack action                                                                                                                                          |
+| DATAHUB_ACTIONS_SLACK_SIGNING_SECRET | ✅                       | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above                                                                     |
+| DATAHUB_ACTIONS_SLACK_BOT_TOKEN      | ✅                       | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above                                                                          |
+| DATAHUB_ACTIONS_SLACK_CHANNEL        | ✅                       | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to                                                                                  |
+| DATAHUB_ACTIONS_DATAHUB_BASE_URL     | ✅                       | Set to the location where your DataHub UI is running. For example, if your DataHub UI is hosted at "https://datahub.my-company.biz", set this to "https://datahub.my-company.biz" |
 
 #### Bare Metal - CLI or Python-based
 
-If you are using the `datahub-actions` library directly from Python, or the `datahub-actions` cli directly, then you need to first install the `slack` action plugin in your Python virtualenv. 
+If you are using the `datahub-actions` library directly from Python, or the `datahub-actions` cli directly, then you need to first install the `slack` action plugin in your Python virtualenv.
 
 ```
 pip install "acryl-datahub-actions[slack]"
@@ -211,7 +206,7 @@ source:
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
 
 ## 3a. Optional: Filter to run on events (map)
-# filter: 
+# filter:
 #  event_type: <filtered-event-type>
 #  event:
 #    # Filter event fields by exact-match
@@ -220,7 +215,7 @@ source:
 # 3b. Optional: Custom Transformers to run on events (array)
 # transform:
 #  - type: <transformer-type>
-#    config: 
+#    config:
 #      # Transformer-specific configs (map)
 
 action:
@@ -235,23 +230,21 @@ action:
 
 datahub:
   server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
-  
 ```
 
 ##### Slack Action Configuration Parameters
 
-| Field | Required | Default | Description |
-| ---   | ---      | ---  | --- |
-| `base_url` | ❌| `False` | Whether to print events in upper case. |
-| `signing_secret` | ✅ |  | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above |
-| `bot_token` | ✅ |  | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above |
-| `default_channel` | ✅ |  | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to |
-| `suppress_system_activity` | ❌ | `True` | Set to `False` if you want to get low level system activity events, e.g. when datasets are ingested, etc. Note: this will currently result in a very spammy Slack notifications experience, so this is not recommended to be changed. |
-
+| Field                      | Required | Default | Description                                                                                                                                                                                                                           |
+| -------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base_url`                 | ❌       | `False` | Whether to print events in upper case.                                                                                                                                                                                                |
+| `signing_secret`           | ✅       |         | Set to the [Slack Signing Secret](#1-the-signing-secret) that you configured in the pre-requisites step above                                                                                                                         |
+| `bot_token`                | ✅       |         | Set to the [Bot User OAuth Token](#2-the-bot-token) that you configured in the pre-requisites step above                                                                                                                              |
+| `default_channel`          | ✅       |         | Set to the [Slack Channel ID](#3-the-slack-channel) that you want the action to send messages to                                                                                                                                      |
+| `suppress_system_activity` | ❌       | `True`  | Set to `False` if you want to get low level system activity events, e.g. when datasets are ingested, etc. Note: this will currently result in a very spammy Slack notifications experience, so this is not recommended to be changed. |
 
 ## Troubleshooting
 
-If things are configured correctly, you should see logs on the `datahub-actions` container that indicate success in enabling and running the Slack action. 
+If things are configured correctly, you should see logs on the `datahub-actions` container that indicate success in enabling and running the Slack action.
 
 ```shell
 docker logs datahub-datahub-actions-1
@@ -264,9 +257,8 @@ docker logs datahub-datahub-actions-1
 ...
 ```
 
-
-If the Slack action was not enabled, you would see messages indicating that. 
-e.g. the following logs below show that neither the Slack or Teams action were enabled. 
+If the Slack action was not enabled, you would see messages indicating that.
+e.g. the following logs below show that neither the Slack or Teams action were enabled.
 
 ```shell
 docker logs datahub-datahub-actions-1

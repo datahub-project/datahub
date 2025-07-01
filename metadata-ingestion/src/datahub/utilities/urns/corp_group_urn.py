@@ -1,1 +1,3 @@
-from datahub.metadata.urns import CorpGroupUrn  # noqa: F401
+from datahub.metadata.urns import CorpGroupUrn
+
+__all__ = ["CorpGroupUrn"]

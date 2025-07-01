@@ -5,15 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.post.PostService;
 import com.linkedin.common.Media;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.CreatePostInput;
-import com.linkedin.datahub.graphql.generated.PostContentType;
-import com.linkedin.datahub.graphql.generated.PostType;
-import com.linkedin.datahub.graphql.generated.UpdateMediaInput;
-import com.linkedin.datahub.graphql.generated.UpdatePostContentInput;
+import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.post.PostContent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -46,6 +44,18 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
     final String description = content.getDescription();
     final UpdateMediaInput updateMediaInput = content.getMedia();
     final Authentication authentication = context.getAuthentication();
+    final String targetResource = input.getResourceUrn();
+    final String targetSubresource = input.getSubResource();
+
+    String targetUrn;
+    if (targetSubresource != null) {
+      targetUrn =
+          SchemaFieldUtils.generateSchemaFieldUrn(
+                  UrnUtils.getUrn(targetResource), targetSubresource)
+              .toString();
+    } else {
+      targetUrn = targetResource;
+    }
 
     Media media =
         updateMediaInput == null
@@ -59,7 +69,7 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           try {
             return _postService.createPost(
-                context.getOperationContext(), type.toString(), postContent);
+                context.getOperationContext(), type.toString(), postContent, targetUrn);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new post", e);
           }

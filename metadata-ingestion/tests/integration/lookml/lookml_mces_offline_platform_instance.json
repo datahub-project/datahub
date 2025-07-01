@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "project_name": "lkml_samples"
             },
-            "name": "lkml_samples"
+            "name": "lkml_samples",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -332,6 +333,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -353,6 +357,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -615,6 +622,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -636,6 +646,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -1673,6 +1686,96 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.order,DEV)",
+                                "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.order,DEV),customer_id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD),customer_id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.order,DEV),sale_price)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD),lifetime_spend)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "customer_facts",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "lifetime_spend",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -2718,6 +2821,38 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Measurement",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Measurement"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Timestamp",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Timestamp"
         }
     },
     "systemMetadata": {

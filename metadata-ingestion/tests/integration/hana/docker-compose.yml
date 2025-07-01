@@ -2,15 +2,11 @@
 version: '3.4'
 services:
   testhana:
-    image: "store/saplabs/hanaexpress:2.00.054.00.20210603.1"
+    image: "saplabs/hanaexpress:latest"
     container_name: "testhana"
     restart: "unless-stopped"
     ports:
-      - 39013:39013
-      - 39017:39017
-      - 39041-39045:39041-39045
-      - 1128-1129:1128-1129
-      - 59013-59014:59013-59014 
+      - 39041:39041
     volumes:
       - ./post_start:/hana/hooks/post_start/
       - ./setup:/hana/mounts/setup/

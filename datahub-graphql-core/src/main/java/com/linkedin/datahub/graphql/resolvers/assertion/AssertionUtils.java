@@ -18,10 +18,6 @@ public class AssertionUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        asserteeUrn.getEntityType(),
-        asserteeUrn.toString(),
-        orPrivilegeGroups);
+        context, asserteeUrn.getEntityType(), asserteeUrn.toString(), orPrivilegeGroups);
   }
 }

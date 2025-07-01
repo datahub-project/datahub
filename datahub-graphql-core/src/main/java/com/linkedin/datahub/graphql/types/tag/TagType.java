@@ -111,7 +111,7 @@ public class TagType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -131,7 +131,7 @@ public class TagType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -164,8 +164,7 @@ public class TagType
     // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
+        context,
         PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
         update.getUrn(),
         orPrivilegeGroups);

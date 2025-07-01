@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNotNull;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -262,23 +263,42 @@ public class PluginsTest {
     mergedEntityRegistry.apply(configEntityRegistry2);
 
     assertEquals(
-        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
-            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+        mergedEntityRegistry
+            .getPluginFactory()
+            .getPluginConfiguration()
+            .getAspectPayloadValidators()
+            .stream()
+            .filter(AspectPluginConfig::isEnabled)
+            .filter(p -> p.getSupportedOperations().contains("DELETE"))
             .count(),
         1);
+
     assertEquals(
-        mergedEntityRegistry.getAllMutationHooks().stream()
-            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+        mergedEntityRegistry.getPluginFactory().getPluginConfiguration().getMutationHooks().stream()
+            .filter(AspectPluginConfig::isEnabled)
+            .filter(p -> p.getSupportedOperations().contains("DELETE"))
             .count(),
         1);
+
     assertEquals(
-        mergedEntityRegistry.getAllMCLSideEffects().stream()
-            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+        mergedEntityRegistry
+            .getPluginFactory()
+            .getPluginConfiguration()
+            .getMclSideEffects()
+            .stream()
+            .filter(AspectPluginConfig::isEnabled)
+            .filter(p -> p.getSupportedOperations().contains("DELETE"))
             .count(),
         1);
+
     assertEquals(
-        mergedEntityRegistry.getAllMCPSideEffects().stream()
-            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+        mergedEntityRegistry
+            .getPluginFactory()
+            .getPluginConfiguration()
+            .getMcpSideEffects()
+            .stream()
+            .filter(AspectPluginConfig::isEnabled)
+            .filter(p -> p.getSupportedOperations().contains("DELETE"))
             .count(),
         1);
   }

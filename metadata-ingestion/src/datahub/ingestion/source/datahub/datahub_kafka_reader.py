@@ -12,6 +12,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
@@ -36,6 +37,7 @@ class DataHubKafkaReader(Closeable):
         self.connection_config = connection_config
         self.report = report
         self.group_id = f"{KAFKA_GROUP_PREFIX}-{ctx.pipeline_name}"
+        self.ctx = ctx
 
     def __enter__(self) -> "DataHubKafkaReader":
         self.consumer = DeserializingConsumer(
@@ -91,9 +93,13 @@ class DataHubKafkaReader(Closeable):
             if mcl.created and mcl.created.time > stop_time.timestamp() * 1000:
                 logger.info(
                     f"Stopped reading from kafka, reached MCL "
-                    f"with audit stamp {datetime.fromtimestamp(mcl.created.time / 1000)}"
+                    f"with audit stamp {parse_ts_millis(mcl.created.time)}"
                 )
                 break
+
+            if mcl.aspectName and mcl.aspectName in self.config.exclude_aspects:
+                self.report.num_kafka_excluded_aspects += 1
+                continue
 
             # TODO: Consider storing state in kafka instead, via consumer.commit()
             yield mcl, PartitionOffset(partition=msg.partition(), offset=msg.offset())

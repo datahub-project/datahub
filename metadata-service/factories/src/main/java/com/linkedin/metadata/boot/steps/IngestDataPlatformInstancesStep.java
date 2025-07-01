@@ -61,7 +61,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
     long numEntities = _migrationsDao.countEntities();
     int start = 0;
 
-    while (start < numEntities) {
+    while (start < (int) numEntities) {
       log.info(
           "Reading urns {} to {} from the aspects table to generate dataplatform instance aspects",
           start,
@@ -84,16 +84,16 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                   .recordTemplate(dataPlatformInstance.get())
                   .auditStamp(aspectAuditStamp)
-                  .build(systemOperationContext.getAspectRetrieverOpt().get()));
+                  .build(systemOperationContext.getAspectRetriever()));
         }
       }
 
       _entityService.ingestAspects(
           systemOperationContext,
           AspectsBatchImpl.builder()
-              .retrieverContext(systemOperationContext.getRetrieverContext().get())
+              .retrieverContext(systemOperationContext.getRetrieverContext())
               .items(items)
-              .build(),
+              .build(systemOperationContext),
           true,
           true);
 

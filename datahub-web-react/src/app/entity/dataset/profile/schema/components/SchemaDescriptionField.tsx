@@ -1,17 +1,20 @@
-import { Typography, message, Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { FetchResult } from '@apollo/client';
+import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FetchResult } from '@apollo/client';
 
-import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
-import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
-import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
-import { useEntityData } from '../../../../shared/EntityContext';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../../../shared/constants';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+
+import { UpdateDatasetMutation } from '@graphql/dataset.generated';
+import { StringMapEntry } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -26,6 +29,11 @@ const AddNewDescription = styled(Button)`
 
 const ExpandedActions = styled.div`
     height: 10px;
+`;
+
+const DescriptionWrapper = styled.span`
+    display: inline-flex;
+    align-items: center;
 `;
 
 const DescriptionContainer = styled.div`
@@ -105,6 +113,8 @@ type Props = {
     isEdited?: boolean;
     isReadOnly?: boolean;
     businessAttributeDescription?: string;
+    isPropagated?: boolean;
+    sourceDetail?: StringMapEntry[] | null;
 };
 
 const ABBREVIATED_LIMIT = 80;
@@ -120,6 +130,8 @@ export default function DescriptionField({
     original,
     isReadOnly,
     businessAttributeDescription,
+    isPropagated,
+    sourceDetail,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
@@ -163,7 +175,7 @@ export default function DescriptionField({
 
     return (
         <DescriptionContainer>
-            {expanded || !overLimit ? (
+            {expanded ? (
                 <>
                     {!!description && <StyledViewer content={description} readOnly />}
                     {!!description && (EditButton || overLimit) && (
@@ -184,25 +196,29 @@ export default function DescriptionField({
                 </>
             ) : (
                 <>
-                    <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        readMore={
-                            <>
-                                <Typography.Link
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleExpanded(true);
-                                    }}
-                                >
-                                    Read More
-                                </Typography.Link>
-                            </>
-                        }
-                        suffix={EditButton}
-                        shouldWrap
-                    >
-                        {description}
-                    </StripMarkdownText>
+                    <DescriptionWrapper>
+                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                        &nbsp;
+                        <StripMarkdownText
+                            limit={ABBREVIATED_LIMIT}
+                            readMore={
+                                <>
+                                    <Typography.Link
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleExpanded(true);
+                                        }}
+                                    >
+                                        Read More
+                                    </Typography.Link>
+                                </>
+                            }
+                            suffix={EditButton}
+                            shouldWrap
+                        >
+                            {description}
+                        </StripMarkdownText>
+                    </DescriptionWrapper>
                 </>
             )}
             {isEdited && <EditedLabel>(edited)</EditedLabel>}

@@ -2,13 +2,15 @@ import { EditOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { SidebarHeader } from '../SidebarHeader';
-import { useEntityData } from '../../../../EntityContext';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import SetDataProductModal from './SetDataProductModal';
-import { DataProductLink } from '../../../../../../shared/tags/DataProductLink';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { DataProduct } from '../../../../../../../types.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import SetDataProductModal from '@app/entity/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { DataProductLink } from '@app/shared/tags/DataProductLink';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct } from '@types';
 
 const EmptyText = styled(Typography.Paragraph)`
     &&& {
@@ -27,7 +29,8 @@ export default function DataProductSection({ readOnly }: Props) {
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
     const dataProductRelationships = entityData?.dataProduct?.relationships;
-    const siblingUrns: string[] = entityData?.siblings?.siblings?.map((sibling) => sibling?.urn || '') || [];
+    const siblingUrns: string[] =
+        entityData?.siblingsSearch?.searchResults?.map((sibling) => sibling.entity.urn || '') || [];
 
     useEffect(() => {
         if (dataProductRelationships && dataProductRelationships.length > 0) {
@@ -67,7 +70,7 @@ export default function DataProductSection({ readOnly }: Props) {
     };
 
     return (
-        <>
+        <div>
             <SidebarHeader title="Data Product" />
             {dataProduct && (
                 <DataProductLink
@@ -101,6 +104,6 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProduct={setDataProduct}
                 />
             )}
-        </>
+        </div>
     );
 }

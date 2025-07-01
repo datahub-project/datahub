@@ -1,11 +1,16 @@
 import { Button } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import Tour from 'reactour';
-import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
-import { EducationStepsContext } from '../../providers/EducationStepsContext';
-import { StepStateResult } from '../../types.generated';
-import { useUserContext } from '../context/useUserContext';
-import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
+import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
+import { StepStateResult } from '@types';
 
 type Props = {
     stepIds: string[];
@@ -16,7 +21,8 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
     const [reshow, setReshow] = useState(false);
-    const accentColor = '#5cb7b7';
+    const isThemeV2 = useIsThemeV2();
+    const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
 
     useEffect(() => {
         function handleKeyDown(e) {
@@ -48,12 +54,14 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         const convertedIds = finalStepIds.map((id) => convertStepId(id, userUrn || ''));
         const stepStates = convertedIds.map((id) => ({ id, properties: [] }));
         batchUpdateStepStates({ variables: { input: { states: stepStates } } }).then(() => {
-            const results = convertedIds.map((id) => ({ id, properties: [{}] } as StepStateResult));
+            const results = convertedIds.map((id) => ({ id, properties: [{}] }) as StepStateResult);
             setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, ...results] : results));
         });
     }
 
-    if (!filteredSteps.length) return null;
+    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
+
+    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
 
     return (
         <Tour

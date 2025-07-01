@@ -2,6 +2,8 @@ package com.linkedin.metadata.graph.search;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.FabricType;
@@ -12,7 +14,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -34,6 +37,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
@@ -41,6 +46,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
@@ -61,28 +68,30 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
+  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
-  private boolean _enableMultiPathSearch =
-      GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch();
+  private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    _client = buildService(_enableMultiPathSearch);
+    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    _client = buildService(TEST_ES_SEARCH_CONFIG, TEST_GRAPH_SERVICE_CONFIG);
     _client.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite();
     _client.clear();
     syncAfterWrite();
   }
 
   @Nonnull
-  private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
+  private ElasticSearchGraphService buildService(
+      ElasticSearchConfiguration esSearchConfig, GraphServiceConfiguration graphServiceConfig) {
     ConfigEntityRegistry configEntityRegistry =
         new ConfigEntityRegistry(
             SearchCommonTestConfiguration.class
@@ -97,39 +106,86 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     } catch (EntityRegistryException e) {
       throw new RuntimeException(e);
     }
-    GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
-    configuration.setEnableMultiPathSearch(enableMultiPathSearch);
+
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
             getSearchClient(),
             lineageRegistry,
             _indexConvention,
-            GraphQueryConfiguration.testDefaults);
-    ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1);
+            graphServiceConfig,
+            esSearchConfig);
+    ESGraphWriteDAO writeDAO =
+        new ESGraphWriteDAO(
+            _indexConvention, getBulkProcessor(), 1, esSearchConfig.getSearch().getGraph());
     return new ElasticSearchGraphService(
         lineageRegistry,
         getBulkProcessor(),
         _indexConvention,
         writeDAO,
         readDAO,
-        getIndexBuilder());
+        getIndexBuilder(),
+        "MD5");
   }
 
   @Override
   @Nonnull
-  protected GraphService getGraphService(boolean enableMultiPathSearch) {
-    if (enableMultiPathSearch != _enableMultiPathSearch) {
-      _enableMultiPathSearch = enableMultiPathSearch;
-      _client = buildService(enableMultiPathSearch);
-      _client.reindexAll(Collections.emptySet());
+  protected GraphService getGraphService(
+      @Nullable Boolean enableMultiPathSearch, @Nullable Integer graphSearchLimit) {
+
+    final GraphServiceConfiguration graphServiceConfig;
+    if (graphSearchLimit != null
+        && (graphSearchLimit
+                != _client.getGraphServiceConfig().getLimit().getResults().getApiDefault()
+            || graphSearchLimit
+                != _client.getGraphServiceConfig().getLimit().getResults().getMax())) {
+      graphServiceConfig =
+          TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+              .limit(
+                  TEST_GRAPH_SERVICE_CONFIG.getLimit().toBuilder()
+                      .results(
+                          TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().toBuilder()
+                              .max(graphSearchLimit)
+                              .apiDefault(graphSearchLimit)
+                              .build())
+                      .build())
+              .build();
+    } else {
+      graphServiceConfig = TEST_GRAPH_SERVICE_CONFIG;
     }
+
+    final ElasticSearchConfiguration esSearchConfiguration;
+    if (enableMultiPathSearch != null
+        && enableMultiPathSearch
+            != _client.getESSearchConfig().getSearch().getGraph().isEnableMultiPathSearch()) {
+
+      esSearchConfiguration =
+          TEST_ES_SEARCH_CONFIG.toBuilder()
+              .search(
+                  TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                      .graph(
+                          TEST_ES_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                              .enableMultiPathSearch(enableMultiPathSearch)
+                              .build())
+                      .build())
+              .build();
+    } else {
+      esSearchConfiguration = TEST_ES_SEARCH_CONFIG;
+    }
+
+    if (!_client.getGraphServiceConfig().equals(graphServiceConfig)
+        || !_client.getESSearchConfig().equals(esSearchConfiguration)) {
+      _client = buildService(esSearchConfiguration, graphServiceConfig);
+    }
+
     return _client;
   }
 
   @Override
   @Nonnull
   protected GraphService getGraphService() {
-    return getGraphService(GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
+    return getGraphService(
+        TEST_ES_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch(),
+        TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().getMax());
   }
 
   @Override
@@ -158,7 +214,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesSourceEntityFilter(
       Filter sourceEntityFilter,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -174,7 +230,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesDestinationEntityFilter(
       Filter destinationEntityFilter,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -190,7 +246,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -210,7 +266,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -238,7 +294,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testRemoveEdgesFromNode(
       @Nonnull Urn nodeToRemoveFrom,
-      @Nonnull List<String> relationTypes,
+      @Nonnull Set<String> relationTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       List<RelatedEntity> expectedOutgoingRelatedUrnsBeforeRemove,
       List<RelatedEntity> expectedIncomingRelatedUrnsBeforeRemove,
@@ -280,11 +336,12 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     RelatedEntitiesResult result =
         getGraphService()
             .findRelatedEntities(
-                Collections.singletonList(datasetType),
+                operationContext,
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);
@@ -294,37 +351,27 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     result =
         getGraphService()
             .findRelatedEntities(
-                Collections.singletonList(datasetType),
+                operationContext,
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);
     assertEquals(result.getTotal(), 0);
   }
 
-  @Test
-  @Override
-  public void testConcurrentAddEdge() {
-    // https://github.com/datahub-project/datahub/issues/3124
-    throw new SkipException(
-        "This test is flaky for ElasticSearchGraphService, ~5% of the runs fail on a race condition");
-  }
-
-  @Test
-  @Override
-  public void testConcurrentRemoveEdgesFromNode() {
-    // https://github.com/datahub-project/datahub/issues/3118
-    throw new SkipException("ElasticSearchGraphService produces duplicates");
-  }
-
-  @Test
-  @Override
-  public void testConcurrentRemoveNodes() {
-    // https://github.com/datahub-project/datahub/issues/3118
-    throw new SkipException("ElasticSearchGraphService produces duplicates");
+  // ElasticSearchGraphService produces duplicates
+  // https://github.com/datahub-project/datahub/issues/3118
+  protected Set<RelatedEntity> deduplicateRelatedEntitiesByRelationshipTypeAndDestination(
+      RelatedEntitiesResult relatedEntitiesResult) {
+    return relatedEntitiesResult.getEntities().stream()
+        .map(
+            relatedEntity ->
+                new RelatedEntity(relatedEntity.getRelationshipType(), relatedEntity.getUrn()))
+        .collect(Collectors.toSet());
   }
 
   @Test
@@ -448,13 +495,14 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, 0, null);
   }
 
-  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count) {
+  private EntityLineageResult getUpstreamLineage(
+      Urn urn, Long startTime, Long endTime, @Nullable Integer count) {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, null);
   }
 
   private EntityLineageResult getUpstreamLineage(
-      Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
+      Urn urn, Long startTime, Long endTime, @Nullable Integer limit, int exploreLimit) {
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, limit, exploreLimit);
   }
 
   /**
@@ -483,19 +531,21 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
       LineageDirection direction,
       Long startTime,
       Long endTime,
-      int count,
+      @Nullable Integer limit,
       @Nullable Integer entitiesExploredPerHopLimit) {
     return getGraphService()
         .getLineage(
+            operationContext.withLineageFlags(
+                f ->
+                    new LineageFlags()
+                        .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
+                        .setEntitiesExploredPerHopLimit(
+                            entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL)),
             urn,
             direction,
             0,
-            count,
-            3,
-            new LineageFlags()
-                .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
-                .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
-                .setEntitiesExploredPerHopLimit(
-                    entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL));
+            limit,
+            3);
   }
 }

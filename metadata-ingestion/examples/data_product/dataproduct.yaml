@@ -13,6 +13,8 @@ assets:
 owners:
   - id: urn:li:corpuser:jdoe
     type: BUSINESS_OWNER
+  - id: urn:li:corpuser:fbar
+    type: urn:li:ownershipType:architect  # Maps to a custom ownership type
 
 # Tags associated with this Data Product
 tags:

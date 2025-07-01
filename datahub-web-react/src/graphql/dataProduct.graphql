@@ -1,5 +1,7 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
+        urn
+        type
         ...dataProductFields
         privileges {
             ...entityPrivileges
@@ -14,6 +16,28 @@ query getDataProduct($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        ...notes
+    }
+}
+
+query getDataProductsList($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ... on DataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                        numAssets
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
         }
     }
 }

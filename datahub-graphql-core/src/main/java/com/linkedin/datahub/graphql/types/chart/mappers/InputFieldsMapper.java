@@ -5,10 +5,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.InputField;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
+import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class InputFieldsMapper {
 
   public static final InputFieldsMapper INSTANCE = new InputFieldsMapper();
@@ -31,13 +34,24 @@ public class InputFieldsMapper {
             .map(
                 field -> {
                   InputField fieldResult = new InputField();
+                  Urn parentUrn = entityUrn;
 
-                  if (field.hasSchemaField()) {
-                    fieldResult.setSchemaField(
-                        SchemaFieldMapper.map(context, field.getSchemaField(), entityUrn));
-                  }
                   if (field.hasSchemaFieldUrn()) {
                     fieldResult.setSchemaFieldUrn(field.getSchemaFieldUrn().toString());
+                    try {
+                      parentUrn =
+                          Urn.createFromString(field.getSchemaFieldUrn().getEntityKey().get(0));
+                    } catch (URISyntaxException e) {
+                      log.error(
+                          "Field urn resolution: failed to extract parentUrn successfully from {}. Falling back to {}",
+                          field.getSchemaFieldUrn(),
+                          entityUrn,
+                          e);
+                    }
+                  }
+                  if (field.hasSchemaField()) {
+                    fieldResult.setSchemaField(
+                        SchemaFieldMapper.map(context, field.getSchemaField(), parentUrn));
                   }
                   return fieldResult;
                 })

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +79,8 @@ public class AnalyticsService {
       Optional<String> dimension, // Length 1 for now
       Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters,
-      Optional<String> uniqueOn) {
+      Optional<String> uniqueOn,
+      String dateRangeField) {
 
     log.debug(
         String.format(
@@ -87,11 +89,11 @@ public class AnalyticsService {
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     AggregationBuilder filteredAgg =
-        getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));
+        getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange), dateRangeField);
 
     AggregationBuilder dateHistogram =
         AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
-            .field("timestamp")
+            .field(dateRangeField)
             .calendarInterval(new DateHistogramInterval(granularity.name().toLowerCase()));
     uniqueOn.ifPresent(s -> dateHistogram.subAggregation(getUniqueQuery(s)));
 
@@ -128,6 +130,25 @@ public class AnalyticsService {
     }
   }
 
+  public List<NamedLine> getTimeseriesChart(
+      String indexName,
+      DateRange dateRange,
+      DateInterval granularity,
+      Optional<String> dimension, // Length 1 for now
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn) {
+    return getTimeseriesChart(
+        indexName,
+        dateRange,
+        granularity,
+        dimension,
+        filters,
+        mustNotFilters,
+        uniqueOn,
+        "timestamp");
+  }
+
   private int extractCount(MultiBucketsAggregation.Bucket bucket, boolean didUnique) {
     return didUnique
         ? (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue()
@@ -158,7 +179,9 @@ public class AnalyticsService {
                 indexName, dateRange, dimensions)
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    assert (dimensions.size() == 1 || dimensions.size() == 2);
+    if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
+      throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
+    }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
@@ -323,20 +346,47 @@ public class AnalyticsService {
     }
   }
 
+  // Make dateRangeField as customizable
+  private AggregationBuilder getFilteredAggregation(
+      Map<String, List<String>> mustFilters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<DateRange> dateRange,
+      String dateRangeField) {
+    BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
+    filteredQuery.filter(getDefaultFilters());
+    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
+    mustNotFilters.forEach(
+        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
+    dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range, dateRangeField)));
+    return AggregationBuilders.filter(FILTERED, filteredQuery);
+  }
+
   private AggregationBuilder getFilteredAggregation(
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange) {
-    BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
-    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
-    mustNotFilters.forEach(
-        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
-    dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range)));
-    return AggregationBuilders.filter(FILTERED, filteredQuery);
+    // Use timestamp as dateRangeField
+    return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
+  }
+
+  private QueryBuilder getDefaultFilters() {
+    return QueryBuilders.boolQuery()
+        .mustNot(
+            QueryBuilders.termQuery(
+                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
   private QueryBuilder dateRangeQuery(DateRange dateRange) {
-    return QueryBuilders.rangeQuery("timestamp").gte(dateRange.getStart()).lt(dateRange.getEnd());
+    // Use timestamp as dateRangeField
+    return dateRangeQuery(dateRange, "timestamp");
+  }
+
+  // Make dateRangeField as customizable
+  private QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
+    return QueryBuilders.rangeQuery(dateRangeField)
+        .gte(dateRange.getStart())
+        .lt(dateRange.getEnd());
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {

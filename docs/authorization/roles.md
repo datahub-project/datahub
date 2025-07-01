@@ -50,7 +50,6 @@ You can simply assign a new Role to a user by clicking on the drop-down that app
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/user-list-select-role.png" />
 </p>
 
-
 #### Batch Assigning a Role
 
 When viewing the full list of roles at **Settings > Permissions > Roles**, you will notice that each role has an `Add Users` button next to it. Clicking this button will
@@ -73,14 +72,14 @@ in DataHub.
 
 ### Role Privileges
 
-#### Self-Hosted DataHub and Managed DataHub
+#### Self-Hosted DataHub and DataHub Cloud
 
-These privileges are common to both Self-Hosted DataHub and Managed DataHub.
+These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 
 ##### Platform Privileges
 
 | Privilege                                 | Admin              | Editor             | Reader | Description                                                                                                                                                                |
-|-------------------------------------------|--------------------|--------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------------------------- | ------------------ | ------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Generate Personal Access Tokens           | :heavy_check_mark: | :heavy_check_mark: | :x:    | Generate personal access tokens for use with DataHub APIs.                                                                                                                 |
 | Manage Domains                            | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Domains.                                                                                                                                           |
 | Manage Home Page Posts                    | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and delete home page posts                                                                                                                                          |
@@ -110,7 +109,7 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 ##### Metadata Privileges
 
 | Privilege                          | Admin              | Editor             | Reader             | Description                                                                                      |
-|------------------------------------|--------------------|--------------------|--------------------|--------------------------------------------------------------------------------------------------|
+| ---------------------------------- | ------------------ | ------------------ | ------------------ | ------------------------------------------------------------------------------------------------ |
 | View Entity Page                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity page.                                                             |
 | View Dataset Usage                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset usage information (includes usage statistics and queries).         |
 | View Dataset Profile               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset profile (snapshot statistics)                                      |
@@ -146,24 +145,26 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Explain ElasticSearch Query API    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the Operations API explain endpoint.                                          |
 | Produce Platform Event API         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to produce Platform Events using the API.                                            |
 
-#### Managed DataHub
+#### DataHub Cloud
 
-These privileges are only relevant to Managed DataHub.
+These privileges are only relevant to DataHub Cloud.
 
 ##### Platform Privileges
 
-| Privilege                   | Admin              | Editor             | Reader | Description                                                                                         |
-|-----------------------------|--------------------|--------------------|--------|-----------------------------------------------------------------------------------------------------|
-| Manage Tests                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
-| View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
-| Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors             | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+| Privilege                       | Admin              | Editor             | Reader | Description                                                                                         |
+| ------------------------------- | ------------------ | ------------------ | ------ | --------------------------------------------------------------------------------------------------- |
+| Manage Tests                    | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
+| View Metadata Proposals         | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
+| Create metadata constraints[^1] | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
+| Manage Platform Settings        | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
+| Manage Monitors                 | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+
+[^1]: Deprecated feature
 
 ##### Metadata Privileges
 
 | Privilege                             | Admin              | Editor             | Reader             | Description                                                                                    |
-|---------------------------------------|--------------------|--------------------|--------------------|------------------------------------------------------------------------------------------------|
+| ------------------------------------- | ------------------ | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
 | View Entity                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
 | Propose Tags                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
 | Propose Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
@@ -177,16 +178,17 @@ These privileges are only relevant to Managed DataHub.
 | Manage Documentation Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                               |
 | Manage Group Notification Settings    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
 | Manage Group Subscriptions            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
+| Manage User Subscriptions             | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
 | Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
-| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another Acryl instance.                                    |
+| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                            |
 
 ## Additional Resources
 
 ### GraphQL
 
-* [acceptRole](../../graphql/mutations.md#acceptrole)
-* [batchAssignRole](../../graphql/mutations.md#batchassignrole)
-* [listRoles](../../graphql/queries.md#listroles)
+- [acceptRole](../../graphql/mutations.md#acceptrole)
+- [batchAssignRole](../../graphql/mutations.md#batchassignrole)
+- [listRoles](../../graphql/queries.md#listroles)
 
 ## FAQ and Troubleshooting
 

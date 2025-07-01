@@ -1,0 +1,149 @@
+{
+    "token": "24f66e1701b6",
+    "id": 5450544,
+    "name": "Dataset 1",
+    "description": "",
+    "created_at": "2024-09-02T07:38:43.722Z",
+    "updated_at": "2024-09-02T07:40:44.026Z",
+    "published_at": null,
+    "edited_at": "2024-09-02T07:40:32.668Z",
+    "type": "DatasetReport",
+    "last_successful_sync_at": null,
+    "last_saved_at": "2024-09-02T07:40:32.679Z",
+    "archived": false,
+    "space_token": "75737b70402e",
+    "account_id": 751252,
+    "account_username": "acryltest",
+    "public": false,
+    "manual_run_disabled": false,
+    "drill_anywhere_enabled": false,
+    "run_privately": true,
+    "drilldowns_enabled": false,
+    "expected_runtime": 0.763795,
+    "last_successfully_run_at": "2024-09-02T07:40:44.009Z",
+    "last_run_at": "2024-09-02T07:40:43.185Z",
+    "last_successful_run_token": "29e56ca29a45",
+    "query_count": 1,
+    "max_query_count": 160,
+    "runs_count": 3,
+    "schedules_count": 0,
+    "query_preview": "-- Returns first 100 rows from DATAHUB_COMMUNITY.POSTGRES_PUBLIC.COMPANY\n  SELECT \n\t\tAGE,\n\t\tID,\n\t\tNAME,\n\t\t_FIVETRAN_DELE",
+    "view_count": 6,
+    "thoughtspot_published_at": null,
+    "_links": {
+        "self": {
+            "href": "/api/acryltest/reports/24f66e1701b6"
+        },
+        "web": {
+            "href": "https://app.mode.com/acryltest/datasets/24f66e1701b6"
+        },
+        "web_edit": {
+            "href": "/editor/acryltest/datasets/24f66e1701b6"
+        },
+        "account": {
+            "href": "/api/acryltest"
+        },
+        "report_run": {
+            "templated": true,
+            "href": "/api/acryltest/reports/24f66e1701b6/runs/{id}?embed[result]=1"
+        },
+        "space": {
+            "href": "/api/acryltest/collections/75737b70402e"
+        },
+        "space_links": {
+            "href": "/api/acryltest/reports/24f66e1701b6/space_links"
+        },
+        "queries": {
+            "href": "/api/acryltest/reports/24f66e1701b6/queries"
+        },
+        "report_runs": {
+            "href": "/api/acryltest/reports/24f66e1701b6/runs"
+        },
+        "report_pins": {
+            "href": "/api/acryltest/reports/24f66e1701b6/pins"
+        },
+        "report_schedules": {
+            "href": "/api/acryltest/reports/24f66e1701b6/schedules"
+        },
+        "dataset_dependencies": {
+            "href": "/api/acryltest/datasets/24f66e1701b6/reports"
+        },
+        "last_run": {
+            "href": "/api/acryltest/reports/24f66e1701b6/runs/29e56ca29a45"
+        },
+        "last_successful_run": {
+            "href": "/api/acryltest/reports/24f66e1701b6/runs/29e56ca29a45"
+        },
+        "perspective_email_subscription_memberships": {
+            "href": "/api/acryltest/reports/24f66e1701b6/perspective_email_report_subscription_memberships"
+        },
+        "creator": {
+            "href": "/api/modeuser"
+        },
+        "report_index_web": {
+            "href": "/acryltest/spaces/75737b70402e"
+        }
+    },
+    "_forms": {
+        "edit": {
+            "method": "patch",
+            "action": "/api/acryltest/reports/24f66e1701b6",
+            "input": {
+                "report": {
+                    "name": {
+                        "type": "text",
+                        "value": "Dataset_2"
+                    },
+                    "description": {
+                        "type": "text",
+                        "value": ""
+                    },
+                    "account_id": {
+                        "type": "text",
+                        "value": 751252
+                    },
+                    "space_token": {
+                        "type": "text",
+                        "value": "75737b70402e"
+                    }
+                }
+            }
+        },
+        "destroy": {
+            "method": "delete",
+            "action": "/api/acryltest/reports/24f66e1701b6"
+        },
+        "archive": {
+            "method": "patch",
+            "action": "/api/acryltest/reports/24f66e1701b6/archive"
+        },
+        "unarchive": {
+            "method": "patch",
+            "action": "/api/acryltest/reports/24f66e1701b6/unarchive"
+        },
+        "update_settings": {
+            "method": "patch",
+            "action": "/api/acryltest/reports/24f66e1701b6/update_settings",
+            "input": {
+                "report": {
+                    "manual_run_disabled": {
+                        "type": "select",
+                        "options": [
+                            true,
+                            false
+                        ],
+                        "value": false
+                    },
+                    "drill_anywhere_enabled": {
+                        "type": "select",
+                        "options": [
+                            true,
+                            false
+                        ],
+                        "value": false
+                    }
+                }
+            }
+        }
+    }
+}

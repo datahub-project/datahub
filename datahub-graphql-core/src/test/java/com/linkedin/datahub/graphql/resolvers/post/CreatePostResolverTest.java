@@ -22,11 +22,11 @@ import org.testng.annotations.Test;
 public class CreatePostResolverTest {
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
-      "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
+      "https://docs.datahub.com/img/datahub-logo-color-light-horizontal.svg";
   private static final PostContentType POST_CONTENT_TYPE = PostContentType.LINK;
   private static final String POST_TITLE = "title";
   private static final String POST_DESCRIPTION = "description";
-  private static final String POST_LINK = "https://datahubproject.io";
+  private static final String POST_LINK = "https://docs.datahub.com";
   private PostService _postService;
   private CreatePostResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
@@ -94,7 +94,7 @@ public class CreatePostResolverTest {
     input.setContent(content);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_postService.createPost(
-            any(), eq(PostType.HOME_PAGE_ANNOUNCEMENT.toString()), eq(postContentObj)))
+            any(), eq(PostType.HOME_PAGE_ANNOUNCEMENT.toString()), eq(postContentObj), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

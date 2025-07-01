@@ -1,16 +1,14 @@
 package com.linkedin.datahub.upgrade.system;
 
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
+import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import java.util.List;
 import lombok.NonNull;
-import org.jetbrains.annotations.Nullable;
 
 public class SystemUpdateNonBlocking extends SystemUpdate {
 
   public SystemUpdateNonBlocking(
-      @NonNull List<BlockingSystemUpgrade> blockingSystemUpgrades,
       @NonNull List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      @Nullable DataHubStartupStep dataHubStartupStep) {
-    super(blockingSystemUpgrades, nonBlockingSystemUpgrades, dataHubStartupStep);
+      final BootstrapMCP bootstrapMCPNonBlocking) {
+    super(List.of(), nonBlockingSystemUpgrades, null, null, bootstrapMCPNonBlocking);
   }
 }

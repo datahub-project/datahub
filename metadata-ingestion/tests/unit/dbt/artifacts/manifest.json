@@ -1,0 +1,174 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+    "dbt_version": "1.9.0",
+    "generated_at": "2024-12-16T14:59:29.364802Z",
+    "invocation_id": "eb043e5d-3a2a-4fe3-b44b-3bc9f55ba7f0",
+    "env": {},
+    "project_name": "tdd",
+    "project_id": "66d26512fa77cc5ff934201903dd7482",
+    "user_id": null,
+    "send_anonymous_usage_stats": false,
+    "adapter_type": "athena"
+  },
+  "nodes": {
+    "model.tdd.simple": {
+      "database": "awsdatacatalog",
+      "schema": "sandbox",
+      "name": "simple",
+      "resource_type": "model",
+      "package_name": "tdd",
+      "path": "simple.sql",
+      "original_file_path": "models/simple.sql",
+      "unique_id": "model.tdd.simple",
+      "fqn": [
+        "tdd",
+        "simple"
+      ],
+      "alias": "simple",
+      "checksum": {
+        "name": "sha256",
+        "checksum": "67b056428a09fa084c740bfeea17eafa2aa4a0e0ebd3ed100ef52e1bbc04718b"
+      },
+      "config": {
+        "enabled": true,
+        "alias": null,
+        "schema": "sandbox",
+        "database": null,
+        "tags": [
+          "dbt__tdd",
+          "dbt_project_tdd"
+        ],
+        "meta": {},
+        "group": null,
+        "materialized": "table",
+        "incremental_strategy": null,
+        "batch_size": null,
+        "lookback": 1,
+        "begin": null,
+        "persist_docs": {
+          "relation": true,
+          "columns": true
+        },
+        "post-hook": [],
+        "pre-hook": [],
+        "quoting": {},
+        "column_types": {},
+        "full_refresh": null,
+        "unique_key": null,
+        "on_schema_change": "append_new_columns",
+        "on_configuration_change": "apply",
+        "grants": {},
+        "packages": [],
+        "docs": {
+          "show": true,
+          "node_color": null
+        },
+        "contract": {
+          "enforced": true,
+          "alias_types": true
+        },
+        "event_time": null,
+        "concurrent_batches": null,
+        "access": "protected",
+        "lf_tags_config": {
+          "enabled": true,
+          "tags": {
+            "confidentiality": "internal"
+          }
+        },
+        "table_type": "iceberg"
+      },
+      "tags": [
+        "dbt__tdd",
+        "dbt_project_tdd"
+      ],
+      "description": "This model calculates the count of records in the stg_simple table.",
+      "columns": {
+        "action_type_id": {
+          "name": "action_type_id",
+          "description": "The count of records in the stg_simple table",
+          "meta": {},
+          "data_type": "integer",
+          "constraints": [],
+          "quote": null,
+          "tags": [],
+          "granularity": null
+        },
+        "mixed": {
+          "name": "mixed",
+          "description": "",
+          "meta": {},
+          "data_type": "varchar",
+          "constraints": [],
+          "quote": null,
+          "tags": [],
+          "granularity": null
+        }
+      },
+      "meta": {},
+      "group": null,
+      "docs": {
+        "show": true,
+        "node_color": null
+      },
+      "patch_path": "tdd://models/simple.yml",
+      "build_path": null,
+      "unrendered_config": {
+        "tags": "dbt_project_tdd",
+        "on_schema_change": "append_new_columns",
+        "lf_tags_config": {
+          "enabled": true,
+          "tags": {
+            "confidentiality": "internal"
+          }
+        },
+        "persist_docs": {
+          "relation": true,
+          "columns": true
+        },
+        "table_type": "iceberg",
+        "schema": "sandbox",
+        "materialized": "table",
+        "contract": {
+          "enforced": true
+        }
+      },
+      "created_at": 1734359717.2746701,
+      "relation_name": "\"awsdatacatalog\".\"sandbox\".\"simple\"",
+      "raw_code": "select 1 as action_type_id, 2 as mixed from test.test",
+      "language": "sql",
+      "refs": [
+        {
+          "name": "stg_simple",
+          "package": null,
+          "version": null
+        }
+      ],
+      "sources": [],
+      "metrics": [],
+      "depends_on": {
+        "macros": [
+          "macro.dbt_unit_testing.ref"
+        ],
+        "nodes": [
+          "model.tdd.stg_simple"
+        ]
+      },
+      "compiled_path": null,
+      "contract": {
+        "enforced": true,
+        "alias_types": true,
+        "checksum": "a2ea5df63211a33bf954882f96b1f89f1f6f625547d2e119ec10a7e78da3d3ea"
+      },
+      "access": "protected",
+      "constraints": [],
+      "version": null,
+      "latest_version": null,
+      "deprecation_date": null,
+      "primary_key": [],
+      "time_spine": null
+    }
+  },
+  "sources": {}
+}

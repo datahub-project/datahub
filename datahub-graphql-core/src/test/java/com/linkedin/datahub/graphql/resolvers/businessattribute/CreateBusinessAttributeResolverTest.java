@@ -56,7 +56,7 @@ public class CreateBusinessAttributeResolverTest {
           TEST_BUSINESS_ATTRIBUTE_DESCRIPTION,
           SchemaFieldDataType.BOOLEAN);
   private EntityClient mockClient;
-  private EntityService mockService;
+  private EntityService<?> mockService;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
   private BusinessAttributeService businessAttributeService;

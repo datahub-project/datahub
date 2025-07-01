@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -14,7 +14,7 @@ from datahub.utilities.stats_collections import TopKDict
 
 @dataclass
 class RedshiftReport(
-    ProfilingSqlReport,
+    SQLSourceReport,
     IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
@@ -45,6 +45,7 @@ class RedshiftReport(
     num_lineage_dropped_not_support_copy_path: int = 0
     num_lineage_processed_temp_tables = 0
     num_lineage_dropped_s3_path: int = 0
+    num_alter_table_parse_errors: int = 0
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
@@ -58,6 +59,9 @@ class RedshiftReport(
     # lineage/usage v2
     sql_aggregator: Optional[SqlAggregatorReport] = None
     lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
+
+    is_shared_database: bool = False
+    outbound_shares_count: Optional[int] = None
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)

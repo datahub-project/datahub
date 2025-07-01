@@ -4,6 +4,7 @@ import pytest
 
 from datahub.ingestion.source.state.entity_removal_state import (
     compute_percent_entities_changed,
+    filter_ignored_entity_types,
 )
 
 EntList = List[str]
@@ -46,3 +47,19 @@ def test_change_percent(
         new_entities=new_entities, old_entities=old_entities
     )
     assert actual_percent_change == expected_percent_change
+
+
+def test_filter_ignored_entity_types():
+    assert filter_ignored_entity_types(
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset3,PROD)",
+            "urn:li:dataProcessInstance:478810e859f870a54f72c681f41af619",
+            "urn:li:query:query1",
+        ]
+    ) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset3,PROD)",
+    ]

@@ -1,19 +1,21 @@
 import asyncio
 import contextlib
 import logging
-import sys
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, TypeVar
 
+import click
 import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
-from termcolor import colored
 
-from datahub import __version__
-from datahub.cli import cli_utils
+from datahub._version import __version__
+from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.server_config_util import RestServiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -55,11 +57,19 @@ async def get_client_version_stats():
         async with session.get(pypi_url) as resp:
             response_json = await resp.json()
             try:
-                releases = response_json.get("releases", [])
-                sorted_releases = sorted(releases.keys(), key=lambda x: Version(x))
-                latest_cli_release_string = [
-                    x for x in sorted_releases if "rc" not in x
-                ][-1]
+                releases = response_json.get("releases", {})
+                filtered_releases = {
+                    version: release_files
+                    for version, release_files in releases.items()
+                    if not all(
+                        release_file.get("yanked") for release_file in release_files
+                    )
+                    and "rc" not in version
+                }
+                sorted_releases = sorted(
+                    filtered_releases.keys(), key=lambda x: Version(x)
+                )
+                latest_cli_release_string = sorted_releases[-1]
                 latest_cli_release = Version(latest_cli_release_string)
                 current_version_info = releases.get(current_version_string)
                 current_version_date = None
@@ -93,28 +103,30 @@ async def get_github_stats():
     async with aiohttp.ClientSession(
         headers={"Accept": "application/vnd.github.v3+json"}
     ) as session:
-        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases"
+        gh_url = "https://api.github.com/repos/datahub-project/datahub/releases/latest"
         async with session.get(gh_url) as gh_response:
             gh_response_json = await gh_response.json()
-            latest_server_version = Version(gh_response_json[0].get("tag_name"))
-            latest_server_date = gh_response_json[0].get("published_at")
+            latest_server_version = Version(gh_response_json.get("tag_name"))
+            latest_server_date = gh_response_json.get("published_at")
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: str) -> dict:
+async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
     import aiohttp
 
-    async with aiohttp.ClientSession(
-        headers={
-            "X-RestLi-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
-    ) as session:
+    headers = {
+        "X-RestLi-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json",
+    }
+
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    async with aiohttp.ClientSession() as session:
         config_endpoint = f"{gms_url}/config"
-        async with session.get(config_endpoint) as dh_response:
+        async with session.get(config_endpoint, headers=headers) as dh_response:
             dh_response_json = await dh_response.json()
-            return dh_response_json
+            return RestServiceConfig(raw_config=dh_response_json)
 
 
 async def get_server_version_stats(
@@ -122,11 +134,14 @@ async def get_server_version_stats(
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
     import aiohttp
 
-    server_config = None
+    server_config: Optional[RestServiceConfig] = None
     if not server:
         try:
             # let's get the server from the cli config
-            host, token = cli_utils.get_url_and_token()
+            client_config = load_client_config()
+            client_config.client_mode = ClientMode.CLI
+            host = client_config.server
+            token = client_config.token
             server_config = await get_server_config(host, token)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
@@ -138,15 +153,10 @@ async def get_server_version_stats(
     server_version: Optional[Version] = None
     current_server_release_date = None
     if server_config:
-        server_version_string = (
-            server_config.get("versions", {})
-            .get("acryldata/datahub", {})
-            .get("version")
-        )
-        commit_hash = (
-            server_config.get("versions", {}).get("acryldata/datahub", {}).get("commit")
-        )
-        server_type = server_config.get("datahub", {}).get("serverType", "unknown")
+        server_version_string = server_config.service_version
+        commit_hash = server_config.commit_hash
+        server_type = server_config.server_type
+
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
                 headers={"Accept": "application/vnd.github.v3+json"}
@@ -164,7 +174,28 @@ async def get_server_version_stats(
     return (server_type, server_version, current_server_release_date)
 
 
-async def retrieve_version_stats(
+def retrieve_version_stats(
+    timeout: float, graph: Optional[DataHubGraph] = None
+) -> Optional[DataHubVersionStats]:
+    version_stats: Optional[DataHubVersionStats] = None
+
+    async def _get_version_with_timeout() -> None:
+        # TODO: Once we're on Python 3.11+, replace with asyncio.timeout.
+        stats_future = _retrieve_version_stats(graph)
+
+        try:
+            nonlocal version_stats
+            version_stats = await asyncio.wait_for(stats_future, timeout=timeout)
+        except asyncio.TimeoutError:
+            log.debug("Timed out while fetching version stats")
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(_get_version_with_timeout())
+
+    return version_stats
+
+
+async def _retrieve_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Optional[DataHubVersionStats]:
     try:
@@ -192,11 +223,11 @@ async def retrieve_version_stats(
             current=VersionStats(
                 version=current_server_version, release_date=current_server_release_date
             ),
-            latest=VersionStats(
-                version=last_server_version, release_date=last_server_date
-            )
-            if last_server_version
-            else None,
+            latest=(
+                VersionStats(version=last_server_version, release_date=last_server_date)
+                if last_server_version
+                else None
+            ),
             current_server_type=current_server_type,
         )
 
@@ -260,9 +291,9 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
         return server.version.micro - client.version.micro
 
 
-def maybe_print_upgrade_message(  # noqa: C901
+def _maybe_print_upgrade_message(
     version_stats: Optional[DataHubVersionStats],
-) -> None:  # noqa: C901
+) -> None:
     days_before_cli_stale = 7
     days_before_quickstart_stale = 7
 
@@ -273,8 +304,8 @@ def maybe_print_upgrade_message(  # noqa: C901
         if not version_stats:
             log.debug("No version stats found")
             return
-        else:
-            log.debug(f"Version stats found: {version_stats}")
+
+        log.debug(f"Version stats found: {version_stats}")
         current_release_date = version_stats.client.current.release_date
         latest_release_date = (
             version_stats.client.latest.release_date
@@ -321,78 +352,90 @@ def maybe_print_upgrade_message(  # noqa: C901
     if client_server_compat < 0:
         with contextlib.suppress(Exception):
             assert version_stats
-            print(
-                colored("❗Client-Server Incompatible❗", "yellow"),
-                colored(
+            click.echo(
+                click.style("❗Client-Server Incompatible❗", fg="yellow")
+                + " "
+                + click.style(
                     f"Your client version {version_stats.client.current.version} is newer than your server version {version_stats.server.current.version}. Downgrading the cli to {version_stats.server.current.version} is recommended.\n",
-                    "cyan",
-                ),
-                colored(
+                    fg="cyan",
+                )
+                + click.style(
                     f"➡️ Downgrade via `\"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
-                    "cyan",
-                ),
+                    fg="cyan",
+                )
             )
     elif client_server_compat > 0:
         with contextlib.suppress(Exception):
             assert version_stats
-            print(
-                colored("❗Client-Server Incompatible❗", "red"),
-                colored(
+            click.echo(
+                click.style("❗Client-Server Incompatible❗", fg="red")
+                + " "
+                + click.style(
                     f"Your client version {version_stats.client.current.version} is older than your server version {version_stats.server.current.version}. Upgrading the cli to {version_stats.server.current.version} is recommended.\n",
-                    "cyan",
-                ),
-                colored(
+                    fg="cyan",
+                )
+                + click.style(
                     f"➡️  Upgrade via \"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
-                    "cyan",
+                    fg="cyan",
                 ),
+                err=True,
             )
     elif client_server_compat == 0 and encourage_cli_upgrade:
         with contextlib.suppress(Exception):
-            print(
-                colored("💡 Upgrade cli!", "yellow"),
-                colored(
+            click.echo(
+                click.style("💡 Upgrade cli!", fg="yellow")
+                + " "
+                + click.style(
                     f"You seem to be running an old version of datahub cli: {current_version} {get_days(current_release_date)}. Latest version is {latest_version} {get_days(latest_release_date)}.\nUpgrade via \"pip install -U 'acryl-datahub'\"",
-                    "cyan",
+                    fg="cyan",
                 ),
+                err=True,
             )
     elif encourage_quickstart_upgrade:
         try:
             assert version_stats
-            print(
-                colored("💡 Upgrade available!", "yellow"),
-                colored(
+            click.echo(
+                click.style("💡 Upgrade available!", fg="yellow")
+                + " "
+                + click.style(
                     f'You seem to be running a slightly old quickstart image {get_days(version_stats.server.current.release_date)}. Run "datahub docker quickstart" to get the latest updates without losing any data!',
-                    "cyan",
+                    fg="cyan",
                 ),
-                file=sys.stderr,
+                err=True,
             )
         except Exception as e:
             log.debug(f"Failed to suggest quickstart upgrade due to {e}")
             pass
 
 
+def clip(val: float, min_val: float, max_val: float) -> float:
+    return max(min_val, min(val, max_val))
+
+
+def check_upgrade_post(
+    main_method_runtime: float,
+    graph: Optional[DataHubGraph] = None,
+) -> None:
+    # Guarantees: this method will not throw, and will not block for more than 3 seconds.
+
+    version_stats_timeout = clip(main_method_runtime / 10, 0.7, 3.0)
+    try:
+        version_stats = retrieve_version_stats(
+            timeout=version_stats_timeout, graph=graph
+        )
+        _maybe_print_upgrade_message(version_stats=version_stats)
+    except Exception as e:
+        log.debug(f"Failed to check for upgrades due to {e}")
+
+
 def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-        async def run_inner_func():
-            return func(*args, **kwargs)
+        with PerfTimer() as timer:
+            ret = func(*args, **kwargs)
 
-        async def run_func_check_upgrade():
-            version_stats_future = asyncio.ensure_future(retrieve_version_stats())
-            main_func_future = asyncio.ensure_future(run_inner_func())
-            ret = await main_func_future
+        check_upgrade_post(main_method_runtime=timer.elapsed_seconds())
 
-            # the main future has returned
-            # we check the other futures quickly
-            try:
-                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
-                maybe_print_upgrade_message(version_stats=version_stats)
-            except Exception:
-                log.debug("timed out waiting for version stats to be computed")
-
-            return ret
-
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(run_func_check_upgrade())
+        return ret
 
     return async_wrapper

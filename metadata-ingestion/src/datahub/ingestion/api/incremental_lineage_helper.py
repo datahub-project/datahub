@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Optional
 
 from pydantic.fields import Field
@@ -17,6 +18,8 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+
+logger = logging.getLogger(__name__)
 
 
 def convert_upstream_lineage_to_patch(
@@ -48,6 +51,14 @@ def convert_chart_info_to_patch(
         for inputEdge in aspect.inputEdges:
             patch_builder.add_input_edge(inputEdge)
 
+    patch_builder.set_chart_url(aspect.chartUrl).set_external_url(
+        aspect.externalUrl
+    ).set_type(aspect.type).set_title(aspect.title).set_access(
+        aspect.access
+    ).set_last_modified(aspect.lastModified).set_last_refreshed(
+        aspect.lastRefreshed
+    ).set_description(aspect.description).add_inputs(aspect.inputs)
+
     values = patch_builder.build()
     if values:
         mcp = next(iter(values))
@@ -76,8 +87,40 @@ def convert_dashboard_info_to_patch(
         for chartEdge in aspect.chartEdges:
             patch_builder.add_chart_edge(chartEdge)
 
+    if aspect.title:
+        patch_builder.set_title(aspect.title)
+
+    if aspect.description:
+        patch_builder.set_description(aspect.description)
+
+    if aspect.charts:
+        patch_builder.add_charts(aspect.charts)
+
+    if aspect.dashboardUrl:
+        patch_builder.set_dashboard_url(aspect.dashboardUrl)
+
+    if aspect.datasets:
+        patch_builder.add_datasets(aspect.datasets)
+
+    if aspect.dashboards:
+        for dashboard in aspect.dashboards:
+            patch_builder.add_dashboard(dashboard)
+
+    if aspect.access:
+        patch_builder.set_access(aspect.access)
+
+    if aspect.lastRefreshed:
+        patch_builder.set_last_refreshed(aspect.lastRefreshed)
+
+    if aspect.lastModified:
+        patch_builder.set_last_modified(last_modified=aspect.lastModified)
+
     values = patch_builder.build()
+
     if values:
+        logger.debug(
+            f"Generating patch DashboardInfo MetadataWorkUnit for dashboard {aspect.title}"
+        )
         mcp = next(iter(values))
         return MetadataWorkUnit(
             id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp

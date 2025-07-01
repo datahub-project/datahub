@@ -20,7 +20,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -75,7 +75,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     log.info("Ingesting default access policies from: {}...", _policiesResource);
 
     // 1. Read from the file into JSON.
-    final JsonNode policiesObj = mapper.readTree(_policiesResource.getFile());
+    final JsonNode policiesObj = mapper.readTree(_policiesResource.getInputStream());
 
     if (!policiesObj.isArray()) {
       throw new RuntimeException(
@@ -176,7 +176,8 @@ public class IngestPoliciesStep implements BootstrapStep {
                   entityResponse.getUrn(),
                   new DataHubPolicyInfo(aspect.getValue().data()),
                   aspectSpec,
-                  false)
+                  false,
+                  AuditStampUtils.createDefaultAuditStamp())
               .map(Objects::toString);
     } catch (Exception e) {
       log.error(
@@ -188,14 +189,11 @@ public class IngestPoliciesStep implements BootstrapStep {
       return;
     }
 
-    Optional<String> docId = SearchUtils.getDocId(entityResponse.getUrn());
-
-    if (!docId.isPresent()) {
-      return;
-    }
+    final String docId =
+        _entitySearchService.getIndexConvention().getEntityDocumentId(entityResponse.getUrn());
 
     _entitySearchService.upsertDocument(
-        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId.get());
+        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId);
   }
 
   private void ingestPolicy(
@@ -229,8 +227,8 @@ public class IngestPoliciesStep implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                systemOperationContext.getRetrieverContext().get())
-            .build(),
+                systemOperationContext.getRetrieverContext())
+            .build(systemOperationContext),
         false);
   }
 

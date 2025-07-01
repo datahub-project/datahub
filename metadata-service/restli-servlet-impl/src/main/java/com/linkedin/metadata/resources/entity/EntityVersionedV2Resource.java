@@ -18,7 +18,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -29,7 +29,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -78,24 +78,25 @@ public class EntityVersionedV2Resource
               .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet());
 
       Authentication auth = AuthenticationContext.getAuthentication();
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
+                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            _authorizer,
+            opContext,
             READ,
             urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN,
           "User is unauthorized to get entities " + versionedUrnStrs);
     }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
-                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
 
       log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
     if (versionedUrnStrs.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    return RestliUtil.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null

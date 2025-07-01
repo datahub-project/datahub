@@ -2,7 +2,6 @@ package auth.sso.oidc.custom;
 
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
-import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
@@ -18,6 +17,7 @@ import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponseParser;
+import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import java.io.IOException;
 import java.net.URI;
@@ -25,9 +25,11 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
-import org.pac4j.core.credentials.authenticator.Authenticator;
+import org.pac4j.core.credentials.Credentials;
 import org.pac4j.core.exception.TechnicalException;
 import org.pac4j.core.util.CommonHelper;
 import org.pac4j.oidc.client.OidcClient;
@@ -37,9 +39,9 @@ import org.pac4j.oidc.credentials.authenticator.OidcAuthenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
+public class CustomOidcAuthenticator extends OidcAuthenticator {
 
-  private static final Logger logger = LoggerFactory.getLogger(OidcAuthenticator.class);
+  private static final Logger logger = LoggerFactory.getLogger(CustomOidcAuthenticator.class);
 
   private static final Collection<ClientAuthenticationMethod> SUPPORTED_METHODS =
       Arrays.asList(
@@ -47,21 +49,24 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
           ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
           ClientAuthenticationMethod.NONE);
 
-  protected OidcConfiguration configuration;
-
-  protected OidcClient<OidcConfiguration> client;
-
   private final ClientAuthentication clientAuthentication;
 
-  public CustomOidcAuthenticator(final OidcClient<OidcConfiguration> client) {
-    CommonHelper.assertNotNull("configuration", client.getConfiguration());
-    CommonHelper.assertNotNull("client", client);
-    this.configuration = client.getConfiguration();
-    this.client = client;
+  public CustomOidcAuthenticator(final OidcClient client) {
+    super(client.getConfiguration(), client);
 
     // check authentication methods
-    final List<ClientAuthenticationMethod> metadataMethods =
-        configuration.findProviderMetadata().getTokenEndpointAuthMethods();
+    OIDCProviderMetadata providerMetadata;
+    try {
+      providerMetadata = loadWithRetry();
+    } catch (TechnicalException e) {
+      logger.error(
+          "Could not resolve identity provider's remote configuration from DiscoveryURI: {}",
+          configuration.getDiscoveryURI());
+      throw e;
+    }
+
+    List<ClientAuthenticationMethod> metadataMethods =
+        providerMetadata.getTokenEndpointAuthMethods();
 
     final ClientAuthenticationMethod preferredMethod =
         getPreferredAuthenticationMethod(configuration);
@@ -146,8 +151,11 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
   }
 
   @Override
-  public void validate(final OidcCredentials credentials, final WebContext context) {
-    final AuthorizationCode code = credentials.getCode();
+  public Optional<Credentials> validate(CallContext ctx, Credentials cred) {
+    OidcCredentials credentials = (OidcCredentials) cred;
+    WebContext context = ctx.webContext();
+
+    final AuthorizationCode code = credentials.toAuthorizationCode();
     // if we have a code
     if (code != null) {
       try {
@@ -156,7 +164,7 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
             (CodeVerifier)
                 configuration
                     .getValueRetriever()
-                    .retrieve(client.getCodeVerifierSessionAttributeName(), client, context)
+                    .retrieve(ctx, client.getCodeVerifierSessionAttributeName(), client)
                     .orElse(null);
         // Token request
         final TokenRequest request =
@@ -182,27 +190,49 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
 
         // save tokens in credentials
         final OIDCTokens oidcTokens = tokenSuccessResponse.getOIDCTokens();
-        credentials.setAccessToken(oidcTokens.getAccessToken());
-        credentials.setRefreshToken(oidcTokens.getRefreshToken());
-        credentials.setIdToken(oidcTokens.getIDToken());
+        credentials.setAccessTokenObject(oidcTokens.getAccessToken());
+
+        // Only set refresh token if it exists
+        if (oidcTokens.getRefreshToken() != null) {
+          credentials.setRefreshTokenObject(oidcTokens.getRefreshToken());
+        }
+
+        if (oidcTokens.getIDToken() != null) {
+          credentials.setIdToken(oidcTokens.getIDToken().getParsedString());
+        }
 
       } catch (final URISyntaxException | IOException | ParseException e) {
         throw new TechnicalException(e);
       }
     }
+
+    return Optional.ofNullable(cred);
   }
 
-  private TokenRequest createTokenRequest(final AuthorizationGrant grant) {
-    if (clientAuthentication != null) {
-      return new TokenRequest(
-          configuration.findProviderMetadata().getTokenEndpointURI(),
-          this.clientAuthentication,
-          grant);
-    } else {
-      return new TokenRequest(
-          configuration.findProviderMetadata().getTokenEndpointURI(),
-          new ClientID(configuration.getClientId()),
-          grant);
+  // Simple retry with exponential backoff
+  public OIDCProviderMetadata loadWithRetry() {
+    int maxAttempts = 3;
+    long initialDelay = 1000; // 1 second
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        OIDCProviderMetadata providerMetadata = configuration.getOpMetadataResolver().load();
+        return Objects.requireNonNull(providerMetadata);
+      } catch (RuntimeException e) {
+        if (attempt == maxAttempts) {
+          throw e; // Rethrow on final attempt
+        }
+        try {
+          // Exponential backoff
+          Thread.sleep(initialDelay * (long) Math.pow(2, attempt - 1));
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException("Retry interrupted", ie);
+        }
+        logger.warn("Retry attempt {} of {} failed", attempt, maxAttempts, e);
+      }
     }
+    throw new RuntimeException(
+        "Failed to load provider metadata after " + maxAttempts + " attempts");
   }
 }

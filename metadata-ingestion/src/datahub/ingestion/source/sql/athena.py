@@ -1,7 +1,9 @@
+import datetime
 import json
 import logging
 import re
 import typing
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
@@ -24,19 +26,23 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
@@ -45,11 +51,28 @@ from datahub.utilities.sqlalchemy_type_converter import (
     get_schema_fields_for_sqlalchemy_column,
 )
 
+try:
+    from typing_extensions import override
+except ImportError:
+    _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
+
+    def override(f: _F, /) -> _F:
+        return f
+
+
 logger = logging.getLogger(__name__)
 
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
+
+
+class AthenaProfilingConfig(GEProfilingConfig):
+    # Overriding default value for partition_profiling
+    partition_profiling_enabled: bool = pydantic.Field(
+        default=False,
+        description="Enable partition profiling. This will profile the latest partition of the table.",
+    )
 
 
 class CustomAthenaRestDialect(AthenaRestDialect):
@@ -82,9 +105,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             return "\n".join([r for r in res])
 
     @typing.no_type_check
-    def _get_column_type(
-        self, type_: Union[str, Dict[str, Any]]
-    ) -> TypeEngine:  # noqa: C901
+    def _get_column_type(self, type_: Union[str, Dict[str, Any]]) -> TypeEngine:
         """Derives the data type of the Athena column.
 
         This method is overwritten to extend the behavior of PyAthena.
@@ -171,13 +192,17 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             # To extract all of them, we simply iterate over all detected fields and
             # convert them to SQLalchemy types
             struct_args = []
-            for field in struct_type["fields"]:
+            for struct_field in struct_type["fields"]:
                 struct_args.append(
                     (
-                        field["name"],
-                        self._get_column_type(field["type"]["type"])
-                        if field["type"]["type"] not in ["record", "array"]
-                        else self._get_column_type(field["type"]),
+                        struct_field["name"],
+                        (
+                            self._get_column_type(
+                                struct_field["type"]["native_data_type"]
+                            )
+                            if struct_field["type"]["type"] not in ["record", "array"]
+                            else self._get_column_type(struct_field["type"])
+                        ),
                     )
                 )
 
@@ -189,7 +214,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             detected_col_type = MapType
 
             # the type definition for maps looks like the following: key_type:val_type (e.g., string:string)
-            key_type_raw, value_type_raw = type_meta_information.split(",")
+            key_type_raw, value_type_raw = type_meta_information.split(",", 1)
 
             # convert both type names to actual SQLalchemy types
             args = [
@@ -251,9 +276,9 @@ class AthenaConfig(SQLCommonConfig):
         "queries executed by DataHub."
     )
 
-    # overwrite default behavior of SQLAlchemyConfing
-    include_views: Optional[bool] = pydantic.Field(
-        default=True, description="Whether views should be ingested."
+    extract_partitions: bool = pydantic.Field(
+        default=True,
+        description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
     )
 
     _s3_staging_dir_population = pydantic_renamed_field(
@@ -261,6 +286,8 @@ class AthenaConfig(SQLCommonConfig):
         new_name="query_result_location",
         print_warning=True,
     )
+
+    profiling: AthenaProfilingConfig = AthenaProfilingConfig()
 
     def get_sql_alchemy_url(self):
         return make_sqlalchemy_uri(
@@ -280,6 +307,12 @@ class AthenaConfig(SQLCommonConfig):
         )
 
 
+@dataclass
+class Partitionitem:
+    partitions: List[str] = field(default_factory=list)
+    max_partition: Optional[Dict[str, str]] = None
+
+
 @platform_name("Athena")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(AthenaConfig)
@@ -290,6 +323,7 @@ class AthenaConfig(SQLCommonConfig):
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
+@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
@@ -299,9 +333,14 @@ class AthenaSource(SQLAlchemySource):
     - Profiling when enabled.
     """
 
+    config: AthenaConfig
+    report: SQLSourceReport
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None
+
+        self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -359,7 +398,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location", None)
+        location: Optional[str] = custom_properties.get("location")
         if location is not None:
             if location.startswith("s3://"):
                 location = make_s3_urn(location, self.config.env)
@@ -427,6 +466,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
     # It seems like database/schema filter in the connection string does not work and this to work around that
+    @override
     def get_schema_names(self, inspector: Inspector) -> List[str]:
         athena_config = typing.cast(AthenaConfig, self.config)
         schemas = inspector.get_schema_names()
@@ -434,29 +474,108 @@ class AthenaSource(SQLAlchemySource):
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
 
+    @classmethod
+    def _casted_partition_key(cls, key: str) -> str:
+        # We need to cast the partition keys to a VARCHAR, since otherwise
+        # Athena may throw an error during concatenation / comparison.
+        return f"CAST({key} as VARCHAR)"
+
+    @override
+    def get_partitions(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[List[str]]:
+        if not self.config.extract_partitions:
+            return None
+
+        if not self.cursor:
+            return None
+
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
+        if not partitions:
+            return []
+
+        with self.report.report_exc(
+            message="Failed to extract partition details",
+            context=f"{schema}.{table}",
+            level=StructuredLogLevel.WARN,
+        ):
+            # We create an artifical concatenated partition key to be able to query max partition easier
+            part_concat = " || '-' || ".join(
+                self._casted_partition_key(key) for key in partitions
+            )
+            max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
+            ret = self.cursor.execute(max_partition_query)
+            max_partition: Dict[str, str] = {}
+            if ret:
+                max_partitons = list(ret)
+                for idx, row in enumerate([row[0] for row in ret.description]):
+                    max_partition[row] = max_partitons[0][idx]
+            if self.table_partition_cache.get(schema) is None:
+                self.table_partition_cache[schema] = {}
+            self.table_partition_cache[schema][table] = Partitionitem(
+                partitions=partitions,
+                max_partition=max_partition,
+            )
+
+        return partitions
+
     # Overwrite to modify the creation of schema fields
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
         column: Dict,
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         fields = get_schema_fields_for_sqlalchemy_column(
             column_name=column["name"],
             column_type=column["type"],
-            description=column.get("comment", None),
+            inspector=inspector,
+            description=column.get("comment"),
             nullable=column.get("nullable", True),
-            is_part_of_key=True
-            if (
+            is_part_of_key=bool(
                 pk_constraints is not None
                 and isinstance(pk_constraints, dict)
                 and column["name"] in pk_constraints.get("constrained_columns", [])
-            )
-            else False,
+            ),
+            is_partitioning_key=bool(
+                partition_keys is not None and column["name"] in partition_keys
+            ),
         )
 
         return fields
+
+    def generate_partition_profiler_query(
+        self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if not self.config.profiling.partition_profiling_enabled:
+            return None, None
+
+        partition: Optional[Partitionitem] = self.table_partition_cache.get(
+            schema, {}
+        ).get(table, None)
+
+        if partition and partition.max_partition:
+            max_partition_filters = []
+            for key, value in partition.max_partition.items():
+                max_partition_filters.append(
+                    f"{self._casted_partition_key(key)} = '{value}'"
+                )
+            max_partition = str(partition.max_partition)
+            return (
+                max_partition,
+                f'SELECT * FROM "{schema}"."{table}" WHERE {" AND ".join(max_partition_filters)}',
+            )
+        return None, None
 
     def close(self):
         if self.cursor:

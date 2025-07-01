@@ -1,23 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components/macro';
 import { EditOutlined } from '@ant-design/icons';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import { Button, Collapse, Form, Input, Modal, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import {
-    useCreateGlossaryTermMutation,
-    useCreateGlossaryNodeMutation,
-} from '../../../../graphql/glossaryTerm.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import NodeParentSelect from './NodeParentSelect';
-import { useEntityData, useRefetch } from '../EntityContext';
-import analytics, { EventType } from '../../../analytics';
-import DescriptionModal from '../components/legacy/DescriptionModal';
-import { validateCustomUrnId } from '../../../shared/textUtil';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { getEntityPath } from '../containers/profile/utils';
+import styled from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
+import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -41,7 +40,7 @@ interface Props {
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
     const entityData = useEntityData();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
@@ -103,6 +102,22 @@ function CreateGlossaryEntityModal(props: Props) {
                         // either refresh this current glossary node or the root nodes or root terms
                         const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        if (selectedParentUrn) {
+                            const dataKey =
+                                entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
+                            const newEntityUrn = res.data[dataKey];
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: {
+                                    urn: newEntityUrn,
+                                    type: entityType,
+                                    properties: {
+                                        name: stagedName,
+                                        description: sanitizedDescription || null,
+                                    },
+                                },
+                            }));
+                        }
                     }
                     if (refetchData) {
                         refetchData();
@@ -131,7 +146,7 @@ function CreateGlossaryEntityModal(props: Props) {
     return (
         <Modal
             title={`Create ${entityRegistry.getEntityName(entityType)}`}
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

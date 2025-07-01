@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "project_name": "lkml_samples"
             },
-            "name": "lkml_samples"
+            "name": "lkml_samples",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -332,6 +333,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -353,6 +357,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -618,6 +625,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -639,6 +649,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -1656,7 +1669,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            order.region='ap-south-1'\n          GROUP BY 1",
+            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            {% condition order_region %} order.region {% endcondition %}\n          GROUP BY 1",
             "viewLanguage": "sql"
         }
     },
@@ -2819,6 +2832,38 @@
     "aspect": {
         "json": {
             "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Measurement",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Measurement"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Timestamp",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Timestamp"
         }
     },
     "systemMetadata": {

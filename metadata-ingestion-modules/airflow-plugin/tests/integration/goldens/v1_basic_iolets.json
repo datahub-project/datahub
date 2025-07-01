@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,basic_iolets,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -14,17 +14,29 @@
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "None",
+                "tags": "[]",
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
-            "name": "basic_iolets"
+            "name": "basic_iolets",
+            "env": "PROD"
         }
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,basic_iolets,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -48,7 +60,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airflow,basic_iolets,prod)",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -59,7 +71,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -71,7 +83,7 @@
                 "execution_timeout": "None",
                 "sla": "None",
                 "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
@@ -81,13 +93,25 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -103,7 +127,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)"
             ],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)"
             ],
             "fineGrainedLineages": []
         }
@@ -189,7 +213,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -213,7 +237,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -224,7 +248,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -236,7 +260,7 @@
                 "execution_timeout": "None",
                 "sla": "None",
                 "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
@@ -246,13 +270,25 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -268,7 +304,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)"
             ],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)"
             ],
             "fineGrainedLineages": []
         }
@@ -354,7 +390,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -378,7 +414,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -406,16 +442,16 @@
                 "state": "success",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "basic_iolets",
                 "task_id": "run_data_task"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1717180290951,
+                "time": 1740764956386,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -428,7 +464,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.basic_iolets,prod),run_data_task)",
             "upstreamInstances": []
         }
     }
@@ -548,10 +584,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717180290951,
+            "timestampMillis": 1740764956386,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -565,10 +601,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1717180291140,
+            "timestampMillis": 1740764956771,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {

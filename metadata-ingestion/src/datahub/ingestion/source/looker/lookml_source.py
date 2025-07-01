@@ -4,7 +4,7 @@ import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import lkml
 import lkml.simple
@@ -22,7 +22,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -30,7 +29,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.git.git_import import GitClone
-from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerExplore,
@@ -45,7 +43,11 @@ from datahub.ingestion.source.looker.looker_common import (
 from datahub.ingestion.source.looker.looker_connection import (
     get_connection_def_based_on_connection_string,
 )
+from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_template_language import (
+    load_and_preprocess_file,
+)
 from datahub.ingestion.source.looker.looker_view_id_cache import (
     LookerModel,
     LookerViewFileLoader,
@@ -56,10 +58,9 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerViewContext,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
-    _MODEL_FILE_EXTENSION,
-    VIEW_LANGUAGE_LOOKML,
-    VIEW_LANGUAGE_SQL,
+    BASE_PROJECT_NAME,
+    MODEL_FILE_EXTENSION,
+    VIEW_FILE_EXTENSION,
     LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -96,7 +97,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
-from datahub.utilities.sql_parser import SQLParser
+
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
 
 logger = logging.getLogger(__name__)
 
@@ -110,15 +113,6 @@ class LookerView:
     fields: List[ViewField]
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
-
-    @classmethod
-    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
-        assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        parser_cls = import_path(sql_parser_path)
-
-        if not issubclass(parser_cls, SQLParser):
-            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-        return parser_cls
 
     @classmethod
     def determine_view_file_path(
@@ -152,7 +146,6 @@ class LookerView:
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = view_context.name()
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -212,8 +205,7 @@ class LookerView:
         view_logic = view_context.view_file.raw_file_content[:max_file_snippet_length]
 
         if view_context.is_sql_based_derived_case():
-            view_logic = view_context.sql(transformed=False)
-            # Parse SQL to extract dependencies.
+            view_logic = view_context.sql()
             view_details = ViewProperties(
                 materialized=False,
                 viewLogic=view_logic,
@@ -263,6 +255,7 @@ class LookerManifest:
     # This must be set if the manifest has local_dependency entries.
     # See https://cloud.google.com/looker/docs/reference/param-manifest-project-name
     project_name: Optional[str]
+    constants: Optional[List[Dict[str, str]]]
 
     local_dependencies: List[str]
     remote_dependencies: List[LookerRemoteDependency]
@@ -293,23 +286,21 @@ class LookMLSource(StatefulIngestionSourceBase):
     """
 
     platform = "lookml"
-    source_config: LookMLSourceConfig
-    reporter: LookMLSourceReport
-    looker_client: Optional[LookerAPI] = None
-
-    # This is populated during the git clone step.
-    base_projects_folder: Dict[str, pathlib.Path] = {}
-    remote_projects_git_info: Dict[str, GitInfo] = {}
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
+        self.source_config: LookMLSourceConfig = config
         self.ctx = ctx
         self.reporter = LookMLSourceReport()
 
         # To keep track of projects (containers) which have already been ingested
         self.processed_projects: List[str] = []
 
+        # This is populated during the git clone step.
+        self.base_projects_folder: Dict[str, pathlib.Path] = {}
+        self.remote_projects_git_info: Dict[str, GitInfo] = {}
+
+        self.looker_client: Optional[LookerAPI] = None
         if self.source_config.api:
             self.looker_client = LookerAPI(self.source_config.api)
             self.reporter._looker_api = self.looker_client
@@ -321,15 +312,24 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
+        self.manifest_constants: Dict[str, "LookerConstant"] = {}
+
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
-        parsed = load_lkml(path)
+
+        parsed = load_and_preprocess_file(
+            path=path,
+            reporter=self.reporter,
+            source_config=self.source_config,
+        )
+
         looker_model = LookerModel.from_looker_dict(
             parsed,
-            _BASE_PROJECT_NAME,
+            BASE_PROJECT_NAME,
             self.source_config.project_name,
             self.base_projects_folder,
             path,
+            self.source_config,
             self.reporter,
         )
         return looker_model
@@ -423,7 +423,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
-
         view_urn = looker_view.id.get_urn(self.source_config)
 
         subTypeEvent = MetadataChangeProposalWrapper(
@@ -489,41 +488,55 @@ class LookMLSource(StatefulIngestionSourceBase):
         if self.source_config.project_name is not None:
             return self.source_config.project_name
 
-        assert (
-            self.looker_client is not None
-        ), "Failed to find a configured Looker API client"
+        assert self.looker_client is not None, (
+            "Failed to find a configured Looker API client"
+        )
         try:
             model = self.looker_client.lookml_model(model_name, fields="project_name")
-            assert (
-                model.project_name is not None
-            ), f"Failed to find a project name for model {model_name}"
+            assert model.project_name is not None, (
+                f"Failed to find a project name for model {model_name}"
+            )
             return model.project_name
-        except SDKError:
+        except SDKError as e:
+            self.reporter.failure(
+                title="Failed to find a project name for model",
+                message="Consider configuring a static project name in your config file",
+                context=str(dict(model_name=model_name)),
+                exc=e,
+            )
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
                 f"in your config file"
-            )
+            ) from None
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
-        if manifest_file.exists():
-            manifest_dict = load_lkml(manifest_file)
 
-            manifest = LookerManifest(
-                project_name=manifest_dict.get("project_name"),
-                local_dependencies=[
-                    x["project"] for x in manifest_dict.get("local_dependencys", [])
-                ],
-                remote_dependencies=[
-                    LookerRemoteDependency(
-                        name=x["name"], url=x["url"], ref=x.get("ref")
-                    )
-                    for x in manifest_dict.get("remote_dependencys", [])
-                ],
+        if not manifest_file.exists():
+            self.reporter.info(
+                message="manifest.lkml file missing from project",
+                context=str(manifest_file),
             )
-            return manifest
-        else:
             return None
+
+        manifest_dict = load_and_preprocess_file(
+            path=manifest_file,
+            source_config=self.source_config,
+            reporter=self.reporter,
+        )
+
+        manifest = LookerManifest(
+            project_name=manifest_dict.get("project_name"),
+            constants=manifest_dict.get("constants", []),
+            local_dependencies=[
+                x["project"] for x in manifest_dict.get("local_dependencys", [])
+            ],
+            remote_dependencies=[
+                LookerRemoteDependency(name=x["name"], url=x["url"], ref=x.get("ref"))
+                for x in manifest_dict.get("remote_dependencys", [])
+            ],
+        )
+        return manifest
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -546,9 +559,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
 
-            self.base_projects_folder[
-                _BASE_PROJECT_NAME
-            ] = self.source_config.base_folder
+            self.base_projects_folder[BASE_PROJECT_NAME] = (
+                self.source_config.base_folder
+            )
 
             visited_projects: Set[str] = set()
 
@@ -579,7 +592,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, _BASE_PROJECT_NAME, visited_projects
+                tmp_dir,
+                BASE_PROJECT_NAME,
+                visited_projects,
+                self.manifest_constants,
             )
 
             yield from self.get_internal_workunits()
@@ -592,7 +608,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _recursively_check_manifests(
-        self, tmp_dir: str, project_name: str, project_visited: Set[str]
+        self,
+        tmp_dir: str,
+        project_name: str,
+        project_visited: Set[str],
+        manifest_constants: Dict[str, "LookerConstant"],
     ) -> None:
         if project_name in project_visited:
             return
@@ -609,8 +629,16 @@ class LookMLSource(StatefulIngestionSourceBase):
         if not manifest:
             return
 
+        if manifest.constants:
+            for constant in manifest.constants:
+                if constant.get("name") and constant.get("value"):
+                    manifest_constants[constant["name"]] = LookerConstant(
+                        name=constant["name"],
+                        value=constant["value"],
+                    )
+
         # Special case handling if the root project has a name in the manifest file.
-        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+        if project_name == BASE_PROJECT_NAME and manifest.project_name:
             if (
                 self.source_config.project_name is not None
                 and manifest.project_name != self.source_config.project_name
@@ -646,9 +674,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     repo_url=remote_project.url,
                 )
 
-                self.base_projects_folder[
-                    remote_project.name
-                ] = p_checkout_dir.resolve()
+                self.base_projects_folder[remote_project.name] = (
+                    p_checkout_dir.resolve()
+                )
                 repo = p_cloner.get_last_repo_cloned()
                 assert repo
                 remote_git_info = GitInfo(
@@ -668,21 +696,27 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_visited.add(project_name)
             else:
                 self._recursively_check_manifests(
-                    tmp_dir, remote_project.name, project_visited
+                    tmp_dir,
+                    remote_project.name,
+                    project_visited,
+                    manifest_constants,
                 )
 
         for project in manifest.local_dependencies:
-            self._recursively_check_manifests(tmp_dir, project, project_visited)
+            self._recursively_check_manifests(
+                tmp_dir, project, project_visited, manifest_constants
+            )
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
-
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
-            self.source_config.liquid_variable,
+            self.source_config,
+            self.manifest_constants,
         )
+        logger.debug(f"LookML Constants : {', '.join(self.manifest_constants.keys())}")
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
 
@@ -699,7 +733,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
-            self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}")
+            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}")
         )
         model_suffix_len = len(".model")
 
@@ -835,7 +869,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                             current_project_name: str = (
                                 include.project
-                                if include.project != _BASE_PROJECT_NAME
+                                if include.project != BASE_PROJECT_NAME
                                 else project_name
                             )
 
@@ -844,7 +878,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             base_folder_path: str = str(
                                 self.base_projects_folder.get(
                                     current_project_name,
-                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                    self.base_projects_folder[BASE_PROJECT_NAME],
                                 )
                             )
 
@@ -889,6 +923,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_urn = maybe_looker_view.id.get_urn(
                                     self.source_config
                                 )
+
                                 view_connection_mapping = view_connection_map.get(
                                     view_urn
                                 )
@@ -935,9 +970,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         logger.warning(
                                             f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables"
                                         )
-                                        if (
-                                            not self.source_config.emit_reachable_views_only
-                                        ):
+                                        if not self.source_config.emit_reachable_views_only:
                                             logger.warning(
                                                 "Consider enabling the `emit_reachable_views_only` flag to handle this case."
                                             )
@@ -945,6 +978,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 self.reporter.report_views_dropped(
                                     str(maybe_looker_view.id)
                                 )
+
+        if not self.source_config.emit_reachable_views_only:
+            self.report_skipped_unreachable_views(viewfile_loader, processed_view_map)
 
         if (
             self.source_config.tag_measures_and_dimensions
@@ -972,6 +1008,58 @@ class LookMLSource(StatefulIngestionSourceBase):
                 path=[BrowsePathEntryClass("Folders")],
             ),
         ).as_workunit()
+
+    def report_skipped_unreachable_views(
+        self,
+        viewfile_loader: LookerViewFileLoader,
+        processed_view_map: Optional[Dict[str, Set[str]]] = None,
+    ) -> None:
+        processed_view_map = processed_view_map or {}
+        view_files: Dict[str, List[pathlib.Path]] = {}
+        for project, folder_path in self.base_projects_folder.items():
+            folder = pathlib.Path(folder_path)
+            view_files[project] = list(folder.glob(f"**/*{VIEW_FILE_EXTENSION}"))
+
+        skipped_view_paths: Dict[str, List[str]] = {}
+        for project, views in view_files.items():
+            skipped_paths: Set[str] = set()
+
+            for view_path in views:
+                # Check if the view is already in processed_view_map
+                if not any(
+                    str(view_path) in view_set
+                    for view_set in processed_view_map.values()
+                ):
+                    looker_viewfile = viewfile_loader.load_viewfile(
+                        path=str(view_path),
+                        project_name=project,
+                        connection=None,
+                        reporter=self.reporter,
+                    )
+
+                    if looker_viewfile is not None:
+                        for raw_view in looker_viewfile.views:
+                            raw_view_name = raw_view.get("name", "")
+
+                            if (
+                                raw_view_name
+                                and self.source_config.view_pattern.allowed(
+                                    raw_view_name
+                                )
+                            ):
+                                skipped_paths.add(str(view_path))
+
+            skipped_view_paths[project] = list(skipped_paths)
+
+        for project, view_paths in skipped_view_paths.items():
+            for path in view_paths:
+                self.reporter.report_warning(
+                    title="Skipped View File",
+                    message=(
+                        "The Looker view file was skipped because it may not be referenced by any models."
+                    ),
+                    context=(f"Project: {project}, View File Path: {path}"),
+                )
 
     def get_report(self):
         return self.reporter

@@ -1,9 +1,11 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataPlatform, Entity, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { DataPlatform, Entity, EntityType } from '@types';
 
 type Props = {
     onCloseModal: () => void;
@@ -137,7 +139,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
     return (
         <Modal
             title={titleOverride || 'Select Platform'}
-            visible
+            open
             onCancel={onModalClose}
             footer={
                 <>

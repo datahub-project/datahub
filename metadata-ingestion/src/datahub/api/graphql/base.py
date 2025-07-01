@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from gql import Client
 from gql.transport.requests import RequestsHTTPTransport
@@ -23,9 +23,11 @@ class BaseApi:
             # Select your transport with a defined url endpoint
             self.transport = RequestsHTTPTransport(
                 url=datahub_host + "/api/graphql",
-                headers={"Authorization": "Bearer " + datahub_token}
-                if datahub_token is not None
-                else None,
+                headers=(
+                    {"Authorization": "Bearer " + datahub_token}
+                    if datahub_token is not None
+                    else None
+                ),
                 method="POST",
                 timeout=timeout,
             )
@@ -37,16 +39,18 @@ class BaseApi:
 
     def gen_filter(
         self, filters: Dict[str, Optional[str]]
-    ) -> Optional[Dict[str, List[Dict[str, str]]]]:
-        filter_expression: Optional[Dict[str, List[Dict[str, str]]]] = None
+    ) -> Optional[Dict[str, List[Dict[str, Union[str, List[str]]]]]]:
+        filter_expression: Optional[
+            Dict[str, List[Dict[str, Union[str, List[str]]]]]
+        ] = None
         if not filters:
             return None
 
-        filter = []
+        filter_list: List[Dict[str, Union[str, List[str]]]] = []
         for key, value in filters.items():
             if value is None:
                 continue
-            filter.append({"field": key, "value": value})
+            filter_list.append({"field": key, "values": [value]})
 
-        filter_expression = {"and": filter}
+        filter_expression = {"and": filter_list}
         return filter_expression

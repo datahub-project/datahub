@@ -5,22 +5,27 @@ import pathlib
 import pprint
 import shutil
 import tempfile
-from typing import Dict, List, Optional, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
 import click
 
-from datahub import __package_name__
+from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
 from datahub.configuration import config_loader
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.telemetry import telemetry
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +73,7 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
                         "config": {"filename": out_file.name},
                     },
                 },
-                no_default_report=True,
+                report_to=None,
             )
 
             pipeline.run()
@@ -188,8 +193,12 @@ def sql_format(sql: str, platform: str) -> None:
 @click.option(
     "--sql",
     type=str,
-    required=True,
     help="The SQL query to parse",
+)
+@click.option(
+    "--sql-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="The SQL file to parse",
 )
 @click.option(
     "--platform",
@@ -218,25 +227,44 @@ def sql_format(sql: str, platform: str) -> None:
     type=str,
     help="The default schema to use for unqualified table names",
 )
+@click.option(
+    "--online/--offline",
+    type=bool,
+    is_flag=True,
+    default=True,
+    help="Run in offline mode and disable schema-aware parsing.",
+)
 @telemetry.with_telemetry()
 def sql_lineage(
-    sql: str,
+    sql: Optional[str],
+    sql_file: Optional[str],
     platform: str,
     default_db: Optional[str],
     default_schema: Optional[str],
     platform_instance: Optional[str],
     env: str,
+    online: bool,
 ) -> None:
     """Parse the lineage of a SQL query.
 
-    This performs schema-aware parsing in order to generate column-level lineage.
-    If the relevant tables are not in DataHub, this will be less accurate.
+    In online mode (the default), we perform schema-aware parsing in order to generate column-level lineage.
+    If offline mode is enabled or if the relevant tables are not in DataHub, this will be less accurate.
     """
 
-    graph = get_default_graph()
+    from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
-    lineage = graph.parse_sql_lineage(
+    if sql is None:
+        if sql_file is None:
+            raise click.UsageError("Either --sql or --sql-file must be provided")
+        sql = pathlib.Path(sql_file).read_text()
+
+    graph = None
+    if online:
+        graph = get_default_graph(ClientMode.CLI)
+
+    lineage = create_lineage_sql_parsed_result(
         sql,
+        graph=graph,
         platform=platform,
         platform_instance=platform_instance,
         env=env,
@@ -245,7 +273,9 @@ def sql_lineage(
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
-    if lineage.debug_info.error:
+    if lineage.debug_info.table_error:
+        raise lineage.debug_info.table_error
+    elif lineage.debug_info.error:
         logger.debug("Sql parsing error details", exc_info=lineage.debug_info.error)
 
     click.echo(lineage.json(indent=4))
@@ -366,26 +396,112 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
         raise e
 
 
+def _jsonify(data: Any) -> Any:
+    if dataclasses.is_dataclass(data):
+        # dataclasses.asdict() is recursive. We're doing the recursion
+        # manually here via _jsonify calls, so we can't use
+        # dataclasses.asdict() here.
+        return {
+            f.name: _jsonify(getattr(data, f.name)) for f in dataclasses.fields(data)
+        }
+    elif isinstance(data, list):
+        return [_jsonify(item) for item in data]
+    elif isinstance(data, dict):
+        return {_jsonify(k): _jsonify(v) for k, v in data.items()}
+    elif isinstance(data, datetime):
+        return data.isoformat()
+    else:
+        return data
+
+
 @check.command()
-@click.argument("query-log-file", type=click.Path(exists=True, dir_okay=False))
-@click.option("--output", type=click.Path())
-def extract_sql_agg_log(query_log_file: str, output: Optional[str]) -> None:
+@click.argument("db-file", type=click.Path(exists=True, dir_okay=False))
+def extract_sql_agg_log(db_file: str) -> None:
     """Convert a sqlite db generated by the SqlParsingAggregator into a JSON."""
 
-    from datahub.sql_parsing.sql_parsing_aggregator import LoggedQuery
+    if pathlib.Path(db_file).suffix != ".db":
+        raise click.UsageError("DB file must be a sqlite db")
 
-    assert dataclasses.is_dataclass(LoggedQuery)
+    output_dir = pathlib.Path(db_file).with_suffix("")
+    output_dir.mkdir(exist_ok=True)
 
-    shared_connection = ConnectionWrapper(pathlib.Path(query_log_file))
-    query_log = FileBackedList[LoggedQuery](
-        shared_connection=shared_connection, tablename="stored_queries"
+    shared_connection = ConnectionWrapper(pathlib.Path(db_file))
+
+    tables: List[str] = [
+        row[0]
+        for row in shared_connection.execute(
+            """\
+SELECT
+    name
+FROM
+    sqlite_schema
+WHERE
+    type ='table' AND
+    name NOT LIKE 'sqlite_%';
+""",
+            parameters={},
+        )
+    ]
+    logger.info(f"Extracting {len(tables)} tables from {db_file}: {tables}")
+
+    for table in tables:
+        table_output_path = output_dir / f"{table}.json"
+        if table_output_path.exists():
+            logger.info(f"Skipping {table_output_path} because it already exists")
+            continue
+
+        # Some of the tables might actually be FileBackedList. Because
+        # the list is built on top of the FileBackedDict, we don't
+        # need to distinguish between the two cases.
+
+        table_data: FileBackedDict[Any] = FileBackedDict(
+            shared_connection=shared_connection, tablename=table
+        )
+
+        data = {}
+        with click.progressbar(
+            table_data.items(), length=len(table_data), label=f"Extracting {table}"
+        ) as items:
+            for k, v in items:
+                data[k] = _jsonify(v)
+
+        with open(table_output_path, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+        logger.info(f"Extracted {len(data)} entries to {table_output_path}")
+
+
+@check.command()
+def server_config() -> None:
+    """Print the server config."""
+    graph = get_default_graph(ClientMode.CLI)
+
+    server_config = graph.get_server_config()
+
+    click.echo(pprint.pformat(server_config))
+
+
+@check.command()
+@click.option(
+    "--urn", required=True, help="The urn or urn pattern (supports % for wildcard)"
+)
+@click.option("--aspect", default=None, help="Filter to a specific aspect name.")
+@click.option(
+    "--start", type=int, default=None, help="Row number of sql store to restore from."
+)
+@click.option("--batch-size", type=int, default=None, help="How many rows to restore.")
+def restore_indices(
+    urn: str,
+    aspect: Optional[str],
+    start: Optional[int],
+    batch_size: Optional[int],
+) -> None:
+    """Resync metadata changes into the search and graph indices."""
+    graph = get_default_graph(ClientMode.CLI)
+
+    result = graph.restore_indices(
+        urn_pattern=urn,
+        aspect=aspect,
+        start=start,
+        batch_size=batch_size,
     )
-    logger.info(f"Extracting {len(query_log)} queries from {query_log_file}")
-    queries = [dataclasses.asdict(query) for query in query_log]
-
-    if output:
-        with open(output, "w") as f:
-            json.dump(queries, f, indent=2, default=str)
-        logger.info(f"Extracted {len(queries)} queries to {output}")
-    else:
-        click.echo(json.dumps(queries, indent=2))
+    click.echo(result)

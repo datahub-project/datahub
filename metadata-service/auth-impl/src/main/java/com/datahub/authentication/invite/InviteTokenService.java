@@ -2,6 +2,7 @@ package com.datahub.authentication.invite;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -117,10 +118,7 @@ public class InviteTokenService {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion roleCriterion = new Criterion();
-    roleCriterion.setField(HAS_ROLE_FIELD_NAME);
-    roleCriterion.setValue("false");
-    roleCriterion.setCondition(Condition.EQUAL);
+    final Criterion roleCriterion = buildCriterion(HAS_ROLE_FIELD_NAME, Condition.EQUAL, "false");
 
     andCriterion.add(roleCriterion);
     conjunction.setAnd(andCriterion);
@@ -136,10 +134,7 @@ public class InviteTokenService {
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
     final CriterionArray andCriterion = new CriterionArray();
 
-    final Criterion roleCriterion = new Criterion();
-    roleCriterion.setField(ROLE_FIELD_NAME);
-    roleCriterion.setValue(roleUrnStr);
-    roleCriterion.setCondition(Condition.EQUAL);
+    final Criterion roleCriterion = buildCriterion(ROLE_FIELD_NAME, Condition.EQUAL, roleUrnStr);
 
     andCriterion.add(roleCriterion);
     conjunction.setAnd(andCriterion);

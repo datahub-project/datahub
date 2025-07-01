@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -97,7 +98,7 @@ public class GMSQualificationStep implements UpgradeStep {
                 StreamReadConstraints.builder().maxStringLength(maxSize).build());
         JsonNode configJson = mapper.readTree(responseString);
         if (isEligible((ObjectNode) configJson)) {
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } else {
           context
               .report()
@@ -105,7 +106,7 @@ public class GMSQualificationStep implements UpgradeStep {
                   String.format(
                       "Failed to qualify GMS. It is not running on the latest version."
                           + "Re-run GMS on the latest datahub release"));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
       } catch (Exception e) {
         e.printStackTrace();
@@ -117,7 +118,7 @@ public class GMSQualificationStep implements UpgradeStep {
                         + "at %s://host %s port %s. Make sure GMS is on the latest version "
                         + "and is running at that host before starting the migration.",
                     gmsProtocol, gmsHost, gmsPort));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
   }

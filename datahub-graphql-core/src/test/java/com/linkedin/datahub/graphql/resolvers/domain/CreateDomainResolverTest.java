@@ -53,7 +53,7 @@ public class CreateDomainResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
@@ -103,7 +103,7 @@ public class CreateDomainResolverTest {
   @Test
   public void testGetSuccessNoParentDomain() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
@@ -146,7 +146,7 @@ public class CreateDomainResolverTest {
   @Test
   public void testGetInvalidParent() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
@@ -164,7 +164,7 @@ public class CreateDomainResolverTest {
   @Test
   public void testGetNameConflict() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_DOMAIN_URN))).thenReturn(false);
@@ -218,7 +218,7 @@ public class CreateDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
@@ -235,7 +235,7 @@ public class CreateDomainResolverTest {
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .ingestProposal(any(), Mockito.any(), Mockito.eq(false));

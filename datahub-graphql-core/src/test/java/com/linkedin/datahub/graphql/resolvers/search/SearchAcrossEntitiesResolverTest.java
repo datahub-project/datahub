@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 
 import com.google.common.collect.ImmutableList;
@@ -21,7 +22,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -57,10 +57,7 @@ public class SearchAcrossEntitiesResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("field")
-                                        .setValue("test")
-                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
+                                    buildCriterion("field", Condition.EQUAL, "test"))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");
@@ -135,10 +132,7 @@ public class SearchAcrossEntitiesResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("field")
-                                        .setValue("test")
-                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
+                                    buildCriterion("field", Condition.EQUAL, "test"))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");
@@ -163,13 +157,7 @@ public class SearchAcrossEntitiesResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("baseField.keyword")
-                                        .setValue("baseTest")
-                                        .setCondition(Condition.EQUAL)
-                                        .setNegated(false)
-                                        .setValues(
-                                            new StringArray(ImmutableList.of("baseTest"))))))));
+                                    buildCriterion("baseField", Condition.EQUAL, "baseTest"))))));
 
     EntityClient mockClient =
         initMockEntityClient(
@@ -236,10 +224,7 @@ public class SearchAcrossEntitiesResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("field")
-                                        .setValue("test")
-                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
+                                    buildCriterion("field", Condition.EQUAL, "test"))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");
@@ -306,10 +291,7 @@ public class SearchAcrossEntitiesResolverTest {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("field")
-                                        .setValue("test")
-                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
+                                    buildCriterion("field", Condition.EQUAL, "test"))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");
@@ -437,8 +419,8 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
-                Mockito.eq(null),
-                Mockito.eq(null)))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(Collections.emptyList())))
         .thenThrow(new RemoteInvocationException());
 
     final SearchAcrossEntitiesResolver resolver =
@@ -480,11 +462,16 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.when(
             client.searchAcrossEntities(
                 any(),
-                Mockito.eq(entityTypes),
+                Mockito.argThat(
+                    argument ->
+                        argument != null
+                            && argument.containsAll(entityTypes)
+                            && entityTypes.containsAll(argument)),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenReturn(result);
     return client;
@@ -501,11 +488,16 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.verify(mockClient, Mockito.times(1))
         .searchAcrossEntities(
             any(),
-            Mockito.eq(entityTypes),
+            Mockito.argThat(
+                argument ->
+                    argument != null
+                        && argument.containsAll(entityTypes)
+                        && entityTypes.containsAll(argument)),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
+            Mockito.eq(Collections.emptyList()),
             Mockito.eq(null));
   }
 

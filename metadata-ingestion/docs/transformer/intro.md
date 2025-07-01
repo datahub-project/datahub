@@ -23,9 +23,12 @@ For example, adding a domain urn in your transformer to apply to datasets will n
 Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: tags, glossary terms, properties and ownership information.
 
 DataHub provided transformers for dataset are:
+
 - [Simple Add Dataset ownership](./dataset_transformer.md#simple-add-dataset-ownership)
 - [Pattern Add Dataset ownership](./dataset_transformer.md#pattern-add-dataset-ownership)
 - [Simple Remove Dataset ownership](./dataset_transformer.md#simple-remove-dataset-ownership)
+- [Extract Ownership from Tags](./dataset_transformer.md#extract-ownership-from-tags)
+- [Clean suffix prefix from Ownership](./dataset_transformer.md#clean-suffix-prefix-from-ownership)
 - [Mark Dataset Status](./dataset_transformer.md#mark-dataset-status)
 - [Simple Add Dataset globalTags](./dataset_transformer.md#simple-add-dataset-globaltags)
 - [Pattern Add Dataset globalTags](./dataset_transformer.md#pattern-add-dataset-globaltags)
@@ -33,9 +36,14 @@ DataHub provided transformers for dataset are:
 - [Set Dataset browsePath](./dataset_transformer.md#set-dataset-browsepath)
 - [Simple Add Dataset glossaryTerms](./dataset_transformer.md#simple-add-dataset-glossaryterms)
 - [Pattern Add Dataset glossaryTerms](./dataset_transformer.md#pattern-add-dataset-glossaryterms)
+- [Add Dataset globalTags](./dataset_transformer.md#add-dataset-globaltags)
 - [Pattern Add Dataset Schema Field glossaryTerms](./dataset_transformer.md#pattern-add-dataset-schema-field-glossaryterms)
 - [Pattern Add Dataset Schema Field globalTags](./dataset_transformer.md#pattern-add-dataset-schema-field-globaltags)
 - [Simple Add Dataset datasetProperties](./dataset_transformer.md#simple-add-dataset-datasetproperties)
 - [Add Dataset datasetProperties](./dataset_transformer.md#add-dataset-datasetproperties)
 - [Simple Add Dataset domains](./dataset_transformer.md#simple-add-dataset-domains)
 - [Pattern Add Dataset domains](./dataset_transformer.md#pattern-add-dataset-domains)
+- [Domain Mapping Based on Tags](./dataset_transformer.md#domain-mapping-based-on-tags)
+- [Simple Add Dataset dataProduct ](./dataset_transformer.md#simple-add-dataset-dataproduct)
+- [Pattern Add Dataset dataProduct](./dataset_transformer.md#pattern-add-dataset-dataproduct)
+- [Add Dataset dataProduct](./dataset_transformer.md#add-dataset-dataproduct)

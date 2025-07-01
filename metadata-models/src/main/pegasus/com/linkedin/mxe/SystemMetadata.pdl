@@ -3,6 +3,9 @@ namespace com.linkedin.mxe
 /**
  * Metadata associated with each metadata change that is processed by the system
  */
+ @Aspect = {
+   "name": "systemMetadata"
+ }
 record SystemMetadata {
   /**
   * The timestamp the metadata was observed at
@@ -38,4 +41,11 @@ record SystemMetadata {
   * Additional properties
   */
   properties: optional map[string, string]
+
+  /**
+  * Aspect version
+  *    Initial implementation will use the aspect version's number, however stored as
+  *    a string in the case where a different aspect versioning scheme is later adopted.
+  */
+  version: optional string
 }

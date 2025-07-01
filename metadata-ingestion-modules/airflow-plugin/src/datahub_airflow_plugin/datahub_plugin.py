@@ -9,26 +9,30 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_LISTENER_API,
     NEEDS_AIRFLOW_LISTENER_MODULE,
 )
+from datahub_airflow_plugin._version import __package_name__
 
 assert AIRFLOW_PATCHED
 logger = logging.getLogger(__name__)
 
 
-_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and not os.getenv(
+_USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and os.getenv(
     "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false"
-).lower() in ("true", "1")
+).lower() not in ("true", "1")
 
 if _USE_AIRFLOW_LISTENER_INTERFACE:
     try:
         from openlineage.airflow.utils import try_import_from_string  # noqa: F401
     except ImportError:
         # If v2 plugin dependencies are not installed, we fall back to v1.
-        logger.debug("Falling back to v1 plugin due to missing dependencies.")
+        logger.warning(
+            "Falling back to the v1 DataHub plugin due to missing dependencies. "
+            f"Please install {__package_name__}[plugin-v2] to fix this."
+        )
         _USE_AIRFLOW_LISTENER_INTERFACE = False
 
 
 with contextlib.suppress(Exception):
-    if not os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() in (
+    if os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() not in (
         "true",
         "1",
     ):

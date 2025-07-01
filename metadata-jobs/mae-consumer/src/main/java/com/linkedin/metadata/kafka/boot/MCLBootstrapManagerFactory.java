@@ -11,7 +11,6 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -26,9 +25,6 @@ public class MCLBootstrapManagerFactory {
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
   @Autowired private ConfigurationProvider _configurationProvider;
-
-  @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
-  private Boolean _upgradeDefaultBrowsePathsEnabled;
 
   @Bean(name = "mclBootstrapManager")
   @Scope("singleton")

@@ -2,9 +2,7 @@ package com.linkedin.metadata.search.utils;
 
 import static com.datahub.authorization.AuthUtil.VIEW_RESTRICTED_ENTITY_TYPES;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -40,8 +38,6 @@ public class ESAccessControlUtil {
       final EntityRegistry entityRegistry = Objects.requireNonNull(opContext.getEntityRegistry());
       final RestrictedService restrictedService =
           Objects.requireNonNull(opContext.getServicesRegistryContext()).getRestrictedService();
-      final Authentication auth = opContext.getSessionActorContext().getAuthentication();
-      final Authorizer authorizer = opContext.getAuthorizerContext().getAuthorizer();
 
       if (opContext.getSearchContext().isRestrictedSearch()) {
         for (SearchEntity searchEntity : searchEntities) {
@@ -50,8 +46,7 @@ public class ESAccessControlUtil {
               entityRegistry.getEntitySpec(entityType);
 
           if (VIEW_RESTRICTED_ENTITY_TYPES.contains(entityType)
-              && !AuthUtil.canViewEntity(
-                  auth.getActor().toUrnStr(), authorizer, searchEntity.getEntity())) {
+              && !AuthUtil.canViewEntity(opContext, searchEntity.getEntity())) {
 
             // Not authorized && restricted response requested
             if (opContext.getSearchContext().isRestrictedSearch()) {
@@ -72,9 +67,7 @@ public class ESAccessControlUtil {
   public static boolean restrictUrn(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
         && !opContext.isSystemAuth()) {
-      final Authentication auth = opContext.getSessionActorContext().getAuthentication();
-      final Authorizer authorizer = opContext.getAuthorizerContext().getAuthorizer();
-      return !AuthUtil.canViewEntity(auth.getActor().toUrnStr(), authorizer, urn);
+      return !AuthUtil.canViewEntity(opContext, urn);
     }
     return false;
   }

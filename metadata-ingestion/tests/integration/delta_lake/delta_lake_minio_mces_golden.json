@@ -12,12 +12,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "3",
                             "partition_columns": "[]",
                             "table_creation_time": "1655664813952",
                             "id": "eca9d2a0-4ce6-4ace-a732-75fda0157fb8",
                             "version": "0",
-                            "location": "s3://my-test-bucket/delta_tables/sales"
+                            "location": "s3://my-test-bucket/delta_tables/sales",
+                            "number_of_files": "3"
                         },
                         "name": "my_table",
                         "description": "my table description",
@@ -54,8 +54,7 @@
                                 },
                                 "nativeDataType": "float",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].day",
@@ -67,8 +66,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -80,8 +78,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].year",
@@ -93,8 +90,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].customer",
@@ -106,8 +102,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].sale_id",
@@ -119,8 +114,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -146,7 +140,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -225,6 +220,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -233,7 +244,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/delta_tables"
             },
-            "name": "delta_tables"
+            "name": "delta_tables",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -284,22 +296,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1672531200000,
-        "runId": "delta-lake-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
         }
     },
     "systemMetadata": {
@@ -354,8 +350,8 @@
         "json": {
             "timestampMillis": 1672531200000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "CONVERT",
@@ -400,60 +396,20 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1672531200000,
-        "runId": "delta-lake-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
-                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1672531200000,
-        "runId": "delta-lake-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
-                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
-                },
-                {
-                    "id": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
-                    "urn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947"
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655664815399
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,

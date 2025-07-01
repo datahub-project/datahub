@@ -1,12 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils.isAuthorizedToEditBusinessAttribute;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
@@ -22,6 +26,8 @@ import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -60,11 +66,7 @@ public class BusinessAttributeUtils {
   }
 
   private static CriterionArray buildNameCriterion(@Nonnull final String name) {
-    return new CriterionArray(
-        new Criterion()
-            .setField(NAME_INDEX_FIELD_NAME)
-            .setValue(name)
-            .setCondition(Condition.EQUAL));
+    return new CriterionArray(buildCriterion(NAME_INDEX_FIELD_NAME, Condition.EQUAL, name));
   }
 
   public static SchemaFieldDataType mapSchemaFieldDataType(
@@ -106,6 +108,16 @@ public class BusinessAttributeUtils {
         return schemaFieldDataType;
       default:
         return null;
+    }
+  }
+
+  public static void validateInputResources(List<ResourceRefInput> resources, QueryContext context)
+      throws URISyntaxException {
+    for (ResourceRefInput resource : resources) {
+      if (!isAuthorizedToEditBusinessAttribute(context, resource.getResourceUrn())) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
   }
 }

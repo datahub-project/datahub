@@ -35,4 +35,9 @@ record SearchEntity {
    * If the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.
    */
   restrictedAspects: optional array[string]
+
+   /**
+    * Extra fields from the search document based on what is requested in the search request
+    */
+   extraFields: optional map[string, string]
 }

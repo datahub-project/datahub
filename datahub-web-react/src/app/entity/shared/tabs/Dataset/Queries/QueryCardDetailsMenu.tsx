@@ -1,9 +1,12 @@
+import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import { Dropdown, Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+
+import { useDeleteQueryMutation } from '@graphql/query.generated';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;
@@ -52,17 +55,19 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
         });
     };
 
+    const items = [
+        {
+            key: 0,
+            label: (
+                <MenuItemStyle onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
+                    <DeleteOutlined /> &nbsp; Delete
+                </MenuItemStyle>
+            ),
+        },
+    ];
+
     return (
-        <Dropdown
-            overlay={
-                <Menu>
-                    <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
-                        <DeleteOutlined /> &nbsp; Delete
-                    </Menu.Item>
-                </Menu>
-            }
-            trigger={['click']}
-        >
+        <Dropdown menu={{ items }} trigger={['click']}>
             <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
         </Dropdown>
     );

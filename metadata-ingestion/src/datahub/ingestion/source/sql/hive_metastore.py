@@ -2,15 +2,12 @@ import base64
 import json
 import logging
 from collections import namedtuple
-from enum import Enum
-from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
-from pyhive import hive  # noqa: F401
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
@@ -39,7 +36,6 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
-    make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -49,6 +45,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -60,18 +57,20 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
-class HiveMetastoreConfigMode(str, Enum):
-    hive: str = "hive"  # noqa: F811
-    presto: str = "presto"
-    presto_on_hive: str = "presto-on-hive"
-    trino: str = "trino"
+class HiveMetastoreConfigMode(StrEnum):
+    hive = "hive"
+    presto = "presto"
+    presto_on_hive = "presto-on-hive"
+    trino = "trino"
 
 
 @dataclass
@@ -124,6 +123,10 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
+    include_view_lineage: bool = Field(
+        default=False, description="", hidden_from_docs=True
+    )
+
     include_catalog_name_in_ids: bool = Field(
         default=False,
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
@@ -158,9 +161,14 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
+@capability(
+    SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
 class HiveMetastoreSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -484,7 +492,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
 
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -521,7 +529,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
 
             # add table schema fields
-            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
 
             self._set_partition_key(columns, schema_fields)
 
@@ -641,7 +649,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         )
 
         iter_res = self._alchemy_client.execute_query(statement)
-        for key, group in groupby(iter_res, self._get_table_key):
+        for key, group in groupby_unsorted(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
 
             schema_name = (
@@ -754,7 +762,9 @@ class HiveMetastoreSource(SQLAlchemySource):
 
             # add view schema fields
             schema_fields = self.get_schema_fields(
-                dataset.dataset_name, dataset.columns
+                dataset.dataset_name,
+                dataset.columns,
+                inspector,
             )
 
             schema_metadata = get_schema_metadata(
@@ -877,14 +887,17 @@ class HiveMetastoreSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict[Any, Any],
+        inspector: Inspector,
         pk_constraints: Optional[Dict[Any, Any]] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
+            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
             description=(
-                column["col_description"] if "col_description" in column else ""
+                column["col_description"] if "col_description" in column else ""  # noqa: SIM401
             ),
             default_nullable=True,
         )

@@ -131,7 +131,7 @@ public class ERModelRelationshipType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -162,7 +162,7 @@ public class ERModelRelationshipType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -182,7 +182,7 @@ public class ERModelRelationshipType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -211,11 +211,7 @@ public class ERModelRelationshipType
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(editPrivilegesGroup, specificPrivilegeGroup));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 
   public static boolean canCreateERModelRelation(
@@ -232,18 +228,10 @@ public class ERModelRelationshipType
         new DisjunctivePrivilegeGroup(ImmutableList.of(editPrivilegesGroup, createPrivilegesGroup));
     boolean sourcePrivilege =
         AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            sourceUrn.getEntityType(),
-            sourceUrn.toString(),
-            orPrivilegeGroups);
+            context, sourceUrn.getEntityType(), sourceUrn.toString(), orPrivilegeGroups);
     boolean destinationPrivilege =
         AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            destinationUrn.getEntityType(),
-            destinationUrn.toString(),
-            orPrivilegeGroups);
+            context, destinationUrn.getEntityType(), destinationUrn.toString(), orPrivilegeGroups);
     return sourcePrivilege && destinationPrivilege;
   }
 }

@@ -1,12 +1,10 @@
-import logging
-import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest import mock
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-23 07:00:00"
 
@@ -105,26 +103,37 @@ def execute_queries_response(request, context):
         }
 
 
-def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_admin_api(
+    request_mock: Any, override_data: Optional[dict] = None
+) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
             "method": "GET",
             "status_code": 200,
             "json": admin_datasets_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/groups?%24top=1000&%24skip=0&%24filter=type+eq+%27Workspace%27": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     }
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -176,6 +185,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "name": "demo-workspace",
                         "state": "Active",
+                        "type": "Workspace",
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
@@ -254,19 +264,13 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
             json=api_vs_response[url]["json"],
             status_code=api_vs_response[url]["status_code"],
         )
-
-
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def mock_msal_cca(*args, **kwargs):
@@ -303,8 +307,6 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_profiling(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)

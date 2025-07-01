@@ -1,9 +1,11 @@
+import { ShareAltOutlined } from '@ant-design/icons';
+import { Button, Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown } from 'antd';
-import { ShareAltOutlined } from '@ant-design/icons';
-import { EntityType } from '../../../types.generated';
-import ShareButtonMenu from './ShareButtonMenu';
+
+import useShareButtonMenu from '@app/shared/share/useShareButtonMenu';
+
+import { EntityType } from '@types';
 
 interface ShareButtonProps {
     urn: string;
@@ -22,15 +24,10 @@ const StyledShareIcon = styled(ShareAltOutlined)`
 `;
 
 export default function ShareButton({ urn, entityType, subType, name }: ShareButtonProps) {
+    const items = useShareButtonMenu({ urn, entityType, subType, name });
+
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <>
-                    <ShareButtonMenu urn={urn} entityType={entityType} subType={subType} name={name} />
-                </>
-            }
-        >
+        <Dropdown trigger={['click']} menu={items}>
             <StyledButton type="primary">
                 <StyledShareIcon />
                 Share

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.opensearch;
 
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.SearchServiceTestBase;
@@ -10,8 +12,8 @@ import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 @Import({
@@ -25,7 +27,10 @@ public class SearchServiceOpenSearchTest extends SearchServiceTestBase {
   @Autowired private ESBulkProcessor _bulkProcessor;
   @Autowired private ESIndexBuilder _esIndexBuilder;
   @Autowired private SearchConfiguration _searchConfiguration;
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration _customSearchConfiguration;
 
   @NotNull
   @Override
@@ -51,14 +56,8 @@ public class SearchServiceOpenSearchTest extends SearchServiceTestBase {
     return _searchConfiguration;
   }
 
-  @NotNull
-  @Override
-  protected CustomSearchConfiguration getCustomSearchConfiguration() {
-    return _customSearchConfiguration;
-  }
-
   @Test
   public void initTest() {
-    AssertJUnit.assertNotNull(_searchClient);
+    assertNotNull(_searchClient);
   }
 }

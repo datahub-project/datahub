@@ -5,8 +5,7 @@ from typing_extensions import Protocol
 
 
 class SupportsLT(Protocol):
-    def __lt__(self, __other: Any) -> Any:
-        ...
+    def __lt__(self, __other: Any) -> Any: ...
 
 
 _SupportsComparisonT = TypeVar("_SupportsComparisonT", bound=SupportsLT)

@@ -1,0 +1,19 @@
+entities:
+  - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    category: core
+    keyAspect: datasetKey
+    aspects:
+      - status
+      - structuredProperties
+plugins:
+  mutationHooks:
+    - className: 'com.linkedin.metadata.entity.ebean.batch.AspectsBatchImplTest$TestMutator'
+      packageScan:
+        - 'com.linkedin.metadata.entity.ebean.batch'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: '*'

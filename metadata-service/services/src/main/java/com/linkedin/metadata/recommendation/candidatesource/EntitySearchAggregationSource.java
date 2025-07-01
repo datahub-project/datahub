@@ -1,10 +1,13 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
@@ -15,7 +18,7 @@ import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,6 +43,8 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
+
+  private final EntityService entityService;
   private final EntitySearchService entitySearchService;
   private final EntityRegistry entityRegistry;
 
@@ -54,7 +59,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
   /** Whether the urn candidate is valid */
   protected boolean isValidCandidateUrn(@Nonnull OperationContext opContext, Urn urn) {
-    return true;
+    return entityService.exists(opContext, urn, false);
   }
 
   /** Whether the string candidate is valid */
@@ -101,10 +106,10 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
             .map(
                 entry -> {
                   try {
-                    Urn tagUrn = Urn.createFromString(entry.getKey());
-                    return Optional.of(Pair.of(tagUrn, entry.getValue()));
+                    Urn entityUrn = Urn.createFromString(entry.getKey());
+                    return Optional.of(Pair.of(entityUrn, entry.getValue()));
                   } catch (URISyntaxException e) {
-                    log.error("Invalid tag urn {}", entry.getKey(), e);
+                    log.error("Invalid entity urn {}", entry.getKey(), e);
                     return Optional.<Pair<Urn, Long>>empty();
                   }
                 })
@@ -167,9 +172,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
             .setFilters(
                 new CriterionArray(
                     ImmutableList.of(
-                        new Criterion()
-                            .setField(getSearchFieldName())
-                            .setValue(candidate.toString()))));
+                        buildCriterion(
+                            getSearchFieldName(), Condition.EQUAL, candidate.toString()))));
     ContentParams contentParams = new ContentParams().setCount(count);
     RecommendationContent content = new RecommendationContent();
     if (candidate instanceof Urn) {

@@ -7,10 +7,12 @@ import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.ToString;
 
 @Builder(toBuilder = true)
 @Getter
 @EqualsAndHashCode
+@ToString
 @JsonDeserialize(builder = CustomSearchConfiguration.CustomSearchConfigurationBuilder.class)
 public class CustomSearchConfiguration {
 

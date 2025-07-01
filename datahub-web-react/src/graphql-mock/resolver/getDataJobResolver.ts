@@ -1,5 +1,5 @@
-import { DataJob } from '../../types.generated';
-import { findDataJobByURN } from '../fixtures/searchResult/dataJobSearchResult';
+import { findDataJobByURN } from '@graphql-mock/fixtures/searchResult/dataJobSearchResult';
+import { DataJob } from '@types';
 
 type GetJobFlow = {
     data: { dataJob: DataJob };
@@ -13,7 +13,7 @@ export const getDataJobResolver = {
                 dataJob: Object.assign(dataJob, {
                     info: {
                         ...dataJob.info,
-                        externalUrl: 'https://airflow.demo.datahubproject.io/tree?dag_id=datahub_analytics_refresh',
+                        externalUrl: 'https://airflow.demo.datahub.com/tree?dag_id=datahub_analytics_refresh',
                         inputs: [],
                         customProperties: [],
                     },

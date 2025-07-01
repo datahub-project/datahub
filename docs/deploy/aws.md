@@ -13,8 +13,7 @@ skip the corresponding sections.
 This guide requires the following tools:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
-- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
-    3.
+- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm 3.
 - [eksctl](https://eksctl.io/installation/) to create and manage clusters on EKS
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) to manage AWS resources
 
@@ -53,7 +52,18 @@ ip-192-168-64-56.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
 ```
 
-Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html)
+### Install EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes
+
+Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html). By default Core DNS and VPC CNI plugins are installed. You need to manually install the EBS CSI driver. It show look this in your console when you are done.
+
+![Screenshot 2024-11-15 at 4 42 09 PM](https://github.com/user-attachments/assets/5a9a2af0-e804-4896-85bb-dc5834208719)
+
+### Add the AmazonEBSCSIDriverPolicy role to the EKS node group
+
+Next is to add the AmazonEBSCSIDriverPolicy role to the EKS node group. You will from the EKS Node group by going to the Compute tab in your EKS cluster and clicking on the IAM entry for the EKS node group. Add the AmazonEBSCSIDriverPolicy policy.
+
+![Screenshot 2024-11-15 at 4 42 29 PM](https://github.com/user-attachments/assets/8971c8d6-8543-408b-9a07-814aacb2532d)
+![Screenshot 2024-11-15 at 4 42 46 PM](https://github.com/user-attachments/assets/397f9131-5f13-4d9f-a664-9921d9bbf44e)
 
 ## Setup DataHub using Helm
 
@@ -65,7 +75,7 @@ steps in this [guide](kubernetes.md)
 Now that all the pods are up and running, you need to expose the datahub-frontend end point by setting
 up [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). To do this, you need to first set up an
 ingress controller. There are
-many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  to choose
+many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) to choose
 from, but here, we will follow
 this [guide](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) to set up the AWS
 Application Load Balancer(ALB) Controller.
@@ -76,7 +86,7 @@ First, if you did not use eksctl to setup the kubernetes cluster, make sure to g
 Download the IAM policy document for allowing the controller to make calls to AWS APIs on your behalf.
 
 ```
-curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 ```
 
 Create an IAM policy based on the policy document by running the following.
@@ -96,7 +106,7 @@ eksctl create iamserviceaccount \
   --name=aws-load-balancer-controller \
   --attach-policy-arn=arn:aws:iam::<<account-id>>:policy/AWSLoadBalancerControllerIAMPolicy \
   --override-existing-serviceaccounts \
-  --approve      
+  --approve
 ```
 
 Install the TargetGroupBinding custom resource definition by running the following.
@@ -138,7 +148,7 @@ datahub-frontend:
   enabled: true
   image:
     repository: acryldata/datahub-frontend-react
-    tag: "latest"
+    tag: "head"
   ingress:
     enabled: true
     annotations:
@@ -148,21 +158,19 @@ datahub-frontend:
       alb.ingress.kubernetes.io/certificate-arn: <<certificate-arn>>
       alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
     hosts:
       - host: <<host-name>>
-        redirectPaths:
-          - path: /*
-            name: ssl-redirect
-            port: use-annotation
         paths:
           - /*
 ```
 
+Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. Please use 'head' or version-specific tags, like v0.8.40. For production, we recommend using version-specific tags, not 'head'.
+
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
-demo.datahubproject.io.
+demo.datahub.com.
 
 To have the metadata [authentication service](../authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication) enabled and use [API tokens](../authentication/personal-access-tokens.md#creating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
 
@@ -183,7 +191,7 @@ following.
 
 ```
 NAME                       CLASS    HOSTS                         ADDRESS                                                                 PORTS   AGE
-datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
+datahub-datahub-frontend   <none>   demo.datahub.com   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
 ```
 
 Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (
@@ -203,11 +211,9 @@ Provision a MySQL database in AWS RDS that shares the VPC with the kubernetes cl
 the VPC of the kubernetes cluster. Once the database is provisioned, you should be able to see the following page. Take
 a note of the endpoint marked by the red box.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-rds.png"/>
 </p>
-
 
 First, add the DB password to kubernetes by running the following.
 
@@ -240,11 +246,9 @@ Provision an elasticsearch domain running elasticsearch version 7.10 or above th
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-elasticsearch.png"/>
 </p>
-
 
 Update the elasticsearch settings under global in the values.yaml as follows.
 
@@ -284,11 +288,15 @@ Then use the settings below.
         secretRef: elasticsearch-secrets
         secretKey: elasticsearch-password
 ```
+
 If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+
 ```
- OPENSEARCH_USE_AWS_IAM_AUTH=true 
+ OPENSEARCH_USE_AWS_IAM_AUTH=true
 ```
+
 Then use the settings below.
+
 ```
   elasticsearch:
     host: <<elasticsearch-endpoint>>
@@ -320,9 +328,9 @@ in datahub to point to the specific ES instance -
 
 1. If you are using `docker quickstart` you can modify the hostname and port of the ES instance in docker compose
    quickstart files located [here](../../docker/quickstart/).
-    1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
-       file. Sample command for that is
-        - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+   1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
+      file. Sample command for that is
+      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
 2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
    env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 
@@ -340,11 +348,9 @@ Provision an MSK cluster that shares the VPC with the kubernetes cluster or has 
 the kubernetes cluster. Once the domain is provisioned, click on the “View client information” button in the ‘Cluster
 Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-msk.png"/>
 </p>
-
 
 Update the kafka settings under global in the values.yaml as follows.
 
@@ -435,7 +441,7 @@ The minimum permissions required looks like this
 }
 ```
 
-The latter part is required to have "*" as the resource because of an issue in the AWS Glue schema registry library.
+The latter part is required to have "\*" as the resource because of an issue in the AWS Glue schema registry library.
 Refer to [this issue](https://github.com/awslabs/aws-glue-schema-registry/issues/68) for any updates.
 
 Glue currently doesn't support AWS Signature V4. As such, we cannot use service accounts to give permissions to access

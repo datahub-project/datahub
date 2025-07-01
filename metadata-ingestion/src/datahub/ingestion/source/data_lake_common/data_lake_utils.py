@@ -11,14 +11,21 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
-    get_bucket_name,
     get_bucket_relative_path,
     get_s3_prefix,
     is_s3_uri,
 )
+from datahub.ingestion.source.azure.abs_utils import (
+    get_abs_prefix,
+    get_container_relative_path,
+    is_abs_uri,
+)
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.data_lake_common.object_store import (
+    get_object_store_bucket_name,
+    get_object_store_for_uri,
+)
 from datahub.ingestion.source.gcs.gcs_utils import (
-    get_gcs_bucket_name,
     get_gcs_prefix,
     is_gcs_uri,
 )
@@ -29,6 +36,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 PLATFORM_S3 = "s3"
 PLATFORM_GCS = "gcs"
+PLATFORM_ABS = "abs"
 
 
 class ContainerWUCreator:
@@ -80,11 +88,20 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_protocol(path: str) -> str:
+        object_store = get_object_store_for_uri(path)
+        if object_store:
+            prefix = object_store.get_prefix(path)
+            if prefix:
+                return prefix
+
+        # Legacy fallback
         protocol: Optional[str] = None
         if is_s3_uri(path):
             protocol = get_s3_prefix(path)
         elif is_gcs_uri(path):
             protocol = get_gcs_prefix(path)
+        elif is_abs_uri(path):
+            protocol = get_abs_prefix(path)
 
         if protocol:
             return protocol
@@ -95,11 +112,33 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_bucket_name(path: str) -> str:
-        if is_s3_uri(path):
-            return get_bucket_name(path)
-        elif is_gcs_uri(path):
-            return get_gcs_bucket_name(path)
-        raise ValueError(f"Unable to get get bucket name form path: {path}")
+        """
+        Get the bucket/container name from any supported object store URI.
+
+        Delegates to the abstract get_object_store_bucket_name function.
+        """
+        return get_object_store_bucket_name(path)
+
+    def get_sub_types(self) -> str:
+        if self.platform == PLATFORM_S3:
+            return DatasetContainerSubTypes.S3_BUCKET
+        elif self.platform == PLATFORM_GCS:
+            return DatasetContainerSubTypes.GCS_BUCKET
+        elif self.platform == PLATFORM_ABS:
+            return DatasetContainerSubTypes.ABS_CONTAINER
+        raise ValueError(f"Unable to sub type for platform: {self.platform}")
+
+    def get_base_full_path(self, path: str) -> str:
+        object_store = get_object_store_for_uri(path)
+        if object_store:
+            return object_store.get_object_key(path)
+
+        # Legacy fallback
+        if self.platform == "s3" or self.platform == "gcs":
+            return get_bucket_relative_path(path)
+        elif self.platform == "abs":
+            return get_container_relative_path(path)
+        raise ValueError(f"Unable to get base full path from path: {path}")
 
     def create_container_hierarchy(
         self, path: str, dataset_urn: str
@@ -107,22 +146,18 @@ class ContainerWUCreator:
         logger.debug(f"Creating containers for {dataset_urn}")
         base_full_path = path
         parent_key = None
-        if self.platform in (PLATFORM_S3, PLATFORM_GCS):
+        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
             bucket_name = self.get_bucket_name(path)
             bucket_key = self.gen_bucket_key(bucket_name)
 
             yield from self.create_emit_containers(
                 container_key=bucket_key,
                 name=bucket_name,
-                sub_types=[
-                    DatasetContainerSubTypes.S3_BUCKET
-                    if self.platform == "s3"
-                    else DatasetContainerSubTypes.GCS_BUCKET
-                ],
+                sub_types=[self.get_sub_types()],
                 parent_container_key=None,
             )
             parent_key = bucket_key
-            base_full_path = get_bucket_relative_path(path)
+            base_full_path = self.get_base_full_path(path)
 
         parent_folder_path = (
             base_full_path[: base_full_path.rfind("/")]
@@ -137,23 +172,24 @@ class ContainerWUCreator:
             )
             return
 
-        for folder in parent_folder_path.split("/"):
-            abs_path = folder
-            if parent_key:
-                prefix: str = ""
-                if isinstance(parent_key, BucketKey):
-                    prefix = parent_key.bucket_name
-                elif isinstance(parent_key, FolderKey):
-                    prefix = parent_key.folder_abs_path
-                abs_path = prefix + "/" + folder
-            folder_key = self.gen_folder_key(abs_path)
-            yield from self.create_emit_containers(
-                container_key=folder_key,
-                name=folder,
-                sub_types=[DatasetContainerSubTypes.FOLDER],
-                parent_container_key=parent_key,
-            )
-            parent_key = folder_key
+        if parent_folder_path:
+            for folder in parent_folder_path.split("/"):
+                abs_path = folder
+                if parent_key:
+                    prefix: str = ""
+                    if isinstance(parent_key, BucketKey):
+                        prefix = parent_key.bucket_name
+                    elif isinstance(parent_key, FolderKey):
+                        prefix = parent_key.folder_abs_path
+                    abs_path = prefix + "/" + folder
+                folder_key = self.gen_folder_key(abs_path)
+                yield from self.create_emit_containers(
+                    container_key=folder_key,
+                    name=folder,
+                    sub_types=[DatasetContainerSubTypes.FOLDER],
+                    parent_container_key=parent_key,
+                )
+                parent_key = folder_key
 
         assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)

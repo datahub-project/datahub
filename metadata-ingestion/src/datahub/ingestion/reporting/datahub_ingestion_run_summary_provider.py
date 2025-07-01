@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from datahub import nice_version_name
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -11,9 +11,9 @@ from datahub.configuration.common import (
     redact_raw_config,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import make_data_platform_urn
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -43,6 +43,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     _EXECUTOR_ID: str = "__datahub_cli_"
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
+    _MAX_SUMMARY_SIZE: int = 800000
 
     @staticmethod
     def get_cur_time_in_ms() -> int:
@@ -111,6 +112,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
+        self.ctx = ctx
         self.sink: Sink = sink
         self.report_recipe = report_recipe
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
@@ -146,24 +148,69 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             aspect_value=source_info_aspect,
         )
 
+    @staticmethod
+    def _convert_sets_to_lists(obj: Any) -> Any:
+        """
+        Recursively converts all sets to lists in a Python object.
+        Works with nested dictionaries, lists, and sets.
+
+        Args:
+            obj: Any Python object that might contain sets
+
+        Returns:
+            The object with all sets converted to lists
+        """
+        if isinstance(obj, dict):
+            return {
+                key: DatahubIngestionRunSummaryProvider._convert_sets_to_lists(value)
+                for key, value in obj.items()
+            }
+        elif isinstance(obj, (list, set)):
+            return [
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
+                for element in obj
+            ]
+        elif isinstance(obj, tuple):
+            return tuple(
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
+                for element in obj
+            )
+        else:
+            return obj
+
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
             return ""
         else:
-            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
+            redacted_recipe = redact_raw_config(ctx.pipeline_config.get_raw_dict())
+            # This is required otherwise json dumps will fail
+            # with a TypeError: Object of type set is not JSON serializable
+            converted_recipe = (
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(
+                    redacted_recipe
+                )
+            )
+            return json.dumps(converted_recipe)
 
-    def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
-        self.sink.write_record_async(
-            RecordEnvelope(
-                record=MetadataChangeProposalWrapper(
-                    entityUrn=str(entity_urn),
-                    aspect=aspect_value,
-                ),
-                metadata={},
-            ),
-            NoopWriteCallback(),
+    def _emit_aspect(
+        self, entity_urn: Urn, aspect_value: _Aspect, try_sync: bool = False
+    ) -> None:
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(entity_urn),
+            aspect=aspect_value,
         )
+
+        if try_sync and self.ctx.graph:
+            self.ctx.graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+        else:
+            self.sink.write_record_async(
+                RecordEnvelope(
+                    record=mcp,
+                    metadata={},
+                ),
+                NoopWriteCallback(),
+            )
 
     def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
@@ -185,6 +232,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_input_aspect,
+            try_sync=True,
         )
 
     def on_completion(
@@ -209,7 +257,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            report=summary,
+            # Truncate summary such that the generated MCP will not exceed GMS's payload limit.
+            # Hardcoding the overall size of dataHubExecutionRequestResult to >1MB by trimming summary to 800,000 chars
+            report=summary[-self._MAX_SUMMARY_SIZE :],
             structuredReport=structured_report,
         )
 

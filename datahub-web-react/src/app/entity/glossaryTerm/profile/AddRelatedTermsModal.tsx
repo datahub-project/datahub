@@ -1,17 +1,19 @@
-import { message, Button, Modal, Select, Tag } from 'antd';
+import { Button, Modal, Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useAddRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
-import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '../../../../types.generated';
-import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
-import ClickOutside from '../../../shared/ClickOutside';
-import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
-import TermLabel from '../../../shared/TermLabel';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../shared/EntityContext';
-import ParentEntities from '../../../search/filters/ParentEntities';
-import { getParentEntities } from '../../../search/filters/utils';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { getParentEntities } from '@app/search/filters/utils';
+import ClickOutside from '@app/shared/ClickOutside';
+import TermLabel from '@app/shared/TermLabel';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;
@@ -104,7 +106,10 @@ function AddRelatedTermsModal(props: Props) {
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
         const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            { urn, component: <TermLabel name={selectedSearchOption?.props?.name} /> },
+        ]);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
@@ -167,7 +172,7 @@ function AddRelatedTermsModal(props: Props) {
     return (
         <Modal
             title="Add Related Terms"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

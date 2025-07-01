@@ -1,10 +1,10 @@
 from collections import deque
 from itertools import chain
 from sys import getsizeof
-from typing import Any, Callable
+from typing import Any, Iterator, Optional
 
 
-def total_size(o: Any, handlers: Any = {}) -> int:
+def total_size(o: Any, handlers: Optional[Any] = None) -> int:
     """Returns the approximate memory footprint an object and all of its contents.
     Automatically finds the contents of the following builtin containers and
     their subclasses:  tuple, list, deque, dict, set and frozenset.
@@ -14,8 +14,10 @@ def total_size(o: Any, handlers: Any = {}) -> int:
 
     Based on https://github.com/ActiveState/recipe-577504-compute-mem-footprint/blob/master/recipe.py
     """
+    handlers = handlers or {}
 
-    dict_handler: Callable[[Any], chain[Any]] = lambda d: chain.from_iterable(d.items())
+    def dict_handler(d: dict) -> Iterator[Any]:
+        return chain.from_iterable(d.items())
 
     all_handlers = {
         tuple: iter,

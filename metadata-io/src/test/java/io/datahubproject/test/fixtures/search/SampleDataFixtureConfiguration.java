@@ -1,22 +1,23 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.config.search.CustomConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.search.SearchService;
@@ -24,10 +25,10 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -70,9 +71,11 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private RestHighLevelClient _longTailSearchClient;
 
-  @Autowired private SearchConfiguration _searchConfiguration;
+  @Autowired
+  @Qualifier("fixtureCustomSearchConfig")
+  private CustomSearchConfiguration _customSearchConfiguration;
 
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired private QueryFilterRewriteChain queryFilterRewriteChain;
 
   @Bean(name = "sampleDataPrefix")
   protected String sampleDataPrefix() {
@@ -86,12 +89,20 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -104,18 +115,6 @@ public class SampleDataFixtureConfiguration {
     return "long_tail";
   }
 
-  @Bean(name = "sampleDataEntityIndexBuilders")
-  protected EntityIndexBuilders entityIndexBuilders(
-      @Qualifier("sampleDataOperationContext") OperationContext opContext) {
-    return entityIndexBuildersHelper(opContext);
-  }
-
-  @Bean(name = "longTailEntityIndexBuilders")
-  protected EntityIndexBuilders longTailEntityIndexBuilders(
-      @Qualifier("longTailOperationContext") OperationContext opContext) {
-    return entityIndexBuildersHelper(opContext);
-  }
-
   @Bean(name = "sampleDataOperationContext")
   protected OperationContext sampleDataOperationContext(
       @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention) {
@@ -124,7 +123,7 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "longTailOperationContext")
@@ -135,10 +134,11 @@ public class SampleDataFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
-  protected EntityIndexBuilders entityIndexBuildersHelper(OperationContext opContext) {
+  protected ElasticSearchService entitySearchServiceHelper(OperationContext opContext)
+      throws IOException {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     ESIndexBuilder indexBuilder =
         new ESIndexBuilder(
@@ -151,49 +151,51 @@ public class SampleDataFixtureConfiguration {
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
-    return new EntityIndexBuilders(
-        indexBuilder,
-        opContext.getEntityRegistry(),
-        opContext.getSearchContext().getIndexConvention(),
-        settingsBuilder);
-  }
-
-  @Bean(name = "sampleDataEntitySearchService")
-  protected ElasticSearchService entitySearchService(
-      @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders)
-      throws IOException {
-    return entitySearchServiceHelper(indexBuilders);
-  }
-
-  @Bean(name = "longTailEntitySearchService")
-  protected ElasticSearchService longTailEntitySearchService(
-      @Qualifier("longTailEntityIndexBuilders") EntityIndexBuilders longTaiIndexBuilders)
-      throws IOException {
-    return entitySearchServiceHelper(longTaiIndexBuilders);
-  }
-
-  protected ElasticSearchService entitySearchServiceHelper(EntityIndexBuilders indexBuilders)
-      throws IOException {
-    CustomConfiguration customConfiguration = new CustomConfiguration();
-    customConfiguration.setEnabled(true);
-    customConfiguration.setFile("search_config_fixture_test.yml");
-    CustomSearchConfiguration customSearchConfiguration =
-        customConfiguration.resolve(new YAMLMapper());
-
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             _searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            _searchConfiguration,
-            customSearchConfiguration);
+            TEST_ES_SEARCH_CONFIG,
+            _customSearchConfiguration,
+            queryFilterRewriteChain,
+            true,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(_searchClient, _searchConfiguration, _customSearchConfiguration);
+        new ESBrowseDAO(
+            _searchClient,
+            TEST_ES_SEARCH_CONFIG,
+            _customSearchConfiguration,
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(_searchClient, _bulkProcessor, 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+    return new ElasticSearchService(
+        indexBuilder,
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        settingsBuilder,
+        TEST_SEARCH_SERVICE_CONFIG,
+        searchDAO,
+        browseDAO,
+        writeDAO);
+  }
+
+  @Bean(name = "sampleDataEntitySearchService")
+  protected ElasticSearchService entitySearchService(
+      @Qualifier("sampleDataOperationContext") OperationContext opContext) throws IOException {
+    return entitySearchServiceHelper(opContext);
+  }
+
+  @Bean(name = "longTailEntitySearchService")
+  protected ElasticSearchService longTailEntitySearchService(
+      @Qualifier("longTailOperationContext") OperationContext longtailOperationContext)
+      throws IOException {
+    return entitySearchServiceHelper(longtailOperationContext);
   }
 
   @Bean(name = "sampleDataSearchService")
@@ -201,16 +203,11 @@ public class SampleDataFixtureConfiguration {
   protected SearchService searchService(
       @Qualifier("sampleDataOperationContext") OperationContext sampleDataOperationContext,
       @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
-      @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
       @Qualifier("sampleDataPrefix") String prefix,
       @Qualifier("sampleDataFixtureName") String sampleDataFixtureName)
       throws IOException {
     return searchServiceHelper(
-        sampleDataOperationContext,
-        entitySearchService,
-        indexBuilders,
-        prefix,
-        sampleDataFixtureName);
+        sampleDataOperationContext, entitySearchService, prefix, sampleDataFixtureName);
   }
 
   @Bean(name = "longTailSearchService")
@@ -218,22 +215,16 @@ public class SampleDataFixtureConfiguration {
   protected SearchService longTailSearchService(
       @Qualifier("longTailOperationContext") OperationContext longtailOperationContext,
       @Qualifier("longTailEntitySearchService") ElasticSearchService longTailEntitySearchService,
-      @Qualifier("longTailEntityIndexBuilders") EntityIndexBuilders longTailIndexBuilders,
       @Qualifier("longTailPrefix") String longTailPrefix,
       @Qualifier("longTailFixtureName") String longTailFixtureName)
       throws IOException {
     return searchServiceHelper(
-        longtailOperationContext,
-        longTailEntitySearchService,
-        longTailIndexBuilders,
-        longTailPrefix,
-        longTailFixtureName);
+        longtailOperationContext, longTailEntitySearchService, longTailPrefix, longTailFixtureName);
   }
 
   public SearchService searchServiceHelper(
       OperationContext opContext,
       ElasticSearchService entitySearchService,
-      EntityIndexBuilders indexBuilders,
       String prefix,
       String fixtureName)
       throws IOException {
@@ -251,10 +242,11 @@ public class SampleDataFixtureConfiguration {
                 entitySearchService,
                 entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
-            ranker);
+            ranker,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices & write fixture data
-    indexBuilders.reindexAll(Collections.emptySet());
+    entitySearchService.reindexAll(Collections.emptySet());
 
     FixtureReader.builder()
         .bulkProcessor(_bulkProcessor)
@@ -290,7 +282,7 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet()))
+    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
               Set<EntityAspectIdentifier> ids = args.getArgument(0);
@@ -318,6 +310,6 @@ public class SampleDataFixtureConfiguration {
         null,
         null,
         null,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 }

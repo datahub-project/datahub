@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
-import styled from 'styled-components';
 import { red } from '@ant-design/colors';
+import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
-import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
-import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
-import { AccessTokenModal } from './AccessTokenModal';
-import analytics, { EventType } from '../analytics';
+import analytics, { EventType } from '@app/analytics';
+import { AccessTokenModal } from '@app/settings/AccessTokenModal';
+import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settings/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+
+import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
+import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
 
 type Props = {
     currentUserUrn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onCreateToken: () => void;
 };
@@ -39,7 +40,7 @@ const OptionText = styled.span<{ isRed: boolean }>`
     ${(props) => props.isRed && `color: ${red[5]};`}
 `;
 
-export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreateToken }: Props) {
+export default function CreateTokenModal({ currentUserUrn, open, onClose, onCreateToken }: Props) {
     const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -113,7 +114,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
         <>
             <Modal
                 title="Create new Token"
-                visible={visible}
+                open={open}
                 onCancel={onModalClose}
                 footer={
                     <>
@@ -192,7 +193,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                 </Form>
             </Modal>
             <AccessTokenModal
-                visible={showModal}
+                open={showModal}
                 onClose={onDetailModalClose}
                 accessToken={accessToken || ''}
                 expiresInText={selectedExpiresInText || ''}

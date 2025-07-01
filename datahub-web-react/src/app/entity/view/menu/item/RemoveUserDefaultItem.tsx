@@ -1,7 +1,8 @@
-import React from 'react';
 import { StopOutlined } from '@ant-design/icons';
-import { Menu } from 'antd';
-import { IconItemTitle } from './IconItemTitle';
+import React from 'react';
+
+import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 type Props = {
     key: string;
@@ -13,12 +14,12 @@ type Props = {
  */
 export const RemoveUserDefaultItem = ({ key, onClick }: Props) => {
     return (
-        <Menu.Item key={key} onClick={onClick} data-testid="view-dropdown-remove-user-default">
+        <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-remove-user-default">
             <IconItemTitle
                 tip="Remove this View as your personal default."
                 title="Remove as default"
                 icon={<StopOutlined />}
             />
-        </Menu.Item>
+        </MenuItemStyle>
     );
 };

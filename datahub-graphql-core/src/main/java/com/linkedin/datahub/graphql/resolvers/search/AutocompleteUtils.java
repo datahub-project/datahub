@@ -43,10 +43,7 @@ public class AutocompleteUtils {
                     GraphQLConcurrencyUtils.supplyAsync(
                         () -> {
                           final Filter filter =
-                              ResolverUtils.buildFilter(
-                                  input.getFilters(),
-                                  input.getOrFilters(),
-                                  context.getOperationContext().getAspectRetriever());
+                              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
                           final Filter finalFilter =
                               view != null
                                   ? SearchUtils.combineFilters(

@@ -1,0 +1,6 @@
+- id: clusterTypeBad
+  type: STRING
+  display_name: Cluster's type
+  description: 'Test Cluster Type Property'
+  entity_types:
+    - urn:li:entityType:dataset # should fail because this is not a valid entity type

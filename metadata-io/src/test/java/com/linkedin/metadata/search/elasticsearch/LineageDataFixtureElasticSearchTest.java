@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static org.testng.Assert.assertNotNull;
+
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.LineageDataFixtureTestBase;
@@ -10,7 +12,6 @@ import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
-import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 @Getter
@@ -35,6 +36,6 @@ public class LineageDataFixtureElasticSearchTest extends LineageDataFixtureTestB
 
   @Test
   public void initTest() {
-    AssertJUnit.assertNotNull(lineageService);
+    assertNotNull(lineageService);
   }
 }

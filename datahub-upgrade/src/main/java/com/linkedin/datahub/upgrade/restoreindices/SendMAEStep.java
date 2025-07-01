@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.restoreindices;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -10,11 +11,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import io.ebean.ExpressionList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -77,9 +81,11 @@ public class SendMAEStep implements UpgradeStep {
       if (future.isDone()) {
         try {
           result.add(future.get());
-          futures.remove(future);
         } catch (InterruptedException | ExecutionException e) {
           log.error("Error iterating futures", e);
+          result.add(null); // add null to indicate failure
+        } finally {
+          futures.remove(future);
         }
       }
     }
@@ -98,6 +104,7 @@ public class SendMAEStep implements UpgradeStep {
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
     result.start = getStartingOffset(context.parsedArgs());
     result.urnBasedPagination = getUrnBasedPagination(context.parsedArgs());
+    result.createDefaultAspects = getCreateDefaultAspects(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
       context.report().addLine(String.format("aspect is %s", result.aspectName));
@@ -121,10 +128,35 @@ public class SendMAEStep implements UpgradeStep {
     } else {
       context.report().addLine("No urnLike arg present");
     }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LE_PIT_EPOCH_MS_ARG_NAME)) {
+      result.lePitEpochMs =
+          Long.parseLong(context.parsedArgs().get(RestoreIndices.LE_PIT_EPOCH_MS_ARG_NAME).get());
+      context.report().addLine(String.format("lePitEpochMs is %s", result.lePitEpochMs));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.GE_PIT_EPOCH_MS_ARG_NAME)) {
+      result.gePitEpochMs =
+          Long.parseLong(context.parsedArgs().get(RestoreIndices.GE_PIT_EPOCH_MS_ARG_NAME).get());
+      context.report().addLine(String.format("gePitEpochMs is %s", result.gePitEpochMs));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LAST_URN_ARG_NAME)) {
+      result.lastUrn = context.parsedArgs().get(RestoreIndices.LAST_URN_ARG_NAME).get();
+      context.report().addLine(String.format("lastUrn is %s", result.lastUrn));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.LAST_ASPECT_ARG_NAME)) {
+      result.lastAspect = context.parsedArgs().get(RestoreIndices.LAST_ASPECT_ARG_NAME).get();
+      context.report().addLine(String.format("lastAspect is %s", result.lastAspect));
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAMES_ARG_NAME)) {
+      result.aspectNames =
+          Arrays.asList(
+              context.parsedArgs().get(RestoreIndices.ASPECT_NAMES_ARG_NAME).get().split(","));
+      context.report().addLine(String.format("aspectNames is %s", result.aspectNames));
+    }
     return result;
   }
 
-  private int getRowCount(RestoreIndicesArgs args) {
+  @VisibleForTesting
+  int getRowCount(RestoreIndicesArgs args) {
     ExpressionList<EbeanAspectV2> countExp =
         _server
             .find(EbeanAspectV2.class)
@@ -188,7 +220,12 @@ public class SendMAEStep implements UpgradeStep {
             context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
             start += args.batchSize;
           } catch (InterruptedException | ExecutionException e) {
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            if (e.getCause() instanceof NoSuchElementException) {
+              context.report().addLine("End of data.");
+              break;
+            } else {
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
           }
         }
       } else {
@@ -201,6 +238,10 @@ public class SendMAEStep implements UpgradeStep {
         while (futures.size() > 0) {
           List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
           for (RestoreIndicesResult tmpResult : tmpResults) {
+            if (tmpResult == null) {
+              // return error if there was an error processing a future
+              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            }
             reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
           }
         }
@@ -219,7 +260,7 @@ public class SendMAEStep implements UpgradeStep {
                     "Failed to send MAEs for %d rows (%.2f%% of total).",
                     rowCount - finalJobResult.rowsMigrated, percentFailed));
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
@@ -283,6 +324,16 @@ public class SendMAEStep implements UpgradeStep {
     return resolvedBatchDelayMs;
   }
 
+  private boolean getCreateDefaultAspects(final Map<String, Optional<String>> parsedArgs) {
+    Boolean createDefaultAspects = null;
+    if (containsKey(parsedArgs, RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME)) {
+      createDefaultAspects =
+          Boolean.parseBoolean(
+              parsedArgs.get(RestoreIndices.CREATE_DEFAULT_ASPECTS_ARG_NAME).get());
+    }
+    return createDefaultAspects != null ? createDefaultAspects : false;
+  }
+
   private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {
     return getInt(parsedArgs, DEFAULT_THREADS, RestoreIndices.NUM_THREADS_ARG_NAME);
   }
@@ -303,9 +354,5 @@ public class SendMAEStep implements UpgradeStep {
       result = Integer.parseInt(parsedArgs.get(argKey).get());
     }
     return result;
-  }
-
-  public static boolean containsKey(final Map<String, Optional<String>> parsedArgs, String key) {
-    return parsedArgs.containsKey(key) && parsedArgs.get(key).isPresent();
   }
 }

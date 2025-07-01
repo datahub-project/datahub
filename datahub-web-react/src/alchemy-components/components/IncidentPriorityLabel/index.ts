@@ -1,0 +1,1 @@
+export { IncidentPriorityLabel } from './IncidentPriorityLabel';

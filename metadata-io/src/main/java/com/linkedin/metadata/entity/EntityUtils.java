@@ -13,19 +13,20 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -34,7 +35,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -70,8 +73,8 @@ public class EntityUtils {
     entityService.ingestProposal(
         opContext,
         AspectsBatchImpl.builder()
-            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext().get())
-            .build(),
+            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())
+            .build(opContext),
         async);
   }
 
@@ -159,11 +162,13 @@ public class EntityUtils {
    * Prefer batched interfaces
    *
    * @param entityAspect optional entity aspect
-   * @param aspectRetriever
+   * @param retrieverContext
    * @return
    */
   public static Optional<SystemAspect> toSystemAspect(
-      @Nonnull RetrieverContext retrieverContext, @Nullable EntityAspect entityAspect) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable EntityAspect entityAspect,
+      boolean forUpdate) {
     return Optional.ofNullable(entityAspect)
         .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
@@ -175,7 +180,7 @@ public class EntityUtils {
    * translate that into our java classes
    *
    * @param rawAspects `Map<EntityUrn, <Map<AspectName, EntityAspect>>`
-   * @param aspectRetriever used for read mutations
+   * @param retrieverContext used for read mutations
    * @return the java map for the given database object map
    */
   @Nonnull
@@ -222,6 +227,7 @@ public class EntityUtils {
    * <p>This should be the 1 point that all conversions from database representations to java
    * objects happens since we need to enforce read mutations happen.
    *
+   * @param retrieverContext retriever context to fetch with
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
@@ -247,8 +253,7 @@ public class EntityUtils {
                       aspectSpec != null,
                       String.format("Aspect %s could not be found", raw.getAspect()));
 
-                  return EntityAspect.EntitySystemAspect.builder()
-                      .build(entityRegistry.getEntitySpec(urn.getEntityType()), aspectSpec, raw);
+                  return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
                 })
             .collect(Collectors.toList());
 
@@ -266,7 +271,7 @@ public class EntityUtils {
     // Read Validate
     systemAspects.forEach(
         systemAspect ->
-            RecordTemplateValidator.validate(
+            RecordTemplateValidator.validateTrim(
                 systemAspect.getRecordTemplate(),
                 validationFailure ->
                     log.warn(
@@ -277,5 +282,87 @@ public class EntityUtils {
     // TODO consider applying write validation plugins
 
     return systemAspects;
+  }
+
+  /**
+   * Use the precalculated next version from system metadata if it exists, otherwise lookup the next
+   * version the normal way from the database
+   *
+   * @param txContext
+   * @param aspectDao database access
+   * @param latestAspects aspect version 0 with system metadata
+   * @param urnAspects urn/aspects which we need next version information for
+   * @return map of the urn/aspect to the next aspect version
+   */
+  public static <T extends SystemAspect> Map<String, Map<String, Long>> calculateNextVersions(
+      TransactionContext txContext,
+      AspectDao aspectDao,
+      Map<String, Map<String, T>> latestAspects,
+      Map<String, Set<String>> urnAspects) {
+
+    final Map<String, Map<String, Long>> precalculatedVersions;
+    final Map<String, Set<String>> missingAspectVersions;
+    if (txContext.getFailedAttempts() > 2 && txContext.lastExceptionIsDuplicateKey()) {
+      log.warn(
+          "Multiple exceptions detected, last exception detected as DuplicateKey, fallback to database max(version)+1");
+      precalculatedVersions = Map.of();
+      missingAspectVersions = urnAspects;
+    } else {
+      precalculatedVersions =
+          latestAspects.entrySet().stream()
+              .map(
+                  entry ->
+                      Map.entry(
+                          entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
+              .filter(entry -> !entry.getValue().isEmpty())
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      missingAspectVersions =
+          urnAspects.entrySet().stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().stream()
+                          .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
+              .filter(
+                  urnAspectName ->
+                      !precalculatedVersions
+                          .getOrDefault(urnAspectName.getKey(), Map.of())
+                          .containsKey(urnAspectName.getValue()))
+              .collect(
+                  Collectors.groupingBy(
+                      Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
+    }
+
+    Map<String, Map<String, Long>> databaseVersions =
+        missingAspectVersions.isEmpty()
+            ? Map.of()
+            : aspectDao.getNextVersions(missingAspectVersions);
+
+    // stitch back together the precalculated and database versions
+    return Stream.concat(
+            precalculatedVersions.entrySet().stream(), databaseVersions.entrySet().stream())
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (m1, m2) ->
+                    Stream.concat(m1.entrySet().stream(), m2.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+  }
+
+  /**
+   * Given a map of aspect name to system aspect, extract the next version if it exists
+   *
+   * @param aspectMap aspect name to system aspect map
+   * @return aspect name to next aspect version
+   */
+  private static <T extends SystemAspect> Map<String, Long> convertSystemAspectToNextVersionMap(
+      Map<String, T> aspectMap) {
+    return aspectMap.entrySet().stream()
+        .filter(entry -> entry.getValue().getVersion() == 0)
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSystemMetadataVersion()))
+        .filter(entry -> entry.getValue().isPresent())
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().get()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

@@ -8,17 +8,57 @@ from datahub.ingestion.source.looker.looker_common import (
     find_view_from_resolved_includes,
 )
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_constant import (
+    DIMENSION_GROUPS,
+    DIMENSIONS,
+    MEASURES,
+)
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
-    DERIVED_VIEW_PATTERN,
     DERIVED_VIEW_SUFFIX,
     NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
+from datahub.ingestion.source.looker.str_functions import (
+    remove_extra_spaces_and_newlines,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def merge_parent_and_child_fields(
+    child_fields: List[dict], parent_fields: List[dict]
+) -> List[Dict]:
+    # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
+    # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
+    # in the LookML documentation: https://cloud.google.com/looker/docs/reference/param-view-extends.
+
+    # Create a map field-name vs field
+    child_field_map: dict = {}
+    for field in child_fields:
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
+
+        child_field_map[field[NAME]] = field
+
+    for field in parent_fields:
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
+
+        if field[NAME] in child_field_map:
+            # Fields defined in the child view take higher precedence.
+            # This is an override case where the child has redefined the parent field.
+            # There are some additive attributes; however, we are not consuming them in metadata ingestion
+            # and hence not adding them to the child field.
+            continue
+
+        child_fields.append(field)
+
+    return child_fields
 
 
 class LookerFieldContext:
@@ -48,15 +88,14 @@ class LookerFieldContext:
         for upstream_field_match in re.finditer(r"\${TABLE}\.[\"]*([\.\w]+)", sql):
             matched_field = upstream_field_match.group(1)
             # Remove quotes from field names
-            matched_field = matched_field.replace('"', "").replace("`", "").lower()
-            column_names.append(matched_field)
+            column_names.append(matched_field.replace('"', "").replace("`", "").lower())
 
         return column_names
 
 
 class LookerViewContext:
     """
-    There are six patterns to associate the view's fields with dataset
+    There are seven patterns to associate the view's fields with dataset
 
     Pattern1:
         view: view_name {
@@ -161,6 +200,36 @@ class LookerViewContext:
     For all possible options of "sql" attribute please refer looker doc:
     https://cloud.google.com/looker/docs/reference/param-field-sql
 
+    For pattern 6 i.e. view.derived.sql, The looker creates a temporary table to store the sql result,
+    However if we don't want to have a temporary table and want looker to always execute the sql to fetch the result then
+    in that case pattern 7 is useful (mentioned below).
+
+    Pattern7:
+        view: customer_sales {
+          sql_table_name: (
+            SELECT
+              customer_id,
+              SUM(sales_amount) AS total_sales
+            FROM
+              sales
+            GROUP BY
+              customer_id
+          ) ;;
+
+          dimension: customer_id {
+            sql: ${TABLE}.customer_id ;;
+          }
+
+          measure: total_sales {
+            type: sum
+            sql: ${TABLE}.total_sales ;;
+          }
+        }
+
+
+    In Pattern7 the fields' upstream dataset is the output of sql mentioned in
+    customer_sales.sql_table_name.
+
     """
 
     raw_view: Dict
@@ -216,23 +285,21 @@ class LookerViewContext:
             )
             return None
 
-    def get_including_extends(
+    def _get_parent_attribute(
         self,
-        field: str,
+        attribute_name: str,
     ) -> Optional[Any]:
+        """
+        Search for the attribute_name in the parent views of the current view and return its value.
+        """
         extends = list(
             itertools.chain.from_iterable(
                 self.raw_view.get("extends", self.raw_view.get("extends__all", []))
             )
         )
 
-        # First, check the current view.
-        if field in self.raw_view:
-            return self.raw_view[field]
-
-        # The field might be defined in another view and this view is extending that view,
-        # so we resolve this field while taking that into account.
-        # following Looker's precedence rules.
+        # Following Looker's precedence rules.
+        # reversed the view-names mentioned in `extends` attribute
         for extend in reversed(extends):
             assert extend != self.raw_view[NAME], "a view cannot extend itself"
             extend_view = self.resolve_extends_view_name(
@@ -243,8 +310,32 @@ class LookerViewContext:
                     f"failed to resolve extends view {extend} in view {self.raw_view[NAME]} of"
                     f" file {self.view_file.absolute_file_path}"
                 )
-            if field in extend_view:
-                return extend_view[field]
+            if attribute_name in extend_view:
+                return extend_view[attribute_name]
+
+        return None
+
+    def get_including_extends(
+        self,
+        field: str,
+    ) -> Optional[Any]:
+        # According to Looker's inheritance rules, we need to merge the fields(i.e. dimensions, measures and
+        # dimension_groups) from both the child and parent.
+        if field in [DIMENSIONS, DIMENSION_GROUPS, MEASURES]:
+            # Get the child fields
+            child_fields = self._get_list_dict(field)
+            # merge parent and child fields
+            return merge_parent_and_child_fields(
+                child_fields=child_fields,
+                parent_fields=self._get_parent_attribute(attribute_name=field) or [],
+            )
+        else:
+            # Return the field from the current view if it exists.
+            if field in self.raw_view:
+                return self.raw_view[field]
+
+            # The field might be defined in another view, and this view is extending that view,
+            return self._get_parent_attribute(field)
 
         return None
 
@@ -266,15 +357,26 @@ class LookerViewContext:
         sql_table_name: Optional[str] = self._get_sql_table_name_field()
         # if sql_table_name field is not set then the table name is equal to view-name
         if sql_table_name is None:
-            return self.raw_view[NAME].lower()
+            sql_table_name = self.raw_view[NAME].lower()
 
-        # sql_table_name is in the format "${view-name}.SQL_TABLE_NAME"
-        # remove extra characters
-        if self._is_dot_sql_table_name_present():
-            sql_table_name = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_table_name)
+        return sql_table_name.lower()
 
-        # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
-        return sql_table_name.replace('"', "").replace("`", "").lower()
+    def datahub_transformed_sql_table_name(self) -> str:
+        # This field might be present in parent view of current view
+        table_name: Optional[str] = self.get_including_extends(
+            field="datahub_transformed_sql_table_name"
+        )
+
+        if not table_name:
+            table_name = self.sql_table_name()
+
+        # remove extra spaces and new lines from sql_table_name if it is not a sql
+        if not self.is_direct_sql_query_case():
+            # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
+            table_name = table_name.replace('"', "").replace("`", "").lower()
+            table_name = remove_extra_spaces_and_newlines(table_name).strip()
+
+        return table_name
 
     def derived_table(self) -> Dict[Any, Any]:
         """
@@ -296,30 +398,21 @@ class LookerViewContext:
 
         return derived_table["explore_source"]
 
-    def sql(self, transformed: bool = True) -> str:
+    def sql(self) -> str:
         """
         This function should only be called if is_sql_based_derived_case return true
         """
         derived_table = self.derived_table()
 
-        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-        # Add those in if we detect that it is missing
-        sql_query: str = derived_table["sql"]
+        return derived_table["sql"]
 
-        if transformed:  # update the original sql attribute only if transformed is true
-            if not re.search(r"SELECT\s", sql_query, flags=re.I):
-                # add a SELECT clause at the beginning
-                sql_query = f"SELECT {sql_query}"
+    def datahub_transformed_sql(self) -> str:
+        """
+        This function should only be called if is_sql_based_derived_case return true
+        """
+        derived_table = self.derived_table()
 
-            if not re.search(r"FROM\s", sql_query, flags=re.I):
-                # add a FROM clause at the end
-                sql_query = f"{sql_query} FROM {self.name()}"
-                # Get the list of tables in the query
-
-            # Drop ${ and }
-            sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
-
-        return sql_query
+        return derived_table["datahub_transformed_sql"]
 
     def name(self) -> str:
         return self.raw_view[NAME]
@@ -349,13 +442,13 @@ class LookerViewContext:
         return []
 
     def dimensions(self) -> List[Dict]:
-        return self._get_list_dict("dimensions")
+        return self.get_including_extends(field=DIMENSIONS) or []
 
     def measures(self) -> List[Dict]:
-        return self._get_list_dict("measures")
+        return self.get_including_extends(field=MEASURES) or []
 
     def dimension_groups(self) -> List[Dict]:
-        return self._get_list_dict("dimension_groups")
+        return self.get_including_extends(field=DIMENSION_GROUPS) or []
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():
@@ -370,6 +463,11 @@ class LookerViewContext:
     def is_regular_case(self) -> bool:
         # regular-case is pattern1 and 2 where upstream table is either view-name or
         # table name mentioned in sql_table_name attribute
+
+        # It should not be the sql query
+        if self.is_direct_sql_query_case():
+            return False
+
         if (
             self.is_sql_table_name_referring_to_view()
             or self.is_sql_based_derived_case()
@@ -380,6 +478,9 @@ class LookerViewContext:
         return True
 
     def is_sql_table_name_referring_to_view(self) -> bool:
+        if self.is_direct_sql_query_case():
+            return False
+
         # It is pattern3
         return self._is_dot_sql_table_name_present()
 
@@ -391,7 +492,7 @@ class LookerViewContext:
         return False
 
     def is_native_derived_case(self) -> bool:
-        # It is pattern 5
+        # It is pattern 5, mentioned in Class documentation
         if (
             "derived_table" in self.raw_view
             and "explore_source" in self.raw_view["derived_table"]
@@ -401,7 +502,7 @@ class LookerViewContext:
         return False
 
     def is_sql_based_derived_view_without_fields_case(self) -> bool:
-        # Pattern 6
+        # Pattern 6, mentioned in Class documentation
         fields: List[Dict] = []
 
         fields.extend(self.dimensions())
@@ -412,3 +513,14 @@ class LookerViewContext:
             return True
 
         return False
+
+    def is_direct_sql_query_case(self) -> bool:
+        # pattern 7
+        # sqlglot doesn't have a function to validate whether text is valid SQL or not.
+        # Applying a simple logic to check if sql_table_name contains a sql.
+        # if sql_table_name contains sql then its value starts with "(" and checking if "select" is present in side the
+        # text
+        return (
+            self.sql_table_name().strip().startswith("(")
+            and "select" in self.sql_table_name()
+        )

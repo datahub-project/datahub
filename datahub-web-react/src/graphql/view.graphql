@@ -39,6 +39,12 @@ query listGlobalViews($start: Int!, $count: Int!, $query: String) {
     }
 }
 
+query getView($urn: String!) {
+    view(urn: $urn) {
+        ...view
+    }
+}
+
 mutation createView($input: CreateViewInput!) {
     createView(input: $input) {
         ...view

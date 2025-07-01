@@ -56,7 +56,7 @@ Deprecation is an aspect that indicates the deprecation status of an entity. Typ
 Ingestion sources refer to the data systems that we are extracting metadata from. For example, we have sources for BigQuery, Looker, Tableau and many others.
 
 > - [Sources](/metadata-ingestion/README.md#sources)
-> - [DataHub Integrations](https://datahubproject.io/integrations)
+> - [DataHub Integrations](https://docs.datahub.com/integrations)
 
 ### Container
 
@@ -99,7 +99,7 @@ List of Data Platforms
 - Tableau
 - Vertica
 
-Reference : [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json)
+Reference : [data_platforms.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml)
 
 </details>
 

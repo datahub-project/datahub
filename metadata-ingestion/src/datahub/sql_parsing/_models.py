@@ -42,6 +42,8 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
 
 
 class _TableName(_FrozenModel):
+    # TODO: Move this into the schema_resolver.py file.
+
     database: Optional[str] = None
     db_schema: Optional[str] = None
     table: str
@@ -77,8 +79,20 @@ class _TableName(_FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
+        if isinstance(table.this, sqlglot.exp.Dot):
+            # For tables that are more than 3 parts, the extra parts will be in a Dot.
+            # For now, we just merge them into the table name.
+            parts = []
+            exp = table.this
+            while isinstance(exp, sqlglot.exp.Dot):
+                parts.append(exp.this.name)
+                exp = exp.expression
+            parts.append(exp.name)
+            table_name = ".".join(parts)
+        else:
+            table_name = table.this.name
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
-            table=table.this.name,
+            table=table_name,
         )

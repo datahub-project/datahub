@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateIncidentStatusInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -73,6 +74,9 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
               if (input.getMessage() != null) {
                 info.getStatus().setMessage(input.getMessage());
               }
+              if (input.getStage() != null) {
+                info.getStatus().setStage(IncidentStage.valueOf(input.getStage().name()));
+              }
               try {
                 // Finally, create the MetadataChangeProposal.
                 final MetadataChangeProposal proposal =
@@ -103,10 +107,6 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

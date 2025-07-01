@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
     ColumnTypeName.BYTE: BytesTypeClass,
@@ -151,9 +152,11 @@ class TableReference:
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
         return cls(
-            table.schema.catalog.metastore.id
-            if table.schema.catalog.metastore
-            else None,
+            (
+                table.schema.catalog.metastore.id
+                if table.schema.catalog.metastore
+                else None
+            ),
             table.schema.catalog.name,
             table.schema.name,
             table.name,

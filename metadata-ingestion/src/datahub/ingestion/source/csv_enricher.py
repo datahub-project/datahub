@@ -12,11 +12,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -96,6 +97,10 @@ class CSVEnricherReport(SourceReport):
 @platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DOMAINS, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
+@capability(SourceCapability.DESCRIPTIONS, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
     :::tip Looking to ingest a CSV data file into DataHub, as an asset?
@@ -123,6 +128,10 @@ class CSVEnricherSource(Source):
     be applied at the resource level.
 
     If ownership_type_urn is set then ownership_type must be set to CUSTOM.
+
+    Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to
+    all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing
+    deletes if a metadata field is empty. The default is PATCH.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
@@ -305,7 +314,7 @@ class CSVEnricherSource(Source):
             "datajob": EditableDataJobPropertiesClass,
             "dataflow": EditableDataFlowPropertiesClass,
             "notebook": EditableNotebookPropertiesClass,
-        }.get(entityType, None)
+        }.get(entityType)
 
         if not entityClass:
             raise ValueError(
@@ -362,11 +371,11 @@ class CSVEnricherSource(Source):
         domain: Optional[str],
         description: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
-        maybe_terms_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_glossary_terms_work_unit(
-            entity_urn=entity_urn,
-            term_associations=term_associations,
+        maybe_terms_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_glossary_terms_work_unit(
+                entity_urn=entity_urn,
+                term_associations=term_associations,
+            )
         )
         if maybe_terms_wu:
             self.report.num_glossary_term_workunits_produced += 1
@@ -380,31 +389,31 @@ class CSVEnricherSource(Source):
             self.report.num_tag_workunits_produced += 1
             yield maybe_tags_wu
 
-        maybe_owners_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_owners_work_unit(
-            entity_urn=entity_urn,
-            owners=owners,
+        maybe_owners_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_owners_work_unit(
+                entity_urn=entity_urn,
+                owners=owners,
+            )
         )
         if maybe_owners_wu:
             self.report.num_owners_workunits_produced += 1
             yield maybe_owners_wu
 
-        maybe_domain_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_domain_work_unit(
-            entity_urn=entity_urn,
-            domain=domain,
+        maybe_domain_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_domain_work_unit(
+                entity_urn=entity_urn,
+                domain=domain,
+            )
         )
         if maybe_domain_wu:
             self.report.num_domain_workunits_produced += 1
             yield maybe_domain_wu
 
-        maybe_description_wu: Optional[
-            MetadataWorkUnit
-        ] = self.get_resource_description_work_unit(
-            entity_urn=entity_urn,
-            description=description,
+        maybe_description_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_description_work_unit(
+                entity_urn=entity_urn,
+                description=description,
+            )
         )
         if maybe_description_wu:
             self.report.num_description_workunits_produced += 1
@@ -417,9 +426,9 @@ class CSVEnricherSource(Source):
         needs_write: bool,
     ) -> Tuple[EditableSchemaMetadataClass, bool]:
         field_path: str = sub_resource_row.field_path
-        term_associations: List[
-            GlossaryTermAssociationClass
-        ] = sub_resource_row.term_associations
+        term_associations: List[GlossaryTermAssociationClass] = (
+            sub_resource_row.term_associations
+        )
         tag_associations: List[TagAssociationClass] = sub_resource_row.tag_associations
         description: Optional[str] = sub_resource_row.description
         has_terms: bool = len(term_associations) > 0
@@ -508,9 +517,9 @@ class CSVEnricherSource(Source):
             # Boolean field to tell whether we need to write an MCPW.
             needs_write = False
 
-            current_editable_schema_metadata: Optional[
-                EditableSchemaMetadataClass
-            ] = None
+            current_editable_schema_metadata: Optional[EditableSchemaMetadataClass] = (
+                None
+            )
             if self.ctx.graph and not self.should_overwrite:
                 # Fetch the current editable schema metadata
                 current_editable_schema_metadata = self.ctx.graph.get_aspect(
@@ -631,8 +640,8 @@ class CSVEnricherSource(Source):
                 )
             except Exception as e:
                 raise ConfigurationError(
-                    f"Cannot read remote file {self.config.filename}, error:{e}"
-                )
+                    f"Cannot read remote file {self.config.filename}: {e}"
+                ) from e
         else:
             with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
                 rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
@@ -644,11 +653,11 @@ class CSVEnricherSource(Source):
 
             is_resource_row: bool = not row["subresource"]
             entity_urn = row["resource"]
-            entity_type = Urn.create_from_string(row["resource"]).get_type()
+            entity_type = Urn.from_string(row["resource"]).get_type()
 
-            term_associations: List[
-                GlossaryTermAssociationClass
-            ] = self.maybe_extract_glossary_terms(row)
+            term_associations: List[GlossaryTermAssociationClass] = (
+                self.maybe_extract_glossary_terms(row)
+            )
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
 

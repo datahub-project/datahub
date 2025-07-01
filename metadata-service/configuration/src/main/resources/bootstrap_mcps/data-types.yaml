@@ -1,0 +1,43 @@
+# Instructions to add additional entry
+# 1. Add new entry to this list
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityUrn: urn:li:dataType:datahub.string
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    qualifiedName: datahub.string
+    displayName: String
+    description: A string of characters.
+- entityUrn: urn:li:dataType:datahub.number
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    qualifiedName: datahub.number
+    displayName: Number
+    description: An integer or decimal number.
+- entityUrn: urn:li:dataType:datahub.urn
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    qualifiedName: datahub.urn
+    displayName: Urn
+    description: An unique identifier for a DataHub entity.
+- entityUrn: urn:li:dataType:datahub.rich_text
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    qualifiedName: datahub.rich_text
+    displayName: Rich Text
+    description: An attributed string of characters.
+- entityUrn: urn:li:dataType:datahub.date
+  entityType: dataType
+  aspectName: dataTypeInfo
+  changeType: UPSERT
+  aspect:
+    qualifiedName: datahub.date
+    displayName: Date
+    description: A specific day, without time.

@@ -1,0 +1,39 @@
+# Instructions to add additional entry
+# 1. Add new entry to this list
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityUrn: urn:li:ownershipType:__system__technical_owner
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: Technical Owner
+    description: Involved in the production, maintenance, or distribution of the asset(s).
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:ownershipType:__system__business_owner
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: Business Owner
+    description: Principle stakeholders or domain experts associated with the asset(s).
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:ownershipType:__system__data_steward
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: Data Steward
+    description: Involved in governance of the asset(s).
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:ownershipType:__system__none
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: None
+    description: No ownership type specified.
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

@@ -2,13 +2,12 @@ import dataclasses
 import json
 import re
 from collections import defaultdict
-from typing import Any, Dict, List, Sequence, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
 import yaml
 from deepdiff import DeepDiff
 from deepdiff.model import DiffLevel
-from deepdiff.operator import BaseOperator
 from typing_extensions import Literal
 
 ReportType = Literal[
@@ -35,6 +34,7 @@ class AspectForDiff:
     aspect_name: str
     aspect: Dict[str, Any] = dataclasses.field(hash=False)
     delta_info: "DeltaInfo" = dataclasses.field(hash=False, repr=False)
+    headers: Optional[Dict[str, str]] = dataclasses.field(default=None, hash=False)
 
     @classmethod
     def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "AspectForDiff":
@@ -45,6 +45,7 @@ class AspectForDiff:
             aspect_name=obj["aspectName"],
             aspect=aspect.get("json", aspect),
             delta_info=DeltaInfo(idx=idx, original=obj),
+            headers=obj.get("headers"),
         )
 
     def __repr__(self):
@@ -59,25 +60,10 @@ class AspectForDiff:
 
 @dataclasses.dataclass
 class DeltaInfo:
-    """Information about an MCP used to construct a diff delta.
-
-    In a separate class so it can be ignored by DeepDiff via MCPDeltaInfoOperator.
-    """
+    """Information about an MCP used to construct a diff delta."""
 
     idx: int  # Location in list of MCEs in golden file
     original: Dict[str, Any]  # Original json-serialized MCP
-
-
-class DeltaInfoOperator(BaseOperator):
-    """Warning: Doesn't seem to be working right now.
-    Ignored via an ignore path as an extra layer of defense.
-    """
-
-    def __init__(self):
-        super().__init__(types=[DeltaInfo])
-
-    def give_up_diffing(self, *args: Any, **kwargs: Any) -> bool:
-        return True
 
 
 AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
@@ -149,6 +135,7 @@ class MCPDiff:
     aspect_changes: Dict[str, Dict[str, MCPAspectDiff]]  # urn -> aspect -> diff
     urns_added: Set[str]
     urns_removed: Set[str]
+    is_delta_valid: bool
 
     def __bool__(self) -> bool:
         return bool(self.aspect_changes)
@@ -162,25 +149,30 @@ class MCPDiff:
     ) -> "MCPDiff":
         ignore_paths = [cls.convert_path(path) for path in ignore_paths]
 
+        is_delta_valid = True
         aspect_changes: Dict[str, Dict[str, MCPAspectDiff]] = defaultdict(dict)
         for urn in golden.keys() | output.keys():
             golden_map = golden.get(urn, {})
             output_map = output.get(urn, {})
             for aspect_name in golden_map.keys() | output_map.keys():
+                t1 = golden_map.get(aspect_name, [])
+                t2 = output_map.get(aspect_name, [])
                 diff = DeepDiff(
-                    t1=golden_map.get(aspect_name, []),
-                    t2=output_map.get(aspect_name, []),
+                    t1=t1,
+                    t2=t2,
                     exclude_regex_paths=ignore_paths,
                     ignore_order=True,
-                    custom_operators=[DeltaInfoOperator()],
                 )
                 if diff:
                     aspect_changes[urn][aspect_name] = MCPAspectDiff.create(diff)
+                if len(t1) > 1 or len(t2) > 1:
+                    is_delta_valid = False
 
         return cls(
             urns_added=output.keys() - golden.keys(),
             urns_removed=golden.keys() - output.keys(),
             aspect_changes=aspect_changes,
+            is_delta_valid=is_delta_valid,
         )
 
     @staticmethod
@@ -193,9 +185,13 @@ class MCPDiff:
         )
 
     def apply_delta(self, golden: List[Dict[str, Any]]) -> None:
+        """Update a golden file to match an output file based on the diff.
+
+        :param golden: Golden file represented as a list of MCPs, altered in-place.
+        """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for (_, old, new), diffs in aspect_diff.aspects_changed.items():
+            for _, old, new in aspect_diff.aspects_changed:
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()
@@ -235,7 +231,7 @@ class MCPDiff:
         for urn in self.aspect_changes.keys() - self.urns_added - self.urns_removed:
             aspect_map = self.aspect_changes[urn]
             s.append(f"Urn changed, {urn}:")
-            for aspect_name, aspect_diffs in aspect_map.items():
+            for aspect_diffs in aspect_map.values():
                 for i, ga in aspect_diffs.aspects_added.items():
                     s.append(self.report_aspect(ga, i, "added"))
                     if verbose:
@@ -246,9 +242,12 @@ class MCPDiff:
                         s.append(serialize_aspect(ga.aspect))
                 for (i, old, new), diffs in aspect_diffs.aspects_changed.items():
                     s.append(self.report_aspect(old, i, "changed") + ":")
+
+                    print_aspects = False
                     for diff_level in diffs:
                         s.append(self.report_diff_level(diff_level, i))
-                    if verbose:
+                        print_aspects |= self.is_diff_level_on_aspect(diff_level)
+                    if verbose and print_aspects:
                         s.append(f"Old aspect:\n{serialize_aspect(old.aspect)}")
                         s.append(f"New aspect:\n{serialize_aspect(new.aspect)}")
 
@@ -268,7 +267,7 @@ class MCPDiff:
             suffix = "rd"
         else:
             suffix = "th"
-        ordinal = f"{(idx+1)}{suffix} " if idx else ""
+        ordinal = f"{(idx + 1)}{suffix} " if idx else ""
         return f"{ordinal}<{ga.aspect_name}> {msg}"
 
     @staticmethod
@@ -276,6 +275,14 @@ class MCPDiff:
         return "\t" + deepdiff.serialization.pretty_print_diff(diff).replace(
             f"root[{idx}].", ""
         )
+
+    @staticmethod
+    def is_diff_level_on_aspect(diff: DiffLevel) -> bool:
+        skip_print_fields = ["changeType", "headers"]
+        try:
+            return diff.path(output_format="list")[1] not in skip_print_fields
+        except IndexError:
+            return True
 
 
 def serialize_aspect(aspect: Union[AspectForDiff, Dict[str, Any]]) -> str:

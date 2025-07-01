@@ -32,7 +32,7 @@ public class AddTermsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTerms() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -82,7 +82,7 @@ public class AddTermsResolverTest {
                         new GlossaryTermAssociation()
                             .setUrn(GlossaryTermUrn.createFromString(TEST_TERM_1_URN)))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -124,7 +124,7 @@ public class AddTermsResolverTest {
 
   @Test
   public void testGetFailureTermDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -156,7 +156,7 @@ public class AddTermsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -188,7 +188,7 @@ public class AddTermsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
 
@@ -207,7 +207,7 @@ public class AddTermsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

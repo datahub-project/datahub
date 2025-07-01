@@ -9,14 +9,13 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://datahubproject.io";
+const HOSTED_SITE_URL = "https://docs.datahub.com";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
-const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -176,7 +175,7 @@ const hardcoded_titles = {
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
-  "docs/saas.md": "Managed DataHub",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -284,6 +283,14 @@ function markdown_add_slug(
 //   );
 // }
 
+function preprocess_url(url: string): string {
+  return url.trim().replace(/^<(.+)>$/, "$1");
+}
+
+function trim_anchor_link(url: string): string {
+  return url.replace(/#.+$/, "");
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -313,7 +320,7 @@ function new_url(original: string, filepath: string): string {
   }
 
   // Now we assume this is a local reference.
-  const suffix = path.extname(original);
+  const suffix = path.extname(trim_anchor_link(original));
   if (
     suffix == "" ||
     [
@@ -335,7 +342,7 @@ function new_url(original: string, filepath: string): string {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    const check_path = updated_path.replace(/#.+$/, "");
+    const check_path = trim_anchor_link(updated_path);
     if (
       !fs.existsSync(`../${check_path}`) &&
       actually_in_sidebar(filepath) &&
@@ -379,7 +386,7 @@ function markdown_rewrite_urls(
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
-        const updated = new_url(url.trim(), filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
       }
     )
@@ -387,7 +394,7 @@ function markdown_rewrite_urls(
       // Also look for the [text]: url syntax.
       /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
-        const updated = new_url(url, filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
     );
@@ -409,8 +416,15 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-    (_, inline_file_path: string, show_path_as_comment: string) => {
+    /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    (
+      _,
+      indent: string,
+      __,
+      inline_file_path: string,
+      ___,
+      show_path_as_comment: string
+    ) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
@@ -425,11 +439,52 @@ function markdown_process_inline_directives(
       // that can be used to limit the inlined content to a specific range of lines.
       let new_contents = "";
       if (show_path_as_comment) {
-        new_contents += `# Inlined from ${inline_file_path}\n`;
+        new_contents += `${indent}# Inlined from ${inline_file_path}\n`;
       }
-      new_contents += referenced_file;
+
+      // Add indentation to each line of the referenced file
+      new_contents += referenced_file
+        .split("\n")
+        .map((line) => `${indent}${line}`)
+        .join("\n");
 
       return new_contents;
+    }
+  );
+  contents.content = new_content;
+}
+
+function markdown_process_command_output(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
+    (_, command: string) => {
+      try {
+        // Change to repo root directory before executing command
+        const repoRoot = path.resolve(__dirname, "..");
+
+        console.log(`Executing command: ${command}`);
+
+        // Execute the command and capture output
+        const output = execSync(command, {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        // Return the command output
+        return output.trim();
+      } catch (error: any) {
+        // If there's an error, include it as a comment
+        const errorMessage = error.stderr
+          ? error.stderr.toString()
+          : error.message;
+        return `${
+          error.stdout ? error.stdout.toString().trim() : ""
+        }\n<!-- Error: ${errorMessage.trim()} -->`;
+      }
     }
   );
   contents.content = new_content;
@@ -480,10 +535,13 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 
 ## Summary\n\n`);
 
-  const releases_list = await octokit.rest.repos.listReleases({
+  const releases_list_full = await octokit.rest.repos.listReleases({
     owner: "datahub-project",
     repo: "datahub",
   });
+  const releases_list = releases_list_full.data.filter(
+    (release) => !release.prerelease && !release.draft
+  );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
@@ -494,10 +552,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
-  for (const release of releases_list.data) {
-    if (release.prerelease || release.draft) {
-      continue;
-    }
+  for (const release of releases_list) {
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
@@ -514,9 +569,11 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   contents.content += "\n\n";
 
   // Full details
-  for (const release of releases_list.data) {
+  for (const release of releases_list) {
     let body: string;
-    if (releaseNoteVersions.has(release.tag_name)) {
+    if (release.tag_name === "v1.1.0") {
+      body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
+    } else if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
@@ -567,29 +624,6 @@ function write_markdown_file(
   }
 }
 
-function copy_python_wheels(): void {
-  // Copy the built wheel files to the static directory.
-  const wheel_dirs = [
-    "../metadata-ingestion/dist",
-    "../metadata-ingestion-modules/airflow-plugin/dist",
-    "../metadata-ingestion-modules/dagster-plugin/dist",
-  ];
-
-  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
-  fs.mkdirSync(wheel_output_directory, { recursive: true });
-
-  for (const wheel_dir of wheel_dirs) {
-    const wheel_files = fs.readdirSync(wheel_dir);
-    for (const wheel_file of wheel_files) {
-      const src = path.join(wheel_dir, wheel_file);
-      const dest = path.join(wheel_output_directory, wheel_file);
-
-      // console.log(`Copying artifact ${src} to ${dest}...`);
-      fs.copyFileSync(src, dest);
-    }
-  }
-}
-
 (async function main() {
   for (const filepath of markdown_files) {
     //console.log("Processing:", filepath);
@@ -602,6 +636,7 @@ function copy_python_wheels(): void {
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
     markdown_process_inline_directives(contents, filepath);
+    markdown_process_command_output(contents, filepath);
     //copy_platform_logos();
     // console.log(contents);
 
@@ -638,13 +673,10 @@ function copy_python_wheels(): void {
       continue;
     }
     if (!accounted_for_in_sidebar(filepath)) {
-      throw new Error(
-        `File not accounted for in sidebar: ${filepath} - try adding it to docs-website/sidebars.js`
+      console.warn(
+        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`
       );
     }
   }
-
-  // Generate static directory.
-  copy_python_wheels();
   // TODO: copy over the source json schemas + other artifacts.
 })();

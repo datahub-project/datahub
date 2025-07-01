@@ -1,14 +1,20 @@
+import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
-import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
-import LoadingSvg from '../../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import ConnectionCapabilityView from './ConnectionCapabilityView';
-import { CapabilityReport, SourceCapability, TestConnectionResult } from './types';
-import { SourceConfig } from '../../types';
-import useGetSourceLogoUrl from '../../useGetSourceLogoUrl';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ConnectionCapabilityView from '@app/ingest/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
+import {
+    CapabilityReport,
+    SourceCapability,
+    TestConnectionResult,
+} from '@app/ingest/source/builder/RecipeForm/TestConnection/types';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+
+import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -101,7 +107,7 @@ function TestConnectionModal({
 
     return (
         <Modal
-            visible
+            open
             onCancel={hideModal}
             footer={<Button onClick={hideModal}>Done</Button>}
             title={
@@ -158,9 +164,9 @@ function TestConnectionModal({
                     {testConnectionResult?.basic_connectivity && (
                         <ConnectionCapabilityView
                             capability="Basic Connectivity"
-                            displayMessage={testConnectionResult?.basic_connectivity.failure_reason}
-                            success={testConnectionResult?.basic_connectivity.capable}
-                            tooltipMessage={testConnectionResult?.basic_connectivity.mitigation_message}
+                            displayMessage={testConnectionResult?.basic_connectivity?.failure_reason}
+                            success={testConnectionResult?.basic_connectivity?.capable}
+                            tooltipMessage={testConnectionResult?.basic_connectivity?.mitigation_message}
                             number={1}
                         />
                     )}

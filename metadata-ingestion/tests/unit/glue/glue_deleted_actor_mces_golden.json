@@ -12,12 +12,13 @@
                 "database": "test-database"
             },
             "name": "test-database",
-            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database"
+            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -34,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -51,7 +52,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -70,7 +71,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -87,7 +88,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -164,8 +165,7 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
@@ -177,8 +177,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
@@ -194,8 +193,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
@@ -211,8 +209,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -242,7 +239,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -261,7 +258,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -278,7 +275,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -300,7 +297,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -373,8 +370,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].quarter",
@@ -386,8 +382,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -399,8 +394,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].dayofmonth",
@@ -412,8 +406,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -425,8 +418,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -456,7 +448,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -475,7 +467,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -492,7 +484,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -514,24 +506,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "statefulpipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -548,7 +523,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-p9t9ts",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }

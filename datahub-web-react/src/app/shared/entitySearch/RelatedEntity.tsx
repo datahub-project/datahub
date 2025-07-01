@@ -1,9 +1,11 @@
+import { Divider, List, Typography } from 'antd';
 import React from 'react';
-import { List, Typography, Divider } from 'antd';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { PreviewType } from '../../entity/Entity';
-import { EntityType, SearchResult } from '../../../types.generated';
+
+import { PreviewType } from '@app/entity/Entity';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, SearchResult } from '@types';
 
 type Props = {
     searchResult: {

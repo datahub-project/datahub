@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -74,7 +76,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateInputResource(ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn)) {
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn, _entityClient)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

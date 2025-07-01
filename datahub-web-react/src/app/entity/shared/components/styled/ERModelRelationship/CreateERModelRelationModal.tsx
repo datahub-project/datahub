@@ -1,32 +1,36 @@
-import React, { useState } from 'react';
-import { Button, Form, Input, message, Modal, Table } from 'antd';
-import TextArea from 'antd/lib/input/TextArea';
+import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
+
 import { PlusOutlined } from '@ant-design/icons';
-import arrow from '../../../../../../images/Arrow.svg';
-import './CreateERModelRelationModal.less';
-import { EntityType, ErModelRelationship, OwnerEntityType } from '../../../../../../types.generated';
+import { Button, Form, Input, Modal, Table, message } from 'antd';
+import TextArea from 'antd/lib/input/TextArea';
+import React, { useState } from 'react';
+
+import { useUserContext } from '@app/context/useUserContext';
+import {
+    ERModelRelationDataType,
+    checkDuplicateERModelRelation,
+    getDatasetName,
+    validateERModelRelation,
+} from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
+import { EditableCell } from '@app/entity/shared/components/styled/ERModelRelationship/EditableCell';
+import { EditableRow } from '@app/entity/shared/components/styled/ERModelRelationship/EditableRow';
+
 import {
     useCreateErModelRelationshipMutation,
     useUpdateErModelRelationshipMutation,
-} from '../../../../../../graphql/ermodelrelationship.generated';
-import { useUserContext } from '../../../../../context/useUserContext';
-import { EditableRow } from './EditableRow';
-import { EditableCell } from './EditableCell';
-import {
-    checkDuplicateERModelRelation,
-    getDatasetName,
-    ERModelRelationDataType,
-    validateERModelRelation,
-} from './ERModelRelationUtils';
-import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
-import { useAddOwnerMutation } from '../../../../../../graphql/mutations.generated';
+} from '@graphql/ermodelrelationship.generated';
+import { useAddOwnerMutation } from '@graphql/mutations.generated';
+import { useGetSearchResultsQuery } from '@graphql/search.generated';
+import { EntityType, ErModelRelationship, OwnerEntityType } from '@types';
+
+import arrow from '@images/Arrow.svg';
 
 type Props = {
     table1?: any;
     table1Schema?: any;
     table2?: any;
     table2Schema?: any;
-    visible: boolean;
+    open: boolean;
     setModalVisible?: any;
     onCancel: () => void;
     editERModelRelation?: ErModelRelationship;
@@ -42,7 +46,7 @@ export const CreateERModelRelationModal = ({
     table1Schema,
     table2,
     table2Schema,
-    visible,
+    open,
     setModalVisible,
     onCancel,
     editERModelRelation,
@@ -241,9 +245,9 @@ export const CreateERModelRelationModal = ({
     };
 
     const table1NameBusiness = getDatasetName(table1Dataset);
-    const table1NameTech = table1Dataset?.name || table1Dataset?.urn.split(',').at(1) || '';
+    const table1NameTech = table1Dataset?.name || table1Dataset?.urn?.split(',')?.at(1) || '';
     const table2NameBusiness = getDatasetName(table2Dataset);
-    const table2NameTech = table2Dataset?.name || table2Dataset?.urn.split(',').at(1) || '';
+    const table2NameTech = table2Dataset?.name || table2Dataset?.urn?.split(',')?.at(1) || '';
 
     const handleAdd = () => {
         const newData: ERModelRelationDataType = {
@@ -349,7 +353,7 @@ export const CreateERModelRelationModal = ({
                     </div>
                 </div>
             }
-            visible={visible}
+            open={open}
             closable={false}
             className="CreateERModelRelationModal"
             okButtonProps={{ hidden: true }}

@@ -1,8 +1,10 @@
 import { Button, Col, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../types.generated';
-import DataProfileView from '../../snapshot/SnapshotStatsView';
+
+import DataProfileView from '@app/entity/dataset/profile/stats/snapshot/SnapshotStatsView';
+
+import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin: 12px;
@@ -71,7 +73,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal width="100%" footer={null} title={profileModalTitle} open={showModal} onCancel={onClose}>
                     <DataProfileView profile={selectedProfile} />
                 </Modal>
             )}

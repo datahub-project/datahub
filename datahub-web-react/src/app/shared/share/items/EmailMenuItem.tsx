@@ -1,22 +1,20 @@
+import { CheckOutlined, MailOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
+import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
-import { CheckOutlined, MailOutlined } from '@ant-design/icons';
-import qs from 'query-string';
-import MenuItem from 'antd/lib/menu/MenuItem';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 interface EmailMenuItemProps {
     urn: string;
     name: string;
     type: string;
-    key: string;
 }
 
-const StyledMenuItem = styled(MenuItem)`
+const StyledMenuItem = styled.div`
     && {
         color: ${ANTD_GRAY[8]};
-        background-color: ${ANTD_GRAY[1]};
     }
 `;
 
@@ -24,7 +22,7 @@ const TextSpan = styled.span`
     padding-left: 12px;
 `;
 
-export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemProps) {
+export default function EmailMenuItem({ urn, name, type }: EmailMenuItemProps) {
     /**
      * Whether button has been clicked
      */
@@ -41,7 +39,6 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
 
     return (
         <StyledMenuItem
-            key={key}
             onClick={() => {
                 setIsClicked(true);
             }}

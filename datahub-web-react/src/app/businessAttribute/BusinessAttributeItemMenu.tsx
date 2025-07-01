@@ -1,8 +1,11 @@
-import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
-import { useDeleteBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
+import { Dropdown, Modal, message } from 'antd';
+import React from 'react';
+
+import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+
+import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 
 type Props = {
     urn: string;
@@ -48,17 +51,19 @@ export default function BusinessAttributeItemMenu({ title, urn, onDelete }: Prop
         });
     };
 
+    const items = [
+        {
+            key: 'delete',
+            label: (
+                <MenuItemStyle onClick={onConfirmDelete}>
+                    <DeleteOutlined /> &nbsp;Delete
+                </MenuItemStyle>
+            ),
+        },
+    ];
+
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <Menu>
-                    <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
-                    </Menu.Item>
-                </Menu>
-            }
-        >
+        <Dropdown trigger={['click']} menu={{ items }}>
             <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
         </Dropdown>
     );

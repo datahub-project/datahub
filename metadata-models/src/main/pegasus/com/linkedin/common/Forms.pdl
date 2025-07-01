@@ -13,19 +13,23 @@ record Forms {
   @Searchable = {
     "/*/urn": {
       "fieldType": "URN",
-      "fieldName": "incompleteForms"
+      "fieldName": "incompleteForms",
+      "queryByDefault": false,
     },
     "/*/completedPrompts/*/id" : {
       "fieldType": "KEYWORD",
       "fieldName": "incompleteFormsCompletedPromptIds",
+      "queryByDefault": false,
     },
     "/*/incompletePrompts/*/id" : {
       "fieldType": "KEYWORD",
       "fieldName": "incompleteFormsIncompletePromptIds",
+      "queryByDefault": false,
     },
     "/*/completedPrompts/*/lastModified/time" : {
       "fieldType": "DATETIME",
       "fieldName": "incompleteFormsCompletedPromptResponseTimes",
+      "queryByDefault": false,
     }
   }
   incompleteForms: array[FormAssociation]
@@ -36,19 +40,23 @@ record Forms {
   @Searchable = {
     "/*/urn": {
       "fieldType": "URN",
-      "fieldName": "completedForms"
+      "fieldName": "completedForms",
+      "queryByDefault": false
     },
     "/*/completedPrompts/*/id" : {
       "fieldType": "KEYWORD",
       "fieldName": "completedFormsCompletedPromptIds",
+      "queryByDefault": false,
     },
     "/*/incompletePrompts/*/id" : {
       "fieldType": "KEYWORD",
       "fieldName": "completedFormsIncompletePromptIds",
+      "queryByDefault": false,
     },
     "/*/completedPrompts/*/lastModified/time" : {
       "fieldType": "DATETIME",
       "fieldName": "completedFormsCompletedPromptResponseTimes",
+      "queryByDefault": false,
     }
   }
   completedForms: array[FormAssociation]
@@ -59,7 +67,8 @@ record Forms {
   @Searchable = {
     "/*/form": {
       "fieldType": "URN",
-      "fieldName": "verifiedForms"
+      "fieldName": "verifiedForms",
+      "queryByDefault": false,
     }
   }
   verifications: array[FormVerificationAssociation] = []

@@ -6,16 +6,18 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -35,22 +37,26 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 @Slf4j
 public class ConfigSearchExport extends HttpServlet {
 
-  private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
+  private static ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private AspectRetriever getAspectRetriever(WebApplicationContext ctx) {
-    return (AspectRetriever) ctx.getBean("aspectRetriever");
-  }
-
-  private OperationContext getOperationContext(WebApplicationContext ctx) {
+  private static OperationContext getOperationContext(WebApplicationContext ctx) {
     return (OperationContext) ctx.getBean("systemOperationContext");
   }
 
+  private static QueryFilterRewriteChain getQueryFilterRewriteChain(WebApplicationContext ctx) {
+    return ctx.getBean(QueryFilterRewriteChain.class);
+  }
+
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
-    SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
-    AspectRetriever aspectRetriever = getAspectRetriever(ctx);
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+    OperationContext systemOpContext = getOperationContext(ctx);
+    ConfigurationProvider configurationProvider = getConfigProvider(ctx);
+    ElasticSearchConfiguration searchConfiguration = configurationProvider.getElasticSearch();
+    EntityRegistry entityRegistry = systemOpContext.getEntityRegistry();
+    QueryFilterRewriteChain queryFilterRewriteChain = getQueryFilterRewriteChain(ctx);
+    SearchServiceConfiguration searchServiceConfiguration =
+        configurationProvider.getSearchService();
 
     CSVWriter writer = CSVWriter.builder().printWriter(pw).build();
 
@@ -85,7 +91,13 @@ public class ConfigSearchExport extends HttpServlet {
             entitySpecOpt -> {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
-                  SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, null)
+                  SearchRequestHandler.getBuilder(
+                          systemOpContext,
+                          entitySpec,
+                          searchConfiguration,
+                          null,
+                          queryFilterRewriteChain,
+                          searchServiceConfiguration)
                       .getSearchRequest(
                           getOperationContext(ctx)
                               .withSearchFlags(
@@ -99,7 +111,7 @@ public class ConfigSearchExport extends HttpServlet {
                           null,
                           0,
                           0,
-                          null);
+                          List.of());
 
               FunctionScoreQueryBuilder rankingQuery =
                   ((FunctionScoreQueryBuilder)

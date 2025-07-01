@@ -1,9 +1,12 @@
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import { Tooltip } from 'antd';
 import React from 'react';
-import { Entity } from '../../../../types.generated';
-import { PreviewType } from '../../../entity/Entity';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+
+import { PreviewType } from '@app/entity/Entity';
+import { HoverEntityTooltipContext } from '@app/recommendations/HoverEntityTooltipContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 type Props = {
     entity?: Entity;
@@ -11,26 +14,42 @@ type Props = {
     canOpen?: boolean;
     children: React.ReactNode;
     placement?: TooltipPlacement;
+    showArrow?: boolean;
+    width?: number;
+    maxWidth?: number;
+    entityCount?: number;
 };
 
-export const HoverEntityTooltip = ({ entity, canOpen = true, children, placement }: Props) => {
+export const HoverEntityTooltip = ({
+    entity,
+    canOpen = true,
+    children,
+    placement,
+    showArrow,
+    width = 360,
+    maxWidth = 500,
+    entityCount = undefined,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (!entity || !entity.type || !entity.urn) {
         return <>{children}</>;
     }
 
-    const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
     return (
-        <Tooltip
-            visible={canOpen ? undefined : false}
-            color="white"
-            placement={placement || 'topRight'}
-            overlayStyle={{ minWidth: 300, maxWidth: 600, width: 'fit-content' }}
-            overlayInnerStyle={{ padding: 12 }}
-            title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
-        >
-            {children}
-        </Tooltip>
+        <HoverEntityTooltipContext.Provider value={{ entityCount }}>
+            <Tooltip
+                showArrow={showArrow}
+                open={canOpen ? undefined : false}
+                color="white"
+                placement={placement || 'bottom'}
+                overlayStyle={{ minWidth: width, maxWidth, zIndex: 1100 }}
+                overlayInnerStyle={{ padding: 20, borderRadius: 20, overflow: 'hidden', position: 'relative' }}
+                title={entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}
+                zIndex={1000}
+            >
+                {children}
+            </Tooltip>
+        </HoverEntityTooltipContext.Provider>
     );
 };

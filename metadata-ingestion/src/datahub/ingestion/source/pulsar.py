@@ -78,8 +78,27 @@ class PulsarSchema:
     def __init__(self, schema):
         self.schema_version = schema.get("version")
 
-        avro_schema = json.loads(schema.get("data"))
-        self.schema_name = avro_schema.get("namespace") + "." + avro_schema.get("name")
+        schema_data = schema.get("data")
+        if not schema_data:
+            logger.warning("Schema data is empty or None. Using default empty schema.")
+            schema_data = "{}"
+
+        try:
+            avro_schema = json.loads(schema_data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON schema: {schema_data}. Error: {str(e)}")
+            avro_schema = {}
+
+        self.schema_name = "null"
+        if avro_schema.get("namespace") and avro_schema.get("name"):
+            self.schema_name = (
+                avro_schema.get("namespace") + "." + avro_schema.get("name")
+            )
+        elif avro_schema.get("namespace"):
+            self.schema_name = avro_schema.get("namespace")
+        elif avro_schema.get("name"):
+            self.schema_name = avro_schema.get("name")
+
         self.schema_description = avro_schema.get("doc")
         self.schema_type = schema.get("type")
         self.schema_str = schema.get("data")
@@ -91,11 +110,13 @@ class PulsarSchema:
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "pulsar"
+        self.ctx = ctx
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
 
@@ -209,8 +230,8 @@ class PulsarSource(StatefulIngestionSourceBase):
                 self.report.report_warning("HTTPError", message)
         except requests.exceptions.RequestException as e:
             raise Exception(
-                f"An ambiguous exception occurred while handling the request: {e}"
-            )
+                "An ambiguous exception occurred while handling the request"
+            ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):

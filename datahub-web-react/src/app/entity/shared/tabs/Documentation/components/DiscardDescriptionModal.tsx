@@ -1,5 +1,5 @@
+import { Button, Modal } from 'antd';
 import React from 'react';
-import { Modal, Button } from 'antd';
 
 type Props = {
     cancelModalVisible?: boolean;
@@ -12,7 +12,7 @@ export const DiscardDescriptionModal = ({ cancelModalVisible, onDiscard, onCance
         <>
             <Modal
                 title="Exit Editor"
-                visible={cancelModalVisible}
+                open={cancelModalVisible}
                 destroyOnClose
                 onCancel={onCancel}
                 footer={[

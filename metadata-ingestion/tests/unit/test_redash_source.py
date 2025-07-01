@@ -489,9 +489,7 @@ def test_get_dashboard_snapshot_before_v10():
                 ],
                 datasets=[],
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882055288, actor="urn:li:corpuser:unknown"
                     ),
@@ -521,9 +519,7 @@ def test_get_dashboard_snapshot_after_v10():
                 ],
                 datasets=[],
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882055288, actor="urn:li:corpuser:unknown"
                     ),
@@ -551,9 +547,7 @@ def test_get_known_viz_chart_snapshot(mocked_data_source):
                 title="My Query Chart",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882022544, actor="urn:li:corpuser:unknown"
                     ),
@@ -584,9 +578,7 @@ def test_get_unknown_viz_chart_snapshot(mocked_data_source):
                 title="My Query Sankey",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882009571, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882009571, actor="urn:li:corpuser:unknown"
                     ),
@@ -711,18 +703,16 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                 title="My Query Chart",
                 description="",
                 lastModified=ChangeAuditStamps(
-                    created=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
+                    created=None,
                     lastModified=AuditStamp(
                         time=1628882022544, actor="urn:li:corpuser:unknown"
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
                 inputs=[
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.order_items,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.orders,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.staffs,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
                 ],
                 type="PIE",
             )

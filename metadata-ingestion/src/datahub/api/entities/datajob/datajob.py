@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
@@ -9,6 +10,7 @@ from datahub.metadata.schema_classes import (
     AzkabanJobTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     OwnerClass,
@@ -16,11 +18,14 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,6 +46,7 @@ class DataJob:
         outlets (List[str]): List of urns the DataProcessInstance produces
         fine_grained_lineages: Column lineage for the inlets and outlets
         upstream_urns: List[DataJobUrn] = field(default_factory=list)
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to.
     """
 
     id: str
@@ -57,6 +63,7 @@ class DataJob:
     outlets: List[DatasetUrn] = field(default_factory=list)
     fine_grained_lineages: List[FineGrainedLineageClass] = field(default_factory=list)
     upstream_urns: List[DataJobUrn] = field(default_factory=list)
+    platform_instance: Optional[str] = None
 
     def __post_init__(self):
         job_flow_urn = DataFlowUrn.create_from_ids(
@@ -101,8 +108,17 @@ class DataJob:
         return [tags]
 
     def generate_mcp(
-        self, materialize_iolets: bool = True
+        self,
+        generate_lineage: bool = True,
+        materialize_iolets: bool = True,
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        env: Optional[str] = None
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
+        else:
+            logger.debug(
+                f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
+            )
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
@@ -111,13 +127,37 @@ class DataJob:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp(
-            materialize_iolets=materialize_iolets
+        if self.platform_instance:
+            instance = builder.make_dataplatform_instance_urn(
+                platform=self.flow_urn.orchestrator,
+                instance=self.platform_instance,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=builder.make_data_platform_urn(self.flow_urn.orchestrator),
+                    instance=instance,
+                ),
+            )
+            yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
+            ),
         )
+        yield mcp
+
+        if generate_lineage:
+            yield from self.generate_data_input_output_mcp(
+                materialize_iolets=materialize_iolets
+            )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(

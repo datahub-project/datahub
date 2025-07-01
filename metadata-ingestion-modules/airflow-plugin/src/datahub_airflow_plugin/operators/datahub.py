@@ -2,8 +2,10 @@ from typing import List, Union
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from avrogen.dict_wrapper import DictWrapper
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub_airflow_plugin.hooks.datahub import (
     DatahubGenericHook,
     DatahubKafkaHook,
@@ -45,11 +47,13 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     :type datahub_conn_id: str
     """
 
+    template_fields = ["metadata"]
+
     # See above for why these mypy type issues are ignored here.
     @apply_defaults  # type: ignore[misc]
     def __init__(  # type: ignore[no-untyped-def]
         self,
-        mces: List[MetadataChangeEvent],
+        mces: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         datahub_conn_id: str,
         **kwargs,
     ):
@@ -59,5 +63,50 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         )
         self.metadata = mces
 
+    def _render_template_fields(self, field_value, context, jinja_env):
+        if isinstance(field_value, DictWrapper):
+            for key, value in field_value.items():
+                setattr(
+                    field_value,
+                    key,
+                    self._render_template_fields(value, context, jinja_env),
+                )
+        elif isinstance(field_value, list):
+            for item in field_value:
+                self._render_template_fields(item, context, jinja_env)
+        elif isinstance(field_value, str):
+            return super().render_template(field_value, context, jinja_env)
+        else:
+            return super().render_template(field_value, context, jinja_env)
+        return field_value
+
     def execute(self, context):
+        if context:
+            jinja_env = self.get_template_env()
+
+            """
+            The `_render_template_fields` method is called in the `execute` method to ensure that all template fields
+            are rendered with the current execution context, which includes runtime variables and other dynamic data,
+            is only available during the execution of the task.
+
+            The `render_template` method is not overridden because the `_render_template_fields` method is used to
+            handle the rendering of template fields recursively.
+            This approach allows for more granular control over how each field is rendered,
+            especially when dealing with complex data structures like `DictWrapper` and lists.
+
+            By not overriding `render_template`, the code leverages the existing functionality
+            provided by the base class while adding custom logic for specific cases.
+            """
+            for item in self.metadata:
+                if isinstance(item, MetadataChangeProposalWrapper):
+                    for key in item.__dict__.keys():
+                        value = getattr(item, key)
+                        setattr(
+                            item,
+                            key,
+                            self._render_template_fields(value, context, jinja_env),
+                        )
+                if isinstance(item, MetadataChangeEvent):
+                    self._render_template_fields(item, context, jinja_env)
+
         self.generic_hook.get_underlying_hook().emit(self.metadata)

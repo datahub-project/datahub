@@ -221,7 +221,34 @@
             }
           }
         }
-      }
+      },
+      "imported_datasets": [
+        {
+            "name": "Dataset 1",
+            "token": "24f66e1701b6",
+            "_links": {
+                "report": {
+                    "href": "/api/acryltest/reports/94750a190dc8"
+                },
+                "source_dataset": {
+                    "href": "/api/acryltest/reports/24f66e1701b6"
+                }
+            },
+            "_forms": {
+                "refresh": {
+                    "method": "post",
+                    "action": "/api/acryltest/reports/94750a190dc8/runs",
+                    "input": {
+                        "dataset_tokens": [
+                            {
+                                "token": "24f66e1701b6"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
     }]
   }
 }

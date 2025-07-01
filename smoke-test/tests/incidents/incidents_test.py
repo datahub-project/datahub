@@ -2,27 +2,16 @@ import time
 
 import pytest
 
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    ingest_file_via_rest,
-)
+from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(request):
+def ingest_cleanup_data(auth_session, graph_client, request):
     print("ingesting incidents test data")
-    ingest_file_via_rest("tests/incidents/data.json")
+    ingest_file_via_rest(auth_session, "tests/incidents/data.json")
     yield
     print("removing incidents test data")
-    delete_urns_from_file("tests/incidents/data.json")
-
-
-@pytest.mark.dependency()
-def test_healthchecks(wait_for_healthchecks):
-    # Call to wait_for_healthchecks fixture will do the actual functionality.
-    pass
+    delete_urns_from_file(graph_client, "tests/incidents/data.json")
 
 
 TEST_DATASET_URN = (
@@ -31,8 +20,8 @@ TEST_DATASET_URN = (
 TEST_INCIDENT_URN = "urn:li:incident:test"
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_list_dataset_incidents(frontend_session):
+@pytest.mark.dependency()
+def test_list_dataset_incidents(auth_session):
     # Sleep for eventual consistency (not ideal)
     time.sleep(2)
 
@@ -82,8 +71,9 @@ def test_list_dataset_incidents(frontend_session):
         "variables": {"urn": TEST_DATASET_URN},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_dataset_incidents_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=list_dataset_incidents_json,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -118,14 +108,8 @@ def test_list_dataset_incidents(frontend_session):
     }
 
 
-@pytest.mark.dependency(
-    depends=[
-        "test_healthchecks",
-        "test_list_dataset_incidents",
-        "test_search_all_incidents",
-    ]
-)
-def test_raise_resolve_incident(frontend_session):
+@pytest.mark.dependency(depends=["test_list_dataset_incidents"])
+def test_raise_resolve_incident(auth_session):
     # Raise new incident
     raise_incident_json = {
         "query": """mutation raiseIncident($input: RaiseIncidentInput!) {\n
@@ -137,13 +121,13 @@ def test_raise_resolve_incident(frontend_session):
                 "title": "test title 2",
                 "description": "test description 2",
                 "resourceUrn": TEST_DATASET_URN,
-                "priority": 0,
+                "priority": "CRITICAL",
             }
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=raise_incident_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=raise_incident_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -157,7 +141,7 @@ def test_raise_resolve_incident(frontend_session):
 
     # Resolve the incident.
     update_incident_status = {
-        "query": """mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {\n
+        "query": """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {\n
             updateIncidentStatus(urn: $urn, input: $input)
         }""",
         "variables": {
@@ -169,8 +153,8 @@ def test_raise_resolve_incident(frontend_session):
         },
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=update_incident_status
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_incident_status
     )
     response.raise_for_status()
     res_data = response.json()
@@ -220,8 +204,9 @@ def test_raise_resolve_incident(frontend_session):
         "variables": {"urn": TEST_DATASET_URN},
     }
 
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_dataset_incidents_json
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=list_dataset_incidents_json,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -241,13 +226,13 @@ def test_raise_resolve_incident(frontend_session):
     assert new_incident["title"] == "test title 2"
     assert new_incident["description"] == "test description 2"
     assert new_incident["status"]["state"] == "RESOLVED"
-    assert new_incident["priority"] == 0
+    assert new_incident["priority"] == "CRITICAL"
 
     delete_json = {"urn": new_incident_urn}
 
     # Cleanup: Delete the incident
-    response = frontend_session.post(
-        f"{get_gms_url()}/entities?action=delete", json=delete_json
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
     )
 
     response.raise_for_status()

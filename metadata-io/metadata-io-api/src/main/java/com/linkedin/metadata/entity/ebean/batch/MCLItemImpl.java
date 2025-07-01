@@ -5,7 +5,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -13,7 +15,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,6 +47,27 @@ public class MCLItemImpl implements MCLItem {
       return null;
     }
 
+    public MCLItemImpl build(
+        MCPItem mcpItem,
+        @Nullable RecordTemplate oldAspectValue,
+        @Nullable SystemMetadata oldSystemMetadata,
+        AspectRetriever aspectRetriever) {
+      return MCLItemImpl.builder()
+          .build(
+              PegasusUtils.constructMCL(
+                  mcpItem.getMetadataChangeProposal(),
+                  mcpItem.getUrn().getEntityType(),
+                  mcpItem.getUrn(),
+                  mcpItem.getChangeType(),
+                  mcpItem.getAspectName(),
+                  mcpItem.getAuditStamp(),
+                  mcpItem.getRecordTemplate(),
+                  mcpItem.getSystemMetadata(),
+                  oldAspectValue,
+                  oldSystemMetadata),
+              aspectRetriever);
+    }
+
     public MCLItemImpl build(MetadataChangeLog metadataChangeLog, AspectRetriever aspectRetriever) {
       return MCLItemImpl.builder().metadataChangeLog(metadataChangeLog).build(aspectRetriever);
     }
@@ -70,7 +95,8 @@ public class MCLItemImpl implements MCLItem {
       log.debug("entity spec = {}", this.entitySpec);
 
       aspectSpec(
-          ValidationApiUtils.validate(this.entitySpec, this.metadataChangeLog.getAspectName()));
+          ValidationApiUtils.validateAspect(
+              this.entitySpec, this.metadataChangeLog.getAspectName()));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       Pair<RecordTemplate, RecordTemplate> aspects =
@@ -108,7 +134,7 @@ public class MCLItemImpl implements MCLItem {
           aspect =
               GenericRecordUtils.deserializeAspect(
                   mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec);
-          ValidationApiUtils.validateOrThrow(aspect);
+          ValidationApiUtils.validateTrimOrThrow(aspect);
         } else {
           aspect = null;
         }
@@ -119,7 +145,7 @@ public class MCLItemImpl implements MCLItem {
                   mcl.getPreviousAspectValue().getValue(),
                   mcl.getPreviousAspectValue().getContentType(),
                   aspectSpec);
-          ValidationApiUtils.validateOrThrow(prevAspect);
+          ValidationApiUtils.validateTrimOrThrow(prevAspect);
         } else {
           prevAspect = null;
         }
@@ -132,6 +158,11 @@ public class MCLItemImpl implements MCLItem {
 
       return Pair.of(aspect, prevAspect);
     }
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
   }
 
   @Override

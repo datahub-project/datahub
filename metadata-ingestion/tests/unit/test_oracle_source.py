@@ -21,7 +21,7 @@ def test_oracle_config():
     )
     assert (
         config.get_sql_alchemy_url()
-        == "oracle+cx_oracle://user:password@host:1521/?service_name=svc01"
+        == "oracle://user:password@host:1521/?service_name=svc01"
     )
 
     with pytest.raises(ValueError):

@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
+import { Button, Dropdown } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { AndFilterInput } from '../../../../../../types.generated';
-import DownloadAsCsvButton from './DownloadAsCsvButton';
-import DownloadAsCsvModal from './DownloadAsCsvModal';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+
+import DownloadAsCsvButton from '@app/entity/shared/components/styled/search/DownloadAsCsvButton';
+import DownloadAsCsvModal from '@app/entity/shared/components/styled/search/DownloadAsCsvModal';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+
+import { AndFilterInput } from '@types';
 
 const MenuIcon = styled(MoreOutlined)`
     font-size: 20px;
@@ -16,10 +19,6 @@ const SelectButton = styled(Button)`
     font-size: 12px;
     padding-left: 12px;
     padding-right: 12px;
-`;
-
-const MenuItem = styled(Menu.Item)`
-    padding: 0px;
 `;
 
 type Props = {
@@ -43,24 +42,32 @@ export default function SearchExtendedMenu({
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
 
-    const menu = (
-        <Menu>
-            <MenuItem key="0" data-testid="download-as-csv-menu-item">
-                <DownloadAsCsvButton
-                    isDownloadingCsv={isDownloadingCsv}
-                    setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
-                />
-            </MenuItem>
-            {setShowSelectMode && (
-                <MenuItem key="1">
-                    <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                        <FormOutlined />
-                        Edit...
-                    </SelectButton>
-                </MenuItem>
-            )}
-        </Menu>
-    );
+    const items = [
+        {
+            key: 0,
+            label: (
+                <MenuItemStyle data-testid="download-as-csv-menu-item">
+                    <DownloadAsCsvButton
+                        isDownloadingCsv={isDownloadingCsv}
+                        setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
+                    />
+                </MenuItemStyle>
+            ),
+        },
+        setShowSelectMode
+            ? {
+                  key: 1,
+                  label: (
+                      <MenuItemStyle>
+                          <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
+                              <FormOutlined />
+                              Edit...
+                          </SelectButton>
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+    ];
 
     return (
         <>
@@ -74,7 +81,7 @@ export default function SearchExtendedMenu({
                 setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 totalResults={totalResults}
             />
-            <Dropdown overlay={menu} trigger={['click']}>
+            <Dropdown menu={{ items }} trigger={['click']}>
                 <MenuIcon data-testid="three-dot-menu" />
             </Dropdown>
         </>

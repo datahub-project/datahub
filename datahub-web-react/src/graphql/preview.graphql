@@ -9,6 +9,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         editableProperties {
+            name
             description
         }
         platformNativeType
@@ -194,6 +195,9 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         urn
@@ -340,9 +344,17 @@ fragment entityPreview on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
     }
     ... on Container {
         ...entityContainer
+    }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
     }
 }

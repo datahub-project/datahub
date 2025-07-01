@@ -32,6 +32,9 @@ public class ListAccessTokensResolver
 
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
 
+  private static final Integer DEFAULT_START = 0;
+  private static final Integer DEFAULT_COUNT = 20;
+
   private final EntityClient _entityClient;
 
   public ListAccessTokensResolver(final EntityClient entityClient) {
@@ -46,8 +49,8 @@ public class ListAccessTokensResolver
           final QueryContext context = environment.getContext();
           final ListAccessTokenInput input =
               bindArgument(environment.getArgument("input"), ListAccessTokenInput.class);
-          final Integer start = input.getStart();
-          final Integer count = input.getCount();
+          final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+          final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
           final List<FacetFilterInput> filters =
               input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
@@ -59,10 +62,11 @@ public class ListAccessTokensResolver
           if (AuthorizationUtils.canManageTokens(context)
               || isListingSelfTokens(filters, context)) {
             try {
-              final SortCriterion sortCriterion =
-                  new SortCriterion()
-                      .setField(EXPIRES_AT_FIELD_NAME)
-                      .setOrder(SortOrder.DESCENDING);
+              final List<SortCriterion> sortCriteria =
+                  Collections.singletonList(
+                      new SortCriterion()
+                          .setField(EXPIRES_AT_FIELD_NAME)
+                          .setOrder(SortOrder.DESCENDING));
               final SearchResult searchResult =
                   _entityClient.search(
                       context
@@ -70,11 +74,8 @@ public class ListAccessTokensResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
-                      buildFilter(
-                          filters,
-                          Collections.emptyList(),
-                          context.getOperationContext().getAspectRetriever()),
-                      sortCriterion,
+                      buildFilter(filters, Collections.emptyList()),
+                      sortCriteria,
                       start,
                       count);
 

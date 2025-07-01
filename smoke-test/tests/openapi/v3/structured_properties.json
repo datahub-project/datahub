@@ -1,0 +1,553 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV3%2CPROD%29",
+      "description": "Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime",
+      "description": "Remove test structured property",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime02",
+      "description": "Remove test structured property #2",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentValueType",
+      "description": "Remove test structured property for nonExistentValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeValueType",
+      "description": "Remove test structured property for invalidEntityTypeValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnValueType",
+      "description": "Remove test structured property for invalidUrnValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentEntityTypes",
+      "description": "Remove test structured property for nonExistentEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeEntityTypes",
+      "description": "Remove test structured property for invalidEntityTypeEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnEntityTypes",
+      "description": "Remove test structured property for invalidUrnEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime/propertyDefinition",
+      "description": "Create structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.privacy.v3.retentionTime",
+          "valueType": "urn:li:dataType:datahub.number",
+          "description": "Retention Time is used to figure out how long to retain records in a dataset",
+          "displayName": "Retention Time",
+          "cardinality": "MULTIPLE",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ],
+          "allowedValues": [
+            {
+              "value": {
+                "double": 30
+              },
+              "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+            },
+            {
+              "value": {
+                "double": 60
+              },
+              "description": "Use this for datasets that drive monthly reporting but contain pii"
+            },
+            {
+              "value": {
+                "double": 365
+              },
+              "description": "Use this for non-sensitive data that can be retained for longer"
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime",
+        "propertyDefinition": {
+          "value": {
+            "allowedValues": [
+              {
+                "value": {
+                  "double": 30.0
+                },
+                "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+              },
+              {
+                "value": {
+                  "double": 60.0
+                },
+                "description": "Use this for datasets that drive monthly reporting but contain pii"
+              },
+              {
+                "value": {
+                  "double": 365.0
+                },
+                "description": "Use this for non-sensitive data that can be retained for longer"
+              }
+            ],
+            "qualifiedName": "io.acryl.privacy.v3.retentionTime",
+            "displayName": "Retention Time",
+            "valueType": "urn:li:dataType:datahub.number",
+            "description": "Retention Time is used to figure out how long to retain records in a dataset",
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset",
+              "urn:li:entityType:datahub.dataFlow"
+            ],
+            "cardinality": "MULTIPLE"
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset?createIfNotExists=false&createEntityIfNotExists=false",
+      "description": "Create dataset",
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV3,PROD)",
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV3,PROD)",
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV3%2CPROD%29/structuredProperties?createIfNotExists=false",
+      "description": "Add structured property to dataset",
+      "json": {
+        "value": {
+          "properties": [
+            {
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime",
+              "values": [
+                {
+                  "double": 60.0
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV3,PROD)",
+        "structuredProperties": {
+          "value": {
+            "properties": [
+              {
+                "values": [
+                  {
+                    "double": 60.0
+                  }
+                ],
+                "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime02/propertyDefinition?createIfNotExists=false",
+      "description": "Create structured property definition #2",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.privacy.v3.retentionTime02",
+          "displayName": "Retention Time 02",
+          "valueType": "urn:li:dataType:datahub.string",
+          "allowedValues": [
+            {
+              "value": {
+                "string": "foo2"
+              },
+              "description": "test foo2 value"
+            },
+            {
+              "value": {
+                "string": "bar2"
+              },
+              "description": "test bar2 value"
+            }
+          ],
+          "cardinality": "SINGLE",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset"
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02",
+        "propertyDefinition": {
+          "value": {
+            "allowedValues": [
+              {
+                "description": "test foo2 value",
+                "value": {
+                  "string": "foo2"
+                }
+              },
+              {
+                "description": "test bar2 value",
+                "value": {
+                  "string": "bar2"
+                }
+              }
+            ],
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "cardinality": "SINGLE",
+            "displayName": "Retention Time 02",
+            "qualifiedName": "io.acryl.privacy.v3.retentionTime02",
+            "valueType": "urn:li:dataType:datahub.string"
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV3%2CPROD%29/structuredProperties",
+      "description": "Patch ADD structured property",
+      "method": "patch",
+      "json": {
+        "patch": [
+          {
+            "op": "add",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02",
+            "value": {
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02",
+              "values": [
+                {
+                  "string": "bar2"
+                }
+              ]
+            }
+          }
+        ],
+        "arrayPrimaryKeys": {
+          "properties": [
+            "propertyUrn"
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV3,PROD)",
+        "structuredProperties": {
+          "value": {
+            "properties": [
+              {
+                "values": [
+                  {
+                    "double": 60.0
+                  }
+                ],
+                "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime"
+              },
+              {
+                "values": [
+                  {
+                    "string": "bar2"
+                  }
+                ],
+                "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV3%2CPROD%29/structuredProperties",
+      "description": "Patch REMOVE structured property",
+      "method": "patch",
+      "json": {
+        "patch": [
+          {
+            "op": "remove",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02",
+            "value": {
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime02"
+            }
+          }
+        ],
+        "arrayPrimaryKeys": {
+          "properties": [
+            "propertyUrn"
+          ]
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV3,PROD)",
+        "structuredProperties": {
+          "value": {
+            "properties": [
+              {
+                "values": [
+                  {
+                    "double": 60.0
+                  }
+                ],
+                "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v3.retentionTime"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentValueType/propertyDefinition",
+      "description": "Create nonExistent ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.nonExistentValueType",
+          "valueType": "urn:li:dataType:datahub.DOEST_NOT_EXIST",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeValueType/propertyDefinition",
+      "description": "Create invalidEntity ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidEntityTypeValueType",
+          "valueType": "urn:li:container:datahub.string",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnValueType/propertyDefinition",
+      "description": "Create invalidUrn ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidUrnValueType",
+          "valueType": "urn:li:dataType:(datahub.string",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentEntityTypes/propertyDefinition",
+      "description": "Create nonExistent EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.nonExistentEntityTypes",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.DOEST_NOT_EXIST"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeEntityTypes/propertyDefinition",
+      "description": "Create invalidEntity EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidEntityTypeEntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:container:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnEntityTypes/propertyDefinition",
+      "description": "Create invalidUrn EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidUrnEntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:(datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  }
+]

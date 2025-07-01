@@ -5,6 +5,7 @@ import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.DataFlowUrn
 import com.linkedin.common.TimeStamp
+import com.linkedin.common.FabricType
 
 /**
  * Information about a Data processing job
@@ -72,4 +73,15 @@ record DataJobInfo includes CustomProperties, ExternalReference {
    */
   @deprecated = "Use Data Process Instance model, instead"
   status: optional JobStatus
+
+  /**
+   * Environment for this job
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  env: optional FabricType
 }

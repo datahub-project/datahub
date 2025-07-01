@@ -1,14 +1,15 @@
-import React from 'react';
-import { Tooltip } from 'antd';
 import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import { curveBasis } from '@visx/curve';
+import { Group } from '@visx/group';
+import { LinePath } from '@visx/shape';
+import { Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
+import React from 'react';
 import styled from 'styled-components';
-import { Group } from '@visx/group';
-import { curveBasis } from '@visx/curve';
-import { LinePath } from '@visx/shape';
-import { VizEdge } from './types';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { VizEdge } from '@app/lineage/types';
 
 dayjs.extend(LocalizedFormat);
 
@@ -26,11 +27,11 @@ const StyledEyeOutlined = styled(EyeOutlined)`
 
 type Props = {
     edge: VizEdge;
-    key: string;
+    edgeKey: string;
     isHighlighted: boolean;
 };
 
-export default function LineageEntityEdge({ edge, key, isHighlighted }: Props) {
+export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Props) {
     const createdOnTimestamp = edge?.createdOn;
     const updatedOnTimestamp = edge?.updatedOn;
     const createdOn = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : undefined;
@@ -59,7 +60,7 @@ export default function LineageEntityEdge({ edge, key, isHighlighted }: Props) {
                     undefined
                 }
             >
-                <Group key={key}>
+                <Group key={edgeKey}>
                     <LinePath
                         // we rotated the svg 90 degrees so we need to switch x & y for the last mile
                         x={(d) => {

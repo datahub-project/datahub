@@ -1,5 +1,4 @@
 .envrc
-src/datahub_dagster_plugin/__init__.py.bak
 .vscode/
 output
 pvenv36/

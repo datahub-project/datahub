@@ -5,7 +5,9 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+)
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -46,6 +48,13 @@ class DataLakeSourceConfig(
     use_s3_object_tags: Optional[bool] = Field(
         None,
         description="Whether or not to create tags in datahub from the s3 object",
+    )
+    use_s3_content_type: bool = Field(
+        default=False,
+        description=(
+            "If enabled, use S3 Object metadata to determine content type over file extension, if set."
+            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets."
+        ),
     )
 
     # Whether to update the table schema when schema in files within the partitions are updated
@@ -98,6 +107,11 @@ class DataLakeSourceConfig(
         description="Whether to sort schema fields by fieldPath when inferring schemas.",
     )
 
+    generate_partition_aspects: bool = Field(
+        default=True,
+        description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -140,13 +154,25 @@ class DataLakeSourceConfig(
         return path_specs
 
     @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: str, values: dict) -> str:
-        inferred_platform = values.get(
-            "platform", None
-        )  # we may have inferred it above
+    def platform_valid(cls, platform: Any, values: dict) -> str:
+        inferred_platform = values.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")
+
+        if platform != "s3" and values.get("use_s3_bucket_tags"):
+            raise ValueError(
+                "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3."
+            )
+        if platform != "s3" and values.get("use_s3_object_tags"):
+            raise ValueError(
+                "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3."
+            )
+        if platform != "s3" and values.get("use_s3_content_type"):
+            raise ValueError(
+                "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
+            )
+
         return platform
 
     @pydantic.root_validator(skip_on_failure=True)

@@ -1,11 +1,19 @@
-import React, { useContext } from 'react';
 import { Group } from '@visx/group';
 import { TransformMatrix } from '@visx/zoom/lib/types';
+import React, { useContext } from 'react';
 
-import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType, UpdatedLineages } from './types';
-import LineageEntityNode from './LineageEntityNode';
-import LineageEntityEdge from './LineageEntityEdge';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import LineageEntityEdge from '@app/lineage/LineageEntityEdge';
+import LineageEntityNode from '@app/lineage/LineageEntityNode';
+import {
+    EntityAndType,
+    EntitySelectParams,
+    NodeData,
+    TreeProps,
+    UpdatedLineages,
+    VizEdge,
+    VizNode,
+} from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
 
 type Props = {
     data: NodeData;
@@ -77,7 +85,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                     link.target.data.urn
                 }${link.targetField && `-${link.targetField}`}-${link.target.direction}`;
 
-                return <LineageEntityEdge edge={link} key={key} isHighlighted={!!isHighlighted} />;
+                return <LineageEntityEdge edge={link} edgeKey={key} isHighlighted={!!isHighlighted} />;
             })}
             {nodesToRender.map((node, index) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;

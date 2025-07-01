@@ -44,7 +44,8 @@ public class Utils {
       @Nullable Long gePitEpochMs,
       @Nullable Long lePitEpochMs,
       @Nonnull Authorizer authorizer,
-      @Nonnull EntityService<?> entityService) {
+      @Nonnull EntityService<?> entityService,
+     boolean createDefaultAspects) {
 
     EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
@@ -52,16 +53,17 @@ public class Utils {
       resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
     final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext,
+                    "restoreIndices", List.of()), authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            authorizer,
+            opContext,
             PoliciesConfig.RESTORE_INDICES_PRIVILEGE,
             resourceSpec)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to restore indices.");
     }
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext, "restoreIndices", List.of()), authorizer, auth, true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
@@ -72,7 +74,8 @@ public class Utils {
             .batchSize(batchSize)
             .limit(limit)
             .gePitEpochMs(gePitEpochMs)
-            .lePitEpochMs(lePitEpochMs);
+            .lePitEpochMs(lePitEpochMs)
+            .createDefaultAspects(createDefaultAspects);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
     result.put("result", entityService

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.validation;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -8,6 +9,7 @@ import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public abstract class AspectPayloadValidator extends PluginSpec {
 
@@ -19,12 +21,14 @@ public abstract class AspectPayloadValidator extends PluginSpec {
    */
   public final Stream<AspectValidationException> validateProposed(
       @Nonnull Collection<? extends BatchItem> mcpItems,
-      @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     return validateProposedAspects(
         mcpItems.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
-        retrieverContext);
+        retrieverContext,
+        session);
   }
 
   /**
@@ -37,7 +41,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validatePreCommitAspects(
         changeMCPs.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
@@ -45,6 +49,22 @@ public abstract class AspectPayloadValidator extends PluginSpec {
   protected abstract Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext);
+
+  protected Stream<AspectValidationException> validateProposedAspectsWithAuth(
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    return Stream.empty();
+  }
+
+  private Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    return Stream.concat(
+        validateProposedAspects(mcpItems, retrieverContext),
+        validateProposedAspectsWithAuth(mcpItems, retrieverContext, session));
+  }
 
   protected abstract Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext);

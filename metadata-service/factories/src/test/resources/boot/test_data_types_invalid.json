@@ -1,9 +1,0 @@
-[
-  {
-    "urn": "urn:li:dataType:datahub.test",
-    "badField": {
-      "qualifiedName":"datahub.test",
-      "description": "Test Description"
-    }
-  }
-]

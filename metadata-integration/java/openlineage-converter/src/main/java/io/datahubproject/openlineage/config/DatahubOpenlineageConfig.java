@@ -16,6 +16,7 @@ import lombok.ToString;
 @Getter
 @ToString
 public class DatahubOpenlineageConfig {
+  @Builder.Default private final boolean isSpark = false;
   @Builder.Default private final boolean isStreaming = false;
   @Builder.Default private final String pipelineName = null;
   private final String platformInstance;
@@ -33,6 +34,8 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private String hivePlatformAlias = "hive";
   @Builder.Default private Map<String, String> urnAliases = new HashMap<>();
   @Builder.Default private final boolean disableSymlinkResolution = false;
+  @Builder.Default private final boolean lowerCaseDatasetUrns = false;
+  @Builder.Default private final boolean removeLegacyLineage = false;
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {

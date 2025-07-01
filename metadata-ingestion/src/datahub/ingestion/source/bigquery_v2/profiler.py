@@ -166,12 +166,13 @@ WHERE
                 normalized_table_name = BigqueryTableIdentifier(
                     project_id=project_id, dataset=dataset, table=table.name
                 ).get_table_name()
-                for column in table.columns_ignore_from_profiling:
-                    # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
-                    # We also filter columns without data type as it means that column is part of a complex type.
-                    self.config.profile_pattern.deny.append(
-                        f"^{normalized_table_name}.{column}$"
+
+                if table.external and not self.config.profiling.profile_external_tables:
+                    self.report.profiling_skipped_other[f"{project_id}.{dataset}"] += 1
+                    logger.info(
+                        f"Skipping profiling of external table {project_id}.{dataset}.{table.name}"
                     )
+                    continue
 
                 # Emit the profile work unit
                 logger.debug(
@@ -227,8 +228,9 @@ WHERE
 
         if partition is None and bq_table.partition_info:
             self.report.report_warning(
-                "profile skipped as partitioned table is empty or partition id or type was invalid",
-                profile_request.pretty_name,
+                title="Profile skipped for partitioned table",
+                message="profile skipped as partitioned table is empty or partition id or type was invalid",
+                context=profile_request.pretty_name,
             )
             return None
         if (

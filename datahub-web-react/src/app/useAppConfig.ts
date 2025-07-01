@@ -1,5 +1,6 @@
 import { useContext } from 'react';
-import { AppConfigContext } from '../appConfigContext';
+
+import { AppConfigContext } from '@src/appConfigContext';
 
 /**
  * Fetch an instance of AppConfig from the React context.
@@ -26,4 +27,19 @@ export function useBusinessAttributesFlag() {
 export function useIsAppConfigContextLoaded() {
     const appConfig = useAppConfig();
     return appConfig.loaded;
+}
+
+export function useIsEditableDatasetNameEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.editableDatasetNameEnabled;
+}
+
+export function useIsShowSeparateSiblingsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showSeparateSiblings;
+}
+
+export function useShowIntroducePage() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showIntroducePage;
 }

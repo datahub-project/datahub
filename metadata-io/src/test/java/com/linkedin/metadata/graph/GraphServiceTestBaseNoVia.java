@@ -1,10 +1,13 @@
 package com.linkedin.metadata.graph;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Set;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -15,7 +18,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
     return new Object[][] {
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         outgoingRelationships,
         // All DownstreamOf relationships, outgoing
         Arrays.asList(
@@ -26,7 +29,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         incomingRelationships,
         // All DownstreamOf relationships, incoming
         Arrays.asList(
@@ -38,7 +41,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity,
@@ -49,24 +52,18 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
             downstreamOfSchemaFieldOne,
             downstreamOfSchemaFieldTwo)
       },
-      new Object[] {
-        "", Arrays.asList(downstreamOf), outgoingRelationships, Collections.emptyList()
-      },
-      new Object[] {
-        "", Arrays.asList(downstreamOf), incomingRelationships, Collections.emptyList()
-      },
-      new Object[] {
-        "", Arrays.asList(downstreamOf), undirectedRelationships, Collections.emptyList()
-      },
+      new Object[] {"", Set.of(downstreamOf), outgoingRelationships, Collections.emptyList()},
+      new Object[] {"", Set.of(downstreamOf), incomingRelationships, Collections.emptyList()},
+      new Object[] {"", Set.of(downstreamOf), undirectedRelationships, Collections.emptyList()},
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -75,16 +72,16 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
-      new Object[] {datasetType, Arrays.asList(hasOwner), outgoingRelationships, Arrays.asList()},
+      new Object[] {datasetType, Set.of(hasOwner), outgoingRelationships, Arrays.asList()},
       new Object[] {
         datasetType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         incomingRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -92,7 +89,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         datasetType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         undirectedRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -100,14 +97,14 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         outgoingRelationships,
         Arrays.asList(hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity)
       },
-      new Object[] {userType, Arrays.asList(hasOwner), incomingRelationships, Arrays.asList()},
+      new Object[] {userType, Set.of(hasOwner), incomingRelationships, Arrays.asList()},
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         undirectedRelationships,
         Arrays.asList(hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity)
       }
@@ -120,7 +117,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       // All DownstreamOf relationships, outgoing
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         outgoingRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity,
@@ -131,7 +128,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       // All DownstreamOf relationships, incoming
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -143,7 +140,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       // All DownstreamOf relationships, both directions
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity,
@@ -156,24 +153,18 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
 
       // "" used to be any type before v0.9.0, which is now encoded by null
-      new Object[] {
-        "", Arrays.asList(downstreamOf), outgoingRelationships, Collections.emptyList()
-      },
-      new Object[] {
-        "", Arrays.asList(downstreamOf), incomingRelationships, Collections.emptyList()
-      },
-      new Object[] {
-        "", Arrays.asList(downstreamOf), undirectedRelationships, Collections.emptyList()
-      },
+      new Object[] {"", Set.of(downstreamOf), outgoingRelationships, Collections.emptyList()},
+      new Object[] {"", Set.of(downstreamOf), incomingRelationships, Collections.emptyList()},
+      new Object[] {"", Set.of(downstreamOf), undirectedRelationships, Collections.emptyList()},
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -182,21 +173,19 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Set.of(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
-      new Object[] {userType, Arrays.asList(downstreamOf), outgoingRelationships, Arrays.asList()},
-      new Object[] {userType, Arrays.asList(downstreamOf), incomingRelationships, Arrays.asList()},
-      new Object[] {
-        userType, Arrays.asList(downstreamOf), undirectedRelationships, Arrays.asList()
-      },
-      new Object[] {userType, Arrays.asList(hasOwner), outgoingRelationships, Arrays.asList()},
+      new Object[] {userType, Set.of(downstreamOf), outgoingRelationships, Arrays.asList()},
+      new Object[] {userType, Set.of(downstreamOf), incomingRelationships, Arrays.asList()},
+      new Object[] {userType, Set.of(downstreamOf), undirectedRelationships, Arrays.asList()},
+      new Object[] {userType, Set.of(hasOwner), outgoingRelationships, Arrays.asList()},
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         incomingRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -204,7 +193,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
       },
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Set.of(hasOwner),
         undirectedRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -220,11 +209,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allOutgoingRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            Set.of(downstreamOf, hasOwner, knowsUser),
             outgoingRelationships,
             0,
             100);
@@ -243,11 +233,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allIncomingRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            Set.of(downstreamOf, hasOwner, knowsUser),
             incomingRelationships,
             0,
             100);
@@ -269,11 +260,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult allUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList("unknownRelationshipType", "unseenRelationshipType"),
+            Set.of("unknownRelationshipType", "unseenRelationshipType"),
             outgoingRelationships,
             0,
             100);
@@ -281,11 +273,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult someUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList("unknownRelationshipType", downstreamOf),
+            Set.of("unknownRelationshipType", downstreamOf),
             outgoingRelationships,
             0,
             100);
@@ -306,11 +299,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
 
     RelatedEntitiesResult relatedOutgoingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            Set.of(downstreamOf, hasOwner, knowsUser),
             outgoingRelationships,
             0,
             100);
@@ -328,11 +322,12 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
             downstreamOfSchemaFieldTwo));
     RelatedEntitiesResult relatedIncomingEntitiesBeforeRemove =
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            Set.of(downstreamOf, hasOwner, knowsUser),
             incomingRelationships,
             0,
             100);
@@ -360,18 +355,19 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
-    service.removeNode(dataset2Urn);
+    service.removeNode(mock(OperationContext.class), dataset2Urn);
     syncAfterWrite();
 
     // assert the modified graph
     // All downstreamOf, hasOwner, knowsUser relationships minus datasetTwo's, outgoing
     assertEqualsAnyOrder(
         service.findRelatedEntities(
+            mock(OperationContext.class),
             anyType,
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            Set.of(downstreamOf, hasOwner, knowsUser),
             outgoingRelationships,
             0,
             100),

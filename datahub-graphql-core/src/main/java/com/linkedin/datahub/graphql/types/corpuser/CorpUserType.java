@@ -114,7 +114,7 @@ public class CorpUserType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final SearchResult searchResult =
@@ -133,7 +133,7 @@ public class CorpUserType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -183,8 +183,7 @@ public class CorpUserType
     // information.
     return context.getActorUrn().equals(urn)
         || AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
+            context,
             PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

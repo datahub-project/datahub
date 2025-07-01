@@ -27,11 +27,13 @@ import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
@@ -179,6 +181,10 @@ public class GraphQLEngineFactory {
   private DataProductService dataProductService;
 
   @Autowired
+  @Qualifier("applicationService")
+  private ApplicationService applicationService;
+
+  @Autowired
   @Qualifier("formService")
   private FormService formService;
 
@@ -205,7 +211,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
-      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      final EntityVersioningService entityVersioningService) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
@@ -234,6 +241,8 @@ public class GraphQLEngineFactory {
     args.setTestsConfiguration(configProvider.getMetadataTests());
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
+    args.setSearchBarConfiguration(configProvider.getSearchBar());
+    args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
     args.setRoleService(roleService);
@@ -249,12 +258,15 @@ public class GraphQLEngineFactory {
     args.setFormService(formService);
     args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
+    args.setApplicationService(applicationService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryIntrospectionEnabled(
         configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
+    args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
+    args.setEntityVersioningService(entityVersioningService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     return new GmsGraphQLEngine(args).builder().build();

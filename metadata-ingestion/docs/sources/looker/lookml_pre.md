@@ -95,8 +95,8 @@ jobs:
   lookml-metadata-upload:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Run LookML ingestion
@@ -110,7 +110,7 @@ jobs:
             config:
               base_folder: ${{ github.workspace }}
               parse_table_names_from_sql: true
-              github_info:
+              git_info:
                 repo: ${{ github.repository }}
                 branch: ${{ github.ref }}
               # Options

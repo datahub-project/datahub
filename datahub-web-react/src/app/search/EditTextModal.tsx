@@ -13,7 +13,7 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title }: Props
     return (
         <Modal
             title={title}
-            visible
+            open
             onCancel={onCloseModal}
             keyboard
             footer={

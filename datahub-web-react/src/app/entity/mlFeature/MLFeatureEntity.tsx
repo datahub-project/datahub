@@ -1,23 +1,27 @@
-import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlFeature, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GenericEntityProperties } from '../shared/types';
-import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/mlFeature/preview/Preview';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
+import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '@app/entity/shared/tabs/ML/MlFeatureFeatureTableTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataProduct } from '@app/entity/shared/utils';
+
+import { useGetMlFeatureQuery } from '@graphql/mlFeature.generated';
+import { EntityType, MlFeature, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -51,6 +55,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'mlFeature';
 
     getPathName = () => 'features';
 
@@ -92,6 +98,14 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, mlFeature) => {
+                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
         />
@@ -119,6 +133,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

@@ -1,5 +1,7 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
+        urn
+        type
         ...dataJobFields
         privileges {
             ...entityPrivileges
@@ -20,6 +22,10 @@ query getDataJob($urn: String!) {
         forms {
             ...formsFields
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        ...notes
     }
 }
 

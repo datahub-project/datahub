@@ -16,8 +16,10 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -42,11 +44,7 @@ public class DeprecationUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
   public static void updateDeprecationForResources(
@@ -54,6 +52,7 @@ public class DeprecationUtils {
       boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
+      @Nullable String replacementUrn,
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService) {
@@ -61,7 +60,14 @@ public class DeprecationUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(
           buildUpdateDeprecationProposal(
-              opContext, deprecated, note, decommissionTime, resource, actor, entityService));
+              opContext,
+              deprecated,
+              note,
+              decommissionTime,
+              replacementUrn,
+              resource,
+              actor,
+              entityService));
     }
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
@@ -71,14 +77,38 @@ public class DeprecationUtils {
       boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
+      @Nullable String replacementUrn,
       ResourceRefInput resource,
       Urn actor,
       EntityService entityService) {
     String resourceUrn = resource.getResourceUrn();
+    String subResource = resource.getSubResource();
+    String targetUrn = "";
+
+    if (subResource == null) {
+      targetUrn = resourceUrn;
+    } else {
+      try {
+        targetUrn =
+            SchemaFieldUtils.generateSchemaFieldUrn(Urn.createFromString(resourceUrn), subResource)
+                .toString();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     Deprecation deprecation =
         getDeprecation(
-            opContext, entityService, resourceUrn, actor, note, deprecated, decommissionTime);
+            opContext,
+            entityService,
+            resourceUrn,
+            actor,
+            note,
+            deprecated,
+            decommissionTime,
+            replacementUrn);
+
     return MutationUtils.buildMetadataChangeProposalWithUrn(
-        UrnUtils.getUrn(resourceUrn), Constants.DEPRECATION_ASPECT_NAME, deprecation);
+        UrnUtils.getUrn(targetUrn), Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }
 }

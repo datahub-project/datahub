@@ -6,15 +6,37 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class MetadataChangeProposalConfig {
-
+  ConsumerBatchConfig consumer;
   ThrottlesConfig throttle;
+  MCPValidationConfig validation;
+  SideEffectsConfig sideEffects;
 
   @Data
   @Accessors(chain = true)
   public static class ThrottlesConfig {
     Integer updateIntervalMs;
+    ComponentsThrottleConfig components;
     ThrottleConfig versioned;
     ThrottleConfig timeseries;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ComponentsThrottleConfig {
+    MceConsumerThrottleConfig mceConsumer;
+    ApiRequestsThrottleConfig apiRequests;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class MceConsumerThrottleConfig {
+    boolean enabled;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ApiRequestsThrottleConfig {
+    boolean enabled;
   }
 
   @Data
@@ -26,5 +48,30 @@ public class MetadataChangeProposalConfig {
     Integer initialIntervalMs;
     Integer multiplier;
     Integer maxIntervalMs;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class SideEffectsConfig {
+    SideEffectConfig schemaField;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class SideEffectConfig {
+    boolean enabled;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class BatchConfig {
+    boolean enabled;
+    Integer size;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ConsumerBatchConfig {
+    BatchConfig batch;
   }
 }

@@ -1,9 +1,8 @@
 # Tools useful for operating & debugging DataHub.
 ---
-version: '3.8'
 services:
   kafka-rest-proxy:
-    image: confluentinc/cp-kafka-rest:7.4.0
+    image: confluentinc/cp-kafka-rest:8.0.0
     env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     ports:

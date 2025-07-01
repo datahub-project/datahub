@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/v2/timeseries")
+@RequestMapping("/openapi/v2/timeseries")
 @Slf4j
 @Tag(
     name = "Generic Timeseries Aspects",
@@ -69,12 +69,6 @@ public class TimeseriesController {
       throws URISyntaxException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(authentication, authorizationChain, TIMESERIES, READ)
-        || !AuthUtil.isAPIAuthorizedEntityType(
-            authentication, authorizationChain, READ, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
-    }
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -85,12 +79,18 @@ public class TimeseriesController {
             authentication,
             true);
 
+    if (!AuthUtil.isAPIAuthorized(opContext, TIMESERIES, READ)
+        || !AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
+    }
+
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
 
-    List<SortCriterion> sortCriterion =
+    List<SortCriterion> sortCriteria =
         List.of(
             SearchUtil.sortBy("timestampMillis", SortOrder.DESCENDING),
             SearchUtil.sortBy("messageId", SortOrder.DESCENDING));
@@ -101,15 +101,14 @@ public class TimeseriesController {
             entityName,
             aspectName,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count,
             startTimeMillis,
             endTimeMillis);
 
     if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication,
-        authorizationChain,
+        opContext,
         TIMESERIES,
         READ,
         result.getDocuments().stream()

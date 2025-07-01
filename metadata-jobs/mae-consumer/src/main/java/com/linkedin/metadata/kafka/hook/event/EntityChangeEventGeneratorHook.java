@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.event;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
+import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -23,12 +25,14 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -60,6 +64,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_ASPECT,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
@@ -78,10 +83,12 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   private static final Set<String> SUPPORTED_OPERATIONS =
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
-  private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
+  private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
   private final OperationContext systemOperationContext;
-  private final SystemEntityClient _entityClient;
-  private final Boolean _isEnabled;
+  private final SystemEntityClient systemEntityClient;
+  private final Boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
+  private final List<String> entityExclusions;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
@@ -89,17 +96,37 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
-      @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
+      @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
+          List<String> entityExclusions) {
     this.systemOperationContext = systemOperationContext;
-    _entityChangeEventGeneratorRegistry =
+    this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    _entityClient = Objects.requireNonNull(entityClient);
-    _isEnabled = isEnabled;
+    this.systemEntityClient = Objects.requireNonNull(entityClient);
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+    this.entityExclusions = entityExclusions;
+  }
+
+  @VisibleForTesting
+  public EntityChangeEventGeneratorHook(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
+      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull Boolean isEnabled) {
+    this(
+        systemOperationContext,
+        entityChangeEventGeneratorRegistry,
+        entityClient,
+        isEnabled,
+        "",
+        Collections.emptyList());
   }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
@@ -134,7 +161,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
               : null;
 
       final List<ChangeEvent> changeEvents =
-          generateChangeEvents(
+          ChangeEventGeneratorUtils.generateChangeEvents(
+              entityChangeEventGeneratorRegistry,
               logEvent.getEntityUrn(),
               logEvent.getEntityType(),
               logEvent.getAspectName(),
@@ -166,7 +194,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull final Aspect to,
       @Nonnull AuditStamp auditStamp) {
     final List<EntityChangeEventGenerator<T>> entityChangeEventGenerators =
-        _entityChangeEventGeneratorRegistry.getEntityChangeEventGenerators(aspectName).stream()
+        entityChangeEventGeneratorRegistry.getEntityChangeEventGenerators(aspectName).stream()
             // Note: Assumes that correct types have been registered for the aspect.
             .map(changeEventGenerator -> (EntityChangeEventGenerator<T>) changeEventGenerator)
             .collect(Collectors.toList());
@@ -181,12 +209,13 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private boolean isEligibleForProcessing(final MetadataChangeLog log) {
     return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString())
-        && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
+        && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
+        && !entityExclusions.contains(log.getEntityType());
   }
 
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    _entityClient.producePlatformEvent(
+    systemEntityClient.producePlatformEvent(
         systemOperationContext, Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
   }
 

@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifyIngestProposal;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -63,7 +63,7 @@ public class CreateGlossaryNodeResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal =
         setupTest(mockEnv, TEST_INPUT, "test-description", parentNodeUrn);
@@ -71,14 +71,13 @@ public class CreateGlossaryNodeResolverTest {
     CreateGlossaryNodeResolver resolver = new CreateGlossaryNodeResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
   }
 
   @Test
   public void testGetSuccessNoDescription() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal =
         setupTest(mockEnv, TEST_INPUT_NO_DESCRIPTION, "", parentNodeUrn);
@@ -86,14 +85,13 @@ public class CreateGlossaryNodeResolverTest {
     CreateGlossaryNodeResolver resolver = new CreateGlossaryNodeResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
   }
 
   @Test
   public void testGetSuccessNoParentNode() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal =
         setupTest(mockEnv, TEST_INPUT_NO_PARENT_NODE, "test-description", null);
@@ -101,7 +99,6 @@ public class CreateGlossaryNodeResolverTest {
     CreateGlossaryNodeResolver resolver = new CreateGlossaryNodeResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
   }
 }

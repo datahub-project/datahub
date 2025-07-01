@@ -1,7 +1,10 @@
-import { Button, Form, Input, Modal, Typography } from 'antd';
+import { Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { SecretBuilderState } from './types';
+
+import { SecretBuilderState } from '@app/ingest/secret/types';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
@@ -10,13 +13,13 @@ const VALUE_FIELD_NAME = 'value';
 type Props = {
     initialState?: SecretBuilderState;
     editSecret?: SecretBuilderState;
-    visible: boolean;
+    open: boolean;
     onSubmit?: (source: SecretBuilderState, resetState: () => void) => void;
     onUpdate?: (source: SecretBuilderState, resetState: () => void) => void;
     onCancel?: () => void;
 };
 
-export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit, onUpdate, onCancel }: Props) => {
+export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, onUpdate, onCancel }: Props) => {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -52,17 +55,18 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
         <Modal
             width={540}
             title={<Typography.Text>{titleText}</Typography.Text>}
-            visible={visible}
+            open={open}
             onCancel={onCloseModal}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
+                <ModalButtonContainer>
+                    <Button color="gray" onClick={onCloseModal} variant="text">
                         Cancel
                     </Button>
                     <Button
                         data-testid="secret-modal-create-button"
                         id="createSecretButton"
+                        type="submit"
                         onClick={() => {
                             if (!editSecret) {
                                 onSubmit?.(
@@ -89,7 +93,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
                     >
                         {!editSecret ? 'Create' : 'Update'}
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form

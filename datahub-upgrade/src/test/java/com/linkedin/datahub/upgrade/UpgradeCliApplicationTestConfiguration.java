@@ -7,7 +7,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.ebean.Database;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -19,19 +18,17 @@ import org.springframework.context.annotation.Import;
 @Import(value = {SystemAuthenticationFactory.class})
 public class UpgradeCliApplicationTestConfiguration {
 
-  @MockBean private UpgradeCli upgradeCli;
+  @MockBean public UpgradeCli upgradeCli;
 
-  @MockBean private Database ebeanServer;
+  @MockBean public Database ebeanServer;
 
-  @MockBean private SearchService searchService;
+  @MockBean public SearchService searchService;
 
-  @MockBean private GraphService graphService;
+  @MockBean public GraphService graphService;
 
-  @MockBean private EntityRegistry entityRegistry;
+  @MockBean public EntityRegistry entityRegistry;
 
-  @MockBean ConfigEntityRegistry configEntityRegistry;
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
+  @MockBean public ConfigEntityRegistry configEntityRegistry;
 
   @Bean
   public SchemaRegistryService schemaRegistryService() {

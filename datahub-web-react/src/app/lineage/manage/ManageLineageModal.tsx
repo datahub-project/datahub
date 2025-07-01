@@ -1,16 +1,18 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, message, Modal } from 'antd';
+import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
-import { Direction, UpdatedLineages } from '../types';
-import AddEntityEdge from './AddEntityEdge';
-import LineageEntityView from './LineageEntityView';
-import LineageEdges from './LineageEdges';
-import { Entity, EntityType } from '../../../types.generated';
-import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { buildUpdateLineagePayload, recordAnalyticsEvents } from '../utils/manageLineageUtils';
+
+import AddEntityEdge from '@app/lineage/manage/AddEntityEdge';
+import LineageEdges from '@app/lineage/manage/LineageEdges';
+import LineageEntityView from '@app/lineage/manage/LineageEntityView';
+import { Direction, UpdatedLineages } from '@app/lineage/types';
+import { buildUpdateLineagePayload, recordAnalyticsEvents } from '@app/lineage/utils/manageLineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetEntityLineageQuery } from '@graphql/lineage.generated';
+import { useUpdateLineageMutation } from '@graphql/mutations.generated';
+import { Entity, EntityType } from '@types';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -107,8 +109,8 @@ export default function ManageLineageModal({
                     });
                 }
             })
-            .catch(() => {
-                message.error('Error updating lineage');
+            .catch((error) => {
+                message.error(error.message || 'Error updating lineage');
             });
     }
 
@@ -117,7 +119,7 @@ export default function ManageLineageModal({
     return (
         <StyledModal
             title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
-            visible
+            open
             onCancel={closeModal}
             keyboard
             footer={

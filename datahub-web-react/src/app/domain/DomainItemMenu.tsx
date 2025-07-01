@@ -1,10 +1,12 @@
-import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { EntityType } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useDeleteDomainMutation } from '../../graphql/domain.generated';
-import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
+import { Dropdown, Menu, Modal, message } from 'antd';
+import React from 'react';
+
+import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useDeleteDomainMutation } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 type Props = {
     urn: string;
@@ -48,17 +50,19 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         });
     };
 
+    const items = [
+        {
+            key: 0,
+            label: (
+                <Menu.Item onClick={onConfirmDelete} key="delete">
+                    <DeleteOutlined /> &nbsp;Delete
+                </Menu.Item>
+            ),
+        },
+    ];
+
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <Menu>
-                    <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
-                    </Menu.Item>
-                </Menu>
-            }
-        >
+        <Dropdown trigger={['click']} menu={{ items }}>
             <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
         </Dropdown>
     );

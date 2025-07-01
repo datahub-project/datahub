@@ -2,25 +2,28 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
-from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
@@ -107,21 +110,21 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
-class SnowflakeUsageExtractor(
-    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
-):
+class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
-        dataset_urn_builder: Callable[[str], str],
+        connection: SnowflakeConnection,
+        filter: SnowflakeFilter,
+        identifiers: SnowflakeIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
-        self.dataset_urn_builder = dataset_urn_builder
-        self.logger = logger
-        self.connection: Optional[SnowflakeConnection] = None
+        self.filter = filter
+        self.identifiers = identifiers
+        self.connection = connection
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = (
@@ -143,63 +146,57 @@ class SnowflakeUsageExtractor(
         if not self._should_ingest_usage():
             return
 
-        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_USAGE_AGGREGATION)
+        with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
+            if self.report.edition == SnowflakeEdition.STANDARD.value:
+                logger.info(
+                    "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
+                )
+                return
 
-        self.connection = self.create_connection()
-        if self.connection is None:
-            return
+            logger.info("Checking usage date ranges")
 
-        if self.report.edition == SnowflakeEdition.STANDARD.value:
-            logger.info(
-                "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
-            )
-            return
+            self._check_usage_date_ranges()
 
-        logger.info("Checking usage date ranges")
+            # If permission error, execution returns from here
+            if (
+                self.report.min_access_history_time is None
+                or self.report.max_access_history_time is None
+            ):
+                return
 
-        self._check_usage_date_ranges()
+            # NOTE: In earlier `snowflake-usage` connector, users with no email were not considered in usage counts as well as in operation
+            # Now, we report the usage as well as operation metadata even if user email is absent
 
-        # If permission error, execution returns from here
-        if (
-            self.report.min_access_history_time is None
-            or self.report.max_access_history_time is None
-        ):
-            return
-
-        # NOTE: In earlier `snowflake-usage` connector, users with no email were not considered in usage counts as well as in operation
-        # Now, we report the usage as well as operation metadata even if user email is absent
-
-        if self.config.include_usage_stats:
-            yield from auto_empty_dataset_usage_statistics(
-                self._get_workunits_internal(discovered_datasets),
-                config=BaseTimeWindowConfig(
-                    start_time=self.start_time,
-                    end_time=self.end_time,
-                    bucket_duration=self.config.bucket_duration,
-                ),
-                dataset_urns={
-                    self.dataset_urn_builder(dataset_identifier)
-                    for dataset_identifier in discovered_datasets
-                },
-            )
-
-        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_OPERATIONAL_STATS)
-
-        if self.config.include_operational_stats:
-            # Generate the operation workunits.
-            access_events = self._get_snowflake_history()
-            for event in access_events:
-                yield from self._get_operation_aspect_work_unit(
-                    event, discovered_datasets
+            if self.config.include_usage_stats:
+                yield from auto_empty_dataset_usage_statistics(
+                    self._get_workunits_internal(discovered_datasets),
+                    config=BaseTimeWindowConfig(
+                        start_time=self.start_time,
+                        end_time=self.end_time,
+                        bucket_duration=self.config.bucket_duration,
+                    ),
+                    dataset_urns={
+                        self.identifiers.gen_dataset_urn(dataset_identifier)
+                        for dataset_identifier in discovered_datasets
+                    },
                 )
 
-        if self.redundant_run_skip_handler:
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                self.config.start_time,
-                self.config.end_time,
-                self.config.bucket_duration,
-            )
+        with self.report.new_stage(f"*: {USAGE_EXTRACTION_OPERATIONAL_STATS}"):
+            if self.config.include_operational_stats:
+                # Generate the operation workunits.
+                access_events = self._get_snowflake_history()
+                for event in access_events:
+                    yield from self._get_operation_aspect_work_unit(
+                        event, discovered_datasets
+                    )
+
+            if self.redundant_run_skip_handler:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    self.config.start_time,
+                    self.config.end_time,
+                    self.config.bucket_duration,
+                )
 
     def _get_workunits_internal(
         self, discovered_datasets: List[str]
@@ -207,7 +204,7 @@ class SnowflakeUsageExtractor(
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
             try:
-                results = self.query(
+                results = self.connection.query(
                     SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
                         start_time_millis=int(self.start_time.timestamp() * 1000),
                         end_time_millis=int(self.end_time.timestamp() * 1000),
@@ -239,7 +236,7 @@ class SnowflakeUsageExtractor(
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
 
-                    if not self._is_dataset_pattern_allowed(
+                    if not self.filter.is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
                     ):
@@ -249,7 +246,7 @@ class SnowflakeUsageExtractor(
                         continue
 
                     dataset_identifier = (
-                        self.get_dataset_identifier_from_qualified_name(
+                        self.identifiers.get_dataset_identifier_from_qualified_name(
                             row["OBJECT_NAME"]
                         )
                     )
@@ -286,14 +283,15 @@ class SnowflakeUsageExtractor(
                 fieldCounts=self._map_field_counts(row["FIELD_COUNTS"]),
             )
             return MetadataChangeProposalWrapper(
-                entityUrn=self.dataset_urn_builder(dataset_identifier), aspect=stats
+                entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
+                aspect=stats,
             ).as_workunit()
         except Exception as e:
             logger.debug(
                 f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
                 exc_info=e,
             )
-            self.report_warning(
+            self.report.warning(
                 "Failed to parse usage statistics for dataset", dataset_identifier
             )
 
@@ -343,10 +341,9 @@ class SnowflakeUsageExtractor(
                 filtered_user_counts.append(
                     DatasetUserUsageCounts(
                         user=make_user_urn(
-                            self.get_user_identifier(
+                            self.identifiers.get_user_identifier(
                                 user_count["user_name"],
                                 user_email,
-                                self.config.email_as_user_identifier,
                             )
                         ),
                         count=user_count["total"],
@@ -363,7 +360,9 @@ class SnowflakeUsageExtractor(
             return sorted(
                 [
                     DatasetFieldUsageCounts(
-                        fieldPath=self.snowflake_identifier(field_count["col"]),
+                        fieldPath=self.identifiers.snowflake_identifier(
+                            field_count["col"]
+                        ),
                         count=field_count["total"],
                     )
                     for field_count in field_counts
@@ -376,7 +375,8 @@ class SnowflakeUsageExtractor(
         with PerfTimer() as timer:
             query = self._make_operations_query()
             try:
-                results = self.query(query)
+                assert self.connection is not None
+                results = self.connection.query(query)
             except Exception as e:
                 logger.debug(e, exc_info=e)
                 self.warn_if_stateful_else_error(
@@ -385,7 +385,7 @@ class SnowflakeUsageExtractor(
                 )
                 self.report_status(USAGE_EXTRACTION_OPERATIONAL_STATS, False)
                 return
-            self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
+            self.report.access_history_query_secs = timer.elapsed_seconds(digits=2)
 
         for row in results:
             yield from self._process_snowflake_history_row(row)
@@ -398,7 +398,10 @@ class SnowflakeUsageExtractor(
     def _check_usage_date_ranges(self) -> None:
         with PerfTimer() as timer:
             try:
-                results = self.query(SnowflakeQuery.get_access_history_date_range())
+                assert self.connection is not None
+                results = self.connection.query(
+                    SnowflakeQuery.get_access_history_date_range()
+                )
             except Exception as e:
                 if isinstance(e, SnowflakePermissionError):
                     error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
@@ -407,7 +410,7 @@ class SnowflakeUsageExtractor(
                     )
                 else:
                     logger.debug(e, exc_info=e)
-                    self.report_warning(
+                    self.report.warning(
                         "usage",
                         f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
                     )
@@ -419,7 +422,7 @@ class SnowflakeUsageExtractor(
                         or db_row["MIN_TIME"] is None
                         or db_row["MAX_TIME"] is None
                     ):
-                        self.report_warning(
+                        self.report.warning(
                             "check-usage-data",
                             f"Missing data for access_history {db_row}.",
                         )
@@ -430,8 +433,8 @@ class SnowflakeUsageExtractor(
                     self.report.max_access_history_time = db_row["MAX_TIME"].astimezone(
                         tz=timezone.utc
                     )
-                    self.report.access_history_range_query_secs = round(
-                        timer.elapsed_seconds(), 2
+                    self.report.access_history_range_query_secs = timer.elapsed_seconds(
+                        digits=2
                     )
 
     def _get_operation_aspect_work_unit(
@@ -448,17 +451,17 @@ class SnowflakeUsageExtractor(
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
-                self.get_user_identifier(
-                    user_name, user_email, self.config.email_as_user_identifier
-                )
+                self.identifiers.get_user_identifier(user_name, user_email)
             )
 
             # NOTE: In earlier `snowflake-usage` connector this was base_objects_accessed, which is incorrect
             for obj in event.objects_modified:
                 resource = obj.objectName
 
-                dataset_identifier = self.get_dataset_identifier_from_qualified_name(
-                    resource
+                dataset_identifier = (
+                    self.identifiers.get_dataset_identifier_from_qualified_name(
+                        resource
+                    )
                 )
 
                 if dataset_identifier not in discovered_datasets:
@@ -479,7 +482,7 @@ class SnowflakeUsageExtractor(
                     ),
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityUrn=self.dataset_urn_builder(dataset_identifier),
+                    entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
@@ -505,7 +508,7 @@ class SnowflakeUsageExtractor(
             yield event
         except Exception as e:
             self.report.rows_parsing_error += 1
-            self.report_warning(
+            self.report.warning(
                 "operation",
                 f"Failed to parse operation history row {event_dict}, {e}",
             )
@@ -546,9 +549,9 @@ class SnowflakeUsageExtractor(
         ):
             # NOTE: Generated emails may be incorrect, as email may be different than
             # username@email_domain
-            event_dict[
-                "EMAIL"
-            ] = f'{event_dict["USER_NAME"]}@{self.config.email_domain}'.lower()
+            event_dict["EMAIL"] = (
+                f"{event_dict['USER_NAME']}@{self.config.email_domain}".lower()
+            )
 
         if not event_dict["EMAIL"]:
             self.report.rows_missing_email += 1
@@ -564,7 +567,7 @@ class SnowflakeUsageExtractor(
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
         if self._is_unsupported_object_accessed(
             obj
-        ) or not self._is_dataset_pattern_allowed(
+        ) or not self.filter.is_dataset_pattern_allowed(
             obj.get("objectName"), obj.get("objectDomain")
         ):
             return False
@@ -590,3 +593,6 @@ class SnowflakeUsageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def close(self) -> None:
+        pass

@@ -2,14 +2,13 @@ package io.datahubproject.openapi.v3.models;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.openapi.models.GenericEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,44 +23,60 @@ import lombok.EqualsAndHashCode;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @AllArgsConstructor
-public class GenericEntityV3 extends LinkedHashMap<String, Object> implements GenericEntity {
+public class GenericEntityV3 extends LinkedHashMap<String, Object>
+    implements GenericEntity<GenericAspectV3> {
 
   public GenericEntityV3(Map<? extends String, ?> m) {
     super(m);
   }
 
+  public String getUrn() {
+    return (String) get("urn");
+  }
+
   @Override
-  public Map<String, Object> getAspects() {
-    return this;
+  public Map<String, GenericAspectV3> getAspects() {
+    return this.entrySet().stream()
+        .filter(entry -> !"urn".equals(entry.getKey()))
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> (GenericAspectV3) entry.getValue()));
   }
 
   public static class GenericEntityV3Builder {
 
     public GenericEntityV3 build(
-        ObjectMapper objectMapper,
-        @Nonnull Urn urn,
-        Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
-      Map<String, Object> jsonObjectMap =
+        ObjectMapper objectMapper, @Nonnull Urn urn, Map<String, AspectItem> aspects) {
+      Map<String, GenericAspectV3> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
-                  e -> {
+                  entry -> {
                     try {
-                      Map<String, Object> valueMap =
-                          Map.of(
-                              "value",
-                              objectMapper.readTree(
-                                  RecordUtils.toJsonString(e.getValue().getFirst())
-                                      .getBytes(StandardCharsets.UTF_8)));
+                      String aspectName = entry.getKey();
+                      Map<String, Object> aspectValueMap =
+                          entry.getValue().getAspect() != null
+                              ? objectMapper.readValue(
+                                  RecordUtils.toJsonString(entry.getValue().getAspect())
+                                      .getBytes(StandardCharsets.UTF_8),
+                                  new TypeReference<>() {})
+                              : Collections.emptyMap();
 
-                      if (e.getValue().getSecond() != null) {
-                        return Map.entry(
-                            e.getKey(),
-                            Map.of(
-                                "systemMetadata", e.getValue().getSecond(),
-                                "value", valueMap.get("value")));
-                      } else {
-                        return Map.entry(e.getKey(), Map.of("value", valueMap.get("value")));
-                      }
+                      Map<String, Object> systemMetadata =
+                          entry.getValue().getSystemMetadata() != null
+                              ? objectMapper.convertValue(
+                                  entry.getValue().getSystemMetadata(), new TypeReference<>() {})
+                              : null;
+                      Map<String, Object> auditStamp =
+                          entry.getValue().getAuditStamp() != null
+                              ? objectMapper.convertValue(
+                                  entry.getValue().getAuditStamp().data(), new TypeReference<>() {})
+                              : null;
+
+                      return Map.entry(
+                          aspectName,
+                          GenericAspectV3.builder()
+                              .value(aspectValueMap)
+                              .systemMetadata(systemMetadata)
+                              .auditStamp(auditStamp)
+                              .build());
                     } catch (IOException ex) {
                       throw new RuntimeException(ex);
                     }

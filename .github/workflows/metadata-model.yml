@@ -20,23 +20,21 @@ jobs:
     steps:
       - name: Check whether upload to datahub is enabled
         id: publish
-        env:
-          ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
+          echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: "pip"
@@ -49,7 +47,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:modelDocGen
       - name: Configure AWS Credentials
         if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}
@@ -62,4 +60,5 @@ jobs:
         env:
           DATAHUB_SERVER: ${{ secrets.DataHubServer }}
           DATAHUB_TOKEN: ${{ secrets.DataHubToken }}
+          DATAHUB_TELEMETRY_ENABLED: false
         run: ./gradlew :metadata-ingestion:modelDocUpload

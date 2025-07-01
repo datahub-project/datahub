@@ -35,7 +35,7 @@ public class BatchAddTermsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTerms() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -99,7 +99,7 @@ public class BatchAddTermsResolverTest {
                         new GlossaryTermAssociation()
                             .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_1_URN)))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -155,7 +155,7 @@ public class BatchAddTermsResolverTest {
 
   @Test
   public void testGetFailureTagDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -189,7 +189,7 @@ public class BatchAddTermsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -234,7 +234,7 @@ public class BatchAddTermsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchAddTermsResolver resolver = new BatchAddTermsResolver(mockService);
 
@@ -256,7 +256,7 @@ public class BatchAddTermsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

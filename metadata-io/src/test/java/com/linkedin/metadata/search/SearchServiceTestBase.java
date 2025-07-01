@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -11,10 +14,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -26,10 +28,10 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -63,9 +65,6 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
 
-  @Nonnull
-  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
-
   protected OperationContext operationContext;
   private SettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
@@ -79,10 +78,16 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("search_service_test"))
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("search_service_test")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
-    settingsBuilder = new SettingsBuilder(null);
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
@@ -103,35 +108,47 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
                 elasticSearchService,
                 entityDocCountCacheConfiguration),
             cachingEntitySearchService,
-            new SimpleRanker());
+            new SimpleRanker(),
+            TEST_SEARCH_SERVICE_CONFIG);
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
-            getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(), getSearchConfiguration(), getCustomSearchConfiguration());
+            getSearchClient(),
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+    ElasticSearchService searchService =
+        new ElasticSearchService(
+            getIndexBuilder(),
+            operationContext.getEntityRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
+            settingsBuilder,
+            TEST_SEARCH_SERVICE_CONFIG,
+            searchDAO,
+            browseDAO,
+            writeDAO);
+    return searchService;
   }
 
   private void clearCache() {
@@ -231,19 +248,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchOr() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
 
-    final Criterion subtypeCriterion =
-        new Criterion()
-            .setField("subtypes")
-            .setCondition(Condition.EQUAL)
-            .setValue("")
-            .setValues(new StringArray(ImmutableList.of("view")));
+    final Criterion subtypeCriterion = buildCriterion("subtypes", Condition.EQUAL, "view");
 
     final Filter filterWithCondition =
         new Filter()
@@ -319,19 +326,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchSoftDelete() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
 
-    final Criterion removedCriterion =
-        new Criterion()
-            .setField("removed")
-            .setCondition(Condition.EQUAL)
-            .setValue("")
-            .setValues(new StringArray(ImmutableList.of("true")));
+    final Criterion removedCriterion = buildCriterion("removed", Condition.EQUAL, "true");
 
     final Filter filterWithCondition =
         new Filter()
@@ -409,13 +406,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Test
   public void testAdvancedSearchNegated() throws Exception {
-    final Criterion filterCriterion =
-        new Criterion()
-            .setField("platform")
-            .setCondition(Condition.EQUAL)
-            .setValue("hive")
-            .setNegated(true)
-            .setValues(new StringArray(ImmutableList.of("hive")));
+    final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, true, "hive");
 
     final Filter filterWithCondition =
         new Filter()

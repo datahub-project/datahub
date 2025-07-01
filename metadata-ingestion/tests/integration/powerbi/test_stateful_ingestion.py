@@ -23,25 +23,33 @@ def register_mock_api_state1(request_mock):
             "status_code": 403,
             "json": {},
         },
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "@odata.count": 1,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "Workspace 1",
                         "type": "Workspace",
+                        "state": "Active",
                     },
                     {
                         "id": "44444444-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "Multi Workspace",
                         "type": "Workspace",
+                        "state": "Active",
                     },
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -98,7 +106,7 @@ def register_mock_api_state1(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -114,7 +122,7 @@ def register_mock_api_state2(request_mock):
             "status_code": 403,
             "json": {},
         },
-        "https://api.powerbi.com/v1.0/myorg/groups": {
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -133,6 +141,13 @@ def register_mock_api_state2(request_mock):
                         "type": "Workspace",
                     },
                 ],
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -162,7 +177,7 @@ def register_mock_api_state2(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -216,7 +231,7 @@ def get_current_checkpoint_from_pipeline(
 ) -> Dict[JobId, Optional[Checkpoint[Any]]]:
     powerbi_source = cast(PowerBiDashboardSource, pipeline.source)
     checkpoints = {}
-    for job_id in powerbi_source.state_provider._usecase_handlers.keys():
+    for job_id in powerbi_source.state_provider._usecase_handlers:
         # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
         checkpoints[job_id] = powerbi_source.state_provider.get_current_checkpoint(
             job_id
@@ -282,7 +297,7 @@ def test_powerbi_stateful_ingestion(
 
     # Perform all assertions on the states. The deleted Dashboard should not be
     # part of the second state
-    for job_id in checkpoint1.keys():
+    for job_id in checkpoint1:
         if isinstance(checkpoint1[job_id], Checkpoint) and isinstance(
             checkpoint2[job_id], Checkpoint
         ):

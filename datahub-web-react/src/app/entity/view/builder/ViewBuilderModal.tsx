@@ -1,11 +1,13 @@
+import { Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Modal, Typography } from 'antd';
-import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '../types';
-import { ViewBuilderForm } from './ViewBuilderForm';
-import ClickOutside from '../../../shared/ClickOutside';
-import { ViewBuilderMode } from './types';
-import { getModalDomContainer } from '../../../../utils/focus';
+
+import { ViewBuilderForm } from '@app/entity/view/builder/ViewBuilderForm';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entity/view/types';
+import ClickOutside from '@app/shared/ClickOutside';
+import { Button } from '@src/alchemy-components';
+import { getModalDomContainer } from '@utils/focus';
 
 const modalWidth = 700;
 const modalStyle = { top: 40 };
@@ -20,6 +22,7 @@ const SaveButtonContainer = styled.div`
     width: 100%;
     display: flex;
     justify-content: right;
+    gap: 8px;
 `;
 
 const CancelButton = styled(Button)`
@@ -77,7 +80,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 }
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
+                open
                 width={modalWidth}
                 onCancel={onCancel}
                 data-testid="view-modal"
@@ -85,13 +88,12 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
             >
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
-                    <CancelButton data-testid="view-builder-cancel" onClick={onCancel}>
+                    <CancelButton variant="text" color="gray" data-testid="view-builder-cancel" onClick={onCancel}>
                         Cancel
                     </CancelButton>
                     {mode === ViewBuilderMode.EDITOR && (
                         <Button
                             data-testid="view-builder-save"
-                            type="primary"
                             disabled={!canSave}
                             onClick={() => onSubmit(viewBuilderState)}
                         >

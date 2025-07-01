@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -16,6 +15,8 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,10 +24,13 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +51,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Deprecated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/relationships/v1")
+@RequestMapping("/openapi/relationships/v1")
 @Slf4j
 @Tag(name = "Relationships", description = "APIs for accessing relationships of entities")
 public class RelationshipsController {
@@ -58,6 +62,7 @@ public class RelationshipsController {
   }
 
   private static final int MAX_DOWNSTREAM_CNT = 200;
+  private final OperationContext systemOperationContext;
   private final GraphService _graphService;
   private final AuthorizerChain _authorizerChain;
 
@@ -67,8 +72,9 @@ public class RelationshipsController {
   }
 
   private RelatedEntitiesResult getRelatedEntities(
+      @Nonnull final OperationContext opContext,
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -95,6 +101,7 @@ public class RelationshipsController {
     }
 
     return _graphService.findRelatedEntities(
+        opContext,
         null,
         newFilter("urn", rawUrn),
         null,
@@ -114,6 +121,7 @@ public class RelationshipsController {
             content = @Content(schema = @Schema(implementation = RelatedEntitiesResult.class)))
       })
   public ResponseEntity<RelatedEntitiesResult> getRelationships(
+      HttpServletRequest request,
       @Parameter(
               name = "urn",
               required = true,
@@ -150,7 +158,7 @@ public class RelationshipsController {
           @RequestParam(name = "count", defaultValue = "200")
           @Nullable
           Integer count) {
-    Timer.Context context = MetricUtils.timer("getRelationships").time();
+
     // Have to decode here because of frontend routing, does No-op for already unencoded through
     // direct API access
     final Urn entityUrn = UrnUtils.getUrn(URLDecoder.decode(urn, Charset.forName("UTF-8")));
@@ -158,8 +166,16 @@ public class RelationshipsController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        authentication, _authorizerChain, RELATIONSHIP, READ, List.of(entityUrn))) {
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getRelationships", entityUrn.getEntityType()),
+            _authorizerChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(entityUrn))) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");
     }
 
@@ -167,7 +183,12 @@ public class RelationshipsController {
     try {
       return ResponseEntity.ok(
           getRelatedEntities(
-              entityUrn.toString(), Arrays.asList(relationshipTypes), direction, start, count));
+              opContext,
+              entityUrn.toString(),
+              Arrays.stream(relationshipTypes).collect(Collectors.toSet()),
+              direction,
+              start,
+              count));
     } catch (Exception e) {
       exceptionally = e;
       throw new RuntimeException(
@@ -181,7 +202,6 @@ public class RelationshipsController {
       } else {
         MetricUtils.counter(MetricRegistry.name("getRelationships", "success")).inc();
       }
-      context.stop();
     }
   }
 }

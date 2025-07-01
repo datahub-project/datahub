@@ -12,6 +12,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerFieldContext,
@@ -20,16 +21,17 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_SUFFIX,
     NAME,
-    LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.urn_functions import get_qualified_table_name
+from datahub.sql_parsing.schema_resolver import match_columns_to_schema
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     SqlParsingResult,
     Urn,
+    create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
 )
 
@@ -72,7 +74,6 @@ def resolve_derived_view_urn_of_col_ref(
     base_folder_path: str,
     config: LookMLSourceConfig,
 ) -> List[ColumnRef]:
-
     new_column_refs: List[ColumnRef] = []
     for col_ref in column_refs:
         if is_derived_view(col_ref.table.lower()):
@@ -154,6 +155,7 @@ def _generate_fully_qualified_name(
     sql_table_name: str,
     connection_def: LookerConnectionDefinition,
     reporter: LookMLSourceReport,
+    view_name: str,
 ) -> str:
     """Returns a fully qualified dataset name, resolved through a connection definition.
     Input sql_table_name can be in three forms: table, db.table, db.schema.table"""
@@ -192,7 +194,7 @@ def _generate_fully_qualified_name(
     reporter.report_warning(
         title="Malformed Table Name",
         message="Table name has more than 3 parts.",
-        context=f"Table Name: {sql_table_name}",
+        context=f"view-name: {view_name}, table-name: {sql_table_name}",
     )
     return sql_table_name.lower()
 
@@ -200,12 +202,13 @@ def _generate_fully_qualified_name(
 class AbstractViewUpstream(ABC):
     """
     Implementation of this interface extracts the view upstream as per the way the view is bound to datasets.
-    For detail explanation please refer lookml_concept_context.LookerViewContext documentation.
+    For detail explanation, please refer lookml_concept_context.LookerViewContext documentation.
     """
 
     view_context: LookerViewContext
     looker_view_id_cache: LookerViewIdCache
     config: LookMLSourceConfig
+    reporter: LookMLSourceReport
     ctx: PipelineContext
 
     def __init__(
@@ -213,11 +216,13 @@ class AbstractViewUpstream(ABC):
         view_context: LookerViewContext,
         looker_view_id_cache: LookerViewIdCache,
         config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
         ctx: PipelineContext,
     ):
         self.view_context = view_context
         self.looker_view_id_cache = looker_view_id_cache
         self.config = config
+        self.reporter = reporter
         self.ctx = ctx
 
     @abstractmethod
@@ -233,8 +238,49 @@ class AbstractViewUpstream(ABC):
     def create_fields(self) -> List[ViewField]:
         return []  # it is for the special case
 
+    def create_upstream_column_refs(
+        self, upstream_urn: str, downstream_looker_columns: List[str]
+    ) -> List[ColumnRef]:
+        """
+        - **`upstream_urn`**: The URN of the upstream dataset.
 
-class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
+        - **`expected_columns`**: These are the columns identified by the Looker connector as belonging to the `upstream_urn` dataset. However, there is potential for human error in specifying the columns of the upstream dataset. For example, a user might declare a column in lowercase, while on the actual platform, it may exist in uppercase, or vice versa.
+
+        - This function ensures consistency in column-level lineage by consulting GMS before creating the final `ColumnRef` instance, avoiding discrepancies.
+        """
+        schema_resolver = create_and_cache_schema_resolver(
+            platform=self.view_context.view_connection.platform,
+            platform_instance=self.view_context.view_connection.platform_instance,
+            env=self.view_context.view_connection.platform_env or self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        urn, schema_info = schema_resolver.resolve_urn(urn=upstream_urn)
+
+        if schema_info:
+            actual_columns = match_columns_to_schema(
+                schema_info, downstream_looker_columns
+            )
+        else:
+            logger.info(
+                f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
+            )
+            actual_columns = [column.lower() for column in downstream_looker_columns]
+
+        upstream_column_refs: List[ColumnRef] = []
+
+        for column in actual_columns:
+            upstream_column_refs.append(
+                ColumnRef(
+                    column=column,
+                    table=upstream_urn,
+                )
+            )
+
+        return upstream_column_refs
+
+
+class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
     """
     Handle the case where upstream dataset is defined in derived_table.sql
     """
@@ -244,9 +290,10 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         view_context: LookerViewContext,
         looker_view_id_cache: LookerViewIdCache,
         config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
         ctx: PipelineContext,
     ):
-        super().__init__(view_context, looker_view_id_cache, config, ctx)
+        super().__init__(view_context, looker_view_id_cache, config, reporter, ctx)
         # These are the function where we need to catch the response once calculated
         self._get_spr = lru_cache(maxsize=1)(self.__get_spr)
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
@@ -259,7 +306,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             return None
 
         spr = create_lineage_sql_parsed_result(
-            query=self.view_context.sql(),
+            query=self.get_sql_query(),
             default_schema=self.view_context.view_connection.default_schema,
             default_db=self.view_context.view_connection.default_db,
             platform=self.view_context.view_connection.platform,
@@ -267,23 +314,24 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             env=self.view_context.view_connection.platform_env or self.config.env,
             graph=self.ctx.graph,
         )
-
-        if (
-            spr.debug_info.table_error is not None
-            or spr.debug_info.column_error is not None
-        ):
-            logging.debug(
-                f"Failed to parsed the sql query. table_error={spr.debug_info.table_error} and "
-                f"column_error={spr.debug_info.column_error}"
-            )
-            return None
-
         return spr
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
         sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
 
         if sql_parsing_result is None:
+            return []
+
+        if sql_parsing_result.debug_info.table_error is not None:
+            logger.debug(
+                f"view-name={self.view_context.name()}, sql_query={self.get_sql_query()}"
+            )
+            self.reporter.report_warning(
+                title="Table Level Lineage Missing",
+                message="Error in parsing derived sql",
+                context=f"view-name: {self.view_context.name()}, platform: {self.view_context.view_connection.platform}",
+                exc=sql_parsing_result.debug_info.table_error,
+            )
             return []
 
         upstream_dataset_urns: List[str] = [
@@ -306,6 +354,15 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         if spr is None:
             return []
 
+        if spr.debug_info.column_error is not None:
+            self.reporter.report_warning(
+                title="Column Level Lineage Missing",
+                message="Error in parsing derived sql for CLL",
+                context=f"View-name: {self.view_context.name()}",
+                exc=spr.debug_info.column_error,
+            )
+            return []
+
         fields: List[ViewField] = []
 
         column_lineages: List[ColumnLineageInfo] = (
@@ -317,9 +374,11 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
                 ViewField(
                     name=cll.downstream.column,
                     label="",
-                    type=cll.downstream.native_column_type
-                    if cll.downstream.native_column_type is not None
-                    else "unknown",
+                    type=(
+                        cll.downstream.native_column_type
+                        if cll.downstream.native_column_type is not None
+                        else "unknown"
+                    ),
                     description="",
                     field_type=ViewFieldType.UNKNOWN,
                     upstream_fields=_drop_hive_dot_from_upstream(cll.upstreams),
@@ -336,6 +395,15 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         if sql_parsing_result is None:
             return []
 
+        if sql_parsing_result.debug_info.column_error is not None:
+            self.reporter.report_warning(
+                title="Column Level Lineage Missing",
+                message="Error in parsing derived sql for CLL",
+                context=f"View-name: {self.view_context.name()}. "
+                f"Error: {sql_parsing_result.debug_info.column_error}",
+            )
+            return []
+
         upstreams_column_refs: List[ColumnRef] = []
         if sql_parsing_result.column_lineage:
             for cll in sql_parsing_result.column_lineage:
@@ -347,15 +415,12 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         # in-case of "select * from look_ml_view.SQL_TABLE_NAME" or extra field are defined in the looker view which is
         # referring to upstream table
         if self._get_upstream_dataset_urn() and not upstreams_column_refs:
-            upstreams_column_refs = [
-                ColumnRef(
-                    table=self._get_upstream_dataset_urn()[
-                        0
-                    ],  # 0th index has table of from clause
-                    column=column,
-                )
-                for column in field_context.column_name_in_sql_attribute()
-            ]
+            upstreams_column_refs = self.create_upstream_column_refs(
+                upstream_urn=self._get_upstream_dataset_urn()[
+                    0
+                ],  # 0th index has table of from clause,
+                downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+            )
 
         # fix any derived view reference present in urn
         upstreams_column_refs = resolve_derived_view_urn_of_col_ref(
@@ -365,10 +430,32 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             config=self.config,
         )
 
-        return upstreams_column_refs
+        return _drop_hive_dot_from_upstream(upstreams_column_refs)
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()
+
+    @abstractmethod
+    def get_sql_query(self) -> str:
+        pass
+
+
+class DirectQueryUpstreamSource(SqlBasedDerivedViewUpstream):
+    """
+    Pattern 7 as per view-context documentation
+    """
+
+    def get_sql_query(self) -> str:
+        return self.view_context.datahub_transformed_sql_table_name()
+
+
+class DerivedQueryUpstreamSource(SqlBasedDerivedViewUpstream):
+    """
+    Pattern 4 as per view-context documentation
+    """
+
+    def get_sql_query(self) -> str:
+        return self.view_context.datahub_transformed_sql()
 
 
 class NativeDerivedViewUpstream(AbstractViewUpstream):
@@ -384,9 +471,11 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
         view_context: LookerViewContext,
         looker_view_id_cache: LookerViewIdCache,
         config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
         ctx: PipelineContext,
     ):
-        super().__init__(view_context, looker_view_id_cache, config, ctx)
+        super().__init__(view_context, looker_view_id_cache, config, reporter, ctx)
+
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
             self.__get_upstream_dataset_urn
         )
@@ -395,14 +484,14 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
         )
 
     def __get_upstream_dataset_urn(self) -> List[str]:
-        current_view_id: Optional[
-            LookerViewId
-        ] = self.looker_view_id_cache.get_looker_view_id(
-            view_name=self.view_context.name(),
-            base_folder_path=self.view_context.base_folder_path,
+        current_view_id: Optional[LookerViewId] = (
+            self.looker_view_id_cache.get_looker_view_id(
+                view_name=self.view_context.name(),
+                base_folder_path=self.view_context.base_folder_path,
+            )
         )
 
-        # Current view will always be present in cache. The assert  will silence the lint
+        # Current view will always be present in cache. assert  will silence the lint
         assert current_view_id
 
         # We're creating a "LookerExplore" just to use the urn generator.
@@ -438,18 +527,18 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
             return upstream_column_refs
 
         explore_urn: str = self._get_upstream_dataset_urn()[0]
+        expected_columns: List[str] = []
 
         for column in field_context.column_name_in_sql_attribute():
             if column in self._get_explore_column_mapping():
                 explore_column: Dict = self._get_explore_column_mapping()[column]
-                upstream_column_refs.append(
-                    ColumnRef(
-                        column=explore_column.get("field", explore_column[NAME]),
-                        table=explore_urn,
-                    )
+                expected_columns.append(
+                    explore_column.get("field", explore_column[NAME])
                 )
 
-        return upstream_column_refs
+        return self.create_upstream_column_refs(
+            upstream_urn=explore_urn, downstream_looker_columns=expected_columns
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()
@@ -467,9 +556,10 @@ class RegularViewUpstream(AbstractViewUpstream):
         view_context: LookerViewContext,
         looker_view_id_cache: LookerViewIdCache,
         config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
         ctx: PipelineContext,
     ):
-        super().__init__(view_context, looker_view_id_cache, config, ctx)
+        super().__init__(view_context, looker_view_id_cache, config, reporter, ctx)
         self.upstream_dataset_urn = None
 
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
@@ -478,11 +568,12 @@ class RegularViewUpstream(AbstractViewUpstream):
 
     def __get_upstream_dataset_urn(self) -> Urn:
         # In regular case view's upstream dataset is either same as view-name or mentioned in "sql_table_name" field
-        # view_context.sql_table_name() handle this condition to return dataset name
+        # view_context.datahub_transformed_sql_table_name() handle this condition to return dataset name
         qualified_table_name: str = _generate_fully_qualified_name(
-            sql_table_name=self.view_context.sql_table_name(),
+            sql_table_name=self.view_context.datahub_transformed_sql_table_name(),
             connection_def=self.view_context.view_connection,
             reporter=self.view_context.reporter,
+            view_name=self.view_context.name(),
         )
 
         self.upstream_dataset_urn = make_dataset_urn_with_platform_instance(
@@ -497,14 +588,10 @@ class RegularViewUpstream(AbstractViewUpstream):
     def get_upstream_column_ref(
         self, field_context: LookerFieldContext
     ) -> List[ColumnRef]:
-        upstream_column_ref: List[ColumnRef] = []
-
-        for column_name in field_context.column_name_in_sql_attribute():
-            upstream_column_ref.append(
-                ColumnRef(table=self._get_upstream_dataset_urn(), column=column_name)
-            )
-
-        return upstream_column_ref
+        return self.create_upstream_column_refs(
+            upstream_urn=self._get_upstream_dataset_urn(),
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return [self._get_upstream_dataset_urn()]
@@ -522,9 +609,10 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         view_context: LookerViewContext,
         looker_view_id_cache: LookerViewIdCache,
         config: LookMLSourceConfig,
+        reporter: LookMLSourceReport,
         ctx: PipelineContext,
     ):
-        super().__init__(view_context, looker_view_id_cache, config, ctx)
+        super().__init__(view_context, looker_view_id_cache, config, reporter, ctx)
         self.upstream_dataset_urn = []
 
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
@@ -532,12 +620,13 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         )
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
-        # In this case view_context.sql_table_name() refers to derived view name
+        # In this case view_context.datahub_transformed_sql_table_name() refers to derived view name
         looker_view_id = get_derived_looker_view_id(
             qualified_table_name=_generate_fully_qualified_name(
-                self.view_context.sql_table_name(),
+                self.view_context.datahub_transformed_sql_table_name(),
                 self.view_context.view_connection,
                 self.view_context.reporter,
+                self.view_context.name(),
             ),
             base_folder_path=self.view_context.base_folder_path,
             looker_view_id_cache=self.looker_view_id_cache,
@@ -556,15 +645,14 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         self, field_context: LookerFieldContext
     ) -> List[ColumnRef]:
         upstream_column_ref: List[ColumnRef] = []
+
         if not self._get_upstream_dataset_urn():
             return upstream_column_ref
 
-        for column_name in field_context.column_name_in_sql_attribute():
-            upstream_column_ref.append(
-                ColumnRef(table=self._get_upstream_dataset_urn()[0], column=column_name)
-            )
-
-        return upstream_column_ref
+        return self.create_upstream_column_refs(
+            upstream_urn=self._get_upstream_dataset_urn()[0],
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()
@@ -591,6 +679,7 @@ def create_view_upstream(
         return RegularViewUpstream(
             view_context=view_context,
             config=config,
+            reporter=reporter,
             ctx=ctx,
             looker_view_id_cache=looker_view_id_cache,
         )
@@ -599,17 +688,30 @@ def create_view_upstream(
         return DotSqlTableNameViewUpstream(
             view_context=view_context,
             config=config,
+            reporter=reporter,
             ctx=ctx,
             looker_view_id_cache=looker_view_id_cache,
         )
 
-    if (
-        view_context.is_sql_based_derived_case()
-        or view_context.is_sql_based_derived_view_without_fields_case()
+    if any(
+        [
+            view_context.is_sql_based_derived_case(),
+            view_context.is_sql_based_derived_view_without_fields_case(),
+        ]
     ):
-        return SqlBasedDerivedViewUpstream(
+        return DerivedQueryUpstreamSource(
             view_context=view_context,
             config=config,
+            reporter=reporter,
+            ctx=ctx,
+            looker_view_id_cache=looker_view_id_cache,
+        )
+
+    if view_context.is_direct_sql_query_case():
+        return DirectQueryUpstreamSource(
+            view_context=view_context,
+            config=config,
+            reporter=reporter,
             ctx=ctx,
             looker_view_id_cache=looker_view_id_cache,
         )
@@ -618,19 +720,21 @@ def create_view_upstream(
         return NativeDerivedViewUpstream(
             view_context=view_context,
             config=config,
+            reporter=reporter,
             ctx=ctx,
             looker_view_id_cache=looker_view_id_cache,
         )
 
     reporter.report_warning(
-        title="Implementation Not Found",
+        title="ViewUpstream Implementation Not Found",
         message="No implementation found to resolve upstream of the view",
-        context=view_context.view_file_name(),
+        context=f"view_name={view_context.name()} , view_file_name={view_context.view_file_name()}",
     )
 
     return EmptyImplementation(
         view_context=view_context,
         config=config,
+        reporter=reporter,
         ctx=ctx,
         looker_view_id_cache=looker_view_id_cache,
     )

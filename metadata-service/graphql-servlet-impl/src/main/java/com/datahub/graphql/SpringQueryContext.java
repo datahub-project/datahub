@@ -3,6 +3,7 @@ package com.datahub.graphql;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.language.OperationDefinition;
 import graphql.parser.Parser;
 import io.datahubproject.metadata.context.OperationContext;
@@ -21,12 +22,14 @@ public class SpringQueryContext implements QueryContext {
   private final Authorizer authorizer;
   @Getter private final String queryName;
   @Nonnull private final OperationContext operationContext;
+  @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
 
   public SpringQueryContext(
       final boolean isAuthenticated,
       final Authentication authentication,
       final Authorizer authorizer,
       @Nonnull final OperationContext systemOperationContext,
+      @Nonnull final DataHubAppConfiguration dataHubAppConfig,
       @Nonnull final HttpServletRequest request,
       @Nullable final String operationName,
       String jsonQuery,
@@ -57,5 +60,7 @@ public class SpringQueryContext implements QueryContext {
             authorizer,
             authentication,
             true);
+
+    this.dataHubAppConfig = dataHubAppConfig;
   }
 }

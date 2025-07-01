@@ -1,5 +1,7 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -14,7 +16,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.parseq.retry.backoff.ConstantBackoff;
 import com.linkedin.r2.RemoteInvocationException;
@@ -46,7 +47,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient noCacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -57,7 +65,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             TEST_URN,
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         responseStatusTrue,
         "Expected un-cached Status.removed=true result");
 
@@ -67,7 +75,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             TEST_URN,
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         responseStatusFalse,
         "Expected un-cached Status.removed=false result");
 
@@ -81,11 +89,18 @@ public class SystemRestliEntityClientTest {
     cacheConfig.setEnabled(true);
     cacheConfig.setMaxBytes(100);
     cacheConfig.setEntityAspectTTLSeconds(
-        Map.of(TEST_URN.getEntityType(), Map.of(Constants.STATUS_ASPECT_NAME, 60)));
+        Map.of(TEST_URN.getEntityType(), Map.of(STATUS_ASPECT_NAME, 60)));
 
     SystemRestliEntityClient cacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -93,7 +108,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             TEST_URN,
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         responseStatusTrue,
         "Expected initial un-cached Status.removed=true result");
 
@@ -103,7 +118,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             TEST_URN,
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         responseStatusTrue,
         "Expected CACHED Status.removed=true result");
 
@@ -120,7 +135,14 @@ public class SystemRestliEntityClientTest {
 
     SystemRestliEntityClient noCacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -131,7 +153,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             Set.of(TEST_URN),
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         Map.of(TEST_URN, responseStatusTrue),
         "Expected un-cached Status.removed=true result");
 
@@ -141,7 +163,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             Set.of(TEST_URN),
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         Map.of(TEST_URN, responseStatusFalse),
         "Expected un-cached Status.removed=false result");
 
@@ -155,11 +177,18 @@ public class SystemRestliEntityClientTest {
     cacheConfig.setEnabled(true);
     cacheConfig.setMaxBytes(100);
     cacheConfig.setEntityAspectTTLSeconds(
-        Map.of(TEST_URN.getEntityType(), Map.of(Constants.STATUS_ASPECT_NAME, 60)));
+        Map.of(TEST_URN.getEntityType(), Map.of(STATUS_ASPECT_NAME, 60)));
 
     SystemRestliEntityClient cacheTest =
         new SystemRestliEntityClient(
-            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -167,7 +196,7 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             Set.of(TEST_URN),
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         Map.of(TEST_URN, responseStatusTrue),
         "Expected initial un-cached Status.removed=true result");
 
@@ -177,19 +206,125 @@ public class SystemRestliEntityClientTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             TEST_URN.getEntityType(),
             Set.of(TEST_URN),
-            Set.of(Constants.STATUS_ASPECT_NAME)),
+            Set.of(STATUS_ASPECT_NAME)),
         Map.of(TEST_URN, responseStatusTrue),
         "Expected CACHED Status.removed=true result");
 
     verify(mockRestliClient, times(1)).sendRequest(any(Request.class));
   }
 
+  @Test
+  public void testCacheNullValue() throws RemoteInvocationException, URISyntaxException {
+    Client mockRestliClient = mock(Client.class);
+
+    // Test No Cache Config
+    EntityClientCacheConfig noCacheConfig = new EntityClientCacheConfig();
+    noCacheConfig.setEnabled(true);
+
+    SystemRestliEntityClient noCacheTest =
+        new SystemRestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            noCacheConfig);
+
+    com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
+    com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
+
+    mockResponse(mockRestliClient, responseStatusTrue);
+    assertEquals(
+        noCacheTest.getV2(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            TEST_URN.getEntityType(),
+            TEST_URN,
+            Set.of(STATUS_ASPECT_NAME)),
+        responseStatusTrue,
+        "Expected un-cached Status.removed=true result");
+
+    mockResponse(mockRestliClient, responseStatusFalse);
+    assertEquals(
+        noCacheTest.getV2(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            TEST_URN.getEntityType(),
+            TEST_URN,
+            Set.of(STATUS_ASPECT_NAME)),
+        responseStatusFalse,
+        "Expected un-cached Status.removed=false result");
+
+    verify(mockRestliClient, times(2)).sendRequest(any(Request.class));
+
+    // Test Cache Config
+    reset(mockRestliClient);
+
+    // Enable caching for MULTIPLE entity/aspect
+    EntityClientCacheConfig cacheConfig = new EntityClientCacheConfig();
+    cacheConfig.setEnabled(true);
+    cacheConfig.setMaxBytes(100);
+    cacheConfig.setEntityAspectTTLSeconds(
+        Map.of(
+            TEST_URN.getEntityType(),
+            Map.of(
+                STATUS_ASPECT_NAME, 60,
+                DATASET_PROPERTIES_ASPECT_NAME, 60)));
+
+    SystemRestliEntityClient cacheTest =
+        new SystemRestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ConstantBackoff(0))
+                .retryCount(0)
+                .batchGetV2Size(1)
+                .batchGetV2Concurrency(2)
+                .build(),
+            cacheConfig);
+
+    mockResponse(mockRestliClient, responseStatusTrue);
+    assertEquals(
+        cacheTest.getV2(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            TEST_URN.getEntityType(),
+            TEST_URN,
+            Set.of(STATUS_ASPECT_NAME, DATASET_PROPERTIES_ASPECT_NAME)),
+        responseStatusTrue,
+        "Expected initial un-cached Status.removed=true result with no DatasetProperties (since it doesn't exist in this scenario)");
+
+    mockResponse(mockRestliClient, responseStatusFalse);
+    assertEquals(
+        cacheTest.getV2(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            TEST_URN.getEntityType(),
+            TEST_URN,
+            Set.of(STATUS_ASPECT_NAME)),
+        responseStatusTrue,
+        "Expected CACHED Status.removed=true result with no DatasetProperties (since it doesn't exist in this scenario)");
+
+    verify(mockRestliClient, times(1)).sendRequest(any(Request.class));
+
+    // However in this scenario we DO expect a cached null
+    assertEquals(
+        cacheTest
+            .getEntityClientCache()
+            .getCache()
+            .get(
+                EntityClientCache.Key.builder()
+                    .urn(TEST_URN)
+                    .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
+                    .contextId("1379821641")
+                    .build()),
+        new EntityClientCache.NullEnvelopedAspect(),
+        "Expected null object for the non-existent cache entry");
+  }
+
   private static com.linkedin.entity.EntityResponse buildStatusResponse(boolean value) {
     EnvelopedAspectMap aspects = new EnvelopedAspectMap();
     aspects.put(
-        Constants.STATUS_ASPECT_NAME,
+        STATUS_ASPECT_NAME,
         new EnvelopedAspect()
-            .setName(Constants.STATUS_ASPECT_NAME)
+            .setName(STATUS_ASPECT_NAME)
             .setValue(new Aspect(new Status().setRemoved(value).data())));
     return new com.linkedin.entity.EntityResponse()
         .setUrn(TEST_URN)

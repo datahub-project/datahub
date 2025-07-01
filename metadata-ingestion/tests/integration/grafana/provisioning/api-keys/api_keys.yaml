@@ -1,0 +1,3 @@
+api_keys:
+  - name: 'example-api-key'
+    role: 'Admin'

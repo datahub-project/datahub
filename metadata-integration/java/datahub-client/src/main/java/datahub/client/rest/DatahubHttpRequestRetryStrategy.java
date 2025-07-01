@@ -48,7 +48,6 @@ public class DatahubHttpRequestRetryStrategy extends DefaultHttpRequestRetryStra
 
   @Override
   public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
-    log.warn("Retrying request due to error: {}", response);
     return super.retryRequest(response, execCount, context);
   }
 }

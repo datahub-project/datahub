@@ -166,9 +166,9 @@ def _get_generic_definition(
         # e.g. spark1 or hive2 or druid_18
         platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
 
-    assert (
-        platform is not None
-    ), f"Failed to extract a valid platform from connection {looker_connection}"
+    assert platform is not None, (
+        f"Failed to extract a valid platform from connection {looker_connection}"
+    )
     db = looker_connection.database
     schema = looker_connection.schema  # ok for this to be None
     return platform, db, schema
@@ -177,7 +177,9 @@ def _get_generic_definition(
 class LookerConnectionDefinition(ConfigModel):
     platform: str
     default_db: str
-    default_schema: Optional[str]  # Optional since some sources are two-level only
+    default_schema: Optional[str] = (
+        None  # Optional since some sources are two-level only
+    )
     platform_instance: Optional[str] = None
     platform_env: Optional[str] = Field(
         default=None,
@@ -256,7 +258,7 @@ class LookerDashboardSourceConfig(
         "ingest dashboards in the Shared folder space.",
     )
     max_threads: int = Field(
-        os.cpu_count() or 40,
+        default_factory=lambda: os.cpu_count() or 40,
         description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(
@@ -286,11 +288,31 @@ class LookerDashboardSourceConfig(
     )
     extract_independent_looks: bool = Field(
         False,
-        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
+        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion "
+        "should also be enabled.",
     )
     emit_used_explores_only: bool = Field(
         True,
         description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
+    include_platform_instance_in_urns: bool = Field(
+        False,
+        description="When enabled, platform instance will be added in dashboard and chart urn.",
+    )
+
+    folder_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Allow or deny dashboards from specific folders using their fully qualified paths. "
+        "For example: \n"
+        "deny: \n"
+        " - Shared/deprecated \n"
+        "This pattern will deny the ingestion of all dashboards and looks within the Shared/deprecated folder. \n"
+        "allow: \n"
+        " - Shared/sales \n"
+        "This pattern will allow only the ingestion of dashboards within the Shared/sales folder. \n"
+        "To get the correct path from Looker, take the folder hierarchy shown in the UI and join it with slashes. "
+        "For example, Shared -> Customer Reports -> Sales becomes Shared/Customer Reports/Sales. "
+        "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
 
     @validator("external_base_url", pre=True, always=True)

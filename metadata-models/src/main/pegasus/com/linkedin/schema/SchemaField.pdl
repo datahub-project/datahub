@@ -16,7 +16,7 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
-    "boostScore": 5.0,
+    "boostScore": 1.0,
     "queryByDefault": "true"
   }
   fieldPath: SchemaFieldPath
@@ -96,7 +96,22 @@ record SchemaField {
       "fieldName": "fieldTags",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/tags/*/attribution/time": {
+        "fieldName": "fieldTagAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/tags/*/attribution/actor": {
+        "fieldName": "fieldTagAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/tags/*/attribution/source": {
+        "fieldName": "fieldTagAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   globalTags: optional GlobalTags
 
@@ -114,7 +129,22 @@ record SchemaField {
       "fieldName": "fieldGlossaryTerms",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/terms/*/attribution/time": {
+        "fieldName": "fieldTermAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/terms/*/attribution/actor": {
+        "fieldName": "fieldTermAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/terms/*/attribution/source": {
+        "fieldName": "fieldTermAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   glossaryTerms: optional GlossaryTerms
 
@@ -126,6 +156,8 @@ record SchemaField {
 
   /**
    * For Datasets which are partitioned, this determines the partitioning key.
+   * Note that multiple columns can be part of a partitioning key, but currently we do not support
+   * rendering the ordered partitioning key.
    */
   isPartitioningKey: optional boolean
 

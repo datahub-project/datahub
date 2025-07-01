@@ -3,16 +3,16 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
-import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityApiUtils;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -22,8 +22,10 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
-import java.sql.Timestamp;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -69,7 +71,7 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Nonnull private final RecordTemplate recordTemplate;
 
-  @Nonnull private final SystemMetadata systemMetadata;
+  @Nonnull private SystemMetadata systemMetadata;
 
   @Nonnull private final AuditStamp auditStamp;
 
@@ -81,21 +83,7 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
-
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long version) {
-    EntityAspect entityAspect = new EntityAspect();
-    entityAspect.setAspect(getAspectName());
-    entityAspect.setMetadata(EntityApiUtils.toJsonAspect(getRecordTemplate()));
-    entityAspect.setUrn(getUrn().toString());
-    entityAspect.setVersion(version == null ? getNextAspectVersion() : version);
-    entityAspect.setCreatedOn(new Timestamp(getAuditStamp().getTime()));
-    entityAspect.setCreatedBy(getAuditStamp().getActor().toString());
-    entityAspect.setSystemMetadata(EntityApiUtils.toJsonAspect(getSystemMetadata()));
-    return EntityAspect.EntitySystemAspect.builder()
-        .build(getEntitySpec(), getAspectSpec(), entityAspect);
-  }
+  private final Map<String, String> headers;
 
   @Nonnull
   public MetadataChangeProposal getMetadataChangeProposal() {
@@ -112,8 +100,30 @@ public class ChangeItemImpl implements ChangeMCP {
       mcp.setEntityKeyAspect(
           GenericRecordUtils.serializeAspect(
               EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
+      if (!headers.isEmpty()) {
+        mcp.setHeaders(new StringMap(headers));
+      }
       return mcp;
     }
+  }
+
+  @Override
+  public void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    this.systemMetadata = systemMetadata;
+    if (this.metadataChangeProposal != null) {
+      this.metadataChangeProposal.setSystemMetadata(systemMetadata);
+    }
+  }
+
+  @Override
+  public Map<String, String> getHeaders() {
+    return Optional.ofNullable(metadataChangeProposal)
+        .filter(MetadataChangeProposal::hasHeaders)
+        .map(
+            mcp ->
+                mcp.getHeaders().entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .orElse(headers);
   }
 
   public static class ChangeItemImplBuilder {
@@ -128,68 +138,73 @@ public class ChangeItemImpl implements ChangeMCP {
       return this;
     }
 
+    public ChangeItemImplBuilder changeType(ChangeType changeType) {
+      this.changeType = validateOrDefaultChangeType(changeType);
+      return this;
+    }
+
     @SneakyThrows
     public ChangeItemImpl build(AspectRetriever aspectRetriever) {
-      // Apply change type default
-      this.changeType = validateOrDefaultChangeType(changeType);
+      if (this.changeType == null) {
+        changeType(null); // Apply change type default
+      }
+
+      // Apply empty headers
+      if (this.headers == null) {
+        this.headers = Map.of();
+      }
 
       ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
-      entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
+      entitySpec(
+          ValidationApiUtils.validateEntity(
+              aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
+
+      if (this.recordTemplate == null && this.metadataChangeProposal != null) {
+        this.recordTemplate = convertToRecordTemplate(this.metadataChangeProposal, aspectSpec);
+      }
 
       ValidationApiUtils.validateRecordTemplate(
           this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+
+      if (this.systemMetadata == null) {
+        // generate default
+        systemMetadata(null);
+      }
 
       return new ChangeItemImpl(
           this.changeType,
           this.urn,
           this.aspectName,
           this.recordTemplate,
-          SystemMetadataUtils.generateSystemMetadataIfEmpty(this.systemMetadata),
+          this.systemMetadata,
           this.auditStamp,
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec,
           this.previousSystemAspect,
-          this.nextAspectVersion);
+          this.nextAspectVersion,
+          this.headers);
     }
 
-    public static ChangeItemImpl build(
+    public ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
 
-      log.debug("entity type = {}", mcp.getEntityType());
-      EntitySpec entitySpec =
-          aspectRetriever.getEntityRegistry().getEntitySpec(mcp.getEntityType());
-      AspectSpec aspectSpec = AspectUtils.validateAspect(mcp, entitySpec);
-
-      if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
-        throw new UnsupportedOperationException(
-            "ChangeType not supported: "
-                + mcp.getChangeType()
-                + " for aspect "
-                + mcp.getAspectName());
-      }
-
-      Urn urn = mcp.getEntityUrn();
-      if (urn == null) {
-        urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
-      }
-
-      return ChangeItemImpl.builder()
-          .changeType(mcp.getChangeType())
-          .urn(urn)
-          .aspectName(mcp.getAspectName())
-          .systemMetadata(
-              SystemMetadataUtils.generateSystemMetadataIfEmpty(mcp.getSystemMetadata()))
-          .metadataChangeProposal(mcp)
-          .auditStamp(auditStamp)
-          .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
-          .build(aspectRetriever);
+      // Validation includes: Urn, Entity, Aspect
+      this.metadataChangeProposal =
+          ValidationApiUtils.validateMCP(aspectRetriever.getEntityRegistry(), mcp);
+      this.urn = this.metadataChangeProposal.getEntityUrn(); // validation ensures existence
+      this.auditStamp = auditStamp;
+      this.aspectName = mcp.getAspectName(); // prior validation
+      changeType(mcp.getChangeType());
+      this.systemMetadata = mcp.getSystemMetadata();
+      this.headers = mcp.getHeaders();
+      return build(aspectRetriever);
     }
 
     // specific to impl, other impls support PATCH, etc
@@ -204,12 +219,17 @@ public class ChangeItemImpl implements ChangeMCP {
 
     private static RecordTemplate convertToRecordTemplate(
         MetadataChangeProposal mcp, AspectSpec aspectSpec) {
+
+      if (mcp.getAspect() == null) {
+        return null;
+      }
+
       RecordTemplate aspect;
       try {
         aspect =
             GenericRecordUtils.deserializeAspect(
                 mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        ValidationApiUtils.validateOrThrow(aspect);
+        ValidationApiUtils.validateTrimOrThrow(aspect);
       } catch (ModelConversionException e) {
         throw new RuntimeException(
             String.format(
@@ -218,6 +238,11 @@ public class ChangeItemImpl implements ChangeMCP {
       }
       return aspect;
     }
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
   }
 
   @Override
@@ -231,13 +256,15 @@ public class ChangeItemImpl implements ChangeMCP {
     ChangeItemImpl that = (ChangeItemImpl) o;
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
+        && changeType.equals(that.changeType)
         && Objects.equals(systemMetadata, that.systemMetadata)
-        && recordTemplate.equals(that.recordTemplate);
+        && Objects.equals(auditStamp, that.auditStamp)
+        && DataTemplateUtil.areEqual(recordTemplate, that.recordTemplate);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, recordTemplate);
+    return Objects.hash(urn, aspectName, changeType, systemMetadata, auditStamp, recordTemplate);
   }
 
   @Override
@@ -245,15 +272,17 @@ public class ChangeItemImpl implements ChangeMCP {
     return "ChangeItemImpl{"
         + "changeType="
         + changeType
-        + ", urn="
-        + urn
+        + ", auditStamp="
+        + auditStamp
+        + ", systemMetadata="
+        + systemMetadata
+        + ", recordTemplate="
+        + recordTemplate
         + ", aspectName='"
         + aspectName
         + '\''
-        + ", recordTemplate="
-        + recordTemplate
-        + ", systemMetadata="
-        + systemMetadata
+        + ", urn="
+        + urn
         + '}';
   }
 }

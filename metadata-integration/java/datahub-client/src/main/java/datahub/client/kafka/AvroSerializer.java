@@ -9,7 +9,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 
-class AvroSerializer {
+public class AvroSerializer {
 
   private final Schema _recordSchema;
   private final Schema _genericAspectSchema;

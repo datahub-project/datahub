@@ -1,8 +1,9 @@
-import { Typography, Modal, Button, Form } from 'antd';
+import { Button, Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Editor } from '../../tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -19,16 +20,29 @@ const StyledViewer = styled(Editor)`
     }
 `;
 
+const OriginalDocumentation = styled(Form.Item)`
+    margin-bottom: 0;
+`;
+
 type Props = {
     title: string;
     description?: string | undefined;
     original?: string | undefined;
+    propagatedDescription?: string | undefined;
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
 };
 
-export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
+export default function UpdateDescriptionModal({
+    title,
+    description,
+    original,
+    propagatedDescription,
+    onClose,
+    onSubmit,
+    isAddDesc,
+}: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
     const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -45,7 +59,7 @@ export default function UpdateDescriptionModal({ title, description, original, o
     return (
         <Modal
             title={title}
-            visible
+            open
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
@@ -72,9 +86,14 @@ export default function UpdateDescriptionModal({ title, description, original, o
                     />
                 </Form.Item>
                 {!isAddDesc && description && original && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
-                    </Form.Item>
+                    </OriginalDocumentation>
+                )}
+                {!isAddDesc && description && propagatedDescription && (
+                    <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
+                        <StyledViewer content={propagatedDescription || ''} readOnly />
+                    </OriginalDocumentation>
                 )}
             </Form>
         </Modal>

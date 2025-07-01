@@ -3,8 +3,6 @@ package com.linkedin.gms.factory.kafka.schemaregistry;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -26,9 +24,9 @@ public class InternalSchemaRegistryFactory {
   /** Configure Kafka Producer/Consumer processes with a custom schema registry. */
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(
+  protected KafkaConfiguration.SerDeKeyValueConfig getInstance(
       @Qualifier("configurationProvider") ConfigurationProvider provider) {
-    Map<String, Object> props = new HashMap<>();
+    Map<String, String> props = new HashMap<>();
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
 
     props.put(
@@ -38,6 +36,6 @@ public class InternalSchemaRegistryFactory {
     log.info(
         "Creating internal registry configuration for url {}",
         kafkaConfiguration.getSchemaRegistry().getUrl());
-    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+    return provider.getKafka().getSerde().getEvent().toBuilder().properties(props).build();
   }
 }

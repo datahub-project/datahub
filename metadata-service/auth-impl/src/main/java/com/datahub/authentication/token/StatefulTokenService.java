@@ -79,6 +79,7 @@ public class StatefulTokenService extends StatelessTokenService {
 
   @Nonnull
   public String generateAccessToken(
+      @Nonnull final OperationContext opContext,
       @Nonnull final TokenType type,
       @Nonnull final Actor actor,
       @Nonnull final String name,
@@ -87,11 +88,12 @@ public class StatefulTokenService extends StatelessTokenService {
     Date date = new Date();
     long timeMilli = date.getTime();
     return generateAccessToken(
-        type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
+        opContext, type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
   }
 
   @Nonnull
   public String generateAccessToken(
+      @Nonnull final OperationContext opContext,
       @Nonnull final TokenType type,
       @Nonnull final Actor actor,
       @Nullable final Long expiresInMs,
@@ -143,10 +145,10 @@ public class StatefulTokenService extends StatelessTokenService {
         AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
     _entityService.ingestProposal(
-        systemOperationContext,
+        opContext,
         AspectsBatchImpl.builder()
-            .mcps(List.of(proposal), auditStamp, systemOperationContext.getRetrieverContext().get())
-            .build(),
+            .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext())
+            .build(opContext),
         false);
 
     return accessToken;
@@ -166,7 +168,7 @@ public class StatefulTokenService extends StatelessTokenService {
       return tokenClaims;
     } catch (final TokenExpiredException e) {
       // delete entity
-      this.revokeAccessToken(hash(accessToken));
+      this.revokeAccessToken(systemOperationContext, hash(accessToken));
       throw e;
     } catch (final ExecutionException e) {
       throw new TokenException(
@@ -178,11 +180,12 @@ public class StatefulTokenService extends StatelessTokenService {
     return Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenHash);
   }
 
-  public void revokeAccessToken(@Nonnull String hashedToken) throws TokenException {
+  public void revokeAccessToken(OperationContext opContext, @Nonnull String hashedToken)
+      throws TokenException {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
         final Urn tokenUrn = tokenUrnFromKey(hashedToken);
-        _entityService.deleteUrn(systemOperationContext, tokenUrn);
+        _entityService.deleteUrn(opContext, tokenUrn);
         _revokedTokenCache.put(hashedToken, true);
         return;
       }

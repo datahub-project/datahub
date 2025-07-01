@@ -7,8 +7,9 @@ from dagster import (
     define_asset_job,
     multi_asset,
 )
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubDagsterSourceConfig,
     make_datahub_sensor,
@@ -18,7 +19,7 @@ from datahub_dagster_plugin.sensors.datahub_sensors import (
 @multi_asset(
     outs={
         "extract": AssetOut(
-            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableD").urn]}
+            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableD").urn()]}
         ),
     }
 )
@@ -47,13 +48,9 @@ def transform(extract):
 
 assets_job = define_asset_job(name="assets_job")
 
-config = DatahubDagsterSourceConfig.parse_obj(
-    {
-        "rest_sink_config": {
-            "server": "http://localhost:8080",
-        },
-        "dagster_url": "http://localhost:3000",
-    }
+config = DatahubDagsterSourceConfig(
+    datahub_client_config=DatahubClientConfig(server="http://localhost:8080"),
+    dagster_url="http://localhost:3000",
 )
 
 datahub_sensor = make_datahub_sensor(config=config)

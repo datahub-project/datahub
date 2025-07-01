@@ -1,18 +1,24 @@
 import json
 import random
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
+NUM_STREAMS = 1
 NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
+
+
+def is_secure(view_idx):
+    return view_idx == 1
+
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 large_sql_query = """WITH object_access_history AS
@@ -156,7 +162,7 @@ large_sql_query = """WITH object_access_history AS
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view')
+            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view','Iceberg table')
             and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
@@ -166,10 +172,34 @@ large_sql_query = """WITH object_access_history AS
                                                """
 
 
+class RowCountList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def rowcount(self):
+        return len(self)
+
+
+def inject_rowcount(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if result is None or isinstance(result, RowCountList):
+            return result
+        if not isinstance(result, list):
+            raise ValueError(f"Mocked result is not a list: {result}")
+        result = RowCountList(result)
+        return result
+
+    return wrapper
+
+
+@inject_rowcount
 def default_query_results(  # noqa: C901
     query,
     num_tables=NUM_TABLES,
     num_views=NUM_VIEWS,
+    num_streams=NUM_STREAMS,
     num_cols=NUM_COLS,
     num_ops=NUM_OPS,
     num_usages=NUM_USAGE,
@@ -184,10 +214,6 @@ def default_query_results(  # noqa: C901
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
         return [{"CURRENT_VERSION()": "X.Y.Z"}]
-    elif query == SnowflakeQuery.current_database():
-        return [{"CURRENT_DATABASE()": "TEST_DB"}]
-    elif query == SnowflakeQuery.current_schema():
-        return [{"CURRENT_SCHEMA()": "TEST_SCHEMA"}]
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
     elif query == SnowflakeQuery.show_databases():
@@ -235,7 +261,10 @@ def default_query_results(  # noqa: C901
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
-                "CLUSTERING_KEY": None,
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
+                "IS_ICEBERG": "YES" if tbl_idx == 1 else "NO",
+                "IS_DYNAMIC": "YES" if tbl_idx == 2 else "NO",
+                "IS_HYBRID": "YES" if tbl_idx == 3 else "NO",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
@@ -247,9 +276,46 @@ def default_query_results(  # noqa: C901
                 "name": f"VIEW_{view_idx}",
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for View",
-                "text": f"create view view_{view_idx} as select * from table_{view_idx}",
+                "is_secure": "true" if is_secure(view_idx) else "false",
+                "text": (
+                    f"create view view_{view_idx} as select * from table_{view_idx}"
+                    if not is_secure(view_idx)
+                    else None
+                ),
             }
             for view_idx in range(1, num_views + 1)
+        ]
+    elif query == SnowflakeQuery.get_secure_view_definitions():
+        return [
+            {
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": f"VIEW_{view_idx}",
+                "VIEW_DEFINITION": f"create view view_{view_idx} as select * from table_{view_idx}",
+            }
+            for view_idx in range(1, num_views + 1)
+            if is_secure(view_idx)
+        ]
+    elif query == SnowflakeQuery.columns_for_schema(
+        "TEST_SCHEMA",
+        "TEST_DB",
+        [PrefixGroup(prefix="TABLE_1", names=[], exact_match=True)],
+    ):
+        return [
+            {
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": "TABLE_1",
+                "COLUMN_NAME": f"COL_{col_idx}",
+                "ORDINAL_POSITION": col_idx,
+                "IS_NULLABLE": "NO",
+                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
+                "COMMENT": "Comment for column",
+                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
+                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
+                "NUMERIC_SCALE": None if col_idx > 1 else 0,
+            }
+            for col_idx in range(1, num_cols + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
@@ -271,6 +337,28 @@ def default_query_results(  # noqa: C901
                 + [f"VIEW_{view_idx}" for view_idx in range(1, num_views + 1)]
             )
             for col_idx in range(1, num_cols + 1)
+        ]
+    elif query == SnowflakeQuery.streams_for_database("TEST_DB"):
+        # TODO: Add tests for stream pagination.
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "name": f"STREAM_{stream_idx}",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": f"Comment for Stream {stream_idx}",
+                "table_name": f"TEST_DB.TEST_SCHEMA.TABLE_{stream_idx}",
+                "source_type": "Table",
+                "base_tables": f"TEST_DB.TEST_SCHEMA.TABLE_{stream_idx}",
+                "type": "DELTA",
+                "stale": "false",
+                "mode": "DEFAULT",
+                "stale_after": datetime(2021, 6, 22, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "invalid_reason": None,
+                "owner_role_type": "ROLE",
+            }
+            for stream_idx in range(1, num_streams + 1)
         ]
     elif query in (
         SnowflakeQuery.use_database("TEST_DB"),
@@ -409,8 +497,7 @@ def default_query_results(  # noqa: C901
             email_filter=AllowDenyPattern.allow_all(),
         )
     ):
-        mock = MagicMock()
-        mock.__iter__.return_value = [
+        return [
             {
                 "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
                 "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
@@ -432,16 +519,13 @@ def default_query_results(  # noqa: C901
             }
             for i in range(num_usages)
         ]
-        return mock
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=True,
             include_column_lineage=True,
         ),
     ):
-
         return [
             {
                 "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
@@ -528,7 +612,6 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=False,
             include_column_lineage=False,
         ),
     ):
@@ -561,8 +644,11 @@ def default_query_results(  # noqa: C901
                         {
                             "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
                             "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
-                            "start_time": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                                tzinfo=timezone.utc
+                            "start_time": (
+                                datetime(2022, 6, 6, 0, 0, 0, 0)
+                                .replace(tzinfo=timezone.utc)
+                                .date()
+                                .isoformat()
                             ),
                         }
                     ]
@@ -571,45 +657,36 @@ def default_query_results(  # noqa: C901
             for op_idx in range(1, num_ops + 1)
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies(),
-    ]:
-        return [
-            {
-                "REFERENCED_OBJECT_DOMAIN": "table",
-                "REFERENCING_OBJECT_DOMAIN": "view",
-                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-    ]:
-        # VIEW_2 has dependency on TABLE_2
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "DOWNSTREAM_TABLE_DOMAIN": "view",
-                "UPSTREAM_TABLES": json.dumps(
-                    [
-                        {
-                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                            "upstream_object_domain": "table",
-                        }
-                    ]
-                ),
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-        snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
-            1654473600000,
-            1654586220000,
+            start_time_millis=1654473600000, end_time_millis=1654621200000
+        ),
+        snowflake_query.SnowflakeQuery.copy_lineage_history(
+            start_time_millis=1654473600000, end_time_millis=1654586220000
         ),
     ]:
         return []
-
+    elif query == snowflake_query.SnowflakeQuery.get_all_tags():
+        return [
+            *[
+                {
+                    "TAG_DATABASE": "TEST_DB",
+                    "TAG_SCHEMA": "TEST_SCHEMA",
+                    "TAG_NAME": f"my_tag_{ix}",
+                }
+                for ix in range(3)
+            ],
+            {
+                "TAG_DATABASE": "TEST_DB",
+                "TAG_SCHEMA": "TEST_SCHEMA",
+                "TAG_NAME": "security",
+            },
+            {
+                "TAG_DATABASE": "OTHER_DB",
+                "TAG_SCHEMA": "OTHER_SCHEMA",
+                "TAG_NAME": "my_other_tag",
+            },
+        ]
     elif (
         query
         == snowflake_query.SnowflakeQuery.get_all_tags_in_database_without_propagation(
@@ -663,6 +740,33 @@ def default_query_results(  # noqa: C901
                 "OBJECT_NAME": "TEST_DB",
                 "COLUMN_NAME": None,
                 "DOMAIN": "DATABASE",
+            },
+        ]
+    elif query == SnowflakeQuery.procedures_for_database("TEST_DB"):
+        return [
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR, arg2 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure",
+            },
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure 2",
             },
         ]
     raise ValueError(f"Unexpected query: {query}")

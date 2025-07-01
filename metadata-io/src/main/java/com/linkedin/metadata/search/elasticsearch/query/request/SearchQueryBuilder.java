@@ -52,7 +52,7 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 
 @Slf4j
 public class SearchQueryBuilder {
-  public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
+  public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
@@ -78,7 +78,7 @@ public class SearchQueryBuilder {
 
     final QueryBuilder queryBuilder =
         buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
-    return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, queryBuilder);
+    return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
   }
 
   /**
@@ -103,8 +103,7 @@ public class SearchQueryBuilder {
                 cqc ->
                     CustomizedQueryHandler.boolQueryBuilder(
                         opContext.getObjectMapper(), cqc, sanitizedQuery))
-            .orElse(QueryBuilders.boolQuery())
-            .minimumShouldMatch(1);
+            .orElse(QueryBuilders.boolQuery());
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
       getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
@@ -133,6 +132,10 @@ public class SearchQueryBuilder {
                 opContext.getAspectRetriever())
             .ifPresent(finalQuery::should);
       }
+    }
+
+    if (!finalQuery.should().isEmpty()) {
+      finalQuery.minimumShouldMatch(1);
     }
 
     return finalQuery;
@@ -368,6 +371,10 @@ public class SearchQueryBuilder {
                 simplePerField.should(simpleBuilder);
               });
 
+      if (!simplePerField.should().isEmpty()) {
+        simplePerField.minimumShouldMatch(1);
+      }
+
       result = Optional.of(simplePerField);
     }
 
@@ -454,7 +461,9 @@ public class SearchQueryBuilder {
               }
             });
 
-    return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
+    return finalQuery.should().size() > 0
+        ? Optional.of(finalQuery.minimumShouldMatch(1))
+        : Optional.empty();
   }
 
   private Optional<QueryBuilder> getStructuredQuery(
@@ -485,12 +494,13 @@ public class SearchQueryBuilder {
       @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
+      String query,
       @Nonnull QueryBuilder queryBuilder) {
 
     if (customQueryConfig != null) {
       // Prefer configuration function scoring over annotation scoring
       return CustomizedQueryHandler.functionScoreQueryBuilder(
-          opContext.getObjectMapper(), customQueryConfig, queryBuilder);
+          opContext.getObjectMapper(), customQueryConfig, queryBuilder, query);
     } else {
       return QueryBuilders.functionScoreQuery(
               queryBuilder, buildAnnotationScoreFunctions(entitySpecs))

@@ -35,6 +35,8 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
@@ -103,8 +105,8 @@ class FineGrainedLineageConfig(ConfigModel):
 
 class EntityNodeConfig(ConfigModel):
     entity: EntityConfig
-    upstream: Optional[List["EntityNodeConfig"]]
-    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]]
+    upstream: Optional[List["EntityNodeConfig"]] = None
+    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]] = None
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself
@@ -209,7 +211,11 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
+        client = get_default_graph(ClientMode.INGESTION)
+
         old_upstream_lineage = get_aspects_for_entity(
+            client._session,
+            client.config.server,
             entity_urn=entity_urn,
             aspects=["upstreamLineage"],
             typed=True,

@@ -67,7 +67,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
                         tagUrn.toString(),
                         TAG_PROPERTIES_ASPECT_NAME,
                         _entityService,
-                        null);
+                        new TagProperties().setName(tagUrn.getId()));
 
             if (tagProperties == null) {
               throw new IllegalArgumentException(
@@ -101,10 +101,6 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
                     ImmutableList.of(PoliciesConfig.EDIT_TAG_COLOR_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        entityUrn.getEntityType(),
-        entityUrn.toString(),
-        orPrivilegeGroups);
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 }

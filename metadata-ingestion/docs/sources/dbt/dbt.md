@@ -62,7 +62,11 @@ We support the following operations:
 1. add_tag - Requires `tag` property in config.
 2. add_term - Requires `term` property in config.
 3. add_terms - Accepts an optional `separator` property in config.
-4. add_owner - Requires `owner_type` property in config which can be either user or group. Optionally accepts the `owner_category` config property which can be set to either a [custom ownership type](../../../../docs/ownership/ownership-types.md) urn like `urn:li:ownershipType:architect` or one of `['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'` (defaults to `DATAOWNER`).
+4. add_owner - Requires `owner_type` property in config which can be either `user` or `group`. Optionally accepts the `owner_category` config property which can be set to either a [custom ownership type](../../../../docs/ownership/ownership-types.md) urn like `urn:li:ownershipType:architect` or one of `['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'` (defaults to `DATAOWNER`).
+
+   - The `owner_type` property will be ignored if the owner is a fully qualified urn.
+   - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
+
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
 
 Note:
@@ -171,7 +175,7 @@ To integrate with dbt tests, the `dbt` source needs access to the `run_results.j
 1. Run `dbt build`
 2. Copy the `target/run_results.json` file to a separate location. This is important, because otherwise subsequent `dbt` commands will overwrite the run results.
 3. Run `dbt docs generate` to generate the `manifest.json` and `catalog.json` files
-4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `test_results_path` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
+4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `run_results_paths` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
 
 The connector will produce the following things:
 
@@ -215,7 +219,8 @@ source:
   config:
     manifest_path: _path_to_manifest_json
     catalog_path: _path_to_catalog_json
-    test_results_path: _path_to_run_results_json
+    run_results_paths:
+      - _path_to_run_results_json
     target_platform: postgres
     entities_enabled:
       test_results: Only
@@ -229,7 +234,8 @@ source:
   config:
     manifest_path: _path_to_manifest_json
     catalog_path: _path_to_catalog_json
-    run_results_path: _path_to_run_results_json
+    run_results_paths:
+      - _path_to_run_results_json
     target_platform: postgres
     entities_enabled:
       test_results: No
@@ -269,16 +275,19 @@ source:
     # ... other configs
 ```
 
-<details>
-  <summary>[Experimental] Reducing "composed of" sprawl with multiproject setups</summary>
+If you have models that have tons of sources from other projects listed in the "Composed Of" section, it may also make sense to hide sources.
 
-When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate.
-To address this, we are experimenting with an alternative approach to handling multiproject setups: not including sources.
+### Reducing "composed of" sprawl by hiding sources
+
+When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate
+and extra source nodes can clutter the lineage graph.
+
+This is particularly useful for multi-project setups, but can be useful in single-project setups as well.
 
 The benefit is that your entire dbt estate becomes much easier to navigate, and the borders between projects less noticeable.
 The downside is that we will not pick up any documentation or meta mappings applied to dbt sources.
 
-To enable this, set a few additional flags in your dbt source config:
+To enable this, set `entities_enabled.sources: No` and `skip_sources_in_lineage: true` in your dbt source config:
 
 ```yaml
 source:
@@ -294,4 +303,4 @@ source:
     skip_sources_in_lineage: true
 ```
 
-</details>
+[Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.

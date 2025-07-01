@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
@@ -8,7 +9,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubViewType;
 import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
@@ -18,7 +18,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
@@ -55,16 +54,10 @@ public class ListGlobalViewsResolverTest {
                                         .setAnd(
                                             new CriterionArray(
                                                 ImmutableList.of(
-                                                    new Criterion()
-                                                        .setField("type.keyword")
-                                                        .setValue(DataHubViewType.GLOBAL.toString())
-                                                        .setValues(
-                                                            new StringArray(
-                                                                ImmutableList.of(
-                                                                    DataHubViewType.GLOBAL
-                                                                        .toString())))
-                                                        .setCondition(Condition.EQUAL)
-                                                        .setNegated(false)))))))),
+                                                    buildCriterion(
+                                                        "type",
+                                                        Condition.EQUAL,
+                                                        DataHubViewType.GLOBAL.toString())))))))),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))

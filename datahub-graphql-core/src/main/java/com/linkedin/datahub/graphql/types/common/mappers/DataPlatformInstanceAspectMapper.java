@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -28,6 +29,12 @@ public class DataPlatformInstanceAspectMapper
       result.setType(EntityType.DATA_PLATFORM_INSTANCE);
       result.setUrn(input.getInstance().toString());
     }
+    // Warning: This often cannot be read properly: overwritten by LoadableTypeResolver
+    result.setPlatform(
+        DataPlatform.builder()
+            .setUrn(input.getPlatform().toString())
+            .setType(EntityType.DATA_PLATFORM)
+            .build());
     return result;
   }
 }

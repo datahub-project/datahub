@@ -9,9 +9,9 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -78,8 +78,7 @@ public class TimeSeriesAspectResolver
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
         && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
       return AuthUtil.isAuthorized(
-          context.getAuthorizer(),
-          context.getActorUrn(),
+          context.getOperationContext(),
           PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
           new EntitySpec(_entityName, urn));
     }
@@ -121,7 +120,7 @@ public class TimeSeriesAspectResolver
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilters(maybeFilters, context.getOperationContext().getAspectRetriever()),
+                    buildFilters(maybeFilters),
                     maybeSort);
 
             // Step 2: Bind profiles into GraphQL strong types.
@@ -136,8 +135,7 @@ public class TimeSeriesAspectResolver
         "get");
   }
 
-  private Filter buildFilters(
-      @Nullable FilterInput maybeFilters, @Nullable AspectRetriever aspectRetriever) {
+  private Filter buildFilters(@Nullable FilterInput maybeFilters) {
     if (maybeFilters == null) {
       return null;
     }
@@ -148,7 +146,7 @@ public class TimeSeriesAspectResolver
                     .setAnd(
                         new CriterionArray(
                             maybeFilters.getAnd().stream()
-                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
+                                .map(ResolverUtils::criterionFromFilter)
                                 .collect(Collectors.toList())))));
   }
 }

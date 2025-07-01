@@ -7,4 +7,9 @@ import com.linkedin.common.Edge
  **/
 record DataProductAssociation includes Edge {
 
+    /**
+    * If set to true, this asset is an output port of the Data Product.
+    */
+    outputPort: boolean = false
+
 }

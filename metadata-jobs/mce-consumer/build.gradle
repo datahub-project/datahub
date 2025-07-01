@@ -3,6 +3,7 @@ plugins {
     id 'pegasus'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 configurations {
     avro
@@ -29,6 +30,8 @@ dependencies {
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
+    implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -36,6 +39,13 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     implementation externalDependency.awsMskIamAuth
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
+    testImplementation externalDependency.springBootTest
 }
 
 task avroSchemaSources(type: Copy) {
@@ -52,5 +62,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }

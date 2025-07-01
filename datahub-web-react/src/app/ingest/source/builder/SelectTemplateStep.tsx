@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-
-import { Button, Input } from 'antd';
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import { Input } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SourceConfig, SourceBuilderState, StepProps } from './types';
-import { IngestionSourceBuilderStep } from './steps';
-import useGetSourceLogoUrl from './useGetSourceLogoUrl';
-import { CUSTOM } from './constants';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { DataPlatformCard } from './DataPlatformCard';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
+import { CUSTOM } from '@app/ingest/source/builder/constants';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
+import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+import { Button } from '@src/alchemy-components';
 
 const Container = styled.div`
     max-height: 82vh;
@@ -21,10 +22,6 @@ const Section = styled.div`
     flex-direction: column;
     padding-bottom: 12px;
     overflow: hidden;
-`;
-
-const CancelButton = styled(Button)`
-    max-width: 120px;
 `;
 
 const SearchBarContainer = styled.div`
@@ -104,6 +101,18 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             source.name.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()),
     );
 
+    filteredSources.sort((a, b) => {
+        if (a.name === 'custom') {
+            return 1;
+        }
+
+        if (b.name === 'custom') {
+            return -1;
+        }
+
+        return a.displayName.localeCompare(b.displayName);
+    });
+
     return (
         <Container>
             <Section>
@@ -122,7 +131,9 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     ))}
                 </PlatformListContainer>
             </Section>
-            <CancelButton onClick={cancel}>Cancel</CancelButton>
+            <Button variant="text" color="gray" onClick={cancel}>
+                Cancel
+            </Button>
         </Container>
     );
 };

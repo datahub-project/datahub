@@ -1,14 +1,55 @@
-#### Configuration Notes
+### Configuration Notes
 
-:::note
+1. Handling Liquid Templates
 
-The integration can use an SQL parser to try to parse the tables the views depends on.
+   If a view contains a liquid template, for example:
 
-:::
+   ```
+   sql_table_name: {{ user_attributes['db'] }}.kafka_streaming.events
+   ```
 
-This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The default parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
-As this package doesn't officially support all the SQL dialects that Looker supports, the result might not be correct. You can, however, implement a custom parser and take it into use by setting the `sql_parser` configuration value. A custom SQL parser must inherit from `datahub.utilities.sql_parser.SQLParser`
-and must be made available to Datahub by ,for example, installing it. The configuration then needs to be set to `module_name.ClassName` of the parser.
+   where `db=ANALYTICS_PROD`, you need to specify the values of those variables in the liquid_variables configuration as shown below:
+
+   ```yml
+   liquid_variables:
+     user_attributes:
+       db: ANALYTICS_PROD
+   ```
+
+2. Resolving LookML Constants
+
+   If a view contains a LookML constant, for example:
+
+   ```
+   sql_table_name: @{db}.kafka_streaming.events;
+   ```
+
+   Ingestion attempts to resolve it's value by looking at project manifest files
+
+   ```yml
+   manifest.lkml
+     constant: db {
+         value: "ANALYTICS_PROD"
+     }
+   ```
+
+   - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
+
+     ```yml
+     lookml_constants:
+       db: ANALYTICS_PROD
+     ```
+
+**Liquid Template Support Limits:**
+
+- Supported: Simple variable interpolation (`{{ var }}`) and condition directives (`{% condition filter_name %} field {% endcondition %}`)
+- Unsupported: Conditional logic with `if`/`else`/`endif` and custom Looker tags like `date_start`, `date_end`, and `parameter`
+
+Unsupported templates may cause lineage extraction to fail for some assets.
+
+**Additional Notes**
+
+Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.
 
 ### Multi-Project LookML (Advanced)
 

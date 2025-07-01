@@ -7,7 +7,6 @@ from typing import Any, Deque
 
 # Modified version of https://github.com/RazerM/ratelimiter/blob/master/ratelimiter/_sync.py
 class RateLimiter(AbstractContextManager):
-
     """Provides rate limiting for an operation with a configurable number of
     requests for a time period.
     """

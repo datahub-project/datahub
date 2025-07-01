@@ -1,18 +1,21 @@
+import { Modal, Steps } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Button, Modal, Steps } from 'antd';
-import PolicyPrivilegeForm from './PolicyPrivilegeForm';
-import PolicyTypeForm from './PolicyTypeForm';
-import PolicyActorForm from './PolicyActorForm';
-import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../../types.generated';
-import { EMPTY_POLICY } from './policyUtils';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import ClickOutside from '../../shared/ClickOutside';
+
+import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
+import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
+import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
+import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Button } from '@src/alchemy-components';
+
+import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
     setPolicy: (policy: Omit<Policy, 'urn'>) => void;
-    visible: boolean;
+    open: boolean;
     focusPolicyUrn: string | undefined;
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
@@ -40,7 +43,7 @@ const NextButtonContainer = styled.div`
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
-export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave, focusPolicyUrn }: Props) {
+export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
@@ -168,7 +171,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             <Modal
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
-                visible={visible}
+                open={open}
                 onCancel={onClose}
                 closable
                 width={750}
@@ -182,16 +185,20 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                        {activeStepIndex > 0 && (
+                            <Button variant="outline" color="gray" onClick={() => prev()}>
+                                Previous
+                            </Button>
+                        )}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                            <Button id="nextButton" type="primary" onClick={() => next()}>
+                            <Button id="nextButton" onClick={() => next()}>
                                 Next
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                            <Button id="saveButton" type="primary" onClick={onSavePolicy}>
+                            <Button id="saveButton" onClick={onSavePolicy}>
                                 Save
                             </Button>
                         )}

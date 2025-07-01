@@ -1,5 +1,7 @@
 query getMLPrimaryKey($urn: String!) {
     mlPrimaryKey(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLPrimaryKey
         privileges {
             ...entityPrivileges
@@ -18,5 +20,6 @@ query getMLPrimaryKey($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

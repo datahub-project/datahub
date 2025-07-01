@@ -1,6 +1,7 @@
-import { Modal, Button } from 'antd';
+import { Button, Modal } from 'antd';
 import React from 'react';
-import Query from '../Queries/Query';
+
+import Query from '@app/entity/shared/tabs/Dataset/Queries/Query';
 
 export type AssertionsSummary = {
     totalAssertions: number;
@@ -11,13 +12,13 @@ export type AssertionsSummary = {
 
 type Props = {
     logic: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
+export const DatasetAssertionLogicModal = ({ logic, open, onClose }: Props) => {
     return (
-        <Modal visible={visible} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>}>
+        <Modal open={open} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>}>
             <Query query={logic} />
         </Modal>
     );

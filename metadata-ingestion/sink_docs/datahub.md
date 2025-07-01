@@ -28,7 +28,8 @@ sink:
     server: "http://localhost:8080"
 ```
 
-If you are connecting to a hosted Acryl instance, your sink will look like
+If you are connecting to a hosted DataHub Cloud instance, your sink will look like
+
 ```yml
 source:
   # source configs
@@ -68,16 +69,17 @@ If you are using [UI based ingestion](../../docs/ui-ingestion.md) then where GMS
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                      | Required | Default              | Description                                                                                        |
-|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
-| `server`                   | ✅        |                      | URL of DataHub GMS endpoint.                                                                       |
+| -------------------------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------- |
+| `server`                   | ✅       |                      | URL of DataHub GMS endpoint.                                                                       |
+| `token`                    |          |                      | Bearer token used for authentication.                                                              |
 | `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                          |
 | `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
 | `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                      |
-| `token`                    |          |                      | Bearer token used for authentication.                                                              |
 | `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                  |
-| `max_threads`              |          | `15`                 | Experimental: Max parallelism for REST API calls                                                   |
-| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                                                    |
-| `client_certificate_path`      |          |                      | Path to client's CA certificate for HTTPS communications                                                    |
+| `max_threads`              |          | `15`                 | Max parallelism for REST API calls                                                                 |
+| `mode`                     |          | `ASYNC_BATCH`        | [Advanced] Mode of operation - `SYNC`, `ASYNC`, or `ASYNC_BATCH`                                   |
+| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                           |
+| `client_certificate_path`  |          |                      | Path to client's CA certificate for HTTPS communications                                           |
 | `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                 |
 
 ## DataHub Kafka
@@ -115,14 +117,14 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                        | Required | Default | Description                                                                                                                                              |
-| -------------------------------------------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection.bootstrap`                       | ✅       |         | Kafka bootstrap URL.                                                                                                                                     |
-| `connection.producer_config.<option>`        |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
-| `connection.schema_registry_url`             | ✅       |         | URL of schema registry being used.                                                                                                                       |
-| `connection.schema_registry_config.<option>` |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
-| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent     | Overridden Kafka topic name for the MetadataChangeEvent |
-| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal  | Overridden Kafka topic name for the MetadataChangeProposal |
+| Field                                        | Required | Default                | Description                                                                                                                                              |
+| -------------------------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                     |
+| `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
+| `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
+| `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
+| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |
+| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                               |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
@@ -178,15 +180,14 @@ DataHub Lite currently doesn't support stateful ingestion, so you'll have to tur
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default              | Description                                                                                        |
-|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
-| `type`                   |       |      duckdb                | Type of DataHub Lite implementation to use |
-| `config`              |          | `{"file": "~/.datahub/lite/datahub.duckdb"}`                   | Config dictionary to pass through to the DataHub Lite implementation. See below for fields accepted by the DuckDB implementation |
+| Field    | Required | Default                                      | Description                                                                                                                      |
+| -------- | -------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `type`   |          | duckdb                                       | Type of DataHub Lite implementation to use                                                                                       |
+| `config` |          | `{"file": "~/.datahub/lite/datahub.duckdb"}` | Config dictionary to pass through to the DataHub Lite implementation. See below for fields accepted by the DuckDB implementation |
 
 #### DuckDB Config Details
 
-| Field                      | Required | Default              | Description                                                                                        |
-|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
-| `file`                   |       |   `"~/.datahub/lite/datahub.duckdb"`     | File to use for DuckDB storage |
-| `options`                |          | `{}`                   | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |
-
+| Field     | Required | Default                            | Description                                                                                                                                                        |
+| --------- | -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `file`    |          | `"~/.datahub/lite/datahub.duckdb"` | File to use for DuckDB storage                                                                                                                                     |
+| `options` |          | `{}`                               | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |

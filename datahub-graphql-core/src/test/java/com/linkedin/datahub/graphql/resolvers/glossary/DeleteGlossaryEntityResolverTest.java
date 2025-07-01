@@ -25,7 +25,7 @@ public class DeleteGlossaryEntityResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
         .thenReturn(true);
@@ -50,7 +50,7 @@ public class DeleteGlossaryEntityResolverTest {
         .when(mockClient)
         .deleteEntity(any(), Mockito.any());
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
         .thenReturn(true);
 

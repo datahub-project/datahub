@@ -163,9 +163,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
                 if "properties" not in writeable_dict["systemMetadata"]:
                     writeable_dict["systemMetadata"]["properties"] = {}
-                writeable_dict["systemMetadata"]["properties"][
-                    "sysVersion"
-                ] = new_version
+                writeable_dict["systemMetadata"]["properties"]["sysVersion"] = (
+                    new_version
+                )
                 if needs_write:
                     self.duckdb_client.execute(
                         query="INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
@@ -208,9 +208,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                             "lastObserved": writeable.systemMetadata.lastObserved
                         }
                     else:
-                        system_metadata[
-                            "lastObserved"
-                        ] = writeable.systemMetadata.lastObserved
+                        system_metadata["lastObserved"] = (
+                            writeable.systemMetadata.lastObserved
+                        )
                     self.duckdb_client.execute(
                         query="UPDATE metadata_aspect_v2 SET system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
                         parameters=[
@@ -284,9 +284,10 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         self,
         query: str,
         flavor: SearchFlavor,
-        aspects: List[str] = [],
+        aspects: Optional[List[str]] = None,
         snippet: bool = True,
     ) -> Iterable[Searchable]:
+        aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
             base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
             for r in self.duckdb_client.execute(base_query).fetchall():
@@ -497,9 +498,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             aspect_name = r[1]
             aspect_payload = json.loads(r[2])
             if typed:
-                assert (
-                    aspect_name in ASPECT_MAP
-                ), f"Missing aspect name {aspect_name} in the registry"
+                assert aspect_name in ASPECT_MAP, (
+                    f"Missing aspect name {aspect_name} in the registry"
+                )
                 try:
                     aspect_payload = ASPECT_MAP[aspect_name].from_obj(
                         post_json_transform(aspect_payload)
@@ -531,7 +532,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         for r in results.fetchall():
             urn = r[0]
             aspect_name = r[1]
-            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(post_json_transform(json.loads(r[2])))  # type: ignore
+            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(
+                post_json_transform(json.loads(r[2]))
+            )  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=urn,
@@ -609,7 +612,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             aspect_map, DataPlatformInstanceClass
         )  # type: ignore
 
-        needs_platform = Urn.create_from_string(entity_urn).get_type() in [
+        needs_platform = Urn.from_string(entity_urn).get_type() in [
             "dataset",
             "container",
             "chart",
@@ -617,7 +620,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             "dataFlow",
             "dataJob",
         ]
-        entity_urn_parsed = Urn.create_from_string(entity_urn)
+        entity_urn_parsed = Urn.from_string(entity_urn)
         if entity_urn_parsed.get_type() in ["dataFlow", "dataJob"]:
             self.add_edge(
                 entity_urn,
@@ -630,15 +633,12 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             # this is a top-level entity
             if not dpi:
                 logger.debug(f"No data platform instance for {entity_urn}")
-                maybe_parent_urn = Urn.create_from_string(entity_urn).get_entity_id()[0]
+                maybe_parent_urn = Urn.from_string(entity_urn).get_entity_id()[0]
                 needs_dpi = False
                 if maybe_parent_urn.startswith(Urn.URN_PREFIX):
                     parent_urn = maybe_parent_urn
-                    if (
-                        Urn.create_from_string(maybe_parent_urn).get_type()
-                        == "dataPlatform"
-                    ):
-                        data_platform_urn = DataPlatformUrn.create_from_string(
+                    if Urn.from_string(maybe_parent_urn).get_type() == "dataPlatform":
+                        data_platform_urn = DataPlatformUrn.from_string(
                             maybe_parent_urn
                         )
                         needs_dpi = True
@@ -660,7 +660,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                         logger.error(f"Failed to generate edges entity {entity_urn}", e)
                     parent_urn = str(data_platform_instance_urn)
             else:
-                data_platform_urn = DataPlatformUrn.create_from_string(dpi.platform)
+                data_platform_urn = DataPlatformUrn.from_string(dpi.platform)
                 data_platform_instance = dpi.instance or "default"
                 data_platform_instance_urn = Urn(
                     entity_type="dataPlatformInstance",
@@ -673,9 +673,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             parent_urn = "__root__"
 
         types = (
-            subtypes.typeNames
-            if subtypes
-            else [Urn.create_from_string(entity_urn).get_type()]
+            subtypes.typeNames if subtypes else [Urn.from_string(entity_urn).get_type()]
         )
         for t in types:
             type_urn = Urn(entity_type="systemNode", entity_id=[parent_urn, t])
@@ -686,7 +684,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     def _create_edges_from_data_platform_instance(
         self, data_platform_instance_urn: Urn
     ) -> None:
-        data_platform_urn = DataPlatformUrn.create_from_string(
+        data_platform_urn = DataPlatformUrn.from_string(
             data_platform_instance_urn.get_entity_id()[0]
         )
         data_platform_instances_urn = Urn(
@@ -735,7 +733,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         if isinstance(aspect, DatasetPropertiesClass):
             dp: DatasetPropertiesClass = aspect
             if dp.name:
-                specific_urn = DatasetUrn.create_from_string(entity_urn)
+                specific_urn = DatasetUrn.from_string(entity_urn)
                 if (
                     specific_urn.get_data_platform_urn().get_entity_id_as_string()
                     == "looker"
@@ -755,23 +753,15 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             self.add_edge(entity_urn, "name", cp.name, remove_existing=True)
         elif isinstance(aspect, DataPlatformInstanceClass):
             dpi: DataPlatformInstanceClass = aspect
-            data_platform_urn = DataPlatformUrn.create_from_string(dpi.platform)
+            data_platform_urn = DataPlatformUrn.from_string(dpi.platform)
             data_platform_instance = dpi.instance or "default"
             data_platform_instance_urn = Urn(
                 entity_type="dataPlatformInstance",
                 entity_id=[str(data_platform_urn), data_platform_instance],
             )
             self._create_edges_from_data_platform_instance(data_platform_instance_urn)
-        elif isinstance(aspect, ChartInfoClass):
-            urn = Urn.create_from_string(entity_urn)
-            self.add_edge(
-                entity_urn,
-                "name",
-                aspect.title + f" ({urn.get_entity_id()[-1]})",
-                remove_existing=True,
-            )
-        elif isinstance(aspect, DashboardInfoClass):
-            urn = Urn.create_from_string(entity_urn)
+        elif isinstance(aspect, (ChartInfoClass, DashboardInfoClass)):
+            urn = Urn.from_string(entity_urn)
             self.add_edge(
                 entity_urn,
                 "name",

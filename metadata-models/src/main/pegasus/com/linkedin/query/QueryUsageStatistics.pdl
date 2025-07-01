@@ -1,0 +1,43 @@
+namespace com.linkedin.query
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.dataset.DatasetUserUsageCounts
+
+/**
+ * Stats corresponding to dataset's usage.
+ */
+@Aspect = {
+  "name": "queryUsageStatistics",
+  "type": "timeseries",
+}
+record QueryUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * Total query count in this bucket
+   */
+  @TimeseriesField = {}
+  queryCount: optional int
+
+  /**
+   * Query cost for this query and bucket
+   */
+  @TimeseriesField = {}
+  queryCost: optional double
+
+  /**
+   * Last executed timestamp
+   */
+  @TimeseriesField = {}
+  lastExecutedAt: optional long
+
+  /**
+   * Unique user count
+   */
+  @TimeseriesField = {}
+  uniqueUserCount: optional int
+
+  /**
+   * Users within this bucket, with frequency counts
+   */
+  @TimeseriesFieldCollection = {"key":"user"}
+  userCounts: optional array[DatasetUserUsageCounts]
+}

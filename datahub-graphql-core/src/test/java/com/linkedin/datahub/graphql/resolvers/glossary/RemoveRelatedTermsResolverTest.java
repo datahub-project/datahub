@@ -36,7 +36,7 @@ public class RemoveRelatedTermsResolverTest {
     GlossaryTermUrn term2Urn = GlossaryTermUrn.createFromString(TEST_TERM_2_URN);
     final GlossaryRelatedTerms relatedTerms = new GlossaryRelatedTerms();
     relatedTerms.setIsRelatedTerms(new GlossaryTermUrnArray(Arrays.asList(term1Urn, term2Urn)));
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
                 any(),
@@ -71,7 +71,7 @@ public class RemoveRelatedTermsResolverTest {
     GlossaryTermUrn term2Urn = GlossaryTermUrn.createFromString(TEST_TERM_2_URN);
     final GlossaryRelatedTerms relatedTerms = new GlossaryRelatedTerms();
     relatedTerms.setHasRelatedTerms(new GlossaryTermUrnArray(Arrays.asList(term1Urn, term2Urn)));
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
                 any(),
@@ -102,7 +102,7 @@ public class RemoveRelatedTermsResolverTest {
 
   @Test
   public void testFailAspectDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
                 any(),
@@ -135,7 +135,7 @@ public class RemoveRelatedTermsResolverTest {
     GlossaryTermUrn term2Urn = GlossaryTermUrn.createFromString(TEST_TERM_2_URN);
     final GlossaryRelatedTerms relatedTerms = new GlossaryRelatedTerms();
     relatedTerms.setIsRelatedTerms(new GlossaryTermUrnArray(Arrays.asList(term1Urn, term2Urn)));
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
                 any(),

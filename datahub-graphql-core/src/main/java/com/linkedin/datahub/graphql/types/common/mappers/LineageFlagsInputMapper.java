@@ -6,6 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityTypeToPlatforms;
 import com.linkedin.datahub.graphql.generated.LineageFlags;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.Collections;
@@ -42,11 +43,15 @@ public class LineageFlagsInputMapper
     if (lineageFlags.getIgnoreAsHops() != null) {
       result.setIgnoreAsHops(mapIgnoreAsHops(lineageFlags.getIgnoreAsHops()));
     }
-    if (lineageFlags.getEndTimeMillis() != null) {
-      result.setEndTimeMillis(lineageFlags.getEndTimeMillis());
-    }
     if (lineageFlags.getStartTimeMillis() != null) {
       result.setStartTimeMillis(lineageFlags.getStartTimeMillis());
+    }
+    // Default to "now" if no end time is provided, but start time is provided.
+    Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(
+            lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis());
+    if (endTimeMillis != null) {
+      result.setEndTimeMillis(endTimeMillis);
     }
     if (lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       result.setEntitiesExploredPerHopLimit(lineageFlags.getEntitiesExploredPerHopLimit());

@@ -2,7 +2,8 @@ import Editor from '@monaco-editor/react';
 import { Button, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { jsonToYaml } from './utils';
+
+import { jsonToYaml } from '@app/ingest/source/utils';
 
 const YamlWrapper = styled.div`
     padding: 24px;
@@ -18,7 +19,7 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
 
     return (
         <Modal
-            visible
+            open
             onCancel={onCancel}
             width={800}
             title="View Ingestion Recipe"

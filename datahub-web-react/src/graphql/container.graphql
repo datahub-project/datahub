@@ -1,6 +1,7 @@
 query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
+        type
         exists
         lastIngested
         platform {
@@ -8,6 +9,7 @@ query getContainer($urn: String!) {
         }
         properties {
             name
+            qualifiedName
             description
             externalUrl
             customProperties {
@@ -58,6 +60,13 @@ query getContainer($urn: String!) {
         status {
             removed
         }
+        access {
+            roles {
+                role {
+                    urn
+                }
+            }
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
@@ -68,6 +77,26 @@ query getContainer($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        ...notes
+    }
+}
+
+# We should replace this with a cached summary object on the container
+query getContainerEntitySummary($urn: String!) {
+    aggregateAcrossEntities(
+        input: {
+            types: []
+            query: "*"
+            facets: ["_entityType␞typeNames", "_entityType"]
+            orFilters: [{ and: [{ field: "container", values: [$urn], value: $urn }] }]
+        }
+    ) {
+        facets {
+            ...facetFields
         }
     }
 }

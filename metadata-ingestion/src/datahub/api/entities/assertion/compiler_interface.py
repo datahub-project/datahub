@@ -1,16 +1,12 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Literal
 
 from datahub.api.entities.assertion.assertion_config_spec import AssertionsConfigSpec
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyDict, LossyList
-
-
-class StrEnum(str, Enum):
-    pass
+from datahub.utilities.str_enum import StrEnum
 
 
 class CompileResultArtifactType(StrEnum):

@@ -1,10 +1,12 @@
 import { Button, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../../types.generated';
-import ColumnStats from '../../snapshot/ColumnStats';
-import TableStats from '../../snapshot/TableStats';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+
+import ColumnStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin-top: 16px;
@@ -84,7 +86,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal width="100%" footer={null} title={profileModalTitle} open={showModal} onCancel={onClose}>
                     <TableStats
                         rowCount={selectedProfile.rowCount || -1}
                         columnCount={selectedProfile.columnCount || -1}

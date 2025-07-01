@@ -1,18 +1,17 @@
 package com.linkedin.metadata.search.fixtures;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
 import static org.testng.Assert.*;
-import static org.testng.AssertJUnit.assertNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -205,10 +204,7 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
                         .setAnd(
                             new CriterionArray(
                                 ImmutableList.of(
-                                    new Criterion()
-                                        .setField("rowCount")
-                                        .setValue("")
-                                        .setValues(new StringArray(ImmutableList.of("68"))))))));
+                                    buildCriterion("rowCount", Condition.EQUAL, "68"))))));
     SearchResult searchResult =
         SearchTestUtils.facetAcrossEntities(
             getOperationContext(),

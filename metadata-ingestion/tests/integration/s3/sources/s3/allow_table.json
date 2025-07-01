@@ -1,0 +1,16 @@
+{
+    "type": "s3",
+    "config": {
+        "path_specs": [{
+            "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/{partition[0]}/{partition[1]}/*.*",
+            "tables_filter_pattern": {
+                "allow": ["folder_aaaa"]
+            }
+        }],
+        "aws_config": {
+            "aws_region": "us-east-1",
+            "aws_access_key_id": "testing",
+            "aws_secret_access_key": "testing"
+        }
+    }
+}

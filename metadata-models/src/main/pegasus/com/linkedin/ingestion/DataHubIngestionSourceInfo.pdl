@@ -21,6 +21,10 @@ record DataHubIngestionSourceInfo {
   /**
    * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
    */
+  @Searchable = {
+   "fieldType": "KEYWORD",
+   "queryByDefault": false
+  }
   type: string
 
   /**
@@ -50,6 +54,11 @@ record DataHubIngestionSourceInfo {
      /**
       * The id of the executor to use to execute the ingestion run
       */
+      @Searchable = {
+         "fieldName": "sourceExecutorId",
+         "fieldType": "KEYWORD",
+         "queryByDefault": false
+      }
       executorId: optional string
 
      /**
@@ -62,4 +71,26 @@ record DataHubIngestionSourceInfo {
       */
       extraArgs: optional map[string, string]
   }
+
+  /**
+   * The source or origin of the Ingestion Source
+   *
+   * Currently CLI and UI do not provide an explicit source.
+   */
+   source: optional record DataHubIngestionSourceSource {
+        /**
+         * The source type of the ingestion source
+         */
+        @Searchable = {
+           "fieldName": "sourceType",
+           "fieldType": "KEYWORD",
+           "queryByDefault": false
+        }
+        type: enum DataHubIngestionSourceSourceType {
+            /**
+             * A system internal source, e.g. for running search indexing operations, feature computation, etc.
+             */
+            SYSTEM
+        }
+   }
 }

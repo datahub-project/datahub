@@ -4,10 +4,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
-<!-- 
-Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
+<!--
+Update feature availability; by default, feature availabilty is Self-Hosted and DataHub Cloud
 
-Add in `saasOnly` for Managed DataHub-only features
+Add in `saasOnly` for DataHub Cloud-only features
  -->
 
 <FeatureAvailability/>
@@ -50,12 +50,12 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 
 <p align="center">
 <iframe width="560" height="315" src="www.youtube.com/embed/VIDEO_ID" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</p> 
+</p>
 
 -->
 
-<!-- 
-NOTE: Find the iframe details in YouTube by going to Share > Embed 
+<!--
+NOTE: Find the iframe details in YouTube by going to Share > Embed
  -->
 
 ### GraphQL
@@ -75,8 +75,6 @@ NOTE: Find the iframe details in YouTube by going to Share > Embed
 Response in plain text
 
 -->
-
-
 
 ### Related Features
 

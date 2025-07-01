@@ -1,5 +1,7 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +21,7 @@ public class SystemMetadataMappingsBuilder {
     mappings.put("registryVersion", getMappingsForKeyword());
     mappings.put("registryName", getMappingsForKeyword());
     mappings.put("removed", getMappingsForRemoved());
+    mappings.put(TELEMETRY_TRACE_KEY, getMappingsForKeyword());
     return ImmutableMap.of("properties", mappings);
   }
 

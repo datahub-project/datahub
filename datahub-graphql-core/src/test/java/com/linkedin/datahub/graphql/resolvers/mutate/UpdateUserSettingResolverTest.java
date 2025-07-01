@@ -23,7 +23,7 @@ public class UpdateUserSettingResolverTest {
 
   @Test
   public void testWriteCorpUserSettings() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_USER_URN)), eq(true)))
         .thenReturn(true);
 
