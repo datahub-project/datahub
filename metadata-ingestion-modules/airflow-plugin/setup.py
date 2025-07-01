@@ -25,7 +25,6 @@ _self_pin = (
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
     # We require Airflow 2.7.x at minimum, to be comatible with the native Airflow Openlineage provider.
-    # We pin to 2.7.x, since we also need typing-extensions>=4.5 in acryl-datahub.
     "apache-airflow>=2.7.0,<3",
 }
 
