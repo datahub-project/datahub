@@ -87,7 +87,7 @@ Multiple Transformers can be configured to run in sequence, filtering and transf
 
 Transformers can also be used to generate a completely new type of Event (i.e. registered at runtime via the Event Registry) which can subsequently serve as input to an Action.
 
-Transformers can be easily customized and plugged in to meet an organization's unqique requirements. For more information on developing a Transformer, check out [Developing a Transformer](guides/developing-a-transformer.md)
+Transformers can be easily customized and plugged in to meet an organization's unique requirements. For more information on developing a Transformer, check out [Developing a Transformer](guides/developing-a-transformer.md)
 
 ### Action
 
@@ -96,4 +96,4 @@ or creating a Jira ticket, etc.
 
 Each Pipeline can be configured to have a single Action which runs after the filtering and transformations have occurred.
 
-Actions can be easily customized and plugged in to meet an organization's unqique requirements. For more information on developing a Action, check out [Developing a Action](guides/developing-an-action.md)
+Actions can be easily customized and plugged in to meet an organization's unique requirements. For more information on developing a Action, check out [Developing a Action](guides/developing-an-action.md)

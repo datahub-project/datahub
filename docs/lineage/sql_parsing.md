@@ -21,7 +21,7 @@ If you’re using a different database system for which we don’t support colum
 
 ## SDK Support
 
-Our SDK provides a [`DataHubGraph.parse_sql_lineage()`](../../python-sdk/clients.md#datahub.ingestion.graph.client.DataHubGraph.parse_sql_lineage) method for programmatically parsing SQL queries.
+Our SDK provides a [`DataHubGraph.parse_sql_lineage()`](../../python-sdk/clients/graph-client.mdx#datahub.ingestion.graph.client.DataHubGraph.parse_sql_lineage) method for programmatically parsing SQL queries.
 
 The resulting object contains a `sql_parsing_result.debug_info.confidence_score` field, which is a 0-1 value indicating the confidence of the parser.
 

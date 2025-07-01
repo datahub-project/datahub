@@ -906,6 +906,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
+        skip_cache: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -924,6 +925,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+        :param skip_cache: Whether to bypass caching. Defaults to False.
 
         :return: An iterable of urns that match the filters.
         """
@@ -951,7 +953,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $query: String!,
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
-                $scrollId: String) {
+                $scrollId: String,
+                $skipCache: Boolean!) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -962,6 +965,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
+                        skipCache: $skipCache
                     }
                 }) {
                     nextScrollId
@@ -980,6 +984,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": orFilters,
             "batchSize": batch_size,
+            "skipCache": skip_cache,
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
@@ -1085,7 +1090,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": or_filters_final,
             "batchSize": batch_size,
-            "skipCache": "true" if skip_cache else "false",
+            "skipCache": skip_cache,
             "fetchExtraFields": extra_source_fields,
         }
 
@@ -1428,6 +1433,41 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         reference_count = response.get("total", 0)
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
+
+    def restore_indices(
+        self,
+        urn_pattern: str,
+        aspect: Optional[str] = None,
+        start: Optional[int] = None,
+        batch_size: Optional[int] = None,
+    ) -> str:
+        """Restore the indices for a given urn or urn-like pattern.
+
+        Args:
+            urn_pattern: The exact URN or a pattern (with % for wildcard) to match URNs.
+            aspect: Optional aspect string to restore indices for a specific aspect.
+            start: Optional integer to decide which row number of sql store to restore from. Default: 0.
+            batch_size: Optional integer to decide how many rows to restore. Default: 10.
+
+        Returns:
+            A string containing the result of the restore indices operation. This format is subject to change.
+        """
+        if "%" in urn_pattern:
+            payload_obj: dict = {"urnLike": urn_pattern}
+        else:
+            payload_obj = {"urn": urn_pattern}
+        if aspect is not None:
+            payload_obj["aspect"] = aspect
+        if start is not None:
+            payload_obj["start"] = start
+        if batch_size is not None:
+            payload_obj["batchSize"] = batch_size
+        raw_result = self._post_generic(
+            f"{self._gms_server}/operations?action=restoreIndices", payload_obj
+        )
+        result = raw_result["value"]
+        logger.debug(f"Restore indices result: {result}")
+        return result
 
     @functools.lru_cache
     def _make_schema_resolver(

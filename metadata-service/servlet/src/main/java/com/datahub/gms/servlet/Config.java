@@ -82,12 +82,14 @@ public class Config extends HttpServlet {
       Map<String, Object> telemetryConfig = new HashMap<>();
       telemetryConfig.put("enabledCli", configProvider.getTelemetry().enabledCli);
       telemetryConfig.put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+
       newConfig.put("telemetry", telemetryConfig);
 
       // Ingestion Configuration
       Map<String, Object> ingestionConfig = new HashMap<>();
-      ingestionConfig.put("enabled", configProvider.getIngestion().enabled);
-      ingestionConfig.put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+      ingestionConfig.put("enabled", configProvider.getIngestion().isEnabled());
+      ingestionConfig.put(
+          "defaultCliVersion", configProvider.getIngestion().getDefaultCliVersion());
       newConfig.put("managedIngestion", ingestionConfig);
 
       // DataHub Configuration

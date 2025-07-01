@@ -20,6 +20,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -81,6 +82,10 @@ class SnowflakeSummarySource(Source):
             profiler=None,
             aggregator=None,
             snowsight_url_builder=None,
+            filters=SnowflakeFilter(
+                filter_config=self.config,
+                structured_reporter=self.report,
+            ),
         )
 
         # Databases.
