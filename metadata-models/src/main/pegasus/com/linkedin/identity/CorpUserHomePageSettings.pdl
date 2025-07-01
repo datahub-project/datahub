@@ -7,7 +7,7 @@ import com.linkedin.common.Urn
  */
 record CorpUserHomePageSettings {
   /**
-   * The urn that will be rendered in the UI by default for this user
+   * The page template that will be rendered in the UI by default for this user
    */
-  defaultTemplate: Urn
+  pageTemplate: Urn
 }

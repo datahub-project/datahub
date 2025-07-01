@@ -16,7 +16,7 @@ record DataHubPageModuleVisibility  {
      */
     PERSONAL
     /**
-     * This module is used across users
+     * This module is discoverable and can be used by any user on the platform
      */
     GLOBAL
    }

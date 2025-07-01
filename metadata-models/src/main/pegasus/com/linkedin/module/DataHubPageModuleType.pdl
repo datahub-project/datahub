@@ -31,5 +31,5 @@ enum DataHubPageModuleType {
   /**
    * Module displaying the top domains
    */
-  TOP_DOMAINS
+  DOMAINS
 }
