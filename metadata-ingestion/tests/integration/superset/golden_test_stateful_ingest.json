@@ -71,7 +71,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -179,7 +179,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -256,7 +256,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -364,7 +364,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -441,7 +441,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -549,7 +549,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -626,7 +626,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -734,7 +734,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -811,7 +811,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -919,7 +919,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -996,7 +996,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1104,7 +1104,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1181,7 +1181,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1289,7 +1289,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1366,7 +1366,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1474,7 +1474,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1551,7 +1551,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1659,7 +1659,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1723,7 +1723,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1852,7 +1852,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1916,7 +1916,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2045,7 +2045,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2109,7 +2109,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2238,7 +2238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2302,7 +2302,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2431,7 +2431,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2495,7 +2495,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2624,7 +2624,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2688,7 +2688,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2817,7 +2817,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2881,7 +2881,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -3010,7 +3010,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3074,7 +3074,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -3203,7 +3203,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3267,7 +3267,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "",
+                                "nativeDataType": "NUMERIC",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -3396,7 +3396,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3446,7 +3446,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3504,7 +3504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3570,7 +3570,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3628,7 +3628,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3686,7 +3686,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3756,7 +3756,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3773,7 +3773,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3790,7 +3790,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3807,7 +3807,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3824,41 +3824,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,13)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3875,7 +3841,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-la1ts9",
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-stwswn",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
