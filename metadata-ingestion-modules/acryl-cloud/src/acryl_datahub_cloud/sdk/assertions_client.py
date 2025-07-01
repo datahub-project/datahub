@@ -181,7 +181,11 @@ class AssertionsClient:
                 - {"type": "last_modified_column", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
             sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
-            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported. Valid values are:
+                - {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"} (using ISO strings)
+                - {"start": datetime(2025, 1, 1, 0, 0, 0), "end": datetime(2025, 1, 2, 0, 0, 0)} (using datetime objects)
+                - FixedRangeExclusionWindow(start=datetime(2025, 1, 1, 0, 0, 0), end=datetime(2025, 1, 2, 0, 0, 0)) (using typed object)
+                - A list of any of the above formats
             training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass" or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
@@ -1961,7 +1965,11 @@ class AssertionsClient:
                 - {"type": "query", "additional_filter": "value > 1000"} or DetectionMechanism.QUERY(additional_filter='value > 1000')
                 - "dataset_profile" or DetectionMechanism.DATASET_PROFILE
             sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
-            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported.
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported. Valid values are:
+                - {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"} (using ISO strings)
+                - {"start": datetime(2025, 1, 1, 0, 0, 0), "end": datetime(2025, 1, 2, 0, 0, 0)} (using datetime objects)
+                - FixedRangeExclusionWindow(start=datetime(2025, 1, 1, 0, 0, 0), end=datetime(2025, 1, 2, 0, 0, 0)) (using typed object)
+                - A list of any of the above formats
             training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
@@ -2824,7 +2832,14 @@ class AssertionsClient:
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             freshness_schedule_check_type (Optional[Union[str, FreshnessAssertionScheduleCheckType, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "fixed_interval".
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
-            lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion. E.g. TimeWindowSize(unit=CalendarInterval.MINUTE, multiple=10) for 10 minutes. Valid values for CalendarInterval are: "MINUTE", "HOUR", "DAY" and for multiple, the integer number of units. Alternatively a dict can be provided with the keys "unit" and "multiple".
+            lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion. Valid values are:
+                - TimeWindowSize(unit=CalendarInterval.MINUTE, multiple=10) for 10 minutes
+                - TimeWindowSize(unit=CalendarInterval.HOUR, multiple=2) for 2 hours
+                - TimeWindowSize(unit=CalendarInterval.DAY, multiple=1) for 1 day
+                - {"unit": "MINUTE", "multiple": 30} for 30 minutes (using dict)
+                - {"unit": "HOUR", "multiple": 6} for 6 hours (using dict)
+                - {"unit": "DAY", "multiple": 7} for 7 days (using dict)
+                Valid values for CalendarInterval are: "MINUTE", "HOUR", "DAY" and for multiple, the integer number of units.
 
         Returns:
             FreshnessAssertion: The created or updated assertion.
