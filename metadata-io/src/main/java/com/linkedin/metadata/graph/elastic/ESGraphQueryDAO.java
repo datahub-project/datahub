@@ -2,7 +2,6 @@ package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
-import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 import static com.linkedin.metadata.search.utils.ESUtils.queryOptimize;
 
 import com.datahub.util.exception.ESQueryException;
@@ -16,6 +15,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -57,6 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -85,8 +88,8 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
-
-  private final ElasticSearchConfiguration config;
+  @Getter private final GraphServiceConfiguration graphServiceConfig;
+  @Getter private final ElasticSearchConfiguration config;
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
@@ -132,7 +135,7 @@ public class ESGraphQueryDAO {
       @Nonnull OperationContext opContext,
       @Nonnull final QueryBuilder query,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, count);
@@ -157,11 +160,11 @@ public class ESGraphQueryDAO {
   }
 
   private SearchSourceBuilder sharedSourceBuilder(
-      @Nonnull final QueryBuilder query, final int offset, final int count) {
+      @Nonnull final QueryBuilder query, final int offset, @Nullable Integer count) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     searchSourceBuilder.from(offset);
-    searchSourceBuilder.size(applyResultLimit(config, count));
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
 
     searchSourceBuilder.query(query);
     if (config.getSearch().getGraph().isBoostViaNodes()) {
@@ -200,7 +203,7 @@ public class ESGraphQueryDAO {
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
@@ -284,9 +287,10 @@ public class ESGraphQueryDAO {
       @Nonnull Urn entityUrn,
       LineageGraphFilters lineageGraphFilters,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
     Map<Urn, LineageRelationship> result = new HashMap<>();
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
     long currentTime = System.currentTimeMillis();
     long remainingTime = config.getSearch().getGraph().getTimeoutSeconds() * 1000;
     boolean exploreMultiplePaths = config.getSearch().getGraph().isEnableMultiPathSearch();
@@ -561,7 +565,7 @@ public class ESGraphQueryDAO {
     } else {
       response =
           executeLineageSearchQuery(
-              opContext, finalQuery, 0, config.getSearch().getLimit().getResults().getMax());
+              opContext, finalQuery, 0, graphServiceConfig.getLimit().getResults().getApiDefault());
       return extractRelationships(
           entityUrnSet,
           response,
@@ -572,6 +576,24 @@ public class ESGraphQueryDAO {
           remainingHops,
           existingPaths,
           exploreMultiplePaths);
+    }
+  }
+
+  /**
+   * Executes a search request against the graph index. This method is exposed for use by other
+   * graph service methods that need direct search access.
+   *
+   * @param searchRequest The search request to execute
+   * @return The search response from Elasticsearch
+   * @throws ESQueryException if the search fails
+   */
+  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
+    try {
+      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
     }
   }
 
@@ -653,7 +675,7 @@ public class ESGraphQueryDAO {
             QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
                 .boostMode(CombineFunction.REPLACE));
     queryRescorerBuilder.windowSize(
-        config.getSearch().getLimit().getResults().getMax()); // Will rescore all results
+        graphServiceConfig.getLimit().getResults().getApiDefault()); // Will rescore all results
     sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
@@ -808,10 +830,13 @@ public class ESGraphQueryDAO {
     index++;
     // Extract fields
     final Map<String, Object> document = hit.getSourceAsMap();
+
+    // Extract source and destination URNs using utility class
     final Urn sourceUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
     final Urn destinationUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
     final String type = document.get(RELATIONSHIP_TYPE).toString();
     if (sourceUrn.equals(destinationUrn)) {
       log.debug("Skipping a self-edge of type {} on {}", type, sourceUrn);
@@ -1147,7 +1172,7 @@ public class ESGraphQueryDAO {
             opContext,
             baseQuery,
             lineageGraphFilters,
-            config.getSearch().getLimit().getResults().getMax(),
+            graphServiceConfig.getLimit().getResults().getApiDefault(),
             exploreMultiplePaths,
             entitiesPerHopLimit,
             entityUrns);
@@ -1213,7 +1238,7 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count) {
+      @Nullable Integer count) {
 
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
@@ -1226,7 +1251,7 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      final int count) {
+      @Nullable Integer count) {
 
     Object[] sort = null;
     if (scrollId != null) {
@@ -1238,7 +1263,7 @@ public class ESGraphQueryDAO {
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    searchSourceBuilder.size(applyResultLimit(config, count));
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
@@ -1583,7 +1608,8 @@ public class ESGraphQueryDAO {
       Set<Urn> originalEntityUrns) {
 
     // Determine maximum page size
-    int maxPageSize = Math.min(pageSize, config.getSearch().getLimit().getResults().getMax());
+    int maxPageSize =
+        Math.min(pageSize, graphServiceConfig.getLimit().getResults().getApiDefault());
 
     // Initial page size calculation
     int currentPageSize = maxPageSize;
@@ -1708,12 +1734,16 @@ public class ESGraphQueryDAO {
     for (SearchHit hit : hits) {
       Map<String, Object> document = hit.getSourceAsMap();
 
-      // Extract source and destination URNs
-      String sourceUrnStr = ((Map<String, Object>) document.get(SOURCE)).get("urn").toString();
-      String destinationUrnStr =
-          ((Map<String, Object>) document.get(DESTINATION)).get("urn").toString();
-      Urn sourceUrn = UrnUtils.getUrn(sourceUrnStr);
-      Urn destinationUrn = UrnUtils.getUrn(destinationUrnStr);
+      // Extract source and destination URNs using utility class
+      Urn sourceUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
+      Urn destinationUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
+      // Skip if either URN extraction failed
+      if (sourceUrn == null || destinationUrn == null) {
+        continue;
+      }
 
       // Skip self-edges
       if (sourceUrn.equals(destinationUrn)) {

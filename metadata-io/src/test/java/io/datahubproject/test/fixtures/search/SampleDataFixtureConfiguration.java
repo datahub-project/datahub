@@ -1,7 +1,8 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -150,7 +151,7 @@ public class SampleDataFixtureConfiguration {
             true,
             false,
             false,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
@@ -160,20 +161,25 @@ public class SampleDataFixtureConfiguration {
             _searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
-            true);
+            true,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            _searchClient, TEST_SEARCH_CONFIG, _customSearchConfiguration, queryFilterRewriteChain);
+            _searchClient,
+            TEST_ES_SEARCH_CONFIG,
+            _customSearchConfiguration,
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(_searchClient, _bulkProcessor, 1);
     return new ElasticSearchService(
         indexBuilder,
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
         settingsBuilder,
-        TEST_SEARCH_CONFIG,
+        TEST_SEARCH_SERVICE_CONFIG,
         searchDAO,
         browseDAO,
         writeDAO);
@@ -236,7 +242,8 @@ public class SampleDataFixtureConfiguration {
                 entitySearchService,
                 entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
-            ranker);
+            ranker,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices & write fixture data
     entitySearchService.reindexAll(Collections.emptySet());

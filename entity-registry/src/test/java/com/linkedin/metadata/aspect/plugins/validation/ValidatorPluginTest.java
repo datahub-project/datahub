@@ -1,8 +1,10 @@
 package com.linkedin.metadata.aspect.plugins.validation;
 
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.datahub.test.TestEntityProfile;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -15,9 +17,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -75,24 +79,72 @@ public class ValidatorPluginTest {
                         .build())));
   }
 
+  @Test
+  public void testValidatorAuthVsNonAuth() throws Exception {
+    TestValidator validator = new TestValidator();
+
+    BatchItem item = Mockito.mock(BatchItem.class);
+    Mockito.when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
+    Mockito.when(item.getUrn()).thenReturn(Urn.createFromString("urn:li:chart:test"));
+    Mockito.when(item.getAspectName()).thenReturn("status");
+
+    RetrieverContext retrieverContext = Mockito.mock(RetrieverContext.class);
+
+    // With session
+    AuthorizationSession session = Mockito.mock(AuthorizationSession.class);
+
+    validator.validateProposed(List.of(item), retrieverContext, session);
+    assertTrue(validator.isAuthMethodCalled());
+    assertTrue(validator.isNoAuthMethodCalled());
+
+    // Reset flags
+    validator.setAuthMethodCalled(false);
+    validator.setNoAuthMethodCalled(false);
+
+    // Without session
+    validator.validateProposed(List.of(item), retrieverContext, null);
+    assertFalse(validator.isAuthMethodCalled());
+    assertTrue(validator.isNoAuthMethodCalled());
+  }
+
   @Getter
   @Setter
   @Accessors(chain = true)
   public static class TestValidator extends AspectPayloadValidator {
 
-    public AspectPluginConfig config;
+    private AspectPluginConfig config;
+    private boolean authMethodCalled = false;
+    private boolean noAuthMethodCalled = false;
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
-      return mcpItems.stream().map(i -> AspectValidationException.forItem(i, "test error"));
+      noAuthMethodCalled = true;
+      return Stream.empty();
+    }
+
+    @Override
+    protected Stream<AspectValidationException> validateProposedAspectsWithAuth(
+        @Nonnull Collection<? extends BatchItem> mcpItems,
+        @Nonnull RetrieverContext retrieverContext,
+        @Nullable com.datahub.authorization.AuthorizationSession session) {
+      if (session != null) {
+        authMethodCalled = true;
+      }
+      return Stream.empty();
     }
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
         @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
+    }
+
+    @Override
+    public boolean shouldApply(ChangeType changeType, Urn urn, String aspectName) {
+      return true;
     }
   }
 }

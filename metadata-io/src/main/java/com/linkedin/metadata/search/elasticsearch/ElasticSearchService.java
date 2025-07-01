@@ -6,7 +6,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -42,7 +43,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final EntityRegistry entityRegistry;
   private final IndexConvention indexConvention;
   private final SettingsBuilder settingsBuilder;
-  private final ElasticSearchConfiguration searchConfiguration;
+  @Getter private final SearchServiceConfiguration searchServiceConfig;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -204,7 +205,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
     return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, List.of());
   }
 
@@ -216,7 +217,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
@@ -243,7 +244,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
     log.debug(
         String.format(
             "Filtering Search documents entityName: %s, filters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -267,7 +268,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter requestParams,
-      int limit) {
+      @Nullable Integer limit) {
     log.debug(
         String.format(
             "Autocompleting query entityName: %s, query: %s, field: %s, requestParams: %s, limit: %s",
@@ -290,7 +291,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
-      int limit) {
+      @Nullable Integer limit) {
     log.debug(
         "Aggregating by value: {}, field: {}, requestParams: {}, limit: {}",
         entityNames != null ? entityNames.toString() : null,
@@ -315,7 +316,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String path,
       @Nullable Filter filters,
       int from,
-      int size) {
+      @Nullable Integer size) {
     log.debug(
         String.format(
             "Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s",
@@ -341,7 +342,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
@@ -353,7 +354,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         filter,
         input,
         start,
-        count);
+        ConfigUtils.applyLimit(searchServiceConfig, count));
   }
 
   @Nonnull
@@ -365,7 +366,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
         opContext.withSearchFlags(
@@ -377,7 +378,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         filter,
         input,
         start,
-        count);
+        ConfigUtils.applyLimit(searchServiceConfig, count));
   }
 
   @Nonnull
@@ -399,7 +400,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
@@ -430,7 +431,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
@@ -472,11 +473,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public int maxResultSize() {
-    return searchConfiguration.getSearch().getLimit().getResults().getMax();
-  }
-
-  @Override
   public ExplainResponse explain(
       @Nonnull OperationContext opContext,
       @Nonnull String query,
@@ -486,7 +482,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
 
     return esSearchDAO.explain(

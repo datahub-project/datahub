@@ -159,9 +159,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @support_status(SupportStatus.INCUBATING)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
@@ -785,7 +786,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=schema.comment,
             owner_urn=self.get_owner_urn(schema.owner),
             external_url=f"{self.external_url_base}/{schema.catalog.name}/{schema.name}",
-            tags=[tag.to_datahub_tag_urn().urn() for tag in schema_tags]
+            tags=[tag.to_datahub_tag_urn().name for tag in schema_tags]
             if schema_tags
             else None,
         )
@@ -830,7 +831,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
-            tags=[tag.to_datahub_tag_urn().urn() for tag in catalog_tags]
+            tags=[tag.to_datahub_tag_urn().name for tag in catalog_tags]
             if catalog_tags
             else None,
         )
@@ -1083,7 +1084,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             if tags is not None:
-                logger.debug(f"Column tags are: {tags}")
                 attribution = MetadataAttribution(
                     source="urn:li:dataPlatform:unity-catalog",
                     actor="urn:li:corpuser:datahub",

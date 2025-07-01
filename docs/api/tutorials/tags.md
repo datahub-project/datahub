@@ -327,7 +327,6 @@ We can also verify this operation programmatically by checking the `globalTags` 
 
 ```shell
 datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)" --aspect globalTags
-
 ```
 
 ## Remove Tags

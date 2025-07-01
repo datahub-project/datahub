@@ -176,6 +176,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                        |
 | Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
 | Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                      |
 
 #### Entity Management
 
@@ -239,14 +240,31 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Proposals
 
-| Proposals Privileges               | Description                                                          |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| Propose Tags[^1]                   | Allow actor to propose adding a tag to an asset.                     |
-| Propose Glossary Terms[^1]         | Allow actor to propose adding a glossary term to an asset.           |
-| Propose Documentation[^1]          | Allow actor to propose updates to an asset's documentation.          |
-| Manage Tag Proposals[^1]           | Allow actor to manage a proposal to add a tag to an asset.           |
-| Manage Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to an asset. |
-| Manage Documentation Proposals[^1] | Allow actor to manage a proposal update an asset's documentation     |
+| Proposals Privileges                              | Description                                                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Propose Tags[^1]                                  | Allow actor to propose adding a tag to an asset.                                                |
+| Propose Glossary Terms[^1]                        | Allow actor to propose adding a glossary term to an asset.                                      |
+| Propose Owners[^1]                                | Allow actor to propose adding an owner to an asset.                                             |
+| Propose Domains[^1]                               | Allow actor to propose adding a domain to an asset.                                             |
+| Propose Data Contract[^1]                         | Allow actor to propose adding a data contract to a dataset.                                     |
+| Propose Structured properties[^1]                 | Allow actor to propose adding a structured property to an asset.                                |
+| Propose Documentation[^1]                         | Allow actor to propose updates to an asset's documentation.                                     |
+| Propose Dataset Column Glossary Terms[^1]         | Allow actor to propose a glossary term to a dataset schema column (field).                      |
+| Propose Dataset Column Tags[^1]                   | Allow actor to propose a tag to a dataset schema column (field).                                |
+| Propose Dataset Column Descriptions[^1]           | Allow actor to propose a updates to dataset's schema column (field) description                 |
+| Propose Dataset Column Structured Properties[^1]  | Allow actor to propose a structured property to a dataset schema column (field).                |
+| Propose Create Glossary Term[^1]                  | Allow actor to propose creation of a new glossary term.                                         |
+| Propose Create Glossary Node[^1]                  | Allow actor to propose creation of a new glossary node.                                         |
+| Manage Tag Proposals[^1]                          | Allow actor to manage a proposal to add a tag to an asset.                                      |
+| Manage Glossary Term Proposals[^1]                | Allow actor to manage a proposal to add a glossary term to an asset.                            |
+| Manage Domain Proposals[^1]                       | Allow actor to manage a proposal to add a domain to an asset.                                   |
+| Manage Owner Proposals[^1]                        | Allow actor to manage a proposal to add an owner to an asset.                                   |
+| Manage Property Proposals[^1]                     | Allow actor to manage a proposal to add a structured property to an asset.                      |
+| Manage Data Contract Proposals[^1]                | Allow actor to manage a proposal to add a data contract to a dataset.                           |
+| Manage Documentation Proposals[^1]                | Allow actor to manage updates to asset's documentation.                                         |
+| Manage Dataset Column Tag Proposals[^1]           | Allow actor to manage a proposal to add a tag to dataset schema field (column).                 |
+| Manage Dataset Column Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to dataset schema field (column).       |
+| Manage Dataset Column Property Proposals[^1]      | Allow actor to manage a proposal to add a structured property to dataset schema field (column). |
 
 ### Specific Entity-level Privileges
 
@@ -272,6 +290,7 @@ These privileges are not generalizable.
 | Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
 | Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
 | Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
+| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
 | Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
 | Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
 | Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
@@ -279,6 +298,7 @@ These privileges are not generalizable.
 | Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
 | Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
 | Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
+| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
 | Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
 | Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
 | Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
@@ -300,13 +320,84 @@ These privileges are not generalizable.
 
 ## Coming Soon
 
-The DataHub team is hard at work trying to improve the Policies feature. We are planning on building out the following:
+### Experimental
 
-- Hide edit action buttons on Entity pages to reflect user privileges
+Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Under consideration
+Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
+option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
+it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
+a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
+to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
-- Ability to define Metadata Policies against multiple resources scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
+Example JSON of a policy with constraints:
+
+```json
+{
+  "actors": {
+    "resourceOwners": false,
+    "groups": [],
+    "allGroups": false,
+    "allUsers": false,
+    "users": ["urn:li:corpuser:ryan@email.com"]
+  },
+  "lastUpdatedTimestamp": 0,
+  "privileges": ["EDIT_ENTITY_TAGS", "EDIT_DATASET_COL_TAGS"],
+  "editable": true,
+  "displayName": "Ryan Policy",
+  "resources": {
+    "filter": { "criteria": [] },
+    "allResources": false,
+    "privilegeConstraints": {
+      "criteria": [
+        {
+          "field": "URN",
+          "condition": "EQUALS",
+          "values": ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+        }
+      ]
+    }
+  },
+  "description": "",
+  "state": "ACTIVE",
+  "type": "METADATA"
+}
+```
+
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "my-policy"
+      state: ACTIVE
+      description: "My policy"
+      privileges: ["EDIT_ENTITY_TAGS"]
+      actors: {
+        allUsers: true
+        users: []
+        groups: []
+        resourceOwners: true
+        allGroups: true
+      }
+      resources: {
+        allResources: true
+        resources: []
+        filter: { criteria: [] }
+        policyConstraints: {
+          criteria: [
+            {
+              field: "URN"
+              values: ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+              condition: EQUALS
+            }
+          ]
+        }
+      }
+    }
+  )
+}
+```
 
 ## Feedback / Questions / Concerns
 

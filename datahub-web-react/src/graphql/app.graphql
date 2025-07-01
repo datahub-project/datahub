@@ -52,6 +52,9 @@ query appConfig {
             theme {
                 themeId
             }
+            application {
+                showSidebarSectionWhenEmpty
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -98,6 +101,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showHomePageRedesign
         }
         chromeExtensionConfig {
             enabled

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -12,11 +13,10 @@ import static org.testng.Assert.assertEquals;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.config.search.ExactMatchConfiguration;
-import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.WordGramConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -69,9 +69,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     browseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
   }
 
   public static Urn makeUrn(Object id) {
@@ -159,19 +160,15 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_SEARCH_CONFIG.toBuilder()
-                .search(
-                    TEST_SEARCH_CONFIG.getSearch().toBuilder()
-                        .limit(
-                            new SearchConfiguration.SearchLimitConfig()
-                                .setResults(
-                                    new SearchConfiguration.SearchResultsLimit()
-                                        .setMax(15)
-                                        .setStrict(false)))
-                        .build())
-                .build(),
+            TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+                .limit(
+                    new LimitConfig()
+                        .setResults(
+                            new ResultsLimitConfig().setMax(15).setApiDefault(15).setStrict(false)))
+                .build());
 
     // Test browse with size that exceeds limit
     int requestedSize = 20;
@@ -187,7 +184,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     assertEquals(capturedRequests.get(1).source().size(), 15);
 
     // Result should have the correct page size (the original requested size)
-    assertEquals(result.getPageSize(), requestedSize);
+    assertEquals(result.getPageSize(), 15);
   }
 
   @Test
@@ -208,21 +205,22 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
         .thenReturn(mockGroupsResponse);
 
     // Configure search configuration with specific limits
-    SearchConfiguration testConfig = new SearchConfiguration();
-    testConfig.setPartial(new PartialConfiguration());
-    testConfig.setWordGram(new WordGramConfiguration());
-    testConfig.setExactMatch(new ExactMatchConfiguration());
-    testConfig.setLimit(
-        new SearchConfiguration.SearchLimitConfig()
-            .setResults(new SearchConfiguration.SearchResultsLimit().setMax(25).setStrict(false)));
+    SearchServiceConfiguration testSearchServiceConfig =
+        SearchServiceConfiguration.builder()
+            .limit(
+                new LimitConfig()
+                    .setResults(
+                        new ResultsLimitConfig().setMax(25).setApiDefault(25).setStrict(false)))
+            .build();
 
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            testSearchServiceConfig);
 
     // Call browseV2 with a count that exceeds the limit
     int requestedCount = 30;
@@ -236,6 +234,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     // This method doesn't directly use the size parameter in the captured request,
     // but we can still verify the page size in the result
-    assertEquals(result.getPageSize(), requestedCount);
+    assertEquals(result.getPageSize(), 25);
   }
 }

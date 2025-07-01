@@ -5,7 +5,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
@@ -119,6 +120,8 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         return {
             name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
             imageUrl: owner.owner.editableProperties?.pictureLink,
+            type: mapEntityTypeToAvatarType(owner.owner.type),
+            urn: owner.owner.urn,
         };
     });
     const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
@@ -139,11 +142,14 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
                             name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
                             imageUrl={singleOwner.editableProperties?.pictureLink}
                             showInPill
+                            type={mapEntityTypeToAvatarType(singleOwner.type)}
                         />
                     </Link>
                 </HoverEntityTooltip>
             )}
-            {owners.length > 1 && <AvatarStack avatars={ownerAvatars} showRemainingNumber />}
+            {owners.length > 1 && (
+                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
+            )}
         </>
     );
 }

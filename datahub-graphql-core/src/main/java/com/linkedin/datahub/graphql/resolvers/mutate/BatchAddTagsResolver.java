@@ -17,6 +17,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -51,7 +52,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
             return handleAddTagsToSingleSchemaField(context, resources, tagUrns);
           }
 
-          validateInputResources(resources, context);
+          validateInputResources(resources, context, tagUrns);
 
           try {
             // Then execute the bulk add
@@ -101,7 +102,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     resources.add(resource);
 
     try {
-      validateInputResources(resources, context);
+      validateInputResources(resources, context, tagUrns);
       batchAddTags(tagUrns, resources, context);
       return true;
     } catch (Exception e) {
@@ -133,15 +134,18 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     }
   }
 
-  private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
+  private void validateInputResources(
+      List<ResourceRefInput> resources, QueryContext context, Collection<Urn> tagUrns) {
     for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
+      validateInputResource(resource, context, tagUrns);
     }
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
+  private void validateInputResource(
+      ResourceRefInput resource, QueryContext context, Collection<Urn> tagUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTags(context, resourceUrn, resource.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTags(
+        context, resourceUrn, resource.getSubResource(), tagUrns)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

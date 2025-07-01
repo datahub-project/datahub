@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -86,11 +87,17 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(getSearchClient(), TEST_SEARCH_CONFIG, null, QueryFilterRewriteChain.EMPTY);
+        new ESBrowseDAO(
+            getSearchClient(),
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     ElasticSearchService searchService =
         new ElasticSearchService(
@@ -98,7 +105,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             settingsBuilder,
-            TEST_SEARCH_CONFIG,
+            TEST_SEARCH_SERVICE_CONFIG,
             searchDAO,
             browseDAO,
             writeDAO);
