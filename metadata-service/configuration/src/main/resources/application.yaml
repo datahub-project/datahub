@@ -993,7 +993,7 @@ monitorService:
   useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
 
 assertionMonitors:
-  resolveIngestionSourceForAspects: ${DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS:datasetProperties}
+  resolveIngestionSourceForAspects: ${DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS:datasetProperties,datasetProfile,schemaMetadata}
 
 connections:
   testExecutionRequestHook:
