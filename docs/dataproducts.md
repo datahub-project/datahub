@@ -86,13 +86,11 @@ Here is an example of a Data Product named "Pet of the Week" which belongs to th
 <Tabs>
 <TabItem value="sample" label="Example" default>
 
+<!-- prettier-ignore-start -->
 ```yaml
-{
-  {
-    inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment,
-  },
-}
+{{ inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment }}
 ```
+<!-- prettier-ignore-end -->
 
 :::note
 

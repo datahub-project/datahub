@@ -8,8 +8,7 @@ import { CorpUser } from '@types';
 const MAX_ASSETS_TO_FETCH = 50;
 
 export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_FETCH) => {
-    const userUrn = user?.urn || '';
-    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(userUrn);
+    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(user?.urn);
 
     const { loading, data, error } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -21,8 +20,8 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: userUrn,
-                        values: [userUrn, ...groupUrns],
+                        value: user?.urn,
+                        values: [user?.urn || '', ...groupUrns],
                     },
                 ],
                 searchFlags: {
@@ -30,7 +29,7 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 },
             },
         },
-        skip: !userUrn || groupDataLoading,
+        skip: !user?.urn || groupDataLoading,
         fetchPolicy: 'cache-first',
     });
 
