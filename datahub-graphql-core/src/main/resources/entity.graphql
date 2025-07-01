@@ -1297,6 +1297,11 @@ enum EntityType {
   An application
   """
   APPLICATION
+
+  """
+  An DataHub Page Template
+  """
+  DATAHUB_PAGE_TEMPLATE
 }
 
 """
@@ -4188,6 +4193,11 @@ type CorpUserSettings {
   Settings related to the DataHub Views feature
   """
   views: CorpUserViewsSettings
+
+  """
+  Settings related to the home page for a user
+  """
+  homePage: CorpUserHomePageSettings
 }
 
 """
@@ -4214,6 +4224,16 @@ type CorpUserViewsSettings {
   The default view for the User.
   """
   defaultView: DataHubView
+}
+
+"""
+Settings related to the home page for a user
+"""
+type CorpUserHomePageSettings {
+  """
+  The default page template for the User.
+  """
+  defaultTemplate: DataHubPageTemplate
 }
 
 """
