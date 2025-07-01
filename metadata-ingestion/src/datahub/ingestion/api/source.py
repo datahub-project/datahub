@@ -246,9 +246,7 @@ class SourceReport(Report):
 
                 if aspectName is not None:
                     self.aspects[entityType][aspectName] += 1
-                    if isinstance(mcp.aspect, SubTypesClass):
-                        for subtype in mcp.aspect.typeNames:
-                            self.subtypes[entityType][subtype] += 1
+
                     self.aspect_urn_samples[entityType][aspectName].append(urn)
                     if isinstance(mcp.aspect, UpstreamLineageClass):
                         upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
@@ -257,6 +255,9 @@ class SourceReport(Report):
                                 "fineGrainedLineages"
                             ].append(urn)
                             self.aspects[entityType]["fineGrainedLineages"] += 1
+                    elif isinstance(mcp.aspect, SubTypesClass):
+                        for subtype in mcp.aspect.typeNames:
+                            self.subtypes[entityType][subtype] += 1
 
     def report_warning(
         self,
