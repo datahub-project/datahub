@@ -913,18 +913,15 @@ def generate(
                 entity_name
             ]
 
-    # Generate lineage JSON if requested
     if lineage_output:
         logger.info(f"Generating lineage JSON to {lineage_output}")
         try:
             lineage_data = extract_lineage_fields()
             lineage_json = generate_lineage_json(lineage_data)
             
-            # Ensure output directory exists
             output_path = Path(lineage_output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Parse the generated JSON to check if content has changed
+
             new_json_data = json.loads(lineage_json)
             
             write_file = should_write_json_file(output_path, new_json_data, "lineage file")
