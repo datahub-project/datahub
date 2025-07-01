@@ -26,7 +26,7 @@ record DataHubPageTemplateProperties  {
   surface: DataHubPageTemplateSurface
 
   /**
-   * Info about the surface area of the product that this template is deployed in
+   * Info about the visibility of this template
    */
   visibility: DataHubPageTemplateVisibility
 

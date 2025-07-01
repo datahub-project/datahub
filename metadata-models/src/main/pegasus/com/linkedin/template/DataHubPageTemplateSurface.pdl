@@ -5,12 +5,12 @@ namespace com.linkedin.template
  */
 record DataHubPageTemplateSurface  {
   /**
-   * Where exactly is this template bing used
+   * Where exactly is this template being used
    */
    @Searchable = {
     "fieldType": "KEYWORD"
   }
-  surfaceType: enum TemplateSurfaceType {
+  surfaceType: enum PageTemplateSurfaceType {
     /**
      * This template applies to what to display on the home page for users.
      */

@@ -9,14 +9,14 @@ record DataHubPageModuleParams {
   /**
    * The params required if the module is type LINK
    */
-  linkParams: optional record LinkParams {
+  linkParams: optional record LinkModuleParams {
     linkUrn: Urn
   }
 
   /**
    * The params required if the module is type RICH_TEXT
    */
-  richTextParams: optional record RichTextParams {
+  richTextParams: optional record RichTextModuleParams {
     content: string
   }
 }

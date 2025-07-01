@@ -5,7 +5,7 @@ namespace com.linkedin.template
  */
 record DataHubPageTemplateVisibility  {
   /**
-   * Audit stamp for when and by whom this template was created
+   * The scope of this template and who can use/see it
    */
    @Searchable = {
     "fieldType": "KEYWORD"
