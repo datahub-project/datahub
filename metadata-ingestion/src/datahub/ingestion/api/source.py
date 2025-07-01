@@ -51,7 +51,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -246,7 +246,7 @@ class SourceReport(Report):
 
                 if aspectName is not None:
                     self.aspects[entityType][aspectName] += 1
-                    if aspectName == "subTypes":
+                    if isinstance(mcp.aspect, SubTypesClass):
                         for subtype in mcp.aspect.typeNames:
                             self.subtypes[entityType][subtype] += 1
                     self.aspect_urn_samples[entityType][aspectName].append(urn)
