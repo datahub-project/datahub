@@ -1,0 +1,160 @@
+interactions:
+- request:
+    body: '{"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset,PROD)"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '74'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.31.0
+      X-DataHub-Py-Cli-Version:
+      - unavailable (installed in develop mode)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    method: POST
+    uri: http://localhost:8080/entities?action=delete
+  response:
+    body:
+      string: '{"value":{"rows":5,"urn":"urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset,PROD)","timeseriesRows":0}}'
+    headers:
+      Content-Length:
+      - '111'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 23 Apr 2025 12:42:08 GMT
+      Server:
+      - Jetty(12.0.16)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.31.0
+      X-DataHub-Py-Cli-Version:
+      - unavailable (installed in develop mode)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    method: GET
+    uri: http://localhost:8080/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Ctest_dataset%2CPROD%29?aspect=datasetProperties&version=0
+  response:
+    body:
+      string: '{"exceptionClass":"com.linkedin.metadata.restli.NonExceptionHttpErrorResponse","stackTrace":"com.linkedin.metadata.restli.NonExceptionHttpErrorResponse
+        [HTTP Status:404]\n\tat com.linkedin.metadata.resources.restli.RestliUtils.nonExceptionResourceNotFound(RestliUtils.java:93)\n\tat
+        com.linkedin.metadata.resources.entity.AspectResource.lambda$get$0(AspectResource.java:168)\n\tat
+        com.linkedin.metadata.resources.restli.RestliUtils.toTask(RestliUtils.java:33)\n\tat
+        com.linkedin.metadata.resources.restli.RestliUtils.lambda$toTask$1(RestliUtils.java:60)\n\tat
+        io.datahubproject.metadata.context.TraceContext.withSpan(TraceContext.java:110)\n\tat
+        io.datahubproject.metadata.context.OperationContext.withSpan(OperationContext.java:391)\n\tat
+        com.linkedin.metadata.resources.restli.RestliUtils.toTask(RestliUtils.java:58)\n\tat
+        com.linkedin.metadata.resources.entity.AspectResource.get(AspectResource.java:148)\n\tat
+        jdk.internal.reflect.GeneratedMethodAccessor132.invoke(Unknown Source)\n\tat
+        java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\tat
+        java.base/java.lang.reflect.Method.invoke(Method.java:569)\n\tat com.linkedin.restli.internal.server.RestLiMethodInvoker.doInvoke(RestLiMethodInvoker.java:177)\n\tat
+        com.linkedin.restli.internal.server.RestLiMethodInvoker.invoke(RestLiMethodInvoker.java:333)\n\tat
+        com.linkedin.restli.internal.server.filter.FilterChainDispatcherImpl.onRequestSuccess(FilterChainDispatcherImpl.java:47)\n\tat
+        com.linkedin.restli.internal.server.filter.RestLiFilterChainIterator.onRequest(RestLiFilterChainIterator.java:86)\n\tat
+        com.linkedin.restli.internal.server.filter.RestLiFilterChainIterator.lambda$onRequest$0(RestLiFilterChainIterator.java:73)\n\tat
+        java.base/java.util.concurrent.CompletableFuture.uniAcceptNow(CompletableFuture.java:757)\n\tat
+        java.base/java.util.concurrent.CompletableFuture.uniAcceptStage(CompletableFuture.java:735)\n\tat
+        java.base/java.util.concurrent.CompletableFuture.thenAccept(CompletableFuture.java:2182)\n\tat
+        com.linkedin.restli.internal.server.filter.RestLiFilterChainIterator.onRequest(RestLiFilterChainIterator.java:72)\n\tat
+        com.linkedin.restli.internal.server.filter.RestLiFilterChain.onRequest(RestLiFilterChain.java:55)\n\tat
+        com.linkedin.restli.server.BaseRestLiServer.handleResourceRequest(BaseRestLiServer.java:270)\n\tat
+        com.linkedin.restli.server.RestRestLiServer.handleResourceRequestWithRestLiResponse(RestRestLiServer.java:294)\n\tat
+        com.linkedin.restli.server.RestRestLiServer.handleResourceRequest(RestRestLiServer.java:262)\n\tat
+        com.linkedin.restli.server.RestRestLiServer.handleResourceRequest(RestRestLiServer.java:232)\n\tat
+        com.linkedin.restli.server.RestRestLiServer.doHandleRequest(RestRestLiServer.java:215)\n\tat
+        com.linkedin.restli.server.RestRestLiServer.handleRequest(RestRestLiServer.java:171)\n\tat
+        com.linkedin.restli.server.RestLiServer.handleRequest(RestLiServer.java:132)\n\tat
+        com.linkedin.restli.server.DelegatingTransportDispatcher.handleRestRequest(DelegatingTransportDispatcher.java:70)\n\tat
+        com.linkedin.r2.filter.transport.DispatcherRequestFilter.onRestRequest(DispatcherRequestFilter.java:70)\n\tat
+        com.linkedin.r2.filter.TimedRestFilter.onRestRequest(TimedRestFilter.java:76)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:146)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:132)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator.onRequest(FilterChainIterator.java:62)\n\tat
+        com.linkedin.r2.filter.TimedNextFilter.onRequest(TimedNextFilter.java:55)\n\tat
+        com.linkedin.r2.filter.transport.ServerQueryTunnelFilter.onRestRequest(ServerQueryTunnelFilter.java:58)\n\tat
+        com.linkedin.r2.filter.TimedRestFilter.onRestRequest(TimedRestFilter.java:76)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:146)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:132)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator.onRequest(FilterChainIterator.java:62)\n\tat
+        com.linkedin.r2.filter.TimedNextFilter.onRequest(TimedNextFilter.java:55)\n\tat
+        com.linkedin.r2.filter.message.rest.RestFilter.onRestRequest(RestFilter.java:50)\n\tat
+        com.linkedin.r2.filter.TimedRestFilter.onRestRequest(TimedRestFilter.java:76)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:146)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator$FilterChainRestIterator.doOnRequest(FilterChainIterator.java:132)\n\tat
+        com.linkedin.r2.filter.FilterChainIterator.onRequest(FilterChainIterator.java:62)\n\tat
+        com.linkedin.r2.filter.FilterChainImpl.onRestRequest(FilterChainImpl.java:106)\n\tat
+        com.linkedin.r2.filter.transport.FilterChainDispatcher.handleRestRequest(FilterChainDispatcher.java:75)\n\tat
+        com.linkedin.r2.util.finalizer.RequestFinalizerDispatcher.handleRestRequest(RequestFinalizerDispatcher.java:61)\n\tat
+        com.linkedin.r2.transport.http.server.HttpDispatcher.handleRequest(HttpDispatcher.java:101)\n\tat
+        com.linkedin.r2.transport.http.server.AbstractJakartaR2Servlet.service(AbstractJakartaR2Servlet.java:46)\n\tat
+        jakarta.servlet.http.HttpServlet.service(HttpServlet.java:614)\n\tat com.linkedin.restli.server.RestliHandlerServlet.service(RestliHandlerServlet.java:29)\n\tat
+        jakarta.servlet.http.HttpServlet.service(HttpServlet.java:614)\n\tat org.eclipse.jetty.ee10.servlet.ServletHolder.handle(ServletHolder.java:736)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler$ChainEnd.doFilter(ServletHandler.java:1614)\n\tat
+        org.eclipse.jetty.ee10.websocket.servlet.WebSocketUpgradeFilter.doFilter(WebSocketUpgradeFilter.java:195)\n\tat
+        org.eclipse.jetty.ee10.servlet.FilterHolder.doFilter(FilterHolder.java:205)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler$Chain.doFilter(ServletHandler.java:1586)\n\tat
+        org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)\n\tat
+        org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\n\tat
+        org.eclipse.jetty.ee10.servlet.FilterHolder.doFilter(FilterHolder.java:205)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler$Chain.doFilter(ServletHandler.java:1586)\n\tat
+        com.datahub.auth.authentication.filter.AuthenticationFilter.doFilterInternal(AuthenticationFilter.java:118)\n\tat
+        org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\n\tat
+        org.eclipse.jetty.ee10.servlet.FilterHolder.doFilter(FilterHolder.java:205)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler$Chain.doFilter(ServletHandler.java:1586)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler$MappedServlet.handle(ServletHandler.java:1547)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletChannel.dispatch(ServletChannel.java:824)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletChannel.handle(ServletChannel.java:436)\n\tat
+        org.eclipse.jetty.ee10.servlet.ServletHandler.handle(ServletHandler.java:464)\n\tat
+        org.eclipse.jetty.security.SecurityHandler.handle(SecurityHandler.java:575)\n\tat
+        org.eclipse.jetty.ee10.servlet.SessionHandler.handle(SessionHandler.java:703)\n\tat
+        org.eclipse.jetty.server.handler.ContextHandler.handle(ContextHandler.java:1060)\n\tat
+        org.eclipse.jetty.server.Server.handle(Server.java:182)\n\tat org.eclipse.jetty.server.internal.HttpChannelState$HandlerInvoker.run(HttpChannelState.java:662)\n\tat
+        org.eclipse.jetty.server.internal.HttpConnection.onFillable(HttpConnection.java:418)\n\tat
+        org.eclipse.jetty.io.AbstractConnection$ReadCallback.succeeded(AbstractConnection.java:322)\n\tat
+        org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:99)\n\tat org.eclipse.jetty.io.SelectableChannelEndPoint$1.run(SelectableChannelEndPoint.java:53)\n\tat
+        org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.runTask(AdaptiveExecutionStrategy.java:480)\n\tat
+        org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.consumeTask(AdaptiveExecutionStrategy.java:443)\n\tat
+        org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.tryProduce(AdaptiveExecutionStrategy.java:293)\n\tat
+        org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.run(AdaptiveExecutionStrategy.java:201)\n\tat
+        org.eclipse.jetty.util.thread.ReservedThreadExecutor$ReservedThread.run(ReservedThreadExecutor.java:311)\n\tat
+        org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:979)\n\tat
+        org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.doRunJob(QueuedThreadPool.java:1209)\n\tat
+        org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.run(QueuedThreadPool.java:1164)\n\tat
+        java.base/java.lang.Thread.run(Thread.java:840)\n","status":404}'
+    headers:
+      Content-Length:
+      - '8758'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 23 Apr 2025 12:42:09 GMT
+      Server:
+      - Jetty(12.0.16)
+      X-RestLi-Protocol-Version:
+      - 2.0.0
+    status:
+      code: 404
+      message: Not Found
+version: 1
