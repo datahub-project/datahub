@@ -55,6 +55,11 @@ column_meta_mapping:
     operation: "add_tag"
     config:
       tag: "sensitive"
+  gdpr.pii:
+    match: true
+    operation: "add_tag"
+    config:
+      tag: "pii"
 ```
 
 We support the following operations:
@@ -117,6 +122,29 @@ meta_mapping:
      config:
        tag: "case_{{ $match }}"
 ```
+
+#### Nested meta properties
+
+If your meta section has nested properties and looks like this:
+
+```yaml
+meta:
+  data_governance:
+    team_owner: "Finance"
+```
+
+and you want attach term Finance_test in case of data_governance.team_owner is set to Finance, you can use the following meta_mapping section:
+
+```yaml
+meta_mapping:
+  data_governance.team_owner:
+    match: "Finance"
+    operation: "add_term"
+    config:
+      term: "Finance_test"
+```
+
+Note: nested meta properties mapping is supported also for column_meta_mapping
 
 #### Stripping out leading @ sign
 
