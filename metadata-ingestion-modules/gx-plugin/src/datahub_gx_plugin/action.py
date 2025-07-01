@@ -3,38 +3,12 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from datetime import timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
-from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
-    AssertionInfo,
-    AssertionResult,
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionRunStatus,
-    AssertionStdAggregation,
-    AssertionStdOperator,
-    AssertionStdParameter,
-    AssertionStdParameters,
-    AssertionStdParameterType,
-    AssertionType,
-    BatchSpec,
-    DatasetAssertionInfo,
-    DatasetAssertionScope,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-from datahub.utilities.sql_parser import DefaultSQLParser
+import packaging.version
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -59,6 +33,46 @@ from great_expectations.validator.validator import Validator
 from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
+import datahub.emitter.mce_builder as builder
+from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
+    AssertionInfo,
+    AssertionResult,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionRunStatus,
+    AssertionStdAggregation,
+    AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
+    AssertionType,
+    BatchSpec,
+    DatasetAssertionInfo,
+    DatasetAssertionScope,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+# TODO: move this and version check used in tests to some common module
+try:
+    from great_expectations import __version__ as GX_VERSION  # type: ignore
+
+    has_name_positional_arg = packaging.version.parse(
+        GX_VERSION
+    ) >= packaging.version.Version("0.18.14")
+except Exception:
+    has_name_positional_arg = False
+
 if TYPE_CHECKING:
     from great_expectations.data_context.types.resource_identifiers import (
         GXCloudIdentifier,
@@ -78,6 +92,8 @@ class DataHubValidationAction(ValidationAction):
     def __init__(
         self,
         data_context: AbstractDataContext,
+        # this would capture `name` positional arg added in GX 0.18.14
+        *args: Union[str, Any],
         server_url: str,
         env: str = builder.DEFAULT_ENV,
         platform_alias: Optional[str] = None,
@@ -93,8 +109,12 @@ class DataHubValidationAction(ValidationAction):
         convert_urns_to_lowercase: bool = False,
         name: str = "DataHubValidationAction",
     ):
-
-        super().__init__(data_context)
+        if has_name_positional_arg:
+            if len(args) >= 1 and isinstance(args[0], str):
+                name = args[0]
+            super().__init__(data_context, name)
+        else:
+            super().__init__(data_context)
         self.server_url = server_url
         self.env = env
         self.platform_alias = platform_alias
@@ -130,6 +150,8 @@ class DataHubValidationAction(ValidationAction):
                 retry_status_codes=self.retry_status_codes,
                 retry_max_times=self.retry_max_times,
                 extra_headers=self.extra_headers,
+                client_mode=ClientMode.INGESTION,
+                datahub_component="gx-plugin",
             )
 
             expectation_suite_name = validation_result_suite.meta.get(
@@ -144,9 +166,7 @@ class DataHubValidationAction(ValidationAction):
             if isinstance(
                 validation_result_suite_identifier, ValidationResultIdentifier
             ):
-                expectation_suite_name = (
-                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
-                )
+                expectation_suite_name = validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
                 run_id = validation_result_suite_identifier.run_id
                 batch_identifier = validation_result_suite_identifier.batch_identifier
 
@@ -659,10 +679,23 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                try:
-                    tables = DefaultSQLParser(query).get_tables()
-                except Exception as e:
-                    logger.warning(f"Sql parser failed on {query} with {e}")
+
+                data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=data_platform,
+                    env=self.env,
+                    platform_instance=None,
+                    default_db=None,
+                )
+                tables = [
+                    DatasetUrn.from_string(table_urn).name
+                    for table_urn in sql_parser_in_tables.in_tables
+                ]
+                if sql_parser_in_tables.debug_info.table_error:
+                    logger.warning(
+                        f"Sql parser failed on {query} with {sql_parser_in_tables.debug_info.table_error}"
+                    )
                     tables = []
 
                 if len(set(tables)) != 1:

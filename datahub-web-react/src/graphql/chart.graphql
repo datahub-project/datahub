@@ -49,6 +49,9 @@ query getChart($urn: String!) {
         domain {
             ...entityDomain
         }
+        application {
+            ...entityApplication
+        }
         ...entityDataProduct
         deprecation {
             ...deprecationFields
@@ -119,6 +122,7 @@ query getChart($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 

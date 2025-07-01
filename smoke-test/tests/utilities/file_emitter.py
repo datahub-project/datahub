@@ -7,7 +7,7 @@ from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 
 class FileEmitter:
     def __init__(
-        self, filename: str, run_id: str = f"test_{int(time.time()*1000.0)}"
+        self, filename: str, run_id: str = f"test_{int(time.time() * 1000.0)}"
     ) -> None:
         self.sink: FileSink = FileSink(
             ctx=PipelineContext(run_id=run_id),

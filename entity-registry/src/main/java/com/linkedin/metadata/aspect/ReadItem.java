@@ -36,6 +36,7 @@ public interface ReadItem {
   @Nullable
   RecordTemplate getRecordTemplate();
 
+  @Nullable
   default <T> T getAspect(Class<T> clazz) {
     return getAspect(clazz, getRecordTemplate());
   }

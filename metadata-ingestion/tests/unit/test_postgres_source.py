@@ -21,9 +21,7 @@ def test_initial_database(create_engine_mock):
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
 def test_get_inspectors_multiple_databases(create_engine_mock):
-    execute_mock = (
-        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    )
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
     config = PostgresConfig.parse_obj({**_base_config(), "initial_database": "db0"})
@@ -37,9 +35,7 @@ def test_get_inspectors_multiple_databases(create_engine_mock):
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
 def tests_get_inspectors_with_database_provided(create_engine_mock):
-    execute_mock = (
-        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    )
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
     config = PostgresConfig.parse_obj({**_base_config(), "database": "custom_db"})
@@ -51,9 +47,7 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
 
 @patch("datahub.ingestion.source.sql.postgres.create_engine")
 def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
-    execute_mock = (
-        create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    )
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
 
     config = PostgresConfig.parse_obj(

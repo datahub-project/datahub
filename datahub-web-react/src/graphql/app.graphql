@@ -37,6 +37,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
             }
@@ -48,6 +49,12 @@ query appConfig {
             searchResult {
                 enableNameHighlight
             }
+            theme {
+                themeId
+            }
+            application {
+                showSidebarSectionWhenEmpty
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -57,6 +64,12 @@ query appConfig {
         }
         viewsConfig {
             enabled
+        }
+        searchBarConfig {
+            apiVariant
+        }
+        homePageConfig {
+            firstInPersonalSidebar
         }
         featureFlags {
             readOnlyModeEnabled
@@ -70,7 +83,29 @@ query appConfig {
             businessAttributeEntityEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
+            themeV2Enabled
+            themeV2Default
+            themeV2Toggleable
+            lineageGraphV2
             showSeparateSiblings
+            showManageStructuredProperties
+            schemaFieldCLLEnabled
+            hideDbtSourceInLineage
+            schemaFieldLineageIgnoreStatus
+            showNavBarRedesign
+            showAutoCompleteResults
+            entityVersioningEnabled
+            showHasSiblingsFilter
+            showSearchBarAutocompleteRedesign
+            showManageTags
+            showIntroducePage
+            showIngestionPageRedesign
+            showLineageExpandMore
+            showHomePageRedesign
+        }
+        chromeExtensionConfig {
+            enabled
+            lineageEnabled
         }
     }
 }

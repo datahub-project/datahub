@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController("RelationshipControllerV3")
 @RequiredArgsConstructor
-@RequestMapping("/v3/relationship")
+@RequestMapping("/openapi/v3/relationship")
 @Slf4j
 @Tag(
     name = "Generic Relationships",

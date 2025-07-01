@@ -1,6 +1,7 @@
-import React from 'react';
 import { FormInstance } from 'antd';
-import { EntityType } from '../../../../../../types.generated';
+import React from 'react';
+
+import { EntityType } from '@types';
 
 export const EditableContext = React.createContext<FormInstance<any> | null>(null);
 export interface ERModelRelationDataType {
@@ -68,6 +69,6 @@ export function getDatasetName(datainput: any): string {
         datainput?.editableProperties?.name ||
         datainput?.properties?.name ||
         datainput?.name ||
-        datainput?.urn.split(',').at(1)
+        datainput?.urn?.split(',')?.at(1)
     );
 }

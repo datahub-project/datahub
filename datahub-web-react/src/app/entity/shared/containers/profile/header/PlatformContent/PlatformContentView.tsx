@@ -1,18 +1,21 @@
+import { Image, Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Image } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, Entity } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import ContainerLink from './ContainerLink';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
+import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
 import {
-    StyledRightOutlined,
-    ParentNodesWrapper as ParentContainersWrapper,
     Ellipsis,
+    ParentNodesWrapper as ParentContainersWrapper,
+    StyledRightOutlined,
     StyledTooltip,
-} from './ParentNodesView';
-import ParentEntities from '../../../../../../search/filters/ParentEntities';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../../useAppConfig';
+} from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+
+import { Container, Dataset, Entity } from '@types';
 
 export const LogoIcon = styled.span`
     display: flex;
@@ -80,6 +83,7 @@ interface Props {
     parentEntities?: Entity[] | null;
     parentContainersRef: React.RefObject<HTMLDivElement>;
     areContainersTruncated: boolean;
+    parentDataset?: Dataset;
 }
 
 function PlatformContentView(props: Props) {
@@ -96,6 +100,7 @@ function PlatformContentView(props: Props) {
         parentContainers,
         parentContainersRef,
         areContainersTruncated,
+        parentDataset,
     } = props;
 
     const directParentContainer = parentContainers && parentContainers[0];
@@ -152,6 +157,12 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
+            {parentDataset && (
+                <span>
+                    <StyledRightOutlined data-testid="right-arrow" />
+                    <DatasetLink parentDataset={parentDataset} />
+                </span>
+            )}
             <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
         </PlatformContentWrapper>
     );

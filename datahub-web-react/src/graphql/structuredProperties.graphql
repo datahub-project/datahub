@@ -1,7 +1,144 @@
+query getStructuredProperty($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on StructuredPropertyEntity {
+            urn
+            type
+            definition {
+                qualifiedName
+                displayName
+                description
+                cardinality
+                entityTypes {
+                    urn
+                    type
+                    info {
+                        type
+                    }
+                }
+                valueType {
+                    urn
+                    type
+                    info {
+                        type
+                        qualifiedName
+                        displayName
+                        description
+                    }
+                }
+                allowedValues {
+                    value {
+                        ... on StringValue {
+                            stringValue
+                        }
+                        ... on NumberValue {
+                            numberValue
+                        }
+                    }
+                    description
+                }
+                typeQualifier {
+                    allowedTypes {
+                        urn
+                        type
+                        info {
+                            type
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query searchStructuredProperties($query: String!, $start: Int!, $count: Int!) {
+    searchAcrossEntities(input: { query: $query, types: [STRUCTURED_PROPERTY], start: $start, count: $count }) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ... on StructuredPropertyEntity {
+                    urn
+                    type
+                    definition {
+                        qualifiedName
+                        displayName
+                        description
+                        cardinality
+                        entityTypes {
+                            urn
+                            type
+                            info {
+                                type
+                            }
+                        }
+                        valueType {
+                            urn
+                            type
+                            info {
+                                type
+                                qualifiedName
+                                displayName
+                                description
+                            }
+                        }
+                        allowedValues {
+                            value {
+                                ... on StringValue {
+                                    stringValue
+                                }
+                                ... on NumberValue {
+                                    numberValue
+                                }
+                            }
+                            description
+                        }
+                        typeQualifier {
+                            allowedTypes {
+                                urn
+                                type
+                                info {
+                                    type
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
     upsertStructuredProperties(input: $input) {
         properties {
             ...structuredPropertiesFields
         }
     }
+}
+
+mutation removeStructuredProperties($input: RemoveStructuredPropertiesInput!) {
+    removeStructuredProperties(input: $input) {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+}
+
+mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
+    createStructuredProperty(input: $input) {
+        ...structuredPropertyFields
+    }
+}
+
+mutation updateStructuredProperty($input: UpdateStructuredPropertyInput!) {
+    updateStructuredProperty(input: $input) {
+        ...structuredPropertyFields
+    }
+}
+
+mutation deleteStructuredProperty($input: DeleteStructuredPropertyInput!) {
+    deleteStructuredProperty(input: $input)
 }

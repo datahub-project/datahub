@@ -80,6 +80,7 @@ class Workbook(BaseModel):
     path: str
     latestVersion: int
     workspaceId: Optional[str] = None
+    description: Optional[str] = None
     pages: List[Page] = []
     badge: Optional[str] = None
 

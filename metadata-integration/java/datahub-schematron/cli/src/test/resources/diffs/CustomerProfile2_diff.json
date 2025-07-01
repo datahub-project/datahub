@@ -1,0 +1,125 @@
+{
+  "urn:li:dataset:(urn:li:dataPlatform:datahub,com.example.customer.CustomerProfile2,PROD)": {
+    "schemaMetadata": {
+      "added": {},
+      "modified": [
+        "fields"
+      ],
+      "modified_details": {
+        "fields": {
+          "added": {},
+          "modified": [
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=PrimaryEmailContact].primaryEmailContact.[type=boolean].isVerified",
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts",
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts.[type=boolean].isVerified",
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativePhoneContact].alternativePhoneContacts",
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences",
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences.[type=boolean].enabled",
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=boolean].simplePreferences",
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=string].simplePreferences",
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].simplePreferences",
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument",
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=NationalID].identificationDocument",
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument",
+            "[version=2.0].[type=CustomerProfile2].[type=union].identificationDocument"
+          ],
+          "modified_details": {
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=PrimaryEmailContact].primaryEmailContact.[type=boolean].isVerified": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: False",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=PrimaryEmailContact].primaryEmailContact.[type=boolean].isVerified"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: []",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts.[type=boolean].isVerified": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: False",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativeEmailContact].alternativeEmailContacts.[type=boolean].isVerified"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativePhoneContact].alternativePhoneContacts": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: []",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=ContactInformation].contactInfo.[type=array].[type=AlternativePhoneContact].alternativePhoneContacts"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: {}",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences.[type=boolean].enabled": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: True",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=FrequencyPreference].frequencyPreferences.[type=boolean].enabled"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=boolean].simplePreferences": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: {}",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=boolean].simplePreferences"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=string].simplePreferences": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: {}",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].[type=string].simplePreferences"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].simplePreferences": {
+              "description": {
+                "after": null,
+                "before": "\nField default value: {}",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=Preferences].preferences.[type=map].[type=union].simplePreferences"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].[type=DriversLicense].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=NationalID].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].[type=NationalID].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument": {
+              "nullable": {
+                "after": false,
+                "before": true,
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].[type=Passport].identificationDocument"
+              }
+            },
+            "[version=2.0].[type=CustomerProfile2].[type=union].identificationDocument": {
+              "description": {
+                "after": "Customer's identification document\nField default value: null",
+                "before": "Customer's identification document",
+                "identifier": "[version=2.0].[type=CustomerProfile2].[type=union].identificationDocument"
+              }
+            }
+          },
+          "removed": {}
+        }
+      },
+      "removed": {}
+    }
+  }
+}

@@ -1,24 +1,26 @@
-import { Modal, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { Modal, message } from 'antd';
+
+import analytics, { EventType } from '@app/analytics';
+import {
+    DEFAULT_PAGE_SIZE,
+    removeFromListPoliciesCache,
+    updateListPoliciesCache,
+} from '@app/permissions/policy/policyUtils';
+
+import { useCreatePolicyMutation, useDeletePolicyMutation, useUpdatePolicyMutation } from '@graphql/policy.generated';
 import {
     EntityType,
+    Maybe,
     Policy,
     PolicyMatchCriterionInput,
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyState,
     PolicyType,
-    Maybe,
     PolicyUpdateInput,
     ResourceFilterInput,
-} from '../../../types.generated';
-import {
-    useCreatePolicyMutation,
-    useDeletePolicyMutation,
-    useUpdatePolicyMutation,
-} from '../../../graphql/policy.generated';
-import analytics, { EventType } from '../../analytics';
-import { DEFAULT_PAGE_SIZE, removeFromListPoliciesCache, updateListPoliciesCache } from './policyUtils';
+} from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -136,7 +138,7 @@ export function usePolicy(
                     removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
                     setTimeout(() => {
                         policiesRefetch();
-                    }, 3000);
+                    }, 4000);
                     onCancelViewPolicy();
                 });
             },
@@ -168,7 +170,7 @@ export function usePolicy(
             message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
             setTimeout(() => {
                 policiesRefetch();
-            }, 3000);
+            }, 4000);
         });
 
         setShowViewPolicyModal(false);

@@ -4,10 +4,8 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.subtypesupport.CustomPropertiesPatchBuilderSupport;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -114,12 +112,6 @@ public class DatasetPropertiesPatchBuilder
   public DatasetPropertiesPatchBuilder setCustomProperties(Map<String, String> properties) {
     customPropertiesPatchBuilder.setProperties(properties);
     return this;
-  }
-
-  @Override
-  protected List<ImmutableTriple<String, String, JsonNode>> getPathValues() {
-    pathValues.addAll(customPropertiesPatchBuilder.getSubPaths());
-    return pathValues;
   }
 
   @Override

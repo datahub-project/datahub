@@ -6,6 +6,7 @@ import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.TimeStamp
 
 /**
  * Properties associated with a ML Model
@@ -13,7 +14,19 @@ import com.linkedin.common.ExternalReference
 @Aspect = {
   "name": "mlModelProperties"
 }
-record MLModelProperties includes CustomProperties, ExternalReference {
+record MLModelProperties includes CustomProperties, ExternalReference, MLModelLineageInfo {
+
+  /**
+   * Display name of the MLModel
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "queryByDefault": true,
+  }
+  name: optional string
+
 
   /**
    * Documentation of the MLModel
@@ -27,7 +40,18 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   /**
    * Date when the MLModel was developed
    */
+  @deprecated
   date: optional Time
+
+  /**
+   * Audit stamp containing who created this and when
+   */
+  created: optional TimeStamp
+
+  /**
+   * Date when the MLModel was last modified
+   */
+  lastModified: optional TimeStamp
 
   /**
    * Version of the MLModel
@@ -91,31 +115,6 @@ record MLModelProperties includes CustomProperties, ExternalReference {
     }
   }
   deployments: optional array[Urn]
-
-  /**
-   * List of jobs (if any) used to train the model
-   */
-  @Relationship = {
-    "/*": {
-      "name": "TrainedBy",
-      "entityTypes": [ "dataJob" ],
-      "isLineage": true
-    }
-  }
-  trainingJobs: optional array[Urn]
-
-  /**
-   * List of jobs (if any) that use the model
-   */
-  @Relationship = {
-    "/*": {
-      "name": "UsedBy",
-      "entityTypes": [ "dataJob" ],
-      "isLineage": true,
-      "isUpstream": false
-    }
-  }
-  downstreamJobs: optional array[Urn]
 
   /**
    * Groups the model belongs to

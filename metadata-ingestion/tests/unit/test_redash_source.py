@@ -710,9 +710,9 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
                 inputs=[
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.order_items,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.orders,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.staffs,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
                 ],
                 type="PIE",
             )

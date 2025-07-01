@@ -4,6 +4,14 @@ from typing import List
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+# See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+# for why we need to limit the size of the query text.
+# We use 290 instead instead of the standard 320, because escape characters can add to the length.
+_QUERY_SEQUENCE_LIMIT = 290
+
+_MAX_COPY_ENTRIES_PER_TABLE = 20
+
+
 class RedshiftCommonQuery:
     CREATE_TEMP_TABLE_CLAUSE = "create temp table"
     CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
@@ -23,40 +31,64 @@ class RedshiftCommonQuery:
         AND (datname <> ('template1')::name)
         """
 
-    list_schemas: str = """SELECT distinct n.nspname AS "schema_name",
-        'local' as schema_type,
-        null as schema_owner_name,
-        '' as schema_option,
-        null as external_database
-        FROM pg_catalog.pg_class c
-        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-        JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
-        WHERE c.relkind IN ('r','v','m','S','f')
-        AND   n.nspname !~ '^pg_'
-        AND   n.nspname != 'information_schema'
-UNION ALL
-SELECT  schemaname as schema_name,
-        CASE s.eskind
-            WHEN '1' THEN 'GLUE'
-            WHEN '2' THEN 'HIVE'
-            WHEN '3' THEN 'POSTGRES'
-            WHEN '4' THEN 'REDSHIFT'
-            ELSE 'OTHER'
-        END as schema_type,
-        -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
-        -- usename as schema_owner_name,
-        null as schema_owner_name,
-        esoptions as schema_option,
-        databasename as external_database
+    # NOTE: although schema owner id is available in tables, we do not use it
+    # as getting username from id requires access to pg_catalog.pg_user_info
+    # which is available only to superusers.
+    # NOTE: Need union here instead of using svv_all_schemas, in order to get
+    # external platform related lineage
+    # NOTE: Using database_name filter for svv_redshift_schemas, as  otherwise
+    # schemas from other shared databases also show up.
+    @staticmethod
+    def list_schemas(database: str) -> str:
+        return f"""
+        SELECT 
+            schema_name,
+            schema_type,
+            cast(null as varchar(1024)) as schema_option,
+            cast(null as varchar(256)) as external_platform,
+            cast(null as varchar(256)) as external_database
+        FROM svv_redshift_schemas
+        WHERE database_name = '{database}'
+          AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
+    UNION ALL
+        SELECT 
+            schemaname as schema_name,
+            'external' as schema_type,
+            esoptions as schema_option,
+            CASE s.eskind
+                WHEN '1' THEN 'GLUE'
+                WHEN '2' THEN 'HIVE'
+                WHEN '3' THEN 'POSTGRES'
+                WHEN '4' THEN 'REDSHIFT'
+                ELSE 'OTHER'
+            END as external_platform,
+            databasename as external_database
         FROM SVV_EXTERNAL_SCHEMAS as s
-        -- inner join pg_catalog.pg_user_info as i on i.usesysid = s.esowner
         ORDER BY SCHEMA_NAME;
         """
 
     @staticmethod
+    def get_database_details(database):
+        return f"""\
+            select 
+                database_name,
+                database_type, 
+                database_options 
+            from svv_redshift_databases 
+            where database_name='{database}';"""
+
+    # NOTE: although table owner id is available in tables, we do not use it
+    # as getting username from id requires access to pg_catalog.pg_user_info
+    # which is available only to superusers.
+    # NOTE: Tables from shared database are not available in pg_catalog.pg_class
+    @staticmethod
     def list_tables(
+        database: str,
         skip_external_tables: bool = False,
+        is_shared_database: bool = False,
     ) -> str:
+        # NOTE: it looks like description is available only in pg_description
+        # So this remains preferrred way
         tables_query = """
  SELECT  CASE c.relkind
                 WHEN 'r' THEN 'TABLE'
@@ -75,8 +107,6 @@ SELECT  schemaname as schema_name,
                 WHEN 8 THEN 'ALL'
             END AS "diststyle",
             c.relowner AS "owner_id",
-            -- setting user_name to null as we don't use it now now and it breaks backward compatibility due to additional permission need
-            -- u.usename AS "owner_name",
             null as "owner_name",
             TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
             pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
@@ -90,12 +120,12 @@ SELECT  schemaname as schema_name,
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
-        -- JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
 """
-        external_tables_query = """
+
+        external_tables_query = f"""
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
             schemaname AS "schema",
@@ -114,16 +144,70 @@ SELECT  schemaname as schema_name,
             serde_parameters,
             NULL as table_description
         FROM pg_catalog.svv_external_tables
+        WHERE redshift_database_name='{database}'
         ORDER BY "schema",
                 "relname"
 """
-        if skip_external_tables:
+        shared_database_tables_query = f"""
+        SELECT table_type as tabletype,
+            NULL AS "schema_oid",
+            schema_name AS "schema",
+            NULL AS "rel_oid",
+            table_name AS "relname",
+            NULL as "creation_time",
+            NULL AS "diststyle",
+            table_owner AS "owner_id",
+            NULL AS "owner_name",
+            NULL AS "view_definition",
+            table_acl AS "privileges",
+            NULL as "location",
+            NULL as parameters,
+            NULL as input_format,
+            NULL As output_format,
+            NULL as serde_parameters,
+            NULL as table_description
+        FROM svv_redshift_tables
+        WHERE database_name='{database}'
+        ORDER BY "schema",
+                "relname"
+"""
+        if is_shared_database:
+            return shared_database_tables_query
+        elif skip_external_tables:
             return tables_query
         else:
             return f"{tables_query} UNION {external_tables_query}"
 
-    # Why is this unused. Is this a bug?
-    list_columns: str = """
+    @staticmethod
+    def list_columns(
+        database_name: str, schema_name: str, is_shared_database: bool = False
+    ) -> str:
+        if is_shared_database:
+            return f"""
+            SELECT
+              schema_name as "schema",
+              table_name as "table_name",
+              column_name as "name",
+              encoding as "encode",
+              -- Spectrum represents data types differently.
+              -- Standardize, so we can infer types.
+              data_type AS "type",
+              distkey as "distkey",
+              sortkey as "sortkey",
+              (case when is_nullable = 'no' then TRUE else FALSE end)  as "notnull",
+              null as "comment",
+              null as "adsrc",
+              ordinal_position as "attnum",
+              data_type AS "format_type",
+              column_default as "default",
+              null as "schema_oid",
+              null as "table_oid"
+            FROM SVV_REDSHIFT_COLUMNS
+            WHERE 1 and schema = '{schema_name}'
+            AND database_name = '{database_name}'
+            ORDER BY "schema", "table_name", "attnum"
+"""
+        return f"""
             SELECT
               n.nspname as "schema",
               c.relname as "table_name",
@@ -198,6 +282,7 @@ SELECT  schemaname as schema_name,
               null as "table_oid"
             FROM SVV_EXTERNAL_COLUMNS
             WHERE 1 and schema = '{schema_name}'
+            AND redshift_database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
 
@@ -284,6 +369,43 @@ SELECT  schemaname as schema_name,
         """
 
     @staticmethod
+    def list_copy_commands_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        return """\
+SELECT DISTINCT
+    target_schema,
+    target_table,
+    filename
+FROM (
+    SELECT
+        sti."schema" AS target_schema,
+        sti."table" AS target_table,
+        c.file_name AS filename,
+        ROW_NUMBER() OVER (
+            PARTITION BY sti."schema", sti."table"
+            ORDER BY si.start_time DESC
+        ) AS rn
+    FROM
+        SYS_QUERY_DETAIL AS si
+    JOIN SYS_LOAD_DETAIL AS c ON si.query_id = c.query_id
+    JOIN SVV_TABLE_INFO sti ON sti.table_id = si.table_id
+    WHERE
+        sti.database = '{db_name}'
+        AND si.start_time >= '{start_time}'
+        AND si.start_time < '{end_time}'
+) subquery
+WHERE rn <= {_MAX_COPY_ENTRIES_PER_TABLE}
+ORDER BY target_schema, target_table, filename
+""".format(
+            # We need the original database name for filtering
+            db_name=db_name,
+            start_time=start_time.strftime(redshift_datetime_format),
+            end_time=end_time.strftime(redshift_datetime_format),
+            _MAX_COPY_ENTRIES_PER_TABLE=_MAX_COPY_ENTRIES_PER_TABLE,
+        )
+
+    @staticmethod
     def additional_table_metadata_query() -> str:
         raise NotImplementedError
 
@@ -318,10 +440,27 @@ SELECT  schemaname as schema_name,
         raise NotImplementedError
 
     @staticmethod
-    def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        raise NotImplementedError
+    def list_outbound_datashares() -> str:
+        return """SELECT \
+            share_type, \
+            share_name, \
+            trim(producer_namespace) as producer_namespace, \
+            source_database \
+        FROM svv_datashares
+        WHERE share_type='OUTBOUND'\
+        """
+
+    @staticmethod
+    def get_inbound_datashare(database: str) -> str:
+        return f"""SELECT \
+            share_type, \
+            share_name, \
+            trim(producer_namespace) as producer_namespace, \
+            consumer_database \
+        FROM svv_datashares
+        WHERE share_type='INBOUND'
+        AND consumer_database= '{database}'\
+        """
 
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
@@ -465,99 +604,70 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     def list_insert_create_queries_sql(
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
-        return """
-            with query_txt as
-                (
-                    select
-                        query,
-                        pid,
-                        LISTAGG(case
-                            when LEN(RTRIM(text)) = 0 then text
-                            else RTRIM(text)
-                        end) within group (
-                    order by
-                        sequence) as ddl
-                    from
-                        (
-                        select
-                            query,
-                            pid,
-                            text,
-                            sequence
-                        from
-                            STL_QUERYTEXT
-                        where
-                            sequence < 320
-                        order by
-                            sequence
-                    )
-                    group by
-                        query,
-                        pid
-                )
-                        select
-                    distinct tbl as target_table_id,
-                    sti.schema as target_schema,
-                    sti.table as target_table,
-                    sti.database as cluster,
-                    usename as username,
-                    ddl,
-                    sq.query as query_id,
-                    min(si.starttime) as timestamp,
-                    ANY_VALUE(pid) as session_id
-                from
-                    stl_insert as si
-                left join SVV_TABLE_INFO sti on
-                    sti.table_id = tbl
-                left join svl_user_info sui on
-                    si.userid = sui.usesysid
-                left join query_txt sq on
-                    si.query = sq.query
-                left join stl_load_commits slc on
-                    slc.query = si.query
-                where
-                        sui.usename <> 'rdsdb'
-                        and cluster = '{db_name}'
-                        and slc.query IS NULL
-                        and si.starttime >= '{start_time}'
-                        and si.starttime < '{end_time}'
-                group by
-                    target_table_id,
-                    target_schema,
-                    target_table,
-                    cluster,
-                    username,
-                    ddl,
-                    sq.query
+        return """\
+with query_txt as (
+    select
+        query,
+        pid,
+        LISTAGG(case
+            when LEN(RTRIM(text)) = 0 then text
+            else RTRIM(text)
+        end) within group (
+            order by sequence
+        ) as ddl
+    from (
+        select
+            query,
+            pid,
+            text,
+            sequence
+        from
+            STL_QUERYTEXT
+        where
+            sequence < {_QUERY_SEQUENCE_LIMIT}
+        order by
+            sequence
+    )
+    group by
+        query,
+        pid
+)
+select
+    distinct tbl as target_table_id,
+    sti.schema as target_schema,
+    sti.table as target_table,
+    sti.database as cluster,
+    usename as username,
+    ddl,
+    sq.query as query_id,
+    min(si.starttime) as timestamp,
+    ANY_VALUE(pid) as session_id
+from
+    stl_insert as si
+left join SVV_TABLE_INFO sti on
+    sti.table_id = tbl
+left join svl_user_info sui on
+    si.userid = sui.usesysid
+left join query_txt sq on
+    si.query = sq.query
+left join stl_load_commits slc on
+    slc.query = si.query
+where
+        sui.usename <> 'rdsdb'
+        and cluster = '{db_name}'
+        and slc.query IS NULL
+        and si.starttime >= '{start_time}'
+        and si.starttime < '{end_time}'
+group by
+    target_table_id,
+    target_schema,
+    target_table,
+    cluster,
+    username,
+    ddl,
+    sq.query
         """.format(
-            # We need the original database name for filtering
-            db_name=db_name,
-            start_time=start_time.strftime(redshift_datetime_format),
-            end_time=end_time.strftime(redshift_datetime_format),
-        )
-
-    @staticmethod
-    def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        return """
-                select
-                    distinct
-                        "schema" as target_schema,
-                        "table" as target_table,
-                        filename
-                from
-                    stl_insert as si
-                join stl_load_commits as c on
-                    si.query = c.query
-                join SVV_TABLE_INFO sti on
-                    sti.table_id = tbl
-                where
-                    database = '{db_name}'
-                    and si.starttime >= '{start_time}'
-                    and si.starttime < '{end_time}'
-                order by target_schema, target_table, starttime asc
-                """.format(
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -571,84 +681,81 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         end_time_str: str = end_time.strftime(redshift_datetime_format)
 
         return rf"""-- DataHub Redshift Source temp table DDL query
+select
+    *
+from (
+    select
+        session_id,
+        transaction_id,
+        start_time,
+        userid,
+        REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
+        query_text,
+        row_number() over (
+            partition by session_id, TRIM(query_text)
+            order by start_time desc
+        ) rn
+    from (
+        select
+            pid as session_id,
+            xid as transaction_id,
+            starttime as start_time,
+            type,
+            query_text,
+            userid
+        from (
             select
-                *
+                starttime,
+                pid,
+                xid,
+                type,
+                userid,
+                LISTAGG(case
+                    when LEN(RTRIM(text)) = 0 then text
+                    else RTRIM(text)
+                end,
+                '') within group (
+                    order by sequence
+                ) as query_text
             from
-                (
-                select
-                    session_id,
-                    transaction_id,
-                    start_time,
-                    userid,
-                    REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
-                    query_text,
-                    row_number() over (
-                        partition by session_id, TRIM(query_text)
-                        order by start_time desc
-                    ) rn
-                from
-                    (
-                    select
-                        pid as session_id,
-                        xid as transaction_id,
-                        starttime as start_time,
-                        type,
-                        query_text,
-                        userid
-                    from
-                        (
-                        select
-                            starttime,
-                            pid,
-                            xid,
-                            type,
-                            userid,
-                            LISTAGG(case
-                                when LEN(RTRIM(text)) = 0 then text
-                                else RTRIM(text)
-                            end,
-                            '') within group (
-                                order by sequence
-                            ) as query_text
-                        from
-                            SVL_STATEMENTTEXT
-                        where
-                            type in ('DDL', 'QUERY')
-                            AND        starttime >= '{start_time_str}'
-                            AND        starttime < '{end_time_str}'
-                            -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
-                            AND sequence < 320
-                        group by
-                            starttime,
-                            pid,
-                            xid,
-                            type,
-                            userid
-                        order by
-                            starttime,
-                            pid,
-                            xid,
-                            type,
-                            userid
-                            asc)
-                    where
-                        type in ('DDL', 'QUERY')
-                )
-                where
-                    (create_command ilike 'create temp table %'
-                        or create_command ilike 'create temporary table %'
-                        -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
-                        or create_command ilike 'create table %')
-                    -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
-                    and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
-                    and create_command not like 'CREATE TEMP TABLE volt_tt_'
-                    -- We need to filter out our query and it was not possible earlier when we did not have any comment in the query
-                    and query_text not ilike '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'
-
-            )
+                SVL_STATEMENTTEXT
             where
-                rn = 1
-            """
+                type in ('DDL', 'QUERY')
+                AND        starttime >= '{start_time_str}'
+                AND        starttime < '{end_time_str}'
+                AND sequence < {_QUERY_SEQUENCE_LIMIT}
+            group by
+                starttime,
+                pid,
+                xid,
+                type,
+                userid
+            order by
+                starttime,
+                pid,
+                xid,
+                type,
+                userid
+                asc
+        )
+        where
+            type in ('DDL', 'QUERY')
+    )
+    where
+        (create_command ilike 'create temp table %'
+            or create_command ilike 'create temporary table %'
+            -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
+            or create_command ilike 'create table %')
+        -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
+        and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
+        and create_command not like 'CREATE TEMP TABLE volt_tt_'
+        -- We need to filter out our query and it was not possible earlier when we did not have any comment in the query
+        and query_text not ilike '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'
+
+)
+where
+    rn = 1
+"""
 
     # Add this join to the sql query for more metrics on completed queries
     # LEFT JOIN svl_query_metrics_summary sqms ON ss.query = sqms.query
@@ -790,61 +897,91 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
+            WITH queries AS (
+                SELECT
+                    sti.database as cluster,
+                    sti.schema AS "schema",
+                    sti.table AS "table",
+                    qs.table_id AS table_id,
+                    qs.query_id as query_id,
+                    qs.step_name as step_name,
+                    sui.user_name as username,
+                    source,
+                    MIN(qs.start_time) as "timestamp" -- multiple duplicate records with start_time increasing slightly by miliseconds
+                FROM
+                    SYS_QUERY_DETAIL qs
+                    JOIN
+                    SVV_TABLE_INFO sti ON sti.table_id = qs.table_id
+                    LEFT JOIN
+                    SVV_USER_INFO sui ON qs.user_id = sui.user_id
+                WHERE
+                    cluster = '{db_name}' AND
+                    qs.user_id <> 1 AND -- this is user 'rdsdb'
+                    qs.start_time >= '{start_time}' AND
+                    qs.start_time < '{end_time}'
+                GROUP BY cluster, "schema", "table", qs.table_id, query_id, step_name, username, source -- to be sure we are not making duplicates ourselves the list of group by must match whatever we use in "group by" and "where" of subsequent queries ("cluster" is already set to single value in this query)
+            ),
+            unique_query_text AS (
+                SELECT
+                    query_id,
+                    sequence,
+                    text
+                FROM (
+                    SELECT
+                        query_id,
+                        "sequence",
+                        text,
+                        ROW_NUMBER() OVER (
+                        PARTITION BY query_id, sequence
+                        ) as rn
+                    FROM SYS_QUERY_TEXT
+                    )
+                WHERE rn = 1
+            ),
+            scan_queries AS (
+                SELECT
+                    "schema" as source_schema,
+                    "table" as source_table,
+                    table_id as source_table_id,
+                    queries.query_id as query_id,
+                    username,
+                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                FROM
+                    "queries" LEFT JOIN
+                    unique_query_text qt ON qt.query_id = queries.query_id
+                WHERE
+                    source = 'Redshift(local)' AND
+                    step_name = 'scan' AND
+                    qt.sequence < 16 -- truncating query to not exceed Redshift limit on LISTAGG function (each sequence has at most 4k characters, limit is 64k, divided by 4k gives 16, starts count from 0)
+                GROUP BY source_schema, source_table, source_table_id, queries.query_id, username
+            ),
+            insert_queries AS (
+                SELECT
+                    "schema" as target_schema,
+                    "table" as target_table,
+                    table_id as target_table_id,
+                    query_id,
+                    cluster,
+                    min("timestamp") as "timestamp"
+                FROM
+                    queries
+                WHERE
+                    step_name = 'insert'
+                GROUP BY cluster, target_schema, target_table, target_table_id, query_id
+            )
             SELECT
-                distinct cluster,
+                cluster,
                 target_schema,
                 target_table,
                 username,
                 source_schema,
                 source_table,
                 query_text AS ddl,
-                start_time AS timestamp
-            FROM
-            (
-                SELECT
-                    sti.schema AS target_schema,
-                    sti.table AS target_table,
-                    sti.database AS cluster,
-                    qi.table_id AS target_table_id,
-                    qi.query_id AS query_id,
-                    qi.start_time AS start_time
-                FROM
-                    SYS_QUERY_DETAIL qi
-                    JOIN
-                    SVV_TABLE_INFO sti on sti.table_id = qi.table_id
-                WHERE
-                    start_time >= '{start_time}' and
-                    start_time < '{end_time}' and
-                    cluster = '{db_name}' and
-                    step_name = 'insert'
-            ) AS target_tables
-            JOIN
-            (
-                SELECT
-                    sti.schema AS source_schema,
-                    sti.table AS source_table,
-                    qs.table_id AS source_table_id,
-                    qs.query_id AS query_id,
-                    sui.user_name AS username,
-                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
-                FROM
-                    SYS_QUERY_DETAIL qs
-                    JOIN
-                    SVV_TABLE_INFO sti ON sti.table_id = qs.table_id
-                    LEFT JOIN
-                    SYS_QUERY_TEXT qt ON qt.query_id = qs.query_id
-                    LEFT JOIN
-                    SVV_USER_INFO sui ON qs.user_id = sui.user_id
-                WHERE
-                    qs.step_name = 'scan' AND
-                    qs.source = 'Redshift(local)' AND
-                    qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
-                    sti.database = '{db_name}' AND -- this was required to not retrieve some internal redshift tables, try removing to see what happens
-                    sui.user_name <> 'rdsdb' -- not entirely sure about this filter
-                GROUP BY sti.schema, sti.table, qs.table_id, qs.query_id, sui.user_name
-            ) AS source_tables ON target_tables.query_id = source_tables.query_id
-            WHERE source_tables.source_table_id <> target_tables.target_table_id
-            ORDER BY cluster, target_schema, target_table, start_time ASC
+                "timestamp"
+            FROM scan_queries
+                JOIN insert_queries on insert_queries.query_id = scan_queries.query_id
+            WHERE source_table_id <> target_table_id
+            ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
                     """.format(
             # We need the original database name for filtering
             db_name=db_name,
@@ -941,33 +1078,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
 
     # when loading from s3 using prefix with a single file it produces 2 lines (for file and just directory) - also
     # behaves like this when run in the old way
-    @staticmethod
-    def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
-        return """
-                select
-                    distinct
-                        "schema" as target_schema,
-                        "table" as target_table,
-                        c.file_name
-                from
-                    SYS_QUERY_DETAIL as si
-                join SYS_LOAD_DETAIL as c on
-                    si.query_id = c.query_id
-                join SVV_TABLE_INFO sti on
-                    sti.table_id = si.table_id
-                where
-                    database = '{db_name}'
-                    and si.start_time >= '{start_time}'
-                    and si.start_time < '{end_time}'
-                order by target_schema, target_table, si.start_time asc
-                """.format(
-            # We need the original database name for filtering
-            db_name=db_name,
-            start_time=start_time.strftime(redshift_datetime_format),
-            end_time=end_time.strftime(redshift_datetime_format),
-        )
 
     # handles "create table IF ..." statements wrong probably - "create command" field contains only "create table if" in such cases
     # also similar happens if for example table name contains special characters quoted with " i.e. "test-table1"

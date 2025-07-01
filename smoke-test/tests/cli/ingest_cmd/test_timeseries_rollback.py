@@ -2,14 +2,9 @@ import json
 from typing import Dict, List, Optional
 
 import datahub.emitter.mce_builder as builder
-from click.testing import CliRunner, Result
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
-
-from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
-
-runner = CliRunner(mix_stderr=False)
+from tests.utils import ingest_file_via_rest, run_datahub_cmd, wait_for_writes_to_sync
 
 
 def sync_elastic() -> None:
@@ -19,8 +14,7 @@ def sync_elastic() -> None:
 def datahub_rollback(auth_session, run_id: str) -> None:
     sync_elastic()
     rollback_args: List[str] = ["ingest", "rollback", "--run-id", run_id, "-f"]
-    rollback_result: Result = runner.invoke(
-        datahub,
+    rollback_result = run_datahub_cmd(
         rollback_args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -39,8 +33,7 @@ def datahub_get_and_verify_profile(
     # Wait for writes to stabilize in elastic
     sync_elastic()
     get_args: List[str] = ["get", "--urn", urn, "-a", aspect_name]
-    get_result: Result = runner.invoke(
-        datahub,
+    get_result = run_datahub_cmd(
         get_args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),

@@ -1,22 +1,27 @@
-import * as React from 'react';
 import { FolderOutlined } from '@ant-design/icons';
-import { Container, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetContainerQuery } from '../../../graphql/container.generated';
-import { ContainerEntitiesTab } from './ContainerEntitiesTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { ContainerEntitiesTab } from '@app/entity/container/ContainerEntitiesTab';
+import { Preview } from '@app/entity/container/preview/Preview';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import EmbeddedProfile from '@app/entity/shared/embed/EmbeddedProfile';
+import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { getDataProduct } from '@app/entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
+import { Container, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Container entity.
@@ -57,6 +62,8 @@ export class ContainerEntity implements Entity<Container> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'container';
+
     getPathName = () => 'container';
 
     getEntityName = () => 'Container';
@@ -64,6 +71,8 @@ export class ContainerEntity implements Entity<Container> {
     getCollectionName = () => 'Containers';
 
     useEntityQuery = useGetContainerQuery;
+
+    appconfig = useAppConfig;
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -80,6 +89,23 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    name: 'Access',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, container: GetContainerQuery) => {
+                            return (
+                                this.appconfig().config.featureFlags.showAccessManagement &&
+                                !!container?.container?.access
+                            );
+                        },
+                        enabled: (_, container: GetContainerQuery) => {
+                            const accessAspect = container?.container?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
+                    },
                 },
                 {
                     name: 'Properties',
@@ -109,6 +135,9 @@ export class ContainerEntity implements Entity<Container> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
         // TODO: Add back once entity-level recommendations are complete.
         // {

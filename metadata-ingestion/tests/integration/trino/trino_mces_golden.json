@@ -91,6 +91,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -152,22 +168,6 @@
             "typeNames": [
                 "Schema"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
         }
     },
     "systemMetadata": {
@@ -324,8 +324,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1167,9 +1166,20 @@
                 },
                 {
                     "fieldPath": "tags",
-                    "nullCount": 3,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 1,
+                    "nullProportion": 0.3333333333333333,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "{\"bisac_code\":\"OCC037000\"}",
+                            "frequency": 2
+                        }
+                    ],
+                    "sampleValues": [
+                        "{\"bisac_code\":\"OCC037000\"}",
+                        "{\"bisac_code\":\"OCC037000\"}"
+                    ]
                 },
                 {
                     "fieldPath": "genre_ids",

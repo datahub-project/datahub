@@ -53,6 +53,7 @@ public class SimpleKafkaConsumerFactory {
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(customizedProperties));
+    factory.setAutoStartup(false);
 
     log.info("Simple KafkaListenerContainerFactory built successfully");
 

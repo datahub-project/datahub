@@ -1,12 +1,18 @@
+x-search-datastore-elasticsearch-env: &search-datastore-env
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
 
 x-datahub-actions-service: &datahub-actions-service
   hostname: actions
-  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_ACTIONS_REPO:-acryldata}/datahub-actions}:${ACTIONS_VERSION:-v0.1.1}
+  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-actions}:${DATAHUB_VERSION:-head}-slim
   env_file:
     - datahub-actions/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_ACTIONS_ENV:-empty2.env}
   environment:
+    <<: *search-datastore-env
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
@@ -14,6 +20,10 @@ x-datahub-actions-service: &datahub-actions-service
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
+  volumes:
+    - ./datahub-actions/start.sh:/start_datahub_actions.sh
+    - ../../metadata-ingestion/src:/metadata-ingestion/src
+    - ../../datahub-actions/src:/datahub-actions/src
 
 services:
   datahub-actions-quickstart:
@@ -52,6 +62,13 @@ services:
       - debug-backend
     depends_on:
       datahub-gms-debug:
+        condition: service_healthy
+  datahub-actions-debug-aws:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-backend-aws
+    depends_on:
+      datahub-gms-debug-aws:
         condition: service_healthy
   datahub-actions-debug-postgres:
     <<: *datahub-actions-service-dev

@@ -43,7 +43,6 @@ def _make_owner_category_list(
     owner_category_urn: Optional[str],
     owner_ids: List[str],
 ) -> List[Dict]:
-
     return [
         {
             "urn": mce_builder.make_owner_urn(owner_id, owner_type),
@@ -172,7 +171,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.
@@ -285,7 +284,6 @@ class OperationProcessor:
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
 
         if Constants.ADD_OWNER_OPERATION in operation_map:
-
             owner_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(
@@ -351,9 +349,9 @@ class OperationProcessor:
                         elements=[institutional_memory_element]
                     )
 
-                    aspect_map[
-                        Constants.ADD_DOC_LINK_OPERATION
-                    ] = institutional_memory_aspect
+                    aspect_map[Constants.ADD_DOC_LINK_OPERATION] = (
+                        institutional_memory_aspect
+                    )
                 else:
                     raise Exception(
                         f"Expected 1 item of type list for the documentation_link meta_mapping config,"

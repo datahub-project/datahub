@@ -1,8 +1,10 @@
 import React from 'react';
-import { LineageDirection } from '../../../../../types.generated';
-import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
-import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
+
+import { EmbeddedListSearchSection } from '@app/entity/shared/components/styled/search/EmbeddedListSearchSection';
+import generateUseDownloadScrollAcrossLineageSearchResultsHook from '@app/entity/shared/tabs/Lineage/generateUseDownloadScrollAcrossLineageSearchResultsHook';
+import generateUseSearchResultsViaRelationshipHook from '@app/entity/shared/tabs/Lineage/generateUseSearchResultsViaRelationshipHook';
+
+import { LineageDirection } from '@types';
 
 type Props = {
     urn: string;

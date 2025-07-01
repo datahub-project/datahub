@@ -2,11 +2,11 @@ import datetime
 from typing import Any, List, Optional, Sequence, Union
 
 from airflow.models import BaseOperator
+
 from datahub.api.circuit_breaker import (
     AssertionCircuitBreaker,
     AssertionCircuitBreakerConfig,
 )
-
 from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 

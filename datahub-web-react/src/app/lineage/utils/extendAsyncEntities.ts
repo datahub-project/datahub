@@ -1,12 +1,13 @@
-import { EntityType, SchemaFieldRef } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { EntityAndType, FetchedEntities, FetchedEntity } from '@app/lineage/types';
 import {
     decodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getSourceUrnFromSchemaFieldUrn,
     isSameColumn,
-} from './columnLineageUtils';
+} from '@app/lineage/utils/columnLineageUtils';
+
+import { EntityType, SchemaFieldRef } from '@types';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
     const before = ref.urn;
@@ -116,8 +117,8 @@ export function extendColumnLineage(
                     // if this upstreamEntityUrn is a sibling of one of the already rendered nodes,
                     // update the fine grained map with the rendered node instead of its sibling
                     Array.from(fetchedEntities.keys()).forEach((urn) => {
-                        fetchedEntities.get(urn)?.siblings?.siblings?.forEach((sibling) => {
-                            if (sibling && sibling.urn === upstreamEntityUrn) {
+                        fetchedEntities.get(urn)?.siblingsSearch?.searchResults?.forEach((sibling) => {
+                            if (sibling && sibling.entity.urn === upstreamEntityUrn) {
                                 updateFineGrainedMap(
                                     fineGrainedMap,
                                     urn,
@@ -147,9 +148,9 @@ export function extendColumnLineage(
 
     // if we've seen fineGrainedMappings for this current entity's siblings, update the
     // fine grained map with the rendered urn instead of the "hidden" sibling urn
-    lineageVizConfig.siblings?.siblings?.forEach((sibling) => {
-        if (sibling && fineGrainedMapForSiblings[sibling.urn]) {
-            fineGrainedMapForSiblings[sibling.urn].forEach((entry) => {
+    lineageVizConfig.siblingsSearch?.searchResults?.forEach((sibling) => {
+        if (sibling && fineGrainedMapForSiblings[sibling.entity.urn]) {
+            fineGrainedMapForSiblings[sibling.entity.urn].forEach((entry) => {
                 updateFineGrainedMap(
                     fineGrainedMap,
                     lineageVizConfig.urn,

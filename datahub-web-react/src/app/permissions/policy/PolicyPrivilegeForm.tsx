@@ -1,33 +1,33 @@
+import { Tooltip } from '@components';
+import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components/macro';
 
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useAppConfig } from '../../useAppConfig';
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
-    useGetSearchResultsForMultipleLazyQuery,
-    useGetSearchResultsLazyQuery,
-} from '../../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType, Domain, Entity } from '../../../types.generated';
-import {
+    EMPTY_POLICY,
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
-    EMPTY_POLICY,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
     setFieldValues,
-} from './policyUtils';
-import DomainNavigator from '../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { BrowserWrapper } from '../../shared/tags/AddTagsTermsModal';
-import ClickOutside from '../../shared/ClickOutside';
-import { TagTermLabel } from '../../shared/tags/TagTermLabel';
-import { ENTER_KEY_CODE } from '../../shared/constants';
-import { useGetRecommendations } from '../../shared/recommendation';
+} from '@app/permissions/policy/policyUtils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -88,11 +88,13 @@ export default function PolicyPrivilegeForm({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [domainInputValue, setDomainInputValue] = useState('');
+    const [containerInputValue, setContainerInputValue] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
-    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const { recommendedData } = useGetRecommendations([EntityType.Tag]);
+    const tagSearchResults: Array<Entity> =
+        tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
     const inputEl = useRef(null);
 
@@ -102,8 +104,9 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
-    const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
+    // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
+    const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
+    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -130,6 +133,15 @@ export default function PolicyPrivilegeForm({
     const [searchDomains, { data: domainsSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults = domainsSearchData?.search?.searchResults;
 
+    // Search for containers
+    const containers = getFieldValues(resources.filter, 'CONTAINER') || [];
+    const [searchContainers, { data: containersSearchData }] = useGetSearchResultsLazyQuery();
+    const containerSearchResults = containersSearchData?.search?.searchResults;
+    const containerUrnToDisplayName = new Map();
+    containers.forEach((containerEntity) => {
+        containerUrnToDisplayName[containerEntity.value] = getDisplayName(containerEntity.entity);
+    });
+
     // Whether to show the resource filter inputs including "resource type", "resource", and "domain"
     const showResourceFilterInput = policyType !== PolicyType.Platform;
 
@@ -137,8 +149,12 @@ export default function PolicyPrivilegeForm({
     const resourceTypeSelectValue = resourceTypes.map((criterionValue) => criterionValue.value);
     const resourceSelectValue = resourceEntities.map((criterionValue) => criterionValue.value);
     const domainSelectValue = getFieldValues(resources.filter, 'DOMAIN').map((criterionValue) => criterionValue.value);
+    const containerSelectValue = getFieldValues(resources.filter, 'CONTAINER').map(
+        (criterionValue) => criterionValue.value,
+    );
     const privilegesSelectValue = privileges;
     const isShowingDomainNavigator = !domainInputValue && isFocusedOnInput;
+    const isShowingContainerNavigator = !containerInputValue && isFocusedOnInput;
 
     // Construct privilege options for dropdown
     const platformPrivileges = policiesConfig?.platformPrivileges || [];
@@ -178,9 +194,14 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
+            filter: setFieldValues(filterWithoutDeprecatedField, TYPE, [
+                ...resourceTypes,
+                createCriterionValue(selectedResourceType),
+            ]),
         });
     };
 
@@ -188,11 +209,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'TYPE',
+                filterWithoutDeprecatedField,
+                TYPE,
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
             ),
         });
@@ -203,9 +226,11 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'URN', [
+            filter: setFieldValues(filterWithoutDeprecatedField, URN, [
                 ...resourceEntities,
                 createCriterionValueWithEntity(
                     resource,
@@ -220,11 +245,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'URN',
+                filterWithoutDeprecatedField,
+                URN,
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
             ),
         });
@@ -266,6 +293,36 @@ export default function PolicyPrivilegeForm({
         });
     };
 
+    // Add new container selection handler
+    const onSelectContainer = (containerUrn, containerObj?: Container) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        const containerEntity = containerObj || getEntityFromSearchResults(containerSearchResults, containerUrn);
+        const updatedFilter = setFieldValues(filter, 'CONTAINER', [
+            ...containers,
+            createCriterionValueWithEntity(containerUrn, containerEntity || null),
+        ]);
+        setResources({
+            ...resources,
+            filter: updatedFilter,
+        });
+    };
+
+    const onDeselectContainer = (containerUrn: string) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        setResources({
+            ...resources,
+            filter: setFieldValues(
+                filter,
+                'CONTAINER',
+                containers?.filter((criterionValue) => criterionValue.value !== containerUrn),
+            ),
+        });
+    };
+
     // Handle resource search, if the resource type has an associated EntityType mapping.
     const handleResourceSearch = (text: string) => {
         const trimmedText: string = text.trim();
@@ -292,6 +349,21 @@ export default function PolicyPrivilegeForm({
             variables: {
                 input: {
                     type: EntityType.Domain,
+                    query: trimmedText.length > 2 ? trimmedText : '*',
+                    start: 0,
+                    count: 10,
+                },
+            },
+        });
+    };
+
+    const handleContainerSearch = (text: string) => {
+        const trimmedText: string = text.trim();
+        setContainerInputValue(trimmedText);
+        searchContainers({
+            variables: {
+                input: {
+                    type: EntityType.Container,
                     query: trimmedText.length > 2 ? trimmedText : '*',
                     start: 0,
                     count: 10,
@@ -328,6 +400,10 @@ export default function PolicyPrivilegeForm({
 
     function handleBlur() {
         setDomainInputValue('');
+    }
+
+    function handleBlurContainer() {
+        setContainerInputValue('');
     }
 
     function handleBlurTag() {
@@ -594,6 +670,40 @@ export default function PolicyPrivilegeForm({
                     </ClickOutside>
                 </Form.Item>
             )}
+            {showResourceFilterInput && (
+                <Form.Item label={<Typography.Text strong>Select Containers</Typography.Text>}>
+                    <Typography.Paragraph>
+                        The policy will apply to resources only in the chosen containers. If <b>none</b> are selected,
+                        the policy is applied to resources in <b>all</b> containers.
+                    </Typography.Paragraph>
+                    <Select
+                        showSearch
+                        value={containerSelectValue}
+                        mode="multiple"
+                        filterOption={false}
+                        placeholder="Apply to ALL containers by default. Select containers to apply to specific containers."
+                        onSelect={(value) => onSelectContainer(value)}
+                        onDeselect={onDeselectContainer}
+                        onSearch={handleContainerSearch}
+                        onBlur={handleBlurContainer}
+                        tagRender={(tagProps) => (
+                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                {displayStringWithMaxLength(
+                                    containerUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
+                                    75,
+                                )}
+                            </Tag>
+                        )}
+                        dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
+                    >
+                        {containerSearchResults?.map((result) => (
+                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                {renderSearchResult(result)}
+                            </Select.Option>
+                        ))}
+                    </Select>
+                </Form.Item>
+            )}
             <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
                 <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
                 <Select
@@ -607,6 +717,9 @@ export default function PolicyPrivilegeForm({
                             {tagProps.label}
                         </Tag>
                     )}
+                    filterOption={(input, option) => {
+                        return !!option?.children?.toString().toLowerCase().includes(input.toLowerCase());
+                    }}
                 >
                     {privilegeOptions.map((priv, index) => {
                         const key = `${priv.type}-${index}`;

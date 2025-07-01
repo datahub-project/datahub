@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Iterable, List, Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -65,9 +66,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We can't use close as it is not called if the ingestion is not successful
 def cleanup(config: BigQueryV2Config) -> None:
     if config._credentials_path is not None:
-        logger.debug(
-            f"Deleting temporary credential file at {config._credentials_path}"
-        )
         os.unlink(config._credentials_path)
 
 
@@ -98,6 +96,11 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(
+    SourceCapability.PARTITION_SUPPORT,
+    "Enabled by default, partition keys and clustering keys are supported.",
+)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -125,13 +128,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_policy_tag_manager_client()
             )
 
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
+        with self.report.init_schema_resolver_timer:
+            self.sql_parser_schema_resolver = self._init_schema_resolver()
+
         self.filters = BigQueryFilter(self.config, self.report)
         self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
-        redundant_lineage_run_skip_handler: Optional[
-            RedundantLineageRunSkipHandler
-        ] = None
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
@@ -186,6 +191,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.ctx.graph,
         )
 
         self.add_config_to_report()
@@ -202,9 +208,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.use_queries_v2
-            or self.config.lineage_parse_view_ddl
-            or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -239,7 +243,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ).workunit_processor,
         ]
 
+    def _warn_deprecated_configs(self):
+        if (
+            self.config.match_fully_qualified_names is not None
+            and not self.config.match_fully_qualified_names
+            and self.config.schema_pattern is not None
+            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.report.report_warning(
+                message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
+                context="Config option deprecation warning",
+                title="Config option deprecation warning",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._warn_deprecated_configs()
         projects = get_projects(
             self.bq_schema_extractor.schema_api,
             self.report,
@@ -251,10 +271,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
 
-        if self.config.use_queries_v2:
-            # Always ingest View and Snapshot lineage with schema ingestion
-            self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
-
+        with self.report.new_stage("*: View and Snapshot Lineage"):
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],
                 self.bq_schema_extractor.view_refs_by_project,
@@ -263,6 +280,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshots_by_ref,
             )
 
+        if self.config.use_queries_v2:
             # if both usage and lineage are disabled then skip queries extractor piece
             if (
                 not self.config.include_usage_statistics
@@ -270,9 +288,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
-            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
-
-            queries_extractor = BigQueryQueriesExtractor(
+            with self.report.new_stage(
+                f"*: {QUERIES_EXTRACTION}"
+            ), BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
                 config=BigQueryQueriesExtractorConfig(
@@ -281,16 +299,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     include_lineage=self.config.include_table_lineage,
                     include_usage_statistics=self.config.include_usage_statistics,
                     include_operations=self.config.usage.include_operational_stats,
+                    include_queries=self.config.include_queries,
+                    include_query_usage_statistics=self.config.include_query_usage_statistics,
                     top_n_queries=self.config.usage.top_n_queries,
+                    region_qualifiers=self.config.region_qualifiers,
                 ),
                 structured_report=self.report,
                 filters=self.filters,
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
                 discovered_tables=self.bq_schema_extractor.table_refs,
-            )
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
+            ) as queries_extractor:
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
@@ -300,11 +321,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if self.config.include_table_lineage:
                 yield from self.lineage_extractor.get_lineage_workunits(
                     [p.id for p in projects],
-                    self.bq_schema_extractor.view_refs_by_project,
-                    self.bq_schema_extractor.view_definitions,
-                    self.bq_schema_extractor.snapshot_refs_by_project,
-                    self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
+                )
+
+        # Lineage BQ to GCS
+        if (
+            self.config.include_table_lineage
+            and self.bq_schema_extractor.external_tables
+        ):
+            for dataset_urn, table in self.bq_schema_extractor.external_tables.items():
+                yield from self.lineage_extractor.gen_lineage_workunits_for_external_table(
+                    dataset_urn, table.ddl, graph=self.ctx.graph
                 )
 
     def get_report(self) -> BigQueryV2Report:

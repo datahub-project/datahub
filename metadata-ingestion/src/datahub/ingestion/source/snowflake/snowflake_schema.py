@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from datahub.ingestion.api.report import SupportsAsObj
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -13,8 +14,9 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.prefix_batch_builder import build_prefix_batches
+from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -45,14 +47,17 @@ class SnowflakeTag:
     name: str
     value: str
 
-    def display_name(self) -> str:
+    def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
 
-    def identifier(self) -> str:
+    def tag_identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
     def _id_prefix_as_str(self) -> str:
         return f"{self.database}.{self.schema}.{self.name}"
+
+    def structured_property_identifier(self) -> str:
+        return f"snowflake.{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass
@@ -90,6 +95,12 @@ class SnowflakeTable(BaseTable):
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_dynamic: bool = False
+    is_iceberg: bool = False
+    is_hybrid: bool = False
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.TABLE
 
 
 @dataclass
@@ -98,6 +109,10 @@ class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_secure: bool = False
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.VIEW
 
 
 @dataclass
@@ -108,6 +123,7 @@ class SnowflakeSchema:
     comment: Optional[str]
     tables: List[str] = field(default_factory=list)
     views: List[str] = field(default_factory=list)
+    streams: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
 
@@ -121,6 +137,32 @@ class SnowflakeDatabase:
     tags: Optional[List[SnowflakeTag]] = None
 
 
+@dataclass
+class SnowflakeStream:
+    name: str
+    created: datetime
+    owner: str
+    source_type: str
+    type: str
+    stale: str
+    mode: str
+    invalid_reason: str
+    owner_role_type: str
+    database_name: str
+    schema_name: str
+    table_name: str
+    comment: Optional[str]
+    columns: List[SnowflakeColumn] = field(default_factory=list)
+    stale_after: Optional[datetime] = None
+    base_tables: Optional[str] = None
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    last_altered: Optional[datetime] = None
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.SNOWFLAKE_STREAM
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -132,9 +174,9 @@ class _SnowflakeTagCache:
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
-        self._table_tags: Dict[
-            str, Dict[str, Dict[str, List[SnowflakeTag]]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        self._table_tags: Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[
@@ -198,6 +240,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_tables_for_database,
             self.get_views_for_database,
             self.get_columns_for_schema,
+            self.get_streams_for_database,
             self.get_pk_constraints_for_schema,
             self.get_fk_constraints_for_schema,
         ]
@@ -260,6 +303,39 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return snowflake_schemas
 
     @serialized_lru_cache(maxsize=1)
+    def get_secure_view_definitions(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        secure_view_definitions: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict())
+        )
+        cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
+        for view in cur:
+            db_name = view["TABLE_CATALOG"]
+            schema_name = view["TABLE_SCHEMA"]
+            view_name = view["TABLE_NAME"]
+            secure_view_definitions[db_name][schema_name][view_name] = view[
+                "VIEW_DEFINITION"
+            ]
+
+        return secure_view_definitions
+
+    def get_all_tags(self) -> List[SnowflakeTag]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_all_tags(),
+        )
+
+        tags = [
+            SnowflakeTag(
+                database=tag["TAG_DATABASE"],
+                schema=tag["TAG_SCHEMA"],
+                name=tag["TAG_NAME"],
+                value="",
+            )
+            for tag in cur
+        ]
+
+        return tags
+
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -289,6 +365,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -313,6 +392,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -356,6 +438,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
+                        is_secure=(view.get("is_secure", "false").lower() == "true"),
                     )
                 )
 
@@ -383,9 +466,18 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # For massive schemas, use a FileBackedDict to avoid memory issues.
             columns = FileBackedDict()
 
-        object_batches = build_prefix_batches(
-            all_objects, max_batch_size=10000, max_groups_in_batch=5
-        )
+        # Single prefix table case (for streams)
+        if len(all_objects) == 1:
+            object_batches = [
+                [PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)]
+            ]
+        else:
+            # Build batches for full schema scan
+            object_batches = build_prefix_batches(
+                all_objects, max_batch_size=10000, max_groups_in_batch=5
+            )
+
+        # Process batches
         for batch_index, object_batch in enumerate(object_batches):
             if batch_index > 0:
                 logger.info(
@@ -563,3 +655,91 @@ class SnowflakeDataDictionary(SupportsAsObj):
             tags[column_name].append(snowflake_tag)
 
         return tags
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streams_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeStream]]:
+        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+
+        streams: Dict[str, List[SnowflakeStream]] = {}
+
+        first_iteration = True
+        stream_pagination_marker: Optional[str] = None
+        while first_iteration or stream_pagination_marker is not None:
+            cur = self.connection.query(
+                SnowflakeQuery.streams_for_database(
+                    db_name,
+                    limit=page_limit,
+                    stream_pagination_marker=stream_pagination_marker,
+                )
+            )
+
+            first_iteration = False
+            stream_pagination_marker = None
+
+            result_set_size = 0
+            for stream in cur:
+                result_set_size += 1
+
+                stream_name = stream["name"]
+                schema_name = stream["schema_name"]
+                if schema_name not in streams:
+                    streams[schema_name] = []
+                streams[stream["schema_name"]].append(
+                    SnowflakeStream(
+                        name=stream["name"],
+                        created=stream["created_on"],
+                        owner=stream["owner"],
+                        comment=stream["comment"],
+                        source_type=stream["source_type"],
+                        type=stream["type"],
+                        stale=stream["stale"],
+                        mode=stream["mode"],
+                        database_name=stream["database_name"],
+                        schema_name=stream["schema_name"],
+                        invalid_reason=stream["invalid_reason"],
+                        owner_role_type=stream["owner_role_type"],
+                        stale_after=stream["stale_after"],
+                        table_name=stream["table_name"],
+                        base_tables=stream["base_tables"],
+                        last_altered=stream["created_on"],
+                    )
+                )
+
+            if result_set_size >= page_limit:
+                # If we hit the limit, we need to send another request to get the next page.
+                logger.info(
+                    f"Fetching next page of streams for {db_name} - after {stream_name}"
+                )
+                stream_pagination_marker = stream_name
+
+        return streams
+
+    @serialized_lru_cache(maxsize=1)
+    def get_procedures_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[BaseProcedure]]:
+        procedures: Dict[str, List[BaseProcedure]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.procedures_for_database(db_name),
+        )
+
+        for procedure in cur:
+            if procedure["PROCEDURE_SCHEMA"] not in procedures:
+                procedures[procedure["PROCEDURE_SCHEMA"]] = []
+
+            procedures[procedure["PROCEDURE_SCHEMA"]].append(
+                BaseProcedure(
+                    name=procedure["PROCEDURE_NAME"],
+                    language=procedure["PROCEDURE_LANGUAGE"],
+                    argument_signature=procedure["ARGUMENT_SIGNATURE"],
+                    return_type=procedure["PROCEDURE_RETURN_TYPE"],
+                    procedure_definition=procedure["PROCEDURE_DEFINITION"],
+                    created=procedure["CREATED"],
+                    last_altered=procedure["LAST_ALTERED"],
+                    comment=procedure["COMMENT"],
+                    extra_properties=None,
+                )
+            )
+        return procedures

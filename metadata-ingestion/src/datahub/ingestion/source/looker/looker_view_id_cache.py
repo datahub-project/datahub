@@ -6,7 +6,7 @@ from datahub.ingestion.source.looker.looker_config import LookerConnectionDefini
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
+    BASE_PROJECT_NAME,
     NAME,
     LookMLSourceReport,
 )
@@ -103,7 +103,7 @@ class LookerViewIdCache:
 
                     current_project_name: str = (
                         include.project
-                        if include.project != _BASE_PROJECT_NAME
+                        if include.project != BASE_PROJECT_NAME
                         else self.project_name
                     )
 

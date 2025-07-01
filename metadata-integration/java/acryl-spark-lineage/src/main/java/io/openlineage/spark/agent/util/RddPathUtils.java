@@ -7,6 +7,7 @@ package io.openlineage.spark.agent.util;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -18,6 +19,7 @@ import org.apache.spark.rdd.HadoopRDD;
 import org.apache.spark.rdd.MapPartitionsRDD;
 import org.apache.spark.rdd.ParallelCollectionRDD;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.sql.execution.datasources.FilePartition;
 import org.apache.spark.sql.execution.datasources.FileScanRDD;
 import scala.Tuple2;
 import scala.collection.immutable.Seq;
@@ -90,7 +92,7 @@ public class RddPathUtils {
     @SuppressWarnings("PMD.AvoidLiteralsInIfCondition")
     public Stream<Path> extract(FileScanRDD rdd) {
       return ScalaConversionUtils.fromSeq(rdd.filePartitions()).stream()
-          .flatMap(fp -> Arrays.stream(fp.files()))
+          .flatMap((FilePartition fp) -> Arrays.stream(fp.files()))
           .map(
               f -> {
                 if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
@@ -115,11 +117,15 @@ public class RddPathUtils {
 
     @Override
     public Stream<Path> extract(ParallelCollectionRDD rdd) {
+      int SEQ_LIMIT = 1000;
+      AtomicBoolean loggingDone = new AtomicBoolean(false);
       try {
         Object data = FieldUtils.readField(rdd, "data", true);
         log.debug("ParallelCollectionRDD data: {}", data);
-        if (data instanceof Seq) {
-          return ScalaConversionUtils.fromSeq((Seq) data).stream()
+        if ((data instanceof Seq) && ((Seq) data).head() instanceof Tuple2) {
+          // exit if the first element is invalid
+          Seq data_slice = (Seq) ((Seq) data).slice(0, SEQ_LIMIT);
+          return ScalaConversionUtils.fromSeq(data_slice).stream()
               .map(
                   el -> {
                     Path path = null;
@@ -127,9 +133,9 @@ public class RddPathUtils {
                       // we're able to extract path
                       path = parentOf(((Tuple2) el)._1.toString());
                       log.debug("Found input {}", path);
-                    } else {
-                      // Change to debug to silence error
-                      log.debug("unable to extract Path from {}", el.getClass().getCanonicalName());
+                    } else if (!loggingDone.get()) {
+                      log.warn("unable to extract Path from {}", el.getClass().getCanonicalName());
+                      loggingDone.set(true);
                     }
                     return path;
                   })

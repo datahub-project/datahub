@@ -1,8 +1,8 @@
 package io.datahubproject.test.search.config;
 
 import static io.datahubproject.test.search.BulkProcessorTestUtils.replaceBulkProcessorListener;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.version.GitVersion;
@@ -90,16 +90,6 @@ public class SearchTestContainerConfiguration {
       @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        searchClient,
-        1,
-        1,
-        3,
-        1,
-        Map.of(),
-        false,
-        false,
-        false,
-        new ElasticSearchConfiguration(),
-        gitVersion);
+        searchClient, 1, 1, 3, 1, Map.of(), false, false, false, TEST_ES_SEARCH_CONFIG, gitVersion);
   }
 }

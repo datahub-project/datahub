@@ -6,9 +6,9 @@ import pathlib
 import re
 import time
 from datetime import datetime
-from itertools import groupby
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -43,6 +43,9 @@ from datahub.ingestion.source.aws.s3_util import (
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.data_lake_common.object_store import (
+    create_object_store_adapter,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import FolderTraversalMethod
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -72,7 +75,11 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import Bucket
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -193,12 +200,59 @@ class S3Source(StatefulIngestionSourceBase):
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
+    object_store_adapter: Any
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
+        self.container_WU_creator = ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+        )
+
+        # Create an object store adapter for handling external URLs and paths
+        if self.is_s3_platform():
+            # Get the AWS region from config, if available
+            aws_region = None
+            if self.source_config.aws_config:
+                aws_region = self.source_config.aws_config.aws_region
+
+                # For backward compatibility with tests: if we're using a test endpoint, use us-east-1
+                if self.source_config.aws_config.aws_endpoint_url and (
+                    "localstack"
+                    in self.source_config.aws_config.aws_endpoint_url.lower()
+                    or "storage.googleapis.com"
+                    in self.source_config.aws_config.aws_endpoint_url.lower()
+                ):
+                    aws_region = "us-east-1"
+
+            # Create an S3 adapter with the configured region
+            self.object_store_adapter = create_object_store_adapter(
+                "s3", aws_region=aws_region
+            )
+
+            # Special handling for GCS via S3 (via boto compatibility layer)
+            if (
+                self.source_config.aws_config
+                and self.source_config.aws_config.aws_endpoint_url
+                and "storage.googleapis.com"
+                in self.source_config.aws_config.aws_endpoint_url.lower()
+            ):
+                # We need to preserve the S3-style paths but use GCS external URL generation
+                self.object_store_adapter = create_object_store_adapter("gcs")
+                # Override create_s3_path to maintain S3 compatibility
+                self.object_store_adapter.register_customization(
+                    "create_s3_path", lambda bucket, key: f"s3://{bucket}/{key}"
+                )
+        else:
+            # For local files, create a default adapter
+            self.object_store_adapter = create_object_store_adapter(
+                self.source_config.platform or "file"
+            )
+
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -224,7 +278,7 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
-        os.environ.setdefault("SPARK_VERSION", "3.3")
+        os.environ.setdefault("SPARK_VERSION", "3.5")
         spark_version = os.environ["SPARK_VERSION"]
 
         # Importing here to avoid Deequ dependency for non profiling use cases
@@ -601,6 +655,19 @@ class S3Source(StatefulIngestionSourceBase):
             maxPartition=max_partition_summary, minPartition=min_partition_summary
         )
 
+    def get_external_url(self, table_data: TableData) -> Optional[str]:
+        """
+        Get the external URL for a table using the configured object store adapter.
+
+        Args:
+            table_data: Table data containing path information
+
+        Returns:
+            An external URL or None if not applicable
+        """
+        # The adapter handles all the URL generation with proper region handling
+        return self.object_store_adapter.get_external_url(table_data)
+
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
@@ -670,6 +737,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if max_partition
                 else None
             ),
+            externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
@@ -804,7 +872,6 @@ class S3Source(StatefulIngestionSourceBase):
         protocol: str,
         min: bool = False,
     ) -> List[str]:
-
         # if len(path_spec.include.split("/")) == len(f"{protocol}{bucket_name}/{folder}".split("/")):
         #    return [f"{protocol}{bucket_name}/{folder}"]
 
@@ -831,7 +898,7 @@ class S3Source(StatefulIngestionSourceBase):
                         min=min,
                     )
                     folders.extend(folders_list)
-                    if not path_spec.traversal_method == FolderTraversalMethod.ALL:
+                    if path_spec.traversal_method != FolderTraversalMethod.ALL:
                         return folders
             if folders:
                 return folders
@@ -842,9 +909,9 @@ class S3Source(StatefulIngestionSourceBase):
     def get_folder_info(
         self,
         path_spec: PathSpec,
-        bucket: Any,  # Todo: proper type
+        bucket: "Bucket",
         prefix: str,
-    ) -> List[Folder]:
+    ) -> Iterable[Folder]:
         """
         Retrieves all the folders in a path by listing all the files in the prefix.
         If the prefix is a full path then only that folder will be extracted.
@@ -857,61 +924,46 @@ class S3Source(StatefulIngestionSourceBase):
 
         Parameters:
         path_spec (PathSpec): The path specification used to determine partitioning.
-        bucket (Any): The S3 bucket object.
+        bucket (Bucket): The S3 bucket object.
         prefix (str): The prefix path in the S3 bucket to list objects from.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
 
-        prefix_to_list = prefix
-        files = list(
-            bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
+        def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
+            allowed = path_spec_.allowed(s3_uri)
+            if not allowed:
+                logger.debug(f"File {s3_uri} not allowed and skipping")
+                self.report.report_file_dropped(s3_uri)
+            return allowed
+
+        s3_objects = (
+            obj
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+            if _is_allowed_path(
+                path_spec, self.create_s3_path(obj.bucket_name, obj.key)
+            )
         )
-        files = sorted(files, key=lambda a: a.last_modified)
-        grouped_files = groupby(files, lambda x: x.key.rsplit("/", 1)[0])
+        grouped_s3_objects_by_dirname = groupby_unsorted(
+            s3_objects,
+            key=lambda obj: obj.key.rsplit("/", 1)[0],
+        )
+        for _, group in grouped_s3_objects_by_dirname:
+            max_file = max(group, key=lambda x: x.last_modified)
+            max_file_s3_path = self.create_s3_path(max_file.bucket_name, max_file.key)
 
-        partitions: List[Folder] = []
-        for key, group in grouped_files:
-            file_size = 0
-            creation_time = None
-            modification_time = None
+            # If partition_id is None, it means the folder is not a partition
+            partition_id = path_spec.get_partition_from_path(max_file_s3_path)
 
-            for item in group:
-                file_path = self.create_s3_path(item.bucket_name, item.key)
-                if not path_spec.allowed(file_path):
-                    logger.debug(f"File {file_path} not allowed and skipping")
-                    continue
-                file_size += item.size
-                if creation_time is None or item.last_modified < creation_time:
-                    creation_time = item.last_modified
-                if modification_time is None or item.last_modified > modification_time:
-                    modification_time = item.last_modified
-                    max_file = item
-
-            if modification_time is None:
-                logger.warning(
-                    f"Unable to find any files in the folder {key}. Skipping..."
-                )
-                continue
-
-            id = path_spec.get_partition_from_path(
-                self.create_s3_path(max_file.bucket_name, max_file.key)
+            yield Folder(
+                partition_id=partition_id,
+                is_partition=bool(partition_id),
+                creation_time=min(obj.last_modified for obj in group),
+                modification_time=max_file.last_modified,
+                sample_file=max_file_s3_path,
+                size=sum(obj.size for obj in group),
             )
-
-            # If id is None, it means the folder is not a partition
-            partitions.append(
-                Folder(
-                    partition_id=id,
-                    is_partition=bool(id),
-                    creation_time=creation_time if creation_time else None,
-                    modification_time=modification_time,
-                    sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
-                    size=file_size,
-                )
-            )
-
-        return partitions
 
     def s3_browser(self, path_spec: PathSpec, sample_size: int) -> Iterable[BrowsePath]:
         if self.source_config.aws_config is None:
@@ -957,6 +1009,17 @@ class S3Source(StatefulIngestionSourceBase):
                     for f in list_folders(
                         bucket_name, f"{folder}", self.source_config.aws_config
                     ):
+                        table_path = self.create_s3_path(bucket_name, f)
+                        table_name, _ = path_spec.extract_table_name_and_path(
+                            table_path
+                        )
+                        if not path_spec.tables_filter_pattern.allowed(table_name):
+                            logger.debug(
+                                f"Table '{table_name}' not allowed and skipping"
+                            )
+                            self.report.report_file_dropped(table_path)
+                            continue
+
                         dirs_to_process = []
                         logger.info(f"Processing folder: {f}")
                         if path_spec.traversal_method == FolderTraversalMethod.ALL:
@@ -991,12 +1054,10 @@ class S3Source(StatefulIngestionSourceBase):
                                     min=True,
                                 )
                                 dirs_to_process.append(dirs_to_process_min[0])
-                        folders = []
+                        folders: List[Folder] = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = dir.rstrip("\\").lstrip(
-                                self.create_s3_path(bucket_name, "/")
-                            )
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
 
                             folders.extend(
                                 self.get_folder_info(
@@ -1085,11 +1146,6 @@ class S3Source(StatefulIngestionSourceBase):
                     )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-        )
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
@@ -1130,7 +1186,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():

@@ -6,6 +6,8 @@ import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.MA
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -59,7 +61,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformFilterForEntitiesNoChange() {
     Criterion c =
-        buildCriterion("tags.keyword", Condition.EQUAL, "urn:ki:tag:abc", "urn:li:tag:def");
+        buildCriterion("tags.keyword", Condition.EQUAL, "urn:li:tag:abc", "urn:li:tag:def");
 
     Filter f =
         new Filter()
@@ -199,9 +201,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -290,9 +293,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(
@@ -436,7 +440,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
                 null,
                 null,
                 10,
-                null);
+                List.of());
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");

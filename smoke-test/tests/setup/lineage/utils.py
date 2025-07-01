@@ -24,7 +24,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     UpstreamClass,
 )
-
 from tests.setup.lineage.constants import (
     DATA_FLOW_ENTITY_TYPE,
     DATA_FLOW_INFO_ASPECT_NAME,

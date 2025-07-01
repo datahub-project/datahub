@@ -675,9 +675,30 @@ public class OpenLineageToDataHub {
     datahubJob.setJobInfo(dji);
     DataJobInputOutput inputOutput = new DataJobInputOutput();
 
+    boolean inputsEqualOutputs = false;
+    if ((datahubConf.isSpark())
+        && ((event.getInputs() != null && event.getOutputs() != null)
+            && (event.getInputs().size() == event.getOutputs().size()))) {
+      inputsEqualOutputs =
+          event.getInputs().stream()
+              .map(OpenLineage.Dataset::getName)
+              .collect(Collectors.toSet())
+              .equals(
+                  event.getOutputs().stream()
+                      .map(OpenLineage.Dataset::getName)
+                      .collect(Collectors.toSet()));
+      if (inputsEqualOutputs) {
+        log.info(
+            "Inputs equals Outputs: {}. This is most probably because of an rdd map operation and we only process Inputs",
+            inputsEqualOutputs);
+      }
+    }
+
     processJobInputs(datahubJob, event, datahubConf);
 
-    processJobOutputs(datahubJob, event, datahubConf);
+    if (!inputsEqualOutputs) {
+      processJobOutputs(datahubJob, event, datahubConf);
+    }
 
     DataProcessInstanceRunEvent dpire = processDataProcessInstanceResult(event);
     datahubJob.setDataProcessInstanceRunEvent(dpire);

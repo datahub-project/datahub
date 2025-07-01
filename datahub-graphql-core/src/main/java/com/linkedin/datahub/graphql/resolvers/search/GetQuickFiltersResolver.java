@@ -108,8 +108,7 @@ public class GetQuickFiltersResolver
             : null,
         0,
         0,
-        Collections.emptyList(),
-        null);
+        Collections.emptyList());
   }
 
   /**

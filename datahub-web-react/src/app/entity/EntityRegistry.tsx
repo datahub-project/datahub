@@ -1,12 +1,15 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
-import { FetchedEntity } from '../lineage/types';
-import { SearchResultProvider } from '../search/context/SearchResultContext';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
-import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
-import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
-import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import PreviewContext from '@app/entity/shared/PreviewContext';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { EntitySidebarSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entity/shared/utils';
+import { FetchedEntity } from '@app/lineage/types';
+import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -27,11 +30,14 @@ export default class EntityRegistry {
 
     pathNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
 
+    graphNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
     register(entity: Entity<any>) {
         this.entities.push(entity);
         this.entityTypeToEntity.set(entity.type, entity);
         this.collectionNameToEntityType.set(entity.getCollectionName(), entity.type);
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
+        this.graphNameToEntityType.set(entity.getGraphName(), entity.type);
     }
 
     getEntity(type: EntityType): Entity<any> {
@@ -142,13 +148,29 @@ export default class EntityRegistry {
 
     renderPreview<T>(entityType: EntityType, type: PreviewType, data: T): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity);
-        return entity.renderPreview(type, data);
+        const genericEntityData = entity.getGenericEntityProperties(data);
+        return (
+            <PreviewContext.Provider value={genericEntityData}>
+                {entity.renderPreview(type, data)}
+            </PreviewContext.Provider>
+        );
     }
 
-    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
+    renderSearchResult(
+        type: EntityType,
+        searchResult: SearchResult,
+        previewType?: PreviewType,
+        onCardClick?: (any: any) => any,
+    ): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
+        const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
+
         return (
-            <SearchResultProvider searchResult={searchResult}>{entity.renderSearch(searchResult)}</SearchResultProvider>
+            <SearchResultProvider searchResult={searchResult}>
+                <PreviewContext.Provider value={genericEntityData}>
+                    {entity.renderSearch(searchResult, previewType, onCardClick)}
+                </PreviewContext.Provider>
+            </SearchResultProvider>
         );
     }
 
@@ -202,9 +224,11 @@ export default class EntityRegistry {
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages,
                 siblings: genericEntityProperties?.siblings,
+                siblingsSearch: genericEntityProperties?.siblingsSearch,
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
                 inputFields: genericEntityProperties?.inputFields,
                 canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
+                structuredProperties: genericEntityProperties?.structuredProperties,
             } as FetchedEntity) || undefined
         );
     }
@@ -239,6 +263,14 @@ export default class EntityRegistry {
 
     getCustomCardUrlPath(type: EntityType): string | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.getCustomCardUrlPath?.();
+        return entity.getCustomCardUrlPath?.() as string | undefined;
+    }
+
+    getTypeFromGraphName(name: string): EntityType | undefined {
+        return this.graphNameToEntityType.get(name);
+    }
+
+    getGraphNameFromType(type: EntityType): string {
+        return validatedGet(type, this.entityTypeToEntity).getGraphName();
     }
 }

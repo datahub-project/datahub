@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableEditableProperties;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -76,7 +78,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     mappingHelper.mapToResult(ML_FEATURE_TABLE_KEY_ASPECT_NAME, this::mapMLFeatureTableKey);
     mappingHelper.mapToResult(
         ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
-        (entity, dataMap) -> this.mapMLFeatureTableProperties(context, entity, dataMap, entityUrn));
+        (entity, dataMap) -> mapMLFeatureTableProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
@@ -117,11 +119,15 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlFeatureTable, dataMap) ->
             mlFeatureTable.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlFeatureTable, dataMap) -> mapApplicationAssociation(context, mlFeatureTable, dataMap));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeatureTable.class);
@@ -145,10 +151,10 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       @Nonnull DataMap dataMap,
       Urn entityUrn) {
     MLFeatureTableProperties featureTableProperties = new MLFeatureTableProperties(dataMap);
-    mlFeatureTable.setFeatureTableProperties(
-        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
-    mlFeatureTable.setProperties(
-        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
+    com.linkedin.datahub.graphql.generated.MLFeatureTableProperties graphqlProperties =
+        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn);
+    mlFeatureTable.setFeatureTableProperties(graphqlProperties);
+    mlFeatureTable.setProperties(graphqlProperties);
     mlFeatureTable.setDescription(featureTableProperties.getDescription());
   }
 
@@ -176,5 +182,14 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull MLFeatureTable mlFeatureTable,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlFeatureTable.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlFeatureTable.getUrn()));
   }
 }

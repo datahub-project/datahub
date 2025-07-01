@@ -283,7 +283,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         Map.of(
             "dataset", 13,
             "chart", 0,
-            "container", 1,
+            "container", 2,
             "dashboard", 0,
             "tag", 0,
             "mlmodel", 0);
@@ -904,6 +904,26 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testContainerAutoComplete_with_exactMatch_onTop() {
+    List.of("container")
+        .forEach(
+            query -> {
+              try {
+                AutoCompleteResults result =
+                    autocomplete(
+                        getOperationContext(), new ContainerType(getEntityClient()), query);
+                assertTrue(
+                    result.getSuggestions().get(0).equals("container"),
+                    String.format(
+                        "Expected query:`%s` on top of suggestions, found %s",
+                        query, result.getSuggestions().get(0)));
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  @Test
   public void testGroupAutoComplete() {
     List.of("T", "Te", "Tes", "Test ", "Test G", "Test Gro", "Test Group ")
         .forEach(
@@ -1059,7 +1079,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testFacets() {
+  public void testSearchFacets() {
     Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
     SearchResult testResult =
         searchAcrossEntities(getOperationContext(), getSearchService(), "cypress");
@@ -1102,11 +1122,55 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testScrollFacets() {
+    Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
+    ScrollResult testResult =
+        scrollAcrossEntities(getOperationContext(), getSearchService(), "cypress");
+    expectedFacets.forEach(
+        facet -> {
+          assertTrue(
+              testResult.getMetadata().getAggregations().stream()
+                  .anyMatch(agg -> agg.getName().equals(facet)),
+              String.format(
+                  "Failed to find facet `%s` in %s",
+                  facet,
+                  testResult.getMetadata().getAggregations().stream()
+                      .map(AggregationMetadata::getName)
+                      .collect(Collectors.toList())));
+        });
+    AggregationMetadata entityAggMeta =
+        testResult.getMetadata().getAggregations().stream()
+            .filter(aggMeta -> aggMeta.getName().equals("entity"))
+            .findFirst()
+            .get();
+    Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+    expectedEntityTypeCounts.put("container", 0L);
+    expectedEntityTypeCounts.put("corpuser", 0L);
+    expectedEntityTypeCounts.put("corpgroup", 0L);
+    expectedEntityTypeCounts.put("mlmodel", 0L);
+    expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+    expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+    expectedEntityTypeCounts.put("dataflow", 1L);
+    expectedEntityTypeCounts.put("glossarynode", 1L);
+    expectedEntityTypeCounts.put("mlfeature", 0L);
+    expectedEntityTypeCounts.put("datajob", 2L);
+    expectedEntityTypeCounts.put("domain", 0L);
+    expectedEntityTypeCounts.put("tag", 0L);
+    expectedEntityTypeCounts.put("glossaryterm", 2L);
+    expectedEntityTypeCounts.put("mlprimarykey", 1L);
+    expectedEntityTypeCounts.put("dataset", 9L);
+    expectedEntityTypeCounts.put("chart", 0L);
+    expectedEntityTypeCounts.put("dashboard", 0L);
+    assertEquals(entityAggMeta.getAggregations(), expectedEntityTypeCounts);
+  }
+
+  @Test
   public void testNestedAggregation() {
     Set<String> expectedFacets = Set.of("platform");
+    OperationContext context =
+        getOperationContext().withSearchFlags(flags -> flags.setIncludeDefaultFacets(false));
     SearchResult testResult =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult.getMetadata().getAggregations().size(), 1);
     expectedFacets.forEach(
         facet -> {
@@ -1123,8 +1187,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
     SearchResult testResult2 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1171,8 +1234,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "entity");
     SearchResult testResult3 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult3.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1202,8 +1264,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
     expectedFacets = Set.of(singleNestedFacet);
     SearchResult testResultSingleNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
     Map<String, Long> expectedNestedFacetCounts = new HashMap<>();
     expectedNestedFacetCounts.put("datajob␞urn:li:corpuser:datahub", 2L);
@@ -1225,8 +1286,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
     SearchResult testResultNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1347,8 +1407,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
-    // expect 2 total matching results
-    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
+    // expect 8 total matching results
+    assertEquals(totalResults, 8, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
@@ -1725,7 +1785,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -1756,7 +1816,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -2009,7 +2069,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testSortOrdering() {
+  public void testSearchSortOrdering() {
     String query = "unit_data";
     SortCriterion criterion =
         new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
@@ -2025,6 +2085,28 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 0,
                 100,
                 null);
+    assertTrue(
+        result.getEntities().size() > 2,
+        String.format("%s - Expected search results to have at least two results", query));
+  }
+
+  @Test
+  public void testScrollSortOrdering() {
+    String query = "unit_data";
+    SortCriterion criterion =
+        new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
+    ScrollResult result =
+        getSearchService()
+            .scrollAcrossEntities(
+                getOperationContext()
+                    .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+                SEARCHABLE_ENTITIES,
+                query,
+                null,
+                Collections.singletonList(criterion),
+                null,
+                null,
+                100);
     assertTrue(
         result.getEntities().size() > 2,
         String.format("%s - Expected search results to have at least two results", query));

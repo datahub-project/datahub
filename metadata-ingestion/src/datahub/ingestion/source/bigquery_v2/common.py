@@ -63,7 +63,7 @@ class BigQueryIdentifierBuilder:
         )
 
     def gen_user_urn(self, user_email: str) -> str:
-        return make_user_urn(user_email.split("@")[0])
+        return make_user_urn(user_email)
 
     def make_data_platform_urn(self) -> str:
         return make_data_platform_urn(self.platform)
@@ -73,6 +73,13 @@ class BigQueryIdentifierBuilder:
             make_dataplatform_instance_urn(self.platform, project_id)
             if self.identifier_config.include_data_platform_instance
             else None
+        )
+
+    def standardize_identifier_case(self, table_ref_str: str) -> str:
+        return (
+            table_ref_str.lower()
+            if self.identifier_config.convert_urns_to_lowercase
+            else table_ref_str
         )
 
 

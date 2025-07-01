@@ -1,13 +1,17 @@
+from unittest import mock
+
 import pytest
 from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.gcs.gcs_source import GCSSource
 
 
 def test_gcs_source_setup():
-    ctx = PipelineContext(run_id="test-gcs")
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
 
     # Baseline: valid config
     source: dict = {
@@ -18,6 +22,7 @@ def test_gcs_source_setup():
             }
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        "stateful_ingestion": {"enabled": "true"},
     }
     gcs = GCSSource.create(source, ctx)
     assert gcs.s3_source.source_config.platform == PLATFORM_GCS
@@ -25,7 +30,7 @@ def test_gcs_source_setup():
         gcs.s3_source.create_s3_path(
             "bucket-name", "food_parquet/year%3D2023/month%3D4/day%3D24/part1.parquet"
         )
-        == "s3://bucket-name/food_parquet/year=2023/month=4/day=24/part1.parquet"
+        == "gs://bucket-name/food_parquet/year=2023/month=4/day=24/part1.parquet"
     )
 
 

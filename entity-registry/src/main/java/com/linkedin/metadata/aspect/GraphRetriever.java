@@ -4,7 +4,9 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,15 +32,15 @@ public interface GraphRetriever {
    */
   @Nonnull
   RelatedEntitiesScrollResult scrollRelatedEntities(
-      @Nullable List<String> sourceTypes,
+      @Nullable Set<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
+      @Nullable Set<String> destinationTypes,
       @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
+      @Nonnull Set<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
 
@@ -59,14 +61,14 @@ public interface GraphRetriever {
    */
   default void consumeRelatedEntities(
       @Nonnull Function<RelatedEntitiesScrollResult, Boolean> consumer,
-      @Nullable List<String> sourceTypes,
+      @Nullable Set<String> sourceTypes,
       @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
+      @Nullable Set<String> destinationTypes,
       @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
+      @Nonnull Set<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
@@ -95,6 +97,28 @@ public interface GraphRetriever {
       } else {
         scrollId = result.getScrollId();
       }
+    }
+  }
+
+  GraphRetriever EMPTY = new EmptyGraphRetriever();
+
+  class EmptyGraphRetriever implements GraphRetriever {
+
+    @Nonnull
+    @Override
+    public RelatedEntitiesScrollResult scrollRelatedEntities(
+        @Nullable Set<String> sourceTypes,
+        @Nonnull Filter sourceEntityFilter,
+        @Nullable Set<String> destinationTypes,
+        @Nonnull Filter destinationEntityFilter,
+        @Nonnull Set<String> relationshipTypes,
+        @Nonnull RelationshipFilter relationshipFilter,
+        @Nonnull List<SortCriterion> sortCriterion,
+        @Nullable String scrollId,
+        @Nullable Integer count,
+        @Nullable Long startTimeMillis,
+        @Nullable Long endTimeMillis) {
+      return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());
     }
   }
 }

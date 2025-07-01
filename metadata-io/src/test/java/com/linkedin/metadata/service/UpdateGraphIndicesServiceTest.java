@@ -1,6 +1,10 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
+import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -8,19 +12,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.testng.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.container.Container;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.entity.TestEntityRegistry;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -29,6 +44,8 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Set;
+import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.script.Script;
@@ -179,5 +196,98 @@ public class UpdateGraphIndicesServiceTest {
             .setAspect(statusAspect));
 
     verifyNoInteractions(mockWriteDAO);
+  }
+
+  @Test
+  public void testMissingAspectGraphDelete() {
+    // Test deleting a null aspect
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.DELETE)
+            .setEntityType(TEST_URN.getEntityType())
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.CONTAINER_ASPECT_NAME));
+
+    // For missing aspects, verify no writes
+    verifyNoInteractions(mockWriteDAO);
+  }
+
+  @Test
+  public void testNodeGraphDelete() {
+    Urn containerUrn = UrnUtils.getUrn("urn:li:container:foo");
+
+    // Test deleting container entity
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.DELETE)
+            .setEntityType(CONTAINER_ENTITY_NAME)
+            .setEntityUrn(containerUrn)
+            .setAspectName(Constants.CONTAINER_KEY_ASPECT_NAME));
+
+    // Delete all outgoing edges of this entity
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(containerUrn),
+                    Set.of(),
+                    new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING))));
+
+    // Delete all incoming edges of this entity
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(containerUrn),
+                    Set.of(),
+                    new RelationshipFilter().setDirection(RelationshipDirection.INCOMING))));
+
+    // Delete all edges where this entity is a lifecycle owner
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(eq(TEST_OP_CONTEXT), eq(GraphFilters.ALL), eq(containerUrn.toString()));
+  }
+
+  @Test
+  public void testContainerDelete() {
+    Urn containerUrn = UrnUtils.getUrn("urn:li:container:foo");
+
+    // Test deleting a container aspect
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.DELETE)
+            .setEntityType(TEST_URN.getEntityType())
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.CONTAINER_ASPECT_NAME)
+            .setPreviousAspectValue(
+                GenericRecordUtils.serializeAspect(new Container().setContainer(containerUrn))));
+
+    // For container aspects, verify that only edges are removed in both cases
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(TEST_URN),
+                    Set.of("IsPartOf"),
+                    createRelationshipFilter(
+                        new Filter().setOr(new ConjunctiveCriterionArray()),
+                        RelationshipDirection.OUTGOING))));
+  }
+
+  private static Filter createUrnFilter(@Nonnull final Urn urn) {
+    Filter filter = new Filter();
+    CriterionArray criterionArray = new CriterionArray();
+    Criterion criterion = buildCriterion("urn", Condition.EQUAL, urn.toString());
+    criterionArray.add(criterion);
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+
+    return filter;
   }
 }

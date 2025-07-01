@@ -10,6 +10,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -622,6 +623,9 @@ public class PatchTest {
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
               .addChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboartTool, chartId)"))
+              .addDashboard(
+                  DashboardUrn.createFromString(
+                      "urn:li:dashboard:(dashboardTool, childDashboardId)"))
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
 
@@ -644,6 +648,9 @@ public class PatchTest {
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleHiveDataset,PROD)"))
               .removeChartEdge(ChartUrn.createFromString("urn:li:chart:(dashboardTool, chartId)"))
+              .removeDashboard(
+                  DashboardUrn.createFromString(
+                      "urn:li:dashboard:(dashboardTool, childDashboardId)"))
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(dashboardInfoPatch);
 

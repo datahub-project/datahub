@@ -1,12 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Table } from 'antd';
 import { SpinProps } from 'antd/es/spin';
-import { LoadingOutlined } from '@ant-design/icons';
-import { useBaseEntity } from '../../../EntityContext';
-import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
-import { handleAccessRoles } from './utils';
-import AccessManagerDescription from './AccessManagerDescription';
+import React from 'react';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import AccessManagerDescription from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
+import { handleAccessRoles } from '@app/entity/shared/tabs/Dataset/AccessManagement/utils';
+
+import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
@@ -60,11 +62,12 @@ const AccessButton = styled(Button)`
 `;
 
 export default function AccessManagement() {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { entityData } = useEntityData();
+    const entityUrn = (entityData as any)?.urn;
 
     const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string },
-        skip: !baseEntity?.dataset?.urn,
+        variables: { urn: entityUrn as string },
+        skip: !entityUrn,
     });
 
     const columns = [

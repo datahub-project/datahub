@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLFeatureEditableProperties;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -75,7 +77,8 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
             mlFeature.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
-        context, ML_FEATURE_PROPERTIES_ASPECT_NAME, MLFeatureMapper::mapMLFeatureProperties);
+        ML_FEATURE_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) -> mapMLFeatureProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (mlFeature, dataMap) ->
@@ -115,11 +118,15 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlFeature, dataMap) ->
             mlFeature.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlFeature, dataMap) -> mapApplicationAssociation(context, mlFeature, dataMap));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeature.class);
@@ -137,10 +144,13 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
   private static void mapMLFeatureProperties(
       @Nullable final QueryContext context,
       @Nonnull MLFeature mlFeature,
-      @Nonnull DataMap dataMap) {
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     MLFeatureProperties featureProperties = new MLFeatureProperties(dataMap);
-    mlFeature.setFeatureProperties(MLFeaturePropertiesMapper.map(context, featureProperties));
-    mlFeature.setProperties(MLFeaturePropertiesMapper.map(context, featureProperties));
+    com.linkedin.datahub.graphql.generated.MLFeatureProperties graphqlProperties =
+        MLFeaturePropertiesMapper.map(context, featureProperties, entityUrn);
+    mlFeature.setFeatureProperties(graphqlProperties);
+    mlFeature.setProperties(graphqlProperties);
     mlFeature.setDescription(featureProperties.getDescription());
     if (featureProperties.getDataType() != null) {
       mlFeature.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
@@ -169,5 +179,14 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull MLFeature mlFeature,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlFeature.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlFeature.getUrn()));
   }
 }

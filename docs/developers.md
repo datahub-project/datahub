@@ -9,7 +9,9 @@ title: "Local Development"
 - [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
 - [Python 3.10](https://www.python.org/downloads/release/python-3100/)
 - [Docker](https://www.docker.com/)
+- [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
+- [Yarn >=v1.22](https://yarnpkg.com/en/docs/cli/) for documentation building
 - Docker engine with at least 8GB of memory to run tests.
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
@@ -78,34 +80,100 @@ We suggest partially compiling DataHub according to your needs:
 
 ## Deploying Local Versions
 
-Run just once to have the local `datahub` cli tool installed in your $PATH
+This guide explains how to set up and deploy DataHub locally for development purposes.
+
+### Initial Setup
+
+Before you begin, you'll need to install the local `datahub` CLI tool:
 
 ```shell
-cd smoke-test/
+cd metadata-ingestion/
 python3 -m venv venv
 source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
 cd ../
 ```
 
-Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
+### Deploying the Full Stack
+
+Deploy the entire system using docker-compose:
 
 ```shell
-./gradlew quickstart
+./gradlew quickstartDebug
 ```
 
-Replace whatever container you want in the existing deployment.
-I.e, replacing datahub's backend (GMS):
+Access the DataHub UI at `http://localhost:9002`
+
+### Refreshing the Frontend
+
+To run and update the frontend with local changes, open a new terminal and run:
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
+cd datahub-web-react
+yarn install && yarn start
 ```
 
-Running the local version of the frontend
+The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
+
+### Refreshing components of quickStart
+
+To refresh any of the running system stared by `./gradlew quickStartDebug`, run
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
+./gradlew debugReload
+```
+
+This will build any changed components and restart those containers that had changes.
+There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+
+For each of those variants, there is a corresponding reloadTask.
+
+For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+
+A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+For incremental changes, the `debugReload*` variants can be used.
+
+### Using .env to configure settings of services started by quickstart
+
+To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.
+For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+```
+
+To refresh the containers due to code changes, `debugReload` task can be used.
+To change the env and reload containers, use the task `debugReloadEnv`
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew debugReloadEnv
+```
+
+This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
+
+### Refreshing the CLI
+
+If you haven't set up the CLI for local development yet, run:
+
+```commandline
+./gradlew :metadata-ingestion:installDev
+cd metadata-ingestion
+source venv/bin/activate
+```
+
+Once you're in `venv`, your local changes will be reflected automatically.
+For example, you can run `datahub ingest -c <file>` to test local changes in ingestion connectors.
+
+To verify that you're using the local version, run:
+
+```commandline
+datahub --version
+```
+
+Expected Output:
+
+```commandline
+acryl-datahub, version unavailable (installed in develop mode)
 ```
 
 ## IDE Support
@@ -172,8 +240,7 @@ This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-
 
 #### `:buildSrc:compileJava` task fails with `package com.linkedin.metadata.models.registry.config does not exist` and `cannot find symbol` error for `Entity`
 
-There are currently two symbolic links within the [buildSrc](https://github.com/datahub-project/datahub/tree/master/buildSrc) directory for the [com.linkedin.metadata.aspect.plugins.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config) and [com.linkedin.metadata.models.registry.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/models/registry/config
-) packages, which points to the corresponding packages in the [entity-registry](https://github.com/datahub-project/datahub/tree/master/entity-registry) subproject.
+There are currently two symbolic links within the [buildSrc](https://github.com/datahub-project/datahub/tree/master/buildSrc) directory for the [com.linkedin.metadata.aspect.plugins.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config) and [com.linkedin.metadata.models.registry.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/models/registry/config) packages, which points to the corresponding packages in the [entity-registry](https://github.com/datahub-project/datahub/tree/master/entity-registry) subproject.
 
 When the repository is checked out using Windows 10/11 - even if WSL is later used for building using the mounted Windows filesystem in `/mnt/` - the symbolic links might have not been created correctly, instead the symbolic links were checked out as plain files. Although it is technically possible to use the mounted Windows filesystem in `/mnt/` for building in WSL, it is **strongly recommended** to checkout the repository within the Linux filesystem (e.g., in `/home/`) and building it from there, because accessing the Windows filesystem from Linux is relatively slow compared to the Linux filesystem and slows down the whole building process.
 

@@ -1,21 +1,24 @@
-import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
-import ModelGroupModels from './profile/ModelGroupModels';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/mlModelGroup/preview/Preview';
+import ModelGroupModels from '@app/entity/mlModelGroup/profile/ModelGroupModels';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
+import { useGetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
+import { EntityType, MlModelGroup, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -49,6 +52,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'mlModelGroup';
 
     getPathName = () => 'mlModelGroup';
 
@@ -84,6 +89,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
@@ -125,7 +133,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     getLineageVizConfig = (entity: MlModelGroup) => {
         return {
             urn: entity.urn,
-            name: entity.name,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            name: entity.properties?.['propertiesName'] || entity.name,
             type: EntityType.MlmodelGroup,
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform,
@@ -133,7 +142,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     };
 
     displayName = (data: MlModelGroup) => {
-        return data.name || data.urn;
+        return data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {

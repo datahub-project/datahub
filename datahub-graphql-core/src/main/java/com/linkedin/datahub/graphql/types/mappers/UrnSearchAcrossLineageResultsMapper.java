@@ -7,6 +7,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FreshnessStats;
+import com.linkedin.datahub.graphql.generated.LineageSearchPath;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SystemFreshness;
@@ -53,6 +54,9 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
                           .build())
               .collect(Collectors.toList()));
       result.setFreshness(outputFreshness);
+    }
+    if (input.getLineageSearchPath() != null) {
+      result.setLineageSearchPath(LineageSearchPath.valueOf(input.getLineageSearchPath().name()));
     }
     return result;
   }

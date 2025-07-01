@@ -18,12 +18,12 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -56,8 +56,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -97,7 +98,7 @@ public class JavaEntityClient implements EntityClient {
   private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
-  private final int batchGetV2Size;
+  private final EntityClientConfig entityClientConfig;
 
   @Override
   @Nullable
@@ -105,11 +106,17 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntityV2(opContext, entityName, urn, projectedAspects);
+    return entityService.getEntityV2(
+        opContext,
+        entityName,
+        urn,
+        projectedAspects,
+        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
   }
 
   @Override
@@ -125,20 +132,25 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
-      @Nullable Set<String> aspectNames)
+      @Nullable Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(urns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(urns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
                 responseMap.putAll(
                     entityService.getEntitiesV2(
-                        opContext, entityName, new HashSet<>(batch), projectedAspects));
+                        opContext,
+                        entityName,
+                        new HashSet<>(batch),
+                        projectedAspects,
+                        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect));
               } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
               }
@@ -159,7 +171,8 @@ public class JavaEntityClient implements EntityClient {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(versionedUrns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(
+            versionedUrns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
@@ -199,7 +212,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
@@ -222,7 +235,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
         opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
@@ -245,7 +258,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     return ValidationUtils.validateBrowseResult(
         opContext,
@@ -273,7 +286,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     // TODO: cache browseV2 results
     return entitySearchService.browseV2(opContext, entityName, path, filter, input, start, count);
   }
@@ -297,7 +310,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     // TODO: cache browseV2 results
     return entitySearchService.browseV2(opContext, entityNames, path, filter, input, start, count);
   }
@@ -370,7 +383,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -404,7 +417,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateListResult(
         opContext,
@@ -438,28 +451,13 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
         entitySearchService.search(
             opContext, List.of(entity), input, filter, sortCriteria, start, count),
         entityService);
-  }
-
-  @Override
-  @Nonnull
-  public SearchResult searchAcrossEntities(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      int start,
-      int count,
-      List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException {
-    return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
   }
 
   /**
@@ -482,9 +480,9 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets)
+      @Nonnull List<String> facets)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -510,7 +508,9 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer count,
+      @Nullable List<String> facets)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateScrollResult(
@@ -520,10 +520,11 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
-            count),
+            count,
+            facets),
         entityService);
   }
 
@@ -538,7 +539,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateLineageSearchResult(
         opContext,
@@ -569,7 +570,7 @@ public class JavaEntityClient implements EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateLineageScrollResult(
@@ -627,7 +628,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return entityService.listUrns(opContext, entityName, start, count);
   }
@@ -654,7 +655,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
@@ -760,42 +761,63 @@ public class JavaEntityClient implements EntityClient {
             : Constants.UNKNOWN_ACTOR;
     final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
-    AspectsBatch batch =
-        AspectsBatchImpl.builder()
-            .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
-            .build();
+    List<String> updatedUrns = new ArrayList<>();
+    Iterators.partition(
+            metadataChangeProposals.iterator(),
+            Math.max(1, entityClientConfig.getBatchIngestSize()))
+        .forEachRemaining(
+            batch -> {
+              AspectsBatch aspectsBatch =
+                  AspectsBatchImpl.builder()
+                      .mcps(
+                          batch,
+                          auditStamp,
+                          opContext.getRetrieverContext(),
+                          opContext.getValidationContext().isAlternateValidation())
+                      .build(opContext);
 
-    Map<BatchItem, List<IngestResult>> resultMap =
-        entityService.ingestProposal(opContext, batch, async).stream()
-            .collect(Collectors.groupingBy(IngestResult::getRequest));
+              List<IngestResult> results =
+                  entityService.ingestProposal(opContext, aspectsBatch, async);
+              entitySearchService.appendRunId(opContext, results);
 
-    // Update runIds
-    batch.getItems().stream()
-        .filter(resultMap::containsKey)
-        .forEach(
-            requestItem -> {
-              List<IngestResult> results = resultMap.get(requestItem);
-              Optional<Urn> resultUrn =
-                  results.stream().map(IngestResult::getUrn).filter(Objects::nonNull).findFirst();
-              resultUrn.ifPresent(
-                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+              Map<Pair<Urn, String>, List<IngestResult>> resultMap =
+                  results.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              result ->
+                                  Pair.of(
+                                      result.getRequest().getUrn(),
+                                      result.getRequest().getAspectName())));
+
+              // Preserve ordering
+              updatedUrns.addAll(
+                  aspectsBatch.getItems().stream()
+                      .map(
+                          requestItem -> {
+                            // Urns generated
+                            List<Urn> urnsForRequest =
+                                resultMap
+                                    .getOrDefault(
+                                        Pair.of(requestItem.getUrn(), requestItem.getAspectName()),
+                                        List.of())
+                                    .stream()
+                                    .map(IngestResult::getUrn)
+                                    .filter(Objects::nonNull)
+                                    .distinct()
+                                    .collect(Collectors.toList());
+
+                            // Update runIds
+                            urnsForRequest.forEach(
+                                urn ->
+                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+
+                            return urnsForRequest.isEmpty()
+                                ? null
+                                : urnsForRequest.get(0).toString();
+                          })
+                      .collect(Collectors.toList()));
             });
-
-    // Preserve ordering
-    return batch.getItems().stream()
-        .map(
-            requestItem -> {
-              if (resultMap.containsKey(requestItem)) {
-                List<IngestResult> results = resultMap.get(requestItem);
-                return results.stream()
-                    .filter(r -> r.getUrn() != null)
-                    .findFirst()
-                    .map(r -> r.getUrn().toString())
-                    .orElse(null);
-              }
-              return null;
-            })
-        .collect(Collectors.toList());
+    return updatedUrns;
   }
 
   @SneakyThrows
@@ -861,8 +883,7 @@ public class JavaEntityClient implements EntityClient {
   private void tryIndexRunId(
       @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(
-          opContext, entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
     }
   }
 

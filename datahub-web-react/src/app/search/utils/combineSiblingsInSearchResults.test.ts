@@ -1,4 +1,4 @@
-import { combineSiblingsInSearchResults } from './combineSiblingsInSearchResults';
+import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
 
 const searchResultWithSiblings = [
     {
@@ -138,34 +138,44 @@ const searchResultWithSiblings = [
                 siblings: [
                     {
                         urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
-                        exists: true,
                         type: 'DATASET',
-                        platform: {
-                            urn: 'urn:li:dataPlatform:dbt',
-                            type: 'DATA_PLATFORM',
-                            name: 'dbt',
-                            properties: {
-                                type: 'OTHERS',
-                                displayName: 'dbt',
-                                datasetNameDelimiter: '.',
-                                logoUrl: '/assets/platforms/dbtlogo.png',
-                                __typename: 'DataPlatformProperties',
-                            },
-                            displayName: null,
-                            info: null,
-                            __typename: 'DataPlatform',
-                        },
-                        name: 'cypress_project.jaffle_shop.raw_orders',
-                        properties: {
-                            name: 'raw_orders',
-                            description: '',
-                            qualifiedName: null,
-                            __typename: 'DatasetProperties',
-                        },
-                        __typename: 'Dataset',
                     },
                 ],
                 __typename: 'SiblingProperties',
+            },
+            siblingsSearch: {
+                searchResults: [
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
+                            exists: true,
+                            type: 'DATASET',
+                            platform: {
+                                urn: 'urn:li:dataPlatform:dbt',
+                                type: 'DATA_PLATFORM',
+                                name: 'dbt',
+                                properties: {
+                                    type: 'OTHERS',
+                                    displayName: 'dbt',
+                                    datasetNameDelimiter: '.',
+                                    logoUrl: '/assets/platforms/dbtlogo.png',
+                                    __typename: 'DataPlatformProperties',
+                                },
+                                displayName: null,
+                                info: null,
+                                __typename: 'DataPlatform',
+                            },
+                            name: 'cypress_project.jaffle_shop.raw_orders',
+                            properties: {
+                                name: 'raw_orders',
+                                description: '',
+                                qualifiedName: null,
+                                __typename: 'DatasetProperties',
+                            },
+                            __typename: 'Dataset',
+                        },
+                    },
+                ],
             },
             __typename: 'Dataset',
         },
@@ -277,34 +287,44 @@ const searchResultWithSiblings = [
                 isPrimary: true,
                 siblings: [
                     {
-                        urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
+                        urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
                         type: 'DATASET',
-                        platform: {
-                            urn: 'urn:li:dataPlatform:bigquery',
-                            type: 'DATA_PLATFORM',
-                            name: 'bigquery',
-                            properties: {
-                                type: 'RELATIONAL_DB',
-                                displayName: 'BigQuery',
-                                datasetNameDelimiter: '.',
-                                logoUrl: '/assets/platforms/bigquerylogo.png',
-                                __typename: 'DataPlatformProperties',
-                            },
-                            displayName: null,
-                            info: null,
-                            __typename: 'DataPlatform',
-                        },
-                        name: 'cypress_project.jaffle_shop.raw_orders',
-                        properties: {
-                            name: 'raw_orders',
-                            description: null,
-                            qualifiedName: null,
-                            __typename: 'DatasetProperties',
-                        },
-                        __typename: 'Dataset',
                     },
                 ],
                 __typename: 'SiblingProperties',
+            },
+            siblingsSearch: {
+                searchResults: [
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
+                            type: 'DATASET',
+                            platform: {
+                                urn: 'urn:li:dataPlatform:bigquery',
+                                type: 'DATA_PLATFORM',
+                                name: 'bigquery',
+                                properties: {
+                                    type: 'RELATIONAL_DB',
+                                    displayName: 'BigQuery',
+                                    datasetNameDelimiter: '.',
+                                    logoUrl: '/assets/platforms/bigquerylogo.png',
+                                    __typename: 'DataPlatformProperties',
+                                },
+                                displayName: null,
+                                info: null,
+                                __typename: 'DataPlatform',
+                            },
+                            name: 'cypress_project.jaffle_shop.raw_orders',
+                            properties: {
+                                name: 'raw_orders',
+                                description: null,
+                                qualifiedName: null,
+                                __typename: 'DatasetProperties',
+                            },
+                            __typename: 'Dataset',
+                        },
+                    },
+                ],
             },
             __typename: 'Dataset',
         },
@@ -463,11 +483,21 @@ const searchResultWithGhostSiblings = [
                 siblings: [
                     {
                         urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
-                        exists: false,
                         type: 'DATASET',
                     },
                 ],
                 __typename: 'SiblingProperties',
+            },
+            siblingsSearch: {
+                searchResults: [
+                    {
+                        entity: {
+                            urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
+                            exists: false,
+                            type: 'DATASET',
+                        },
+                    },
+                ],
             },
             __typename: 'Dataset',
         },

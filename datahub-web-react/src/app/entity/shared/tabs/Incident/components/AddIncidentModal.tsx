@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
-import TextArea from 'antd/lib/input/TextArea';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
-import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
-import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useUserContext } from '../../../../../context/useUserContext';
+import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import {
+    INCIDENT_DISPLAY_TYPES,
+    PAGE_SIZE,
+    addActiveIncidentToCache,
+} from '@app/entity/shared/tabs/Incident/incidentUtils';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+
+import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
+import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';
+
+const StyledEditor = styled(Editor)`
+    border: 1px solid ${ANTD_GRAY[4.5]};
+`;
 
 type AddIncidentProps = {
     open: boolean;
@@ -112,6 +124,7 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                 open={open}
                 destroyOnClose
                 onCancel={handleClose}
+                width={600}
                 footer={[
                     <Button type="text" onClick={handleClose}>
                         Cancel
@@ -174,7 +187,17 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                             },
                         ]}
                     >
-                        <TextArea placeholder="Provide some additional details" />
+                        <StyledEditor
+                            doNotFocus
+                            className="add-incident-description"
+                            onKeyDown={(e) => {
+                                // Preventing the modal from closing when the Enter key is pressed
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                }
+                            }}
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

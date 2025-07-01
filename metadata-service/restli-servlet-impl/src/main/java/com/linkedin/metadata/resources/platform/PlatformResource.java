@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.platform;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -22,7 +23,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -63,7 +64,7 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
                     ACTION_PRODUCE_PLATFORM_EVENT), _authorizer,
             auth, true);
 
-    if (!isAPIAuthorized(
+    if (!isAPIOperationsAuthorized(
             opContext,
             PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE)) {
       throw new RestLiServiceException(

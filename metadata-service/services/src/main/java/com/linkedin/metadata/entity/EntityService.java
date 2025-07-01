@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -41,13 +43,15 @@ public interface EntityService<U extends ChangeMCP> {
    * @param urns urns for the entities
    * @param aspectName aspect for the entity, if null, assumes key aspect
    * @param includeSoftDelete including soft deleted entities
+   * @param forUpdate whether the operation is intending to write to this row in a tx
    * @return set of urns with the specified aspect existing
    */
   Set<Urn> exists(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<Urn> urns,
       @Nullable String aspectName,
-      boolean includeSoftDelete);
+      boolean includeSoftDelete,
+      boolean forUpdate);
 
   /**
    * Just whether the entity/aspect exists, prefer batched method.
@@ -62,20 +66,37 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull Urn urn,
       @Nullable String aspectName,
       boolean includeSoftDelete) {
-    return exists(opContext, Set.of(urn), aspectName, includeSoftDelete).contains(urn);
+    return exists(opContext, Set.of(urn), aspectName, includeSoftDelete, false).contains(urn);
   }
 
   /**
    * Returns a set of urns of entities that exist (has materialized aspects).
    *
    * @param urns the list of urns of the entities to check
+   * @param includeSoftDelete including soft deleted entities
    * @return a set of urns of entities that exist.
    */
   default Set<Urn> exists(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<Urn> urns,
       boolean includeSoftDelete) {
-    return exists(opContext, urns, null, includeSoftDelete);
+    return exists(opContext, urns, null, includeSoftDelete, false);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @param includeSoftDelete including soft deleted entities
+   * @param forUpdate whether the operation is intending to write to this row in a tx
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Collection<Urn> urns,
+      boolean includeSoftDelete,
+      boolean forUpdate) {
+    return exists(opContext, urns, null, includeSoftDelete, forUpdate);
   }
 
   /**
@@ -86,7 +107,19 @@ public interface EntityService<U extends ChangeMCP> {
    */
   default Set<Urn> exists(
       @Nonnull OperationContext opContext, @Nonnull final Collection<Urn> urns) {
-    return exists(opContext, urns, true);
+    return exists(opContext, urns, true, false);
+  }
+
+  /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @param includeSoftDelete including soft deleted entities
+   * @return entities exists.
+   */
+  default boolean exists(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(opContext, List.of(urn), includeSoftDelete, false).contains(urn);
   }
 
   /**
@@ -96,8 +129,11 @@ public interface EntityService<U extends ChangeMCP> {
    * @return entities exists.
    */
   default boolean exists(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, boolean includeSoftDelete) {
-    return exists(opContext, List.of(urn), includeSoftDelete).contains(urn);
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      boolean includeSoftDelete,
+      boolean forUpdate) {
+    return exists(opContext, List.of(urn), includeSoftDelete, forUpdate).contains(urn);
   }
 
   /**
@@ -107,7 +143,7 @@ public interface EntityService<U extends ChangeMCP> {
    * @return entities exists.
    */
   default boolean exists(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    return exists(opContext, urn, true);
+    return exists(opContext, urn, true, false);
   }
 
   /**
@@ -137,7 +173,8 @@ public interface EntityService<U extends ChangeMCP> {
   Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final Set<String> aspectNames);
+      @Nonnull final Set<String> aspectNames,
+      boolean forUpdate);
 
   /**
    * Retrieves an aspect having a specific {@link Urn}, name, & version.
@@ -332,7 +369,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
@@ -363,7 +400,9 @@ public interface EntityService<U extends ChangeMCP> {
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
    * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
+   * @deprecated See Conditional Write ChangeType CREATE
    */
+  @Deprecated
   RecordTemplate ingestAspectIfNotPresent(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
@@ -395,14 +434,15 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
-      @Nullable Integer inputBatchSize)
+      @Nullable Integer inputBatchSize,
+      boolean createDefaultAspects)
       throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   @Deprecated
   Entity getEntity(
@@ -424,18 +464,32 @@ public interface EntityService<U extends ChangeMCP> {
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+  default Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
       @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType);
+      @Nonnull final ChangeType changeType) {
+    final MetadataChangeLog metadataChangeLog =
+        constructMCL(
+            null,
+            entityName,
+            urn,
+            changeType,
+            aspectName,
+            auditStamp,
+            newAspectValue,
+            newSystemMetadata,
+            oldAspectValue,
+            oldSystemMetadata);
+    return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
+  }
 
   // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
@@ -465,9 +519,20 @@ public interface EntityService<U extends ChangeMCP> {
       String aspectName,
       @Nonnull Map<String, String> conditions,
       boolean hardDelete) {
+    return deleteAspect(opContext, urn, aspectName, conditions, hardDelete, false);
+  }
+
+  default Optional<RollbackResult> deleteAspect(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      boolean preProcessHooks) {
     AspectRowSummary aspectRowSummary =
         new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
-    return rollbackWithConditions(opContext, List.of(aspectRowSummary), conditions, hardDelete)
+    return rollbackWithConditions(
+            opContext, List.of(aspectRowSummary), conditions, hardDelete, preProcessHooks)
         .getRollbackResults()
         .stream()
         .findFirst();
@@ -485,9 +550,10 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete);
+      boolean hardDelete,
+      boolean preProcessHooks);
 
-  Set<IngestResult> ingestProposal(
+  List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);
 
   /**

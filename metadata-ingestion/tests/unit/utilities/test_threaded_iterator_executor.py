@@ -4,7 +4,7 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 def test_threaded_iterator_executor():
     def table_of(i):
         for j in range(1, 11):
-            yield f"{i}x{j}={i*j}"
+            yield f"{i}x{j}={i * j}"
 
     assert {
         res

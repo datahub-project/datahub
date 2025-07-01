@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -33,13 +34,15 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Set;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ContainerExpansionRewriterTest {
+public class ContainerExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<ContainerExpansionRewriter> {
   private static final String FIELD_NAME = "container.keyword";
   private final String grandParentUrn = "urn:li:container:grand";
   private final String parentUrn = "urn:li:container:foo";
@@ -70,19 +73,46 @@ public class ContainerExpansionRewriterTest {
             () ->
                 io.datahubproject.metadata.context.RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
                     .graphRetriever(mockGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
+            null,
             null,
             null);
   }
 
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  ContainerExpansionRewriter getTestRewriter() {
+    return ContainerExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return childUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.ANCESTORS_INCL;
+  }
+
   @Test
   public void testTermsQueryRewrite() {
-    ContainerExpansionRewriter test =
-        ContainerExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    ContainerExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", childUrn);
     assertEquals(
@@ -113,13 +143,13 @@ public class ContainerExpansionRewriterTest {
 
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -162,13 +192,13 @@ public class ContainerExpansionRewriterTest {
     // Setup nested
     // Page 1
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -186,13 +216,13 @@ public class ContainerExpansionRewriterTest {
 
     // Page 2
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -209,13 +239,13 @@ public class ContainerExpansionRewriterTest {
                         "IsPartOf", childUrn, parentUrn2, RelationshipDirection.OUTGOING, null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -236,13 +266,13 @@ public class ContainerExpansionRewriterTest {
                         null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -289,13 +319,13 @@ public class ContainerExpansionRewriterTest {
 
     // Setup nested container
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
-            eq(List.of(CONTAINER_ENTITY_NAME)),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),

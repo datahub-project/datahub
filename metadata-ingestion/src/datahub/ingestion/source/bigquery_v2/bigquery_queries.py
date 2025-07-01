@@ -10,9 +10,11 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryConnectionConfig,
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
@@ -88,3 +90,7 @@ class BigQueryQueriesSource(Source):
 
     def get_report(self) -> BigQueryQueriesSourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.queries_extractor.close()
+        self.connection.close()

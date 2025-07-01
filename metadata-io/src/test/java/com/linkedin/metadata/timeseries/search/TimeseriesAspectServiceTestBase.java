@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.search;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -42,7 +43,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -145,13 +145,13 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(
         getSearchClient(),
-        new TimeseriesAspectIndexBuilders(
-            getIndexBuilder(),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention()),
         getBulkProcessor(),
         1,
-        QueryFilterRewriteChain.EMPTY);
+        QueryFilterRewriteChain.EMPTY,
+        TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        getIndexBuilder());
   }
 
   /*

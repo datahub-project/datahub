@@ -3,9 +3,12 @@ import time
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import datahub.emitter.mce_builder as builder
 import networkx as nx
+import pydantic
 import pytest
+from pydantic import BaseModel, ConfigDict
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -18,17 +21,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     EdgeClass,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageClass as FineGrainedLineage,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
-)
-from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
-)
-from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     QueryLanguageClass,
     QueryPropertiesClass,
@@ -43,8 +38,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-from pydantic import BaseModel, validator
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
@@ -100,7 +93,7 @@ def search_across_lineage(
         explain += "Entities: "
         try:
             for e in entities:
-                explain += f"\t{e.replace('urn:li:','')}\n"
+                explain += f"\t{e.replace('urn:li:', '')}\n"
             for entity in entities:
                 paths = [
                     x["paths"][0]["path"]
@@ -357,9 +350,9 @@ class ScenarioExpectation:
                             lineage_expectation.impacted_entities[impacted_entity]
                         )
                     else:
-                        entries_to_add[
-                            impacted_dataset_entity
-                        ] = lineage_expectation.impacted_entities[impacted_entity]
+                        entries_to_add[impacted_dataset_entity] = (
+                            lineage_expectation.impacted_entities[impacted_entity]
+                        )
                     entries_to_remove.append(impacted_entity)
             for impacted_entity in entries_to_remove:
                 del lineage_expectation.impacted_entities[impacted_entity]
@@ -368,8 +361,7 @@ class ScenarioExpectation:
 
 
 class Scenario(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     class LineageStyle(Enum):
         DATASET_QUERY_DATASET = "DATASET_QUERY_DATASET"
@@ -397,16 +389,9 @@ class Scenario(BaseModel):
     transformation_job: str = "job1"
     transformation_flow: str = "flow1"
     _generated_urns: Set[str] = set()
-    expectations: Optional[ScenarioExpectation] = None
-
-    @validator("expectations", pre=True, always=True)
-    def expectations_validator(
-        cls, v: Optional[ScenarioExpectation]
-    ) -> ScenarioExpectation:
-        if v is None:
-            return ScenarioExpectation()
-        else:
-            return v
+    expectations: ScenarioExpectation = pydantic.Field(
+        default_factory=ScenarioExpectation
+    )
 
     def get_column_name(self, column_index: int) -> str:
         return f"column_{column_index}"
@@ -764,9 +749,9 @@ class Scenario(BaseModel):
                     ]
                 )
                 try:
-                    assert (
-                        impacted_entities == impacted_entities_expectation
-                    ), f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    assert impacted_entities == impacted_entities_expectation, (
+                        f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
+                    )
                 except Exception:
                     # breakpoint()
                     raise
@@ -791,12 +776,16 @@ class Scenario(BaseModel):
                     try:
                         assert len(impacted_entity_paths) == len(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        ), (
+                            f"Expected length of impacted entity paths to be {len(expectation.impacted_entities[impacted_entity])}, found {len(impacted_entity_paths)}"
+                        )
                         assert set(impacted_entity_paths) == set(
                             expectation.impacted_entities[impacted_entity]
-                        ), f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        ), (
+                            f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity]}, found {impacted_entity_paths}"
+                        )
                     except Exception:
-                        breakpoint()
+                        # breakpoint()
                         raise
                     # for i in range(len(impacted_entity_paths)):
                     #     assert impacted_entity_paths[i].path == expectation.impacted_entities[impacted_entity][i].path, f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity][i].path}, found {impacted_entity_paths[i].path}"

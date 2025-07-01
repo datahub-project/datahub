@@ -10,8 +10,11 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDataProductInput;
 import com.linkedin.datahub.graphql.generated.DataProduct;
+import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.datahub.graphql.types.dataproduct.mappers.DataProductMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CreateDataProductResolver implements DataFetcher<CompletableFuture<DataProduct>> {
 
   private final DataProductService _dataProductService;
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<DataProduct> get(final DataFetchingEnvironment environment)
@@ -56,6 +60,8 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
                 context.getOperationContext(),
                 dataProductUrn,
                 UrnUtils.getUrn(input.getDomainUrn()));
+            OwnerUtils.addCreatorAsOwner(
+                context, dataProductUrn.toString(), OwnerEntityType.CORP_USER, _entityService);
             EntityResponse response =
                 _dataProductService.getDataProductEntityResponse(
                     context.getOperationContext(), dataProductUrn);

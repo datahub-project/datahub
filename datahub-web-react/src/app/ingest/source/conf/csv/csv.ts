@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import csvLogo from '../../../../../images/csv-logo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import csvLogo from '@images/csv-logo.png';
 
 const placeholderRecipe = `\
 source:
@@ -15,7 +16,7 @@ const csvConfig: SourceConfig = {
     type: 'csv-enricher',
     placeholderRecipe,
     displayName: 'CSV',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/csv',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/csv-enricher',
     logoUrl: csvLogo,
 };
 

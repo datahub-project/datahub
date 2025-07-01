@@ -7,8 +7,8 @@ from freezegun import freeze_time
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.metadata.schema_classes import DomainPropertiesClass
+from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
-from tests.test_helpers.mce_helpers import check_golden_file
 
 FROZEN_TIME = "2023-04-14 07:00:00"
 
@@ -26,7 +26,7 @@ def base_entity_metadata():
 
 @pytest.fixture
 def base_mock_graph(
-    base_entity_metadata: Dict[str, Dict[str, Any]]
+    base_entity_metadata: Dict[str, Dict[str, Any]],
 ) -> MockDataHubGraph:
     return MockDataHubGraph(entity_graph=base_entity_metadata)
 

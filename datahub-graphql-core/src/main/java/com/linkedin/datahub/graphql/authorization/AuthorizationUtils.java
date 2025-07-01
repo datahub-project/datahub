@@ -19,7 +19,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
@@ -99,6 +102,11 @@ public class AuthorizationUtils {
   public static boolean canManageTags(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
+  }
+
+  public static boolean canViewManageTags(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_MANAGE_TAGS_PRIVILEGE);
   }
 
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
@@ -232,6 +240,10 @@ public class AuthorizationUtils {
     try {
       Object[] args =
           allFields.stream()
+              // New versions of graphql.codegen generate serialVersionUID
+              // We need to filter serialVersionUID out because serialVersionUID is
+              // never part of the entity type constructor
+              .filter(field -> !field.getName().contains("serialVersionUID"))
               .map(
                   field -> {
                     // properties are often not required but only because
@@ -339,6 +351,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
   }
 
+  public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE);
+  }
+
   public static boolean canManageForms(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
@@ -358,11 +375,42 @@ public class AuthorizationUtils {
     return AuthUtil.isAuthorized(context.getOperationContext(), privilegeGroup, resourceSpec);
   }
 
+  public static boolean isAuthorizedForTags(
+      @Nonnull QueryContext context,
+      @Nonnull String resourceType,
+      @Nonnull String resource,
+      @Nonnull DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull Collection<Urn> tagUrns) {
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
+    final Set<EntitySpec> subResources =
+        tagUrns.stream()
+            .map(tagUrn -> new EntitySpec(TAG_ENTITY_NAME, tagUrn.toString()))
+            .collect(Collectors.toSet());
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), privilegeGroup, resourceSpec, subResources);
+  }
+
   public static boolean isViewDatasetUsageAuthorized(
       final QueryContext context, final Urn resourceUrn) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(),
         PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean isViewDatasetProfileAuthorized(
+      final QueryContext context, final Urn resourceUrn) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(),
+        PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean isViewDatasetOperationsAuthorized(
+      final QueryContext context, final Urn resourceUrn) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(),
+        PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
   }
 

@@ -17,8 +17,8 @@ from datahub.ingestion.graph.config import DatahubClientConfig
 logger = logging.getLogger(__name__)
 
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
-DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
-DATAHUB_ROOT_FOLDER = os.path.expanduser("~/.datahub")
+DATAHUB_CONFIG_PATH: str = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
+DATAHUB_ROOT_FOLDER: str = os.path.expanduser("~/.datahub")
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 
 ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
@@ -82,6 +82,13 @@ def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
             f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
         )
     return url or host, token
+
+
+def require_config_from_env() -> Tuple[str, Optional[str]]:
+    host, token = _get_config_from_env()
+    if host is None:
+        raise MissingConfigError("No GMS host was provided in env variables.")
+    return host, token
 
 
 def load_client_config() -> DatahubClientConfig:

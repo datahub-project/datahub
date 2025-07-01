@@ -1,5 +1,4 @@
 ---
-version: '3.9'
 services:
   datahub-gms:
     env_file: datahub-gms/env/docker-without-neo4j.env

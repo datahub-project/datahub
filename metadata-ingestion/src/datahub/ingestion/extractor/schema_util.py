@@ -263,15 +263,13 @@ class AvroToMceSchemaConverter:
     @overload
     def _get_underlying_type_if_option_as_union(
         schema: SchemaOrField, default: SchemaOrField
-    ) -> SchemaOrField:
-        ...
+    ) -> SchemaOrField: ...
 
     @staticmethod
     @overload
     def _get_underlying_type_if_option_as_union(
         schema: SchemaOrField, default: Optional[SchemaOrField] = None
-    ) -> Optional[SchemaOrField]:
-        ...
+    ) -> Optional[SchemaOrField]: ...
 
     @staticmethod
     def _get_underlying_type_if_option_as_union(
@@ -291,6 +289,12 @@ class AvroToMceSchemaConverter:
         - actual_schema contains the underlying no-null type's schema if the schema is a union
           This way we can use the type/description of the non-null type if needed.
         """
+
+        # props to skip when building jsonProps
+        json_props_to_skip = [
+            "_nullable",
+            "native_data_type",
+        ]
 
         def __init__(
             self,
@@ -364,6 +368,7 @@ class AvroToMceSchemaConverter:
                 merged_props: Dict[str, Any] = {}
                 merged_props.update(self._schema.other_props)
                 merged_props.update(schema.other_props)
+                merged_props.update(actual_schema.other_props)
 
                 # Parse meta_mapping
                 meta_aspects: Dict[str, Any] = {}
@@ -386,7 +391,7 @@ class AvroToMceSchemaConverter:
 
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
+                        f'<span style="color:red">DEPRECATED: {merged_props["deprecated"]}</span>\n'
                         + description
                         if description
                         else ""
@@ -408,6 +413,16 @@ class AvroToMceSchemaConverter:
                     or self._actual_schema.props.get("logicalType"),
                 )
 
+                json_props: Optional[Dict[str, Any]] = (
+                    {
+                        k: v
+                        for k, v in merged_props.items()
+                        if k not in self.json_props_to_skip
+                    }
+                    if merged_props
+                    else None
+                )
+
                 field = SchemaField(
                     fieldPath=field_path,
                     # Populate it with the simple native type for now.
@@ -422,7 +437,7 @@ class AvroToMceSchemaConverter:
                     isPartOfKey=self._converter._is_key_schema,
                     globalTags=tags_aspect,
                     glossaryTerms=meta_terms_aspect,
-                    jsonProps=json.dumps(merged_props) if merged_props else None,
+                    jsonProps=json.dumps(json_props) if json_props else None,
                 )
                 yield field
 

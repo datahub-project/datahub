@@ -1,9 +1,9 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.Constants.REST_API_AUTHORIZATION_ENABLED_ENV;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,21 +29,26 @@ import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
-import uk.org.webcompere.systemstubs.testng.SystemStub;
-import uk.org.webcompere.systemstubs.testng.SystemStubsListener;
 
-@Listeners(SystemStubsListener.class)
+@SpringBootTest
+@TestPropertySource(properties = {"authorization.restApiAuthorization=true"})
 public class AuthUtilTest {
-  @SystemStub private EnvironmentVariables setEnvironment;
 
+  // The AuthUtil @PostConstruct is not getting called from the unit tests, so calling
+  // it explicitly.
   @BeforeClass
   public void beforeAll() {
-    setEnvironment.set(REST_API_AUTHORIZATION_ENABLED_ENV, "true");
+    authUtil = new AuthUtil();
+    authUtil.restApiAuthorizationEnabled = true;
+    authUtil.init();
   }
+
+  @Autowired private AuthUtil authUtil;
 
   private static final Authentication TEST_AUTH_A =
       new Authentication(new Actor(ActorType.USER, "testA"), "");
@@ -55,11 +60,6 @@ public class AuthUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,2,PROD)");
   private static final Urn TEST_ENTITY_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,3,PROD)");
-
-  @Test
-  public void testSystemEnvInit() {
-    assertEquals(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV), "true");
-  }
 
   @Test
   public void testSimplePrivilegeGroupBuilder() {
@@ -188,7 +188,7 @@ public class AuthUtilTest {
         AuthUtil.lookupAPIPrivilege(ApiGroup.ENTITY, ApiOperation.MANAGE, "dataset")
             .contains(
                 Conjunctive.of(
-                    API_PRIVILEGE_MAP.get(ENTITY).get(ApiOperation.UPDATE).get(0).get(0),
+                    API_PRIVILEGE_MAP.get(ENTITY).get(UPDATE).get(0).get(0),
                     API_PRIVILEGE_MAP.get(ENTITY).get(ApiOperation.DELETE).get(0).get(0))),
         "Expected MANAGE to require both EDIT and DELETE");
   }
@@ -199,7 +199,7 @@ public class AuthUtilTest {
         AuthUtil.lookupEntityAPIPrivilege(ApiOperation.MANAGE, "dataset")
             .contains(
                 Conjunctive.of(
-                    API_PRIVILEGE_MAP.get(ENTITY).get(ApiOperation.UPDATE).get(0).get(0),
+                    API_PRIVILEGE_MAP.get(ENTITY).get(UPDATE).get(0).get(0),
                     API_PRIVILEGE_MAP.get(ENTITY).get(ApiOperation.DELETE).get(0).get(0))),
         "Expected MANAGE on dataset to require both EDIT and DELETE");
 
@@ -207,12 +207,126 @@ public class AuthUtilTest {
         AuthUtil.lookupEntityAPIPrivilege(ApiOperation.MANAGE, "dataHubPolicy")
             .contains(
                 Conjunctive.of(
-                    API_ENTITY_PRIVILEGE_MAP
-                        .get("dataHubPolicy")
-                        .get(ApiOperation.UPDATE)
-                        .get(0)
-                        .get(0))),
+                    API_ENTITY_PRIVILEGE_MAP.get("dataHubPolicy").get(UPDATE).get(0).get(0))),
         "Expected MANAGE permission directly on dataHubPolicy entity");
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrnsWithSubResources() {
+    // Create some tag entities for subresources
+    final Urn TEST_SUB_ENTITY_1 = UrnUtils.getUrn("urn:li:tag:tag1");
+    final Urn TEST_SUB_ENTITY_2 = UrnUtils.getUrn("urn:li:tag:tag2");
+    final Urn TEST_SUB_ENTITY_3 = UrnUtils.getUrn("urn:li:tag:tag3");
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of(
+                    "EDIT_ENTITY",
+                        Set.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2),
+                    "VIEW_ENTITY_PAGE", Set.of(TEST_ENTITY_3, TEST_SUB_ENTITY_3),
+                    "VIEW_ENTITY",
+                        Set.of(
+                            TEST_ENTITY_1,
+                            TEST_ENTITY_2,
+                            TEST_ENTITY_3,
+                            TEST_SUB_ENTITY_1,
+                            TEST_SUB_ENTITY_2,
+                            TEST_SUB_ENTITY_3)),
+                TEST_AUTH_B.getActor().toUrnStr(),
+                Map.of(
+                    "VIEW_ENTITY_PAGE", Set.of(TEST_ENTITY_1, TEST_ENTITY_3, TEST_SUB_ENTITY_1),
+                    "VIEW_ENTITY", Set.of(TEST_ENTITY_1, TEST_ENTITY_3, TEST_SUB_ENTITY_1))));
+
+    // Test User A - should have read access to all main entities and subresources
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2, TEST_SUB_ENTITY_3)),
+        "Expected User A to have read access to all entities and subresources");
+
+    // Test User A - should have update access to entities 1 & 2 and subresources 1 & 2, but not
+    // entity 3 or subresource 3
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            UPDATE,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2, TEST_SUB_ENTITY_3)),
+        "Expected User A to be denied update access due to entity 3 and subresource 3 restrictions");
+
+    // Test User A - should have update access when excluding restricted entities/subresources
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            UPDATE,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2)),
+        "Expected User A to have update access to entities 1 & 2 and subresources 1 & 2");
+
+    // Test User B - should have limited read access
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2, TEST_SUB_ENTITY_3)),
+        "Expected User B to be denied read access due to entity 2 and subresource 2 & 3 restrictions");
+
+    // Test User B - should have read access to allowed entities and subresources only
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_3),
+            List.of(TEST_SUB_ENTITY_1)),
+        "Expected User B to have read access to allowed entities and subresources");
+
+    // Test User B - should be denied update access to all entities and subresources
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            UPDATE,
+            List.of(TEST_ENTITY_1),
+            List.of(TEST_SUB_ENTITY_1)),
+        "Expected User B to be denied update access to all entities and subresources");
+
+    // Test with empty subresources - should work like the regular method
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3),
+            List.of()),
+        "Expected method to work with empty subresources list for User A");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            READ,
+            List.of(TEST_ENTITY_1, TEST_ENTITY_2, TEST_ENTITY_3),
+            List.of()),
+        "Expected method to work with empty subresources list for User B (denied due to entity 2)");
+
+    // Test with empty main resources but with subresources
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            READ,
+            List.of(),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2, TEST_SUB_ENTITY_3)),
+        "Expected User A to have read access to subresources only");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            READ,
+            List.of(),
+            List.of(TEST_SUB_ENTITY_1, TEST_SUB_ENTITY_2, TEST_SUB_ENTITY_3)),
+        "Expected User B to be allowed access to subresources 2 & 3");
   }
 
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {

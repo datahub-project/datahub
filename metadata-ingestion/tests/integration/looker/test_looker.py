@@ -31,7 +31,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.source.looker import looker_common, looker_usage
-from datahub.ingestion.source.looker.looker_common import LookerExplore
+from datahub.ingestion.source.looker.looker_common import (
+    LookerDashboardSourceReport,
+    LookerExplore,
+)
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -45,7 +48,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -83,6 +86,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -319,6 +323,7 @@ def setup_mock_look(mocked_client):
     mocked_client.all_looks.return_value = [
         Look(
             id="1",
+            user_id="1",
             title="Outer Look",
             description="I am not part of any Dashboard",
             query_id="1",
@@ -327,6 +332,7 @@ def setup_mock_look(mocked_client):
         Look(
             id="2",
             title="Personal Look",
+            user_id="2",
             description="I am not part of any Dashboard and in personal folder",
             query_id="2",
             folder=FolderBase(
@@ -411,7 +417,9 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
     )
 
 
-def setup_mock_dashboard_with_usage(mocked_client):
+def setup_mock_dashboard_with_usage(
+    mocked_client: mock.MagicMock, skip_look: bool = False
+) -> None:
     mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
     mocked_client.dashboard.return_value = Dashboard(
         id="1",
@@ -434,7 +442,13 @@ def setup_mock_dashboard_with_usage(mocked_client):
                 ),
             ),
             DashboardElement(
-                id="3", type="", look=LookWithQuery(id="3", view_count=30)
+                id="3",
+                type="" if skip_look else "vis",  # Looks only ingested if type == `vis`
+                look=LookWithQuery(
+                    id="3",
+                    view_count=30,
+                    query=Query(model="look_data", view="look_view"),
+                ),
             ),
         ],
     )
@@ -518,9 +532,10 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
 
 def setup_mock_explore(
     mocked_client: Any,
-    additional_lkml_fields: List[LookmlModelExploreField] = [],
+    additional_lkml_fields: Optional[List[LookmlModelExploreField]] = None,
     **additional_explore_fields: Any,
 ) -> None:
+    additional_lkml_fields = additional_lkml_fields or []
     mock_model = mock.MagicMock(project_name="lkml_samples")
     mocked_client.lookml_model.return_value = mock_model
 
@@ -561,6 +576,20 @@ def setup_mock_user(mocked_client):
     mocked_client.user.side_effect = get_user
 
 
+def setup_mock_all_user(mocked_client):
+    def all_users(
+        fields: Optional[str] = None,
+        transport_options: Optional[transport.TransportOptions] = None,
+    ) -> List[User]:
+        return [
+            User(id="1", email="test-1@looker.com"),
+            User(id="2", email="test-2@looker.com"),
+            User(id="3", email="test-3@looker.com"),
+        ]
+
+    mocked_client.all_users.side_effect = all_users
+
+
 def side_effect_query_inline(
     result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
 ) -> str:
@@ -590,6 +619,12 @@ def side_effect_query_inline(
                 },
                 {
                     HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-07",
+                    HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
+                },
+                {
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "5",
                     HistoryViewField.HISTORY_CREATED_DATE: "2022-07-07",
                     HistoryViewField.HISTORY_DASHBOARD_USER: 1,
                     HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
@@ -714,6 +749,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
         setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
@@ -770,6 +806,70 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
             output_path=temp_output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_filter_usage_history(pytestconfig, tmp_path, mock_time):
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard_with_usage(mocked_client, skip_look=True)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
+        setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+
+        temp_output_file = f"{tmp_path}/looker_mces.json"
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": True,
+                        "max_threads": 1,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": temp_output_file,
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+        # There should be 4 dashboardUsageStatistics aspects (one absolute and 3 timeseries)
+        dashboard_usage_aspect_count = 0
+        # There should be 0 chartUsageStatistics -- filtered by set of ingested charts
+        chart_usage_aspect_count = 0
+        with open(temp_output_file) as f:
+            temp_output_dict = json.load(f)
+            for element in temp_output_dict:
+                if (
+                    element.get("entityType") == "dashboard"
+                    and element.get("aspectName") == "dashboardUsageStatistics"
+                ):
+                    dashboard_usage_aspect_count = dashboard_usage_aspect_count + 1
+                if (
+                    element.get("entityType") == "chart"
+                    and element.get("aspectName") == "chartUsageStatistics"
+                ):
+                    chart_usage_aspect_count = chart_usage_aspect_count + 1
+
+        assert dashboard_usage_aspect_count == 4
+        assert chart_usage_aspect_count == 0
+
+        source_report = cast(LookerDashboardSourceReport, pipeline.source.get_report())
+        # From timeseries query
+        assert str(source_report.dashboards_skipped_for_usage) == str(["5"])
+        # From dashboard element
+        assert str(source_report.charts_skipped_for_usage) == str(["3"])
 
 
 @freeze_time(FROZEN_TIME)
@@ -946,6 +1046,8 @@ def ingest_independent_looks(
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -995,9 +1097,9 @@ def test_file_path_in_view_naming_pattern(
 ):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
-    new_recipe["source"]["config"][
-        "view_naming_pattern"
-    ] = "{project}.{file_path}.view.{name}"
+    new_recipe["source"]["config"]["view_naming_pattern"] = (
+        "{project}.{file_path}.view.{name}"
+    )
 
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -1047,7 +1149,6 @@ def test_independent_soft_deleted_looks(
     mocked_client = mock.MagicMock()
 
     with mock.patch("looker_sdk.init40") as mock_sdk:
-
         mock_sdk.return_value = mocked_client
         setup_mock_look(mocked_client)
         setup_mock_soft_deleted_look(mocked_client)
@@ -1067,6 +1168,159 @@ def test_independent_soft_deleted_looks(
         assert looks[0].title == "Outer Look"
         assert looks[1].title == "Personal Look"
         assert looks[2].title == "Soft Deleted"
+
+
+def setup_mock_dashboard_multi_model_explores(mocked_client):
+    """Set up a dashboard element that references explores from different models."""
+    mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
+    mocked_client.dashboard.return_value = Dashboard(
+        id="1",
+        title="Dashboard with Multi-Model Explores",
+        created_at=datetime.utcfromtimestamp(time.time()),
+        updated_at=datetime.utcfromtimestamp(time.time()),
+        description="A dashboard with elements that reference explores from different models",
+        dashboard_elements=[
+            DashboardElement(
+                id="2",
+                type="vis",
+                title="Multi-Model Element",
+                subtitle_text="Element referencing two explores from different models",
+                result_maker=mock.MagicMock(
+                    query=Query(
+                        model="model_1",
+                        view="explore_1",
+                        fields=["explore_1.field1", "explore_1.field2"],
+                    ),
+                    filterables=[
+                        mock.MagicMock(
+                            model="model_1",
+                            view="explore_1",
+                        ),
+                        mock.MagicMock(
+                            model="model_2",
+                            view="explore_2",
+                        ),
+                    ],
+                ),
+            )
+        ],
+        folder=FolderBase(name="Shared", id="shared-folder-id"),
+    )
+
+
+def setup_mock_multi_model_explores(mocked_client):
+    """Set up mocks for explores from different models."""
+
+    def lookml_model_explore_side_effect(model, name, *args, **kwargs):
+        if model == "model_1" and name == "explore_1":
+            return LookmlModelExplore(
+                id="1",
+                name="explore_1",
+                label="Explore 1",
+                description="First explore from model 1",
+                view_name="underlying_view_1",
+                project_name="project_1",
+                fields=LookmlModelExploreFieldset(
+                    dimensions=[
+                        LookmlModelExploreField(
+                            name="field1",
+                            type="string",
+                            description="field 1 description",
+                            label_short="Field 1",
+                        )
+                    ]
+                ),
+                source_file="model_1/explore_1.lkml",
+            )
+        elif model == "model_2" and name == "explore_2":
+            return LookmlModelExplore(
+                id="2",
+                name="explore_2",
+                label="Explore 2",
+                description="Second explore from model 2",
+                view_name="underlying_view_2",
+                project_name="project_2",
+                fields=LookmlModelExploreFieldset(
+                    dimensions=[
+                        LookmlModelExploreField(
+                            name="field1",
+                            type="string",
+                            description="field 1 description",
+                            label_short="Field 1",
+                        )
+                    ]
+                ),
+                source_file="model_2/explore_2.lkml",
+            )
+        return None
+
+    def lookml_model_side_effect(model, *args, **kwargs):
+        if model == "model_1":
+            mock_model = mock.MagicMock(project_name="project_1")
+            return mock_model
+        elif model == "model_2":
+            mock_model = mock.MagicMock(project_name="project_2")
+            return mock_model
+        return None
+
+    mocked_client.lookml_model.side_effect = lookml_model_side_effect
+    mocked_client.lookml_model_explore.side_effect = lookml_model_explore_side_effect
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
+    """Test ingestion of dashboard elements with explores from different models."""
+    mocked_client = mock.MagicMock()
+    output_file = f"{tmp_path}/looker_multi_model_mces.json"
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard_multi_model_explores(mocked_client)
+        setup_mock_multi_model_explores(mocked_client)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": output_file,
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Validate against a golden file
+        mce_out_file = "golden_test_multi_model_explores.json"
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+        # Simply check that both model_1 and model_2 explores appear in the output file
+        with open(output_file, "r") as f:
+            output = f.read()
+            assert "model_1.explore.explore_1" in output, (
+                "Missing model_1.explore.explore_1 in output"
+            )
+            assert "model_2.explore.explore_2" in output, (
+                "Missing model_2.explore.explore_2 in output"
+            )
 
 
 @freeze_time(FROZEN_TIME)
@@ -1338,4 +1592,122 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+
+def setup_mock_explore_with_group_label(mocked_client):
+    """Setup a mock explore with fields that have group_label attributes."""
+    mock_model = mock.MagicMock(project_name="lkml_samples")
+    mocked_client.lookml_model.return_value = mock_model
+
+    lkml_fields = [
+        LookmlModelExploreField(
+            name="dim1",
+            type="string",
+            dimension_group=None,
+            description="dimension one description",
+            label_short="Dimensions One Label",
+            field_group_label="Createdon Date",  # Adding group_label
+        ),
+        LookmlModelExploreField(
+            name="dim2",
+            type="string",
+            dimension_group=None,
+            description="dimension two description",
+            label_short="Dimensions Two Label",
+            field_group_label="User Info",  # Different group_label
+        ),
+        LookmlModelExploreField(
+            name="measure1",
+            type="number",
+            description="measure description",
+            label_short="Measure Label",
+            field_group_label="Metrics",  # Group label for measure
+            category=Category.measure,
+        ),
+    ]
+
+    mocked_client.lookml_model_explore.return_value = LookmlModelExplore(
+        id="1",
+        name="my_explore_name",
+        label="My Explore View",
+        description="lorem ipsum",
+        view_name="underlying_view",
+        project_name="lkml_samples",
+        fields=LookmlModelExploreFieldset(
+            dimensions=lkml_fields[:2],  # First two fields are dimensions
+            measures=[lkml_fields[2]],  # Third field is a measure
+        ),
+        source_file="test_source_file.lkml",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_group_label_tags(pytestconfig, tmp_path, mock_time):
+    """Test that group_label values are correctly extracted and added as tags."""
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_explore_with_group_label(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+        output_file = tmp_path / "looker_group_label_mces.json"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-group-label-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": str(output_file),
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # First, manually check that group labels are present in the output
+        expected_group_labels = [
+            "Createdon Date",
+            "User Info",
+            "Metrics",
+        ]
+
+        # Read the output file line by line, searching for the group_label tags
+        group_labels_found = set()
+        with open(output_file, "r") as f:
+            for line in f:
+                for label in expected_group_labels:
+                    if label in line:
+                        group_labels_found.add(label)
+
+        # Print what we found for debugging
+        print(f"Found group_label tags: {group_labels_found}")
+
+        # Check that at least one group_label tag was found
+        assert len(group_labels_found) > 0, "No group_label tags found in the output"
+
+        # Verify that each expected group_label tag was found
+        for label in expected_group_labels:
+            assert label in group_labels_found, (
+                f"Expected group_label tag '{label}' not found in output"
+            )
+
+        # Now also verify using the golden file method
+        mce_out_file = "golden_test_group_label_mces.json"
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=test_resources_dir / mce_out_file,
         )

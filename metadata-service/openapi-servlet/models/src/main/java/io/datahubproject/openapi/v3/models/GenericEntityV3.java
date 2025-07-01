@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import io.datahubproject.openapi.models.GenericEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,6 +30,10 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
     super(m);
   }
 
+  public String getUrn() {
+    return (String) get("urn");
+  }
+
   @Override
   public Map<String, GenericAspectV3> getAspects() {
     return this.entrySet().stream()
@@ -46,11 +51,14 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                   entry -> {
                     try {
                       String aspectName = entry.getKey();
-                      Map<String, Object> aspectValue =
-                          objectMapper.readValue(
-                              RecordUtils.toJsonString(entry.getValue().getAspect())
-                                  .getBytes(StandardCharsets.UTF_8),
-                              new TypeReference<>() {});
+                      Map<String, Object> aspectValueMap =
+                          entry.getValue().getAspect() != null
+                              ? objectMapper.readValue(
+                                  RecordUtils.toJsonString(entry.getValue().getAspect())
+                                      .getBytes(StandardCharsets.UTF_8),
+                                  new TypeReference<>() {})
+                              : Collections.emptyMap();
+
                       Map<String, Object> systemMetadata =
                           entry.getValue().getSystemMetadata() != null
                               ? objectMapper.convertValue(
@@ -65,7 +73,7 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                       return Map.entry(
                           aspectName,
                           GenericAspectV3.builder()
-                              .value(aspectValue)
+                              .value(aspectValueMap)
                               .systemMetadata(systemMetadata)
                               .auditStamp(auditStamp)
                               .build());

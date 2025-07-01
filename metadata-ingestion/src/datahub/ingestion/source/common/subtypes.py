@@ -14,7 +14,6 @@ class DatasetSubTypes(StrEnum):
     ELASTIC_DATASTREAM = "Datastream"
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
-    POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SHARDED_TABLE = "Sharded Table"
@@ -23,6 +22,10 @@ class DatasetSubTypes(StrEnum):
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
+    NEO4J_NODE = "Neo4j Node"
+    NEO4J_RELATIONSHIP = "Neo4j Relationship"
+    SNOWFLAKE_STREAM = "Snowflake Stream"
+    API_ENDPOINT = "API Endpoint"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -41,6 +44,8 @@ class DatasetContainerSubTypes(StrEnum):
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
+    KEYSPACE = "Keyspace"  # Cassandra
+    NAMESPACE = "Namespace"  # Iceberg
 
 
 class BIContainerSubTypes(StrEnum):
@@ -48,8 +53,8 @@ class BIContainerSubTypes(StrEnum):
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
     TABLEAU_WORKBOOK = "Workbook"
-    POWERBI_WORKSPACE = "Workspace"
-    POWERBI_DATASET = "PowerBI Dataset"
+    POWERBI_DATASET = "Semantic Model"
+    POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
@@ -57,8 +62,15 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
 
 
+class FlowContainerSubTypes(StrEnum):
+    MSSQL_JOB = "Job"
+    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+
+
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
+    MSSQL_JOBSTEP = "Job Step"
+    STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -71,6 +83,7 @@ class BIAssetSubTypes(StrEnum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+    POWERBI_APP = "App"
 
     # Mode
     MODE_REPORT = "Report"
@@ -81,3 +94,25 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+    # Hex
+    HEX_PROJECT = "Project"
+    HEX_COMPONENT = "Component"
+
+
+class MLAssetSubTypes(StrEnum):
+    MLFLOW_TRAINING_RUN = "ML Training Run"
+    MLFLOW_EXPERIMENT = "ML Experiment"
+    VERTEX_EXPERIMENT = "Experiment"
+    VERTEX_EXPERIMENT_RUN = "Experiment Run"
+    VERTEX_EXECUTION = "Execution"
+
+    VERTEX_MODEL = "ML Model"
+    VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_TRAINING_JOB = "Training Job"
+    VERTEX_ENDPOINT = "Endpoint"
+    VERTEX_DATASET = "Dataset"
+    VERTEX_PROJECT = "Project"
+    VERTEX_PIPELINE = "Pipeline Job"
+    VERTEX_PIPELINE_TASK = "Pipeline Task"
+    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"

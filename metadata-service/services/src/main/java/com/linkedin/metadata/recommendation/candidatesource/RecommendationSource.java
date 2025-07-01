@@ -7,7 +7,7 @@ import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -81,11 +81,5 @@ public interface RecommendationSource {
             .setModuleId(getModuleId())
             .setRenderType(getRenderType())
             .setContent(new RecommendationContentArray(recommendations)));
-  }
-
-  // retaining this for backward compatibility
-  default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    return getRecommendationModule(opContext, requestContext);
   }
 }

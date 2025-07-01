@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
@@ -15,6 +15,7 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -40,6 +41,20 @@ class BigqueryColumn(BaseColumn):
     is_partition_column: bool
     cluster_column_position: Optional[int]
     policy_tags: Optional[List[str]] = None
+
+
+@dataclass
+class BigqueryTableConstraint:
+    name: str
+    project_id: str
+    dataset_name: str
+    table_name: str
+    type: str
+    field_path: str
+    referenced_project_id: Optional[str] = None
+    referenced_dataset: Optional[str] = None
+    referenced_table_name: Optional[str] = None
+    referenced_column_name: Optional[str] = None
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -104,8 +119,9 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
-    columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
+    constraints: List[BigqueryTableConstraint] = field(default_factory=list)
+    table_type: Optional[str] = None
 
 
 @dataclass
@@ -136,6 +152,21 @@ class BigqueryDataset:
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
+
 
 @dataclass
 class BigqueryProject:
@@ -159,7 +190,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(self, query: str) -> RowIterator:
         def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception occured for job query. Reason: {exc}")
+            logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
             # This is not currently handled by the python-bigquery client.
             # https://github.com/googleapis/python-bigquery/issues/23
@@ -181,7 +212,7 @@ class BigQuerySchemaApi:
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
             )
             self.report.num_list_projects_retry_request += 1
             return True
@@ -261,6 +292,11 @@ class BigQuerySchemaApi:
                         if hasattr(d, "_properties") and isinstance(d._properties, dict)
                         else None
                     ),
+                    # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
+                    # TODO: Given we are calling get_dataset for each dataset, we may consume and publish other fields too, such as created, modified, etc...
+                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
+                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
+                    comment=self.bq_client.get_dataset(d.reference).description,
                 )
                 for d in datasets
             ]
@@ -308,7 +344,7 @@ class BigQuerySchemaApi:
         with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
-            filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
+            filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
             if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset
@@ -362,13 +398,8 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if table.get("last_altered") is not None
-                else None
-            ),
+            table_type=table.table_type,
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -429,11 +460,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(
-                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
-                if view.get("last_altered") is not None
-                else None
-            ),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -491,6 +518,65 @@ class BigQuerySchemaApi:
                 context=table_ref,
                 exc=e,
             )
+
+    def get_table_constraints_for_dataset(
+        self,
+        project_id: str,
+        dataset_name: str,
+        report: BigQueryV2Report,
+    ) -> Optional[Dict[str, List[BigqueryTableConstraint]]]:
+        constraints: Dict[str, List[BigqueryTableConstraint]] = defaultdict(list)
+        with PerfTimer() as timer:
+            try:
+                cur = self.get_query_result(
+                    BigqueryQuery.constraints_for_table.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    )
+                )
+            except Exception as e:
+                report.warning(
+                    title="Failed to retrieve table constraints for dataset",
+                    message="Query to get table constraints for dataset failed with exception",
+                    context=f"{project_id}.{dataset_name}",
+                    exc=e,
+                )
+                return None
+
+            for constraint in cur:
+                constraints[constraint.table_name].append(
+                    BigqueryTableConstraint(
+                        name=constraint.constraint_name,
+                        project_id=constraint.table_catalog,
+                        dataset_name=constraint.table_schema,
+                        table_name=constraint.table_name,
+                        type=constraint.constraint_type,
+                        field_path=constraint.column_name,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                    )
+                )
+            self.report.num_get_table_constraints_for_dataset_api_requests += 1
+            self.report.get_table_constraints_for_dataset_sec += timer.elapsed_seconds()
+
+        return constraints
 
     def get_columns_for_dataset(
         self,
@@ -615,13 +701,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    snapshot.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if snapshot.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

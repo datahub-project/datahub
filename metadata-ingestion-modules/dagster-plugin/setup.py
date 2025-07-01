@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_dagster_plugin/__init__.py") as fp:
+with open("./src/datahub_dagster_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -12,14 +12,6 @@ def get_long_description():
     root = os.path.dirname(__file__)
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
-
-rest_common = {"requests", "requests_file"}
-
-sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
-}
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
@@ -30,13 +22,11 @@ _self_pin = (
 
 base_requirements = {
     # Actual dependencies.
-    "dagster >= 1.3.3",
-    "dagit >= 1.3.3",
-    *rest_common,
-    # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    # f"acryl-datahub[datahub-rest]{_self_pin}",
-    "acryl-datahub[datahub-rest]",
-    *sqlglot_lib,
+    # We need to 1.10.0 due to a breaking change.
+    # https://github.com/dagster-io/dagster/pull/16025
+    "dagster >= 1.10.0",
+    "dagit >= 1.10.0",
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {
@@ -63,13 +53,9 @@ base_dev_requirements = {
     "dagster-aws >= 0.11.0",
     "dagster-snowflake >= 0.11.0",
     "dagster-snowflake-pandas >= 0.11.0",
-    "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=6.0.0",
-    "flake8-tidy-imports>=4.3.0",
-    "flake8-bugbear==23.3.12",
-    "isort>=5.7.0",
-    "mypy>=1.4.0",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10.0,!=1.10.3",
@@ -104,9 +90,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
@@ -119,9 +105,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -135,7 +118,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,

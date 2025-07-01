@@ -6,6 +6,26 @@
 //   This is necessary because unary_expression is the base for the
 //   whole relational_expression parse tree.
 // - Added letter_character_and_decimal_digit phrase and updated keyword_or_identifier phrase
+// - Added below pattern in argument_list
+//          |   WS_INLINE? sql_string
+//          |   WS_INLINE? sql_string "," argument_list
+// - Added subtract_expression
+// - Updated relational_expression, here below are the updates
+//      |   subtract_expression
+//      |   subtract_expression "<" relational_expression
+//      |   subtract_expression ">" relational_expression
+//      |   subtract_expression "<=" relational_expression
+//      |   subtract_expression ">=" relational_expression
+// - Added empty_string
+// - Updated argument_list, below are the updates
+//      |   empty_string
+//      |   empty_string "," argument_list
+// - Added sql_string in any_literal
+// - Added WS_INLINE? in field expression
+//   Added to ignore any comments
+//    %ignore WS             // Ignore whitespace
+//    %ignore CPP_COMMENT    // Ignore single-line comments
+//    %ignore C_COMMENT      // Ignore multi-line comments
 
 lexical_unit:   lexical_elements?
 
@@ -121,6 +141,7 @@ verbatim_literal: "#!\"" text_literal_characters? "\""
 identifier: regular_identifier
       |     quoted_identifier
 
+
 regular_identifier:     available_identifier
                   |     available_identifier dot_character regular_identifier
 
@@ -229,6 +250,8 @@ operator_or_punctuator: ","
                     |   "=>" 
                     |   ".." 
                     |   "..."
+                    |   "{{"
+                    |   "}}"
 
 document:   section_document
       |     expression_document
@@ -259,13 +282,16 @@ expression: logical_or_expression
       |     if_expression
       |     error_raising_expression
       |     error_handling_expression
+      |     outer_expression
+
 
 logical_or_expression:  logical_and_expression
                     |   logical_and_expression "or" logical_or_expression
 
+
 logical_and_expression: WS_INLINE? NEWLINE? is_expression WS_INLINE? NEWLINE?
                     |   WS_INLINE?
-                    |   NEWLINE?     
+                    |   NEWLINE?
                     |   logical_and_expression WS_INLINE? "and" WS_INLINE? is_expression
 
 is_expression:  as_expression
@@ -284,16 +310,27 @@ equality_expression:    WS_INLINE? relational_expression
                    |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
 
 relational_expression:  additive_expression
+                    |   subtract_expression
                     |   additive_expression "<" relational_expression
                     |   additive_expression ">" relational_expression
                     |   additive_expression "<=" relational_expression
                     |   additive_expression ">=" relational_expression
+                    |   subtract_expression "<" relational_expression
+                    |   subtract_expression ">" relational_expression
+                    |   subtract_expression "<=" relational_expression
+                    |   subtract_expression ">=" relational_expression
+
 
 additive_expression:    multiplicative_expression
                     |   multiplicative_expression "+" additive_expression
                     |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
                     |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
+
+subtract_expression:    multiplicative_expression
+                    |   multiplicative_expression "-" additive_expression
+                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
+                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
 multiplicative_expression:  WS_INLINE? metadata_expression
                         |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
@@ -340,10 +377,25 @@ not_implemented_expression: "..."
 
 invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
 
+empty_string: /"([^"]|\\")*"/
+
+// SQL String specific rules
+sql_content: /(?:[^\"\\]|\\[\"]|\"\"|\#\(lf\))+/
+
+sql_string: "\"" sql_content "\""
+
+outer_expression: "{{" expression "}}"
+
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
+            |   WS_INLINE? sql_string
+            |   WS_INLINE? sql_string "," argument_list
             |   "\"" identifier "\""
             |   "\"" identifier "\"" "," argument_list
+            |   "[" identifier "]"
+            |   "[" identifier "]" "," argument_list
+            |   empty_string
+            |   empty_string "," argument_list
             |   WS_INLINE
             |   WS_INLINE? ESCAPED_STRING
             |   WS_INLINE? ESCAPED_STRING "," argument_list
@@ -354,6 +406,7 @@ argument_list:  WS_INLINE? expression
 
 
 list_expression:    "{" item_list? "}"
+
 
 item_list:  item
         |   item "," item_list
@@ -366,7 +419,7 @@ record_expression:  "[" field_list? "]"
 field_list: field
         |   field "," field_list
 
-field:  field_name WS_INLINE? "=" WS_INLINE? expression
+field:  WS_INLINE? field_name WS_INLINE? "=" WS_INLINE? expression
 
 field_name: generalized_identifier
         |   quoted_identifier
@@ -565,6 +618,7 @@ any_literal:      record_literal
             |     number_literal
             |     text_literal
             |     null_literal
+            |     sql_string
 
 
 %import common.WORD
@@ -578,3 +632,7 @@ any_literal:      record_literal
 %import common.LF
 %import common.CR
 %import common.ESCAPED_STRING
+
+%ignore WS            // Ignore whitespace
+%ignore CPP_COMMENT    // Ignore single-line comments
+%ignore C_COMMENT      // Ignore multi-line comments

@@ -38,6 +38,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
   public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
   public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
+  public static final String OIDC_CONNECT_TIMEOUT = "auth.oidc.connectTimeout";
   public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS =
       "auth.oidc.extractJwtAccessTokenClaims";
   public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
@@ -58,6 +59,7 @@ public class OidcConfigs extends SsoConfigs {
   // False since extraction of groups can overwrite existing group membership.
   private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
   private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
+  private static final String DEFAULT_OIDC_CONNECT_TIMEOUT = "1000";
 
   private final String clientId;
   private final String clientSecret;
@@ -76,6 +78,7 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<Boolean> useNonce;
   private final Optional<String> customParamResource;
   private final String readTimeout;
+  private final String connectTimeout;
   private final Optional<Boolean> extractJwtAccessTokenClaims;
   private final Optional<String> preferredJwsAlgorithm;
   private final Optional<String> grantType;
@@ -100,6 +103,7 @@ public class OidcConfigs extends SsoConfigs {
     this.useNonce = builder.useNonce;
     this.customParamResource = builder.customParamResource;
     this.readTimeout = builder.readTimeout;
+    this.connectTimeout = builder.connectTimeout;
     this.extractJwtAccessTokenClaims = builder.extractJwtAccessTokenClaims;
     this.preferredJwsAlgorithm = builder.preferredJwsAlgorithm;
     this.acrValues = builder.acrValues;
@@ -127,6 +131,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> useNonce = Optional.empty();
     private Optional<String> customParamResource = Optional.empty();
     private String readTimeout = DEFAULT_OIDC_READ_TIMEOUT;
+    private String connectTimeout = DEFAULT_OIDC_CONNECT_TIMEOUT;
     private Optional<Boolean> extractJwtAccessTokenClaims = Optional.empty();
     private Optional<String> preferredJwsAlgorithm = Optional.empty();
     private Optional<String> grantType = Optional.empty();
@@ -173,6 +178,7 @@ public class OidcConfigs extends SsoConfigs {
       useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
       customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
       readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
+      connectTimeout = getOptional(configs, OIDC_CONNECT_TIMEOUT, DEFAULT_OIDC_CONNECT_TIMEOUT);
       extractJwtAccessTokenClaims =
           getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
       preferredJwsAlgorithm =
@@ -232,6 +238,9 @@ public class OidcConfigs extends SsoConfigs {
       if (jsonNode.has(READ_TIMEOUT)) {
         readTimeout = jsonNode.get(READ_TIMEOUT).asText();
       }
+      if (jsonNode.has(CONNECT_TIMEOUT)) {
+        connectTimeout = jsonNode.get(CONNECT_TIMEOUT).asText();
+      }
       if (jsonNode.has(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS)) {
         extractJwtAccessTokenClaims =
             Optional.of(jsonNode.get(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).asBoolean());
@@ -250,11 +259,11 @@ public class OidcConfigs extends SsoConfigs {
     }
 
     public OidcConfigs build() {
-      Objects.requireNonNull(_oidcEnabled, "oidcEnabled is required");
+      Objects.requireNonNull(oidcEnabled, "oidcEnabled is required");
       Objects.requireNonNull(clientId, "clientId is required");
       Objects.requireNonNull(clientSecret, "clientSecret is required");
       Objects.requireNonNull(discoveryUri, "discoveryUri is required");
-      Objects.requireNonNull(_authBaseUrl, "authBaseUrl is required");
+      Objects.requireNonNull(authBaseUrl, "authBaseUrl is required");
 
       return new OidcConfigs(this);
     }

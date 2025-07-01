@@ -2,11 +2,10 @@ plugins {
     id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
 apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -93,11 +92,13 @@ shadowJar {
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
+    exclude(dependency("org.scala-lang::"))
   }
 
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
-  exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
+  exclude('module-info.class', 'META-INF/versions/**',
+          '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
 
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
@@ -123,15 +124,6 @@ shadowJar {
   finalizedBy checkShadowJar
 }
 
-checkShadowJar {
-   dependsOn shadowJar
-}
-
-
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
 test {
   forkEvery = 1
   useJUnit()
@@ -154,14 +146,13 @@ test {
   ]
   jvmArgs = sparkJava17CompatibleJvmArgs
 
-  finalizedBy jacocoTestReport
 }
 
 assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSlim'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
@@ -185,7 +176,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-spark-lineage'
         description = 'Library to push data lineage from spark to datahub'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
@@ -241,11 +232,11 @@ nexusStaging {
     password = System.getenv("NEXUS_PASSWORD")
 }
 
-task cleanExtraDirs {
+clean{
   delete "$projectDir/derby.log"
   delete "$projectDir/src/test/resources/data/hive"
   delete "$projectDir/src/test/resources/data/out.csv"
   delete "$projectDir/src/test/resources/data/out_persist.csv"
   delete "$projectDir/spark-smoke-test/venv"
 }
-clean.finalizedBy(cleanExtraDirs)
+

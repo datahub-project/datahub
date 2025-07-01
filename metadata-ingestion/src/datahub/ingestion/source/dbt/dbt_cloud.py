@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -9,6 +9,7 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
     capability,
     config_class,
@@ -17,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
@@ -62,6 +62,11 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
 
+    external_url_mode: Literal["explore", "ide"] = Field(
+        default="explore",
+        description='Where should the "View in dbt" link point to - either the "Explore" UI or the dbt Cloud IDE',
+    )
+
     @root_validator(pre=True)
     def set_metadata_endpoint(cls, values: dict) -> dict:
         if values.get("access_url") and not values.get("metadata_endpoint"):
@@ -70,6 +75,7 @@ class DBTCloudConfig(DBTCommonConfig):
                 raise ValueError(
                     "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint."
                 )
+            logger.info(f"Inferred metadata endpoint: {metadata_endpoint}")
             values["metadata_endpoint"] = metadata_endpoint
         return values
 
@@ -188,20 +194,20 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
 
 _DBT_FIELDS_BY_TYPE = {
     "models": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     dependsOn
     materializedType
 """,
     "seeds": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
 """,
     "sources": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
     identifier
     sourceName
     sourceDescription
@@ -212,9 +218,9 @@ _DBT_FIELDS_BY_TYPE = {
     loader
 """,
     "snapshots": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     parentsSources {{
       uniqueId
     }}
@@ -223,7 +229,7 @@ _DBT_FIELDS_BY_TYPE = {
     }}
 """,
     "tests": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
     state
     columnName
     status
@@ -256,30 +262,15 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
-    """
-    This source pulls dbt metadata directly from the dbt Cloud APIs.
-
-    You'll need to have a dbt Cloud job set up to run your dbt project, and "Generate docs on run" should be enabled.
-
-    The token should have the "read metadata" permission.
-
-    To get the required IDs, go to the job details page (this is the one with the "Run History" table), and look at the URL.
-    It should look something like this: https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094.
-    In this example, the account ID is 107298, the project ID is 175705, and the job ID is 148094.
-    """
-
-    # TODO: add some screenshots to the docs
-
     config: DBTCloudConfig
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DBTCloudConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
+        return cls(config, ctx)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -323,7 +314,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             res = response.json()
             if "errors" in res:
                 raise ValueError(
-                    f'Unable to fetch metadata from dbt Cloud: {res["errors"]}'
+                    f"Unable to fetch metadata from dbt Cloud: {res['errors']}"
                 )
             data = res["data"]
         except JSONDecodeError as e:
@@ -540,5 +531,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"
+        if self.config.external_url_mode == "explore":
+            return f"{self.config.access_url}/explore/{self.config.account_id}/projects/{self.config.project_id}/environments/production/details/{node.dbt_name}"
+        else:
+            return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"

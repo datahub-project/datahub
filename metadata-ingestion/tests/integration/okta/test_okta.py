@@ -10,7 +10,7 @@ from okta.models import Group, User
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.okta import OktaConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -58,14 +58,12 @@ def run_ingest(
     mocked_functions_reference,
     recipe,
 ):
-
     with patch(
         "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient, patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(MockClient=MockClient)
@@ -119,6 +117,32 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_default_config.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_path):
+    test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
+
+    output_file_path = f"{tmp_path}/okta_mces_ingest_groups_users.json"
+
+    new_recipe = default_recipe(output_file_path)
+    new_recipe["source"]["config"]["ingest_users"] = False
+    new_recipe["source"]["config"]["ingest_groups"] = True
+    new_recipe["source"]["config"]["ingest_groups_users"] = True
+
+    run_ingest(
+        mock_datahub_graph=mock_datahub_graph,
+        mocked_functions_reference=partial(
+            _init_mock_okta_client, test_resources_dir=test_resources_dir
+        ),
+        recipe=new_recipe,
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file_path,
+        golden_path=f"{test_resources_dir}/okta_mces_golden_ingest_groups_users.json",
     )
 
 
@@ -277,7 +301,6 @@ def overwrite_group_in_mocked_data(test_resources_dir, MockClient):
 def _init_mock_okta_client(
     test_resources_dir, MockClient, mock_users_json=None, mock_groups_json=None
 ):
-
     okta_users_json_file = (
         test_resources_dir / "okta_users.json"
         if mock_users_json is None

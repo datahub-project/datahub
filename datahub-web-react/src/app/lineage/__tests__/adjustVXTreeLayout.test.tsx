@@ -1,7 +1,11 @@
-import React from 'react';
-import { Tree, hierarchy } from '@visx/hierarchy';
 import { render } from '@testing-library/react';
+import { Tree, hierarchy } from '@visx/hierarchy';
+import React from 'react';
 
+import { Direction, EntityAndType, NodeData } from '@app/lineage/types';
+import adjustVXTreeLayout from '@app/lineage/utils/adjustVXTreeLayout';
+import constructTree from '@app/lineage/utils/constructTree';
+import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
 import {
     dataset3WithLineage,
     dataset4WithLineage,
@@ -10,13 +14,10 @@ import {
     dataset6WithLineage,
     dataset7WithLineage,
     dataset7WithSelfReferentialLineage,
-} from '../../../Mocks';
-import constructTree from '../utils/constructTree';
-import extendAsyncEntities from '../utils/extendAsyncEntities';
-import adjustVXTreeLayout from '../utils/adjustVXTreeLayout';
-import { NodeData, Direction, EntityAndType } from '../types';
-import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { Dataset, Entity, EntityType } from '../../../types.generated';
+} from '@src/Mocks';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+
+import { Dataset, Entity, EntityType } from '@types';
 
 const testEntityRegistry = getTestEntityRegistry();
 

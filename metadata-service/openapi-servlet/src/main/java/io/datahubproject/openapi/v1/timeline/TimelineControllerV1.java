@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Deprecated
 @RestController
 @AllArgsConstructor
-@RequestMapping("/timeline/v1")
+@RequestMapping("/openapi/timeline/v1")
 @Tag(
     name = "Timeline",
     description =

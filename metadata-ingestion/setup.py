@@ -3,7 +3,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub/__init__.py") as fp:
+with open("./src/datahub/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 _version: str = package_metadata["__version__"]
@@ -14,8 +14,8 @@ _self_pin = (
 )
 
 base_requirements = {
-    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
-    "typing_extensions>=3.7.4.3",
+    # Our min version of typing_extensions is somewhat constrained by Airflow.
+    "typing_extensions>=4.5.0",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -28,7 +28,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=7.1.2",
+    # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    "click>=7.1.2, !=8.2.0",
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
@@ -38,11 +39,11 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.11.3,<1.12",
+    # avro has historically made breaking changes, so we have a cautious upper bound.
+    "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
-    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",
     "humanfriendly",
@@ -63,12 +64,6 @@ pydantic_no_v2 = {
     "pydantic<2",
 }
 
-plugin_common = {
-    # While pydantic v2 support is experimental, require that all plugins
-    # continue to use v1. This will ensure that no ingestion recipes break.
-    *pydantic_no_v2,
-}
-
 rest_common = {"requests", "requests_file"}
 
 kafka_common = {
@@ -77,7 +72,10 @@ kafka_common = {
     # now provide prebuilt wheels for most platforms, including M1 Macs and
     # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
     # from source remains a pain.
-    "confluent_kafka>=1.9.0",
+    # With the release of 2.8.1, confluent-kafka only released a source distribution,
+    # and no prebuilt wheels.
+    # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
+    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -99,9 +97,11 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.20.2.dev6",
+    # We heavily monkeypatch sqlglot.
+    # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    # but not longer do.
+    "sqlglot[rs]==26.26.0",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
@@ -122,35 +122,59 @@ dbt_common = {
     "more_itertools",
 }
 
+cachetools_lib = {
+    "cachetools",
+}
+
+great_expectations_lib = {
+    # 1. Our original dep was this:
+    # "great-expectations>=0.15.12, <=0.15.50",
+    # 2. For hive, we had additional restrictions:
+    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
+    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+    #    https://github.com/great-expectations/great_expectations/pull/6149.
+    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+    # 3. Since then, we've ended up forking great-expectations in order to
+    #    add pydantic 2.x support. The fork is pretty simple
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    This was derived from work done by @jskrzypek in
+    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
+    "acryl-great-expectations==0.15.50.1",
+}
+
+sqlalchemy_lib = {
+    # Required for all SQL sources.
+    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+    "sqlalchemy>=1.4.39, <2",
+}
 sql_common = (
     {
-        # Required for all SQL sources.
-        # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-        "sqlalchemy>=1.4.39, <2",
+        *sqlalchemy_lib,
         # Required for SQL profiling.
-        "great-expectations>=0.15.12, <=0.15.50",
-        *pydantic_no_v2,  # because of great-expectations
+        *great_expectations_lib,
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets<5.2.2",
+        "traitlets!=5.2.2",
+        # GE depends on IPython - we have no direct dependency on it.
+        # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
+        # version requirement of traitlets>5.
+        # See https://github.com/ipython/ipython/issues/14352.
+        # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
+        # which first appeared in IPython 8.22.1.
+        # As such, we just need to avoid that version in order to get the
+        # dependencies that we need. IPython probably should've yanked 8.22.0.
+        "IPython!=8.22.0",
         "greenlet",
+        *cachetools_lib,
     }
     | usage_common
     | sqlglot_lib
     | classification_lib
 )
-
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
 
 aws_common = {
     # AWS Python SDK
@@ -167,14 +191,18 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==23.0.0",
+    "looker-sdk>=23.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4",
     *sqlglot_lib,
     "GitPython>2",
-    "python-liquid",
+    # python-liquid 2 includes a bunch of breaking changes.
+    # See https://jg-rp.github.io/liquid/migration/
+    # Eventually we should fully upgrade to v2, but that will require
+    # us to drop Python 3.8 support first.
+    "python-liquid<2",
     "deepmerge>=1.1.1",
 }
 
@@ -186,12 +214,15 @@ bigquery_common = {
     "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
+    *path_spec_common,
 }
 
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    # zstd needs to be pinned because the latest version causes issues on arm
+    "zstd<1.5.6.8",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
@@ -199,29 +230,43 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
-    "redshift-connector>=2.1.0",
-    *sqllineage_lib,
+    "redshift-connector>=2.1.5",
     *path_spec_common,
 }
 
 snowflake_common = {
-    # Snowflake plugin utilizes sql common
-    *sql_common,
-    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
-    "snowflake-sqlalchemy>=1.4.3",
+    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    #
+    # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
+    # table column name reflection for non-uppercase table names. While we do not
+    # use this method directly, it is used by great-expectations during profiling.
+    #
+    # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
+    #
+    # The exact cause of the breakage in v1.7.4 is unclear, but it may be related to
+    # changes in the _get_table_columns function. I initially suspected PR #541
+    # (https://github.com/snowflakedb/snowflake-sqlalchemy/pull/541), but that has been
+    # present since v1.7.0 and does not appear to cause issues.
+    #
+    # Reflection failures for case-sensitive object names are a known issue:
+    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/388
+    #
+    # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
+    # above issue and we are pinning to a safe version.
+    "snowflake-sqlalchemy>=1.4.3, <1.7.4",
     "snowflake-connector-python>=3.4.0",
     "pandas",
     "cryptography",
     "msal",
-    "cachetools",
-} | classification_lib
+    *cachetools_lib,
+}
 
 trino = {
     "trino[sqlalchemy]>=0.308",
 }
 
 pyhive_common = {
-    # Acryl Data maintains a fork of PyHive
+    # DataHub maintains a fork of PyHive
     # - 0.6.11 adds support for table comments and column comments,
     #   and also releases HTTP and HTTPS transport schemes
     # - 0.6.12 adds support for Spark Thrift Server
@@ -238,11 +283,15 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.22.0"}
+microsoft_common = {
+    "msal>=1.31.1",
+}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg>=0.4,<0.7",
+    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
+    "pyiceberg>=0.4.0",
+    *cachetools_lib,
 }
 
 mssql_common = {
@@ -269,9 +318,16 @@ s3_base = {
     *path_spec_common,
 }
 
+threading_timeout_common = {
+    "stopit==1.1.2",
+    # stopit uses pkg_resources internally, which means there's an implied
+    # dependency on setuptools.
+    "setuptools",
+}
+
 abs_base = {
-    "azure-core==1.29.4",
-    "azure-identity>=1.17.1",
+    "azure-core>=1.31.0",
+    "azure-identity>=1.21.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -283,27 +339,32 @@ abs_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ~=1.1.0",
-    "pyspark~=3.3.0",
+    "pydeequ>=1.1.0",
+    "pyspark~=3.5.0",
+    # cachetools is used by the profiling config
+    *cachetools_lib,
 }
 
 delta_lake = {
     *s3_base,
     *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
-    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4, != 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {"slack-sdk==3.18.1"}
+slack = {
+    "slack-sdk==3.18.1",
+    "tenacity>=8.0.1",
+}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.3.0",
+    "pyspark~=3.5.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
@@ -313,12 +374,17 @@ databricks = {
     "pandas<2.2.0",
 }
 
-mysql = sql_common | {"pymysql>=1.0.2"}
+mysql = {"pymysql>=1.0.2"}
 
 sac = {
     "requests",
     "pyodata>=1.11.1",
     "Authlib",
+}
+
+superset_common = {
+    "requests",
+    *sqlglot_lib,
 }
 
 # Note: for all of these, framework_common will be added.
@@ -328,7 +394,9 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
-        "duckdb",
+        "duckdb>=1.0.0",
+        # duckdb dropped support for python 3.8 in 1.3.0
+        "duckdb<1.3.0; python_version < '3.9'",
         "fastapi",
         "uvicorn",
     },
@@ -340,7 +408,9 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "datahub": mysql | kafka_common,
+    # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
+    # but not the full sql_common.
+    "datahub": sql_common | mysql | kafka_common,
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
@@ -361,11 +431,12 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
+    | sqlglot_lib
+    | classification_lib
     | {
-        *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    }
-    | classification_lib,
+    },
+    "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -375,13 +446,22 @@ plugins: Dict[str, Set[str]] = {
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
+    "dremio": {"requests"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4"},
+    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    "cassandra": {
+        "cassandra-driver>=3.28.0",
+        # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+        # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+        # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+        "numpy<2",
+        *cachetools_lib,
+    },
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
@@ -392,7 +472,7 @@ plugins: Dict[str, Set[str]] = {
         "numpy<2",
     },
     "grafana": {"requests"},
-    "glue": aws_common,
+    "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -403,16 +483,14 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "databricks-dbapi",
-        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
-        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-        # https://github.com/great-expectations/great_expectations/pull/6149.
-        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     "hive-metastore": sql_common
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
+    "iceberg-catalog": aws_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -421,21 +499,27 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
-        "mlflow-skinny>=2.3.0",
+        "mlflow-skinny>=2.3.0,<2.21.0",
+        # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
+        # https://github.com/mlflow/mlflow/pull/14795
+        # Upper bound can be removed once the upstream issue is resolved,
+        # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
-    | sqllineage_lib
-    | sqlglot_lib,
+    "datahub-debug": {
+        "dnspython==2.7.0",
+        "requests"
+    },
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
-    "mysql": mysql,
+    "mysql": sql_common | mysql,
     # mariadb should have same dependency as mysql
-    "mariadb": sql_common | {"pymysql>=1.0.2"},
+    "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
-    "oracle": sql_common | {"cx_Oracle"},
+    "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
@@ -443,51 +527,57 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
+    "redash": {"redash-toolbelt", "sql-metadata"} | sqlglot_lib,
     "redshift": sql_common
     | redshift_common
     | usage_common
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
-    | {"cachetools"},
+    | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
-    "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
+    "salesforce": {"simple-salesforce", *cachetools_lib},
+    "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-slim": snowflake_common,
+    "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
-    "superset": {
-        "requests",
-        "sqlalchemy",
-        "great_expectations",
-        "greenlet",
-    },
-    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
-    # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
+    "superset": superset_common,
+    "preset": superset_common,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0"},
+    | {
+        # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
+        # in our CI, so we're pinning the version for now.
+        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": (
+        microsoft_common
+        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | sqlglot_lib
+        | threading_timeout_common
+    ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common | sqllineage_lib,
-    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
+    "databricks": databricks | sql_common,
+    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
+    "neo4j": {"pandas", "neo4j"},
+    "vertexai": {"google-cloud-aiplatform>=1.80.0"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -511,7 +601,6 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     # We need to avoid 2.31.0.5 and 2.31.0.4 due to
@@ -528,7 +617,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb]==1.28.15",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.28.15",
     "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
     "types-tabulate",
     # avrogen package requires this
@@ -536,7 +625,6 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
-    "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "sqlalchemy2-stubs",
@@ -545,8 +633,10 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
+    "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
+    "orderly-set!=5.4.0",  # 5.4.0 uses invalid types on Python 3.8
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -555,22 +645,22 @@ debug_requirements = {
     "memray",
 }
 
+lint_requirements = {
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "ruff==0.11.7",
+    "mypy==1.14.1",
+}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
     *s3_base,
-    # This is pinned only to avoid spurious errors in CI.
-    # We should make an effort to keep it up to date.
-    "black==22.12.0",
+    *lint_requirements,
+    *test_api_requirements,
     "coverage>=5.1",
     "faker>=18.4.0",
-    "flake8>=6.0.0",
-    "flake8-tidy-imports>=4.3.0",
-    "flake8-bugbear==23.3.12",
-    "isort>=5.7.0",
-    "mypy==1.10.1",
-    *test_api_requirements,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
@@ -589,10 +679,12 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "delta-lake",
+            "dremio",
             "druid",
             "elasticsearch",
             "feast",
             "iceberg",
+            "iceberg-catalog",
             "mlflow",
             "json-schema",
             "ldap",
@@ -630,10 +722,14 @@ base_dev_requirements = {
             "qlik-sense",
             "sigma",
             "sac",
+            "cassandra",
+            "neo4j",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
     ),
+    *pydantic_no_v2,
 }
 
 dev_requirements = {
@@ -653,6 +749,7 @@ full_test_dev_requirements = {
             "hana",
             "hive",
             "iceberg",
+            "iceberg-catalog",
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -662,6 +759,7 @@ full_test_dev_requirements = {
             "mariadb",
             "redash",
             "vertica",
+            "vertexai",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -687,6 +785,7 @@ entry_points = {
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
+        "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
@@ -698,12 +797,15 @@ entry_points = {
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
-        "kafka = datahub.ingestion.source.kafka:KafkaSource",
-        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
+        "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
+        "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
+        "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
+        "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
@@ -722,6 +824,7 @@ entry_points = {
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
@@ -729,7 +832,7 @@ entry_points = {
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
-        "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "powerbi = datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource",
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
@@ -746,6 +849,10 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
+        "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
+        "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
+        "hex = datahub.ingestion.source.hex.hex:HexSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -808,9 +915,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
@@ -821,7 +928,7 @@ setuptools.setup(
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
 
-See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[
@@ -829,9 +936,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -863,7 +967,9 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
             plugin: list(
                 framework_common
                 | (
-                    plugin_common
+                    # While pydantic v2 support is experimental, require that all plugins
+                    # continue to use v1. This will ensure that no ingestion recipes break.
+                    pydantic_no_v2
                     if plugin
                     not in {
                         "airflow",
@@ -871,7 +977,12 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "datahub-kafka",
                         "sync-file-emitter",
                         "sql-parser",
+                        # Some sources have been manually tested for compatibility with pydantic v2.
                         "iceberg",
+                        "feast",
+                        "bigquery-slim",
+                        "snowflake-slim",
+                        "mysql",  # tested in smoke-test
                     }
                     else set()
                 )
@@ -890,6 +1001,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),
