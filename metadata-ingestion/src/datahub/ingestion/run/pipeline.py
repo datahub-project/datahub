@@ -578,11 +578,13 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().aspects
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []
