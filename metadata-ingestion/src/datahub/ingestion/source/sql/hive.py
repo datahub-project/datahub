@@ -570,7 +570,7 @@ class HiveStorageLineage:
 
 try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
-    from pyhive.sqlalchemy_hive import _type_map
+    from pyhive.sqlalchemy_hive import HiveDialect, _type_map
     from sqlalchemy import types, util
     from sqlalchemy.engine import reflection
 
@@ -583,9 +583,17 @@ try:
         # Filter out empty rows and comment
         rows = [row for row in rows if row[0] and row[0] != "# col_name"]
         result = []
-        for col_name, col_type, _comment in rows:
+        for row in rows:
+            if len(row) < 3:
+                print(row)
+                continue
+            col_name, col_type, _comment = row[:3]
             # Handle both oss hive and Databricks' hive partition header, respectively
-            if col_name in ("# Partition Information", "# Partitioning"):
+            if col_name in (
+                "# Partition Information",
+                "# Partitioning",
+                "# Detailed Table Information",
+            ):
                 break
             # Take out the more detailed type information
             # e.g. 'map<int,int>' -> 'map'
@@ -614,6 +622,7 @@ try:
         return result
 
     DatabricksPyhiveDialect.get_columns = dbapi_get_columns_patched
+    HiveDialect.get_columns = dbapi_get_columns_patched
 except ModuleNotFoundError:
     pass
 except Exception as exp:

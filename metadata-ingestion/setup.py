@@ -520,6 +520,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
+    "informatica": sql_common | {"cx_Oracle"} | sqlglot_lib,
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
@@ -853,6 +854,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "informatica = datahub.ingestion.source.informatica.informatica:InformaticaSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -957,6 +959,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
+        "datahub.ingestion.source.informatica": ["sql/*.sql"]
     },
     entry_points=entry_points,
     # Dependencies.

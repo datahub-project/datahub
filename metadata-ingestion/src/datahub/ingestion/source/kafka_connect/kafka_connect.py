@@ -33,20 +33,26 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BIGQUERY_SINK_CONNECTOR_CLASS,
+    JDBC_SINK_CONNECTOR_CLASS,
     S3_SINK_CONNECTOR_CLASS,
     SNOWFLAKE_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ConfluentS3SinkConnector,
+    JdbcSinkConnector,
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
     JDBC_SOURCE_CONNECTOR_CLASS,
+    KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS,
     MONGO_SOURCE_CONNECTOR_CLASS,
+    VMETA_SOURCE_CONNECTOR_CLASS,
     ConfigDrivenSourceConnector,
     ConfluentJDBCSourceConnector,
     DebeziumSourceConnector,
+    KafkaMirrorSourceConnector,
     MongoSourceConnector,
+    VMetaSourceConnector,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -141,6 +147,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = DebeziumSourceConnector
                 elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
                     class_type = MongoSourceConnector
+                elif connector_class_value == KAFKA_MIRROR_SOURCE_CONNECTOR_CLASS:
+                    class_type = KafkaMirrorSourceConnector
+                elif VMETA_SOURCE_CONNECTOR_CLASS in connector_class_value:
+                    class_type = VMetaSourceConnector
                 elif any(
                     [
                         connector.connector_name == connector_manifest.name
@@ -163,6 +173,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = ConfluentS3SinkConnector
                 elif connector_class_value == SNOWFLAKE_SINK_CONNECTOR_CLASS:
                     class_type = SnowflakeSinkConnector
+                elif connector_class_value == JDBC_SINK_CONNECTOR_CLASS:
+                    class_type = JdbcSinkConnector
                 else:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
@@ -280,9 +292,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 target_platform = lineage.target_platform
                 job_property_bag = lineage.job_property_bag
 
-                source_platform_instance = get_platform_instance(
-                    self.config, connector_name, source_platform
-                )
+                if job_property_bag and "source_platform_instance" in job_property_bag:
+                    source_platform_instance = job_property_bag.get(
+                        "source_platform_instance"
+                    )
+                else:
+                    source_platform_instance = get_platform_instance(
+                        self.config, connector_name, source_platform
+                    )
+
                 target_platform_instance = get_platform_instance(
                     self.config, connector_name, target_platform
                 )
