@@ -4238,7 +4238,7 @@ type CorpUserHomePageSettings {
   """
   The default page template for the User.
   """
-  defaultTemplate: DataHubPageTemplate
+  pageTemplate: DataHubPageTemplate
 }
 
 """
