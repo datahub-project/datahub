@@ -339,6 +339,13 @@ class SourceReport(Report):
             "infos": Report.to_pure_python_obj(self.infos),
         }
 
+    def get_aspects_dict(self) -> Dict[str, Dict[str, int]]:
+        """Convert the nested defaultdict aspects to a regular dict for serialization."""
+        result = {}
+        for entity_type, aspect_counts in self.aspects.items():
+            result[entity_type] = dict(aspect_counts)
+        return result
+
     def compute_stats(self) -> None:
         super().compute_stats()
 
