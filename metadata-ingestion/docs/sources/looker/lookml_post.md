@@ -40,6 +40,13 @@
        db: ANALYTICS_PROD
      ```
 
+**Liquid Template Support Limits:**
+
+- Supported: Simple variable interpolation (`{{ var }}`) and condition directives (`{% condition filter_name %} field {% endcondition %}`)
+- Unsupported: Conditional logic with `if`/`else`/`endif` and custom Looker tags like `date_start`, `date_end`, and `parameter`
+
+Unsupported templates may cause lineage extraction to fail for some assets.
+
 **Additional Notes**
 
 Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.

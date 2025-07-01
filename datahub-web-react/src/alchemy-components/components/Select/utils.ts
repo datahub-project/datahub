@@ -59,7 +59,7 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xxsm} ${spacing.xxsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
             padding: `${spacing.xsm} ${spacing.xsm}`,

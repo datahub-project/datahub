@@ -30,7 +30,7 @@ def test_gcs_source_setup():
         gcs.s3_source.create_s3_path(
             "bucket-name", "food_parquet/year%3D2023/month%3D4/day%3D24/part1.parquet"
         )
-        == "s3://bucket-name/food_parquet/year=2023/month=4/day=24/part1.parquet"
+        == "gs://bucket-name/food_parquet/year=2023/month=4/day=24/part1.parquet"
     )
 
 

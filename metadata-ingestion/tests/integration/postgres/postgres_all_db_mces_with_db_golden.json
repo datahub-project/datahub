@@ -878,6 +878,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD),urn)"
                     ],
+                    "transformOperation": "COPY: \"metadata_aspect_v2\".\"urn\" AS \"urn\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29"
                 },
@@ -890,6 +891,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD),aspect)"
                     ],
+                    "transformOperation": "COPY: \"metadata_aspect_v2\".\"aspect\" AS \"aspect\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cpostgrestest.public.metadata_aspect_view%2CPROD%29"
                 }
@@ -909,6 +911,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "SELECT\n  metadata_aspect_v2.urn,\n  metadata_aspect_v2.aspect\nFROM metadata_aspect_v2\nWHERE\n  (\n    metadata_aspect_v2.version = 0\n  )",
                 "language": "SQL"

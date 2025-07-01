@@ -4,23 +4,29 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::info
-
-This feature is currently in closed beta. Reach out to your DataHub Cloud representative to get access.
-
-:::
-
 With AI-powered documentation, you can automatically generate documentation for tables and columns.
 
 <p align="center">
 <iframe width="560" height="315" src="https://www.youtube.com/embed/_7DieZeZspY?si=Q5FkCA0gZPEFMj0Y" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </p>
 
-## Configuring
+## Prerequisites
 
-Ensure you have edit dataset description privileges.
+As of DataHub Cloud v0.3.12, AI documentation is in public beta. Admins (or users with the "Manage Platform Settings" privilege) can enable it from settings.
 
-Once permissions are obtained, no configuration is required - just hit "Generate" on any table or column in the UI.
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-docs/ai-docs-toggle.png"/>
+</p>
+
+## Usage
+
+Ensure you have permissions to edit the dataset description. No other configuration is required - just hit "Generate" on any table or column in the UI.
+
+All AI-generated documentation that has not been reviewed by a human will be marked as such with the sparkle icon.
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-docs/ai-docs-generation.gif"/>
+</p>
 
 ## How it works
 
@@ -35,5 +41,5 @@ Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedr
 
 ## Limitations
 
-- This feature is not available on tables with more than 100 columns. We are working on expanding this limit.
-- This feature is powered by an LLM, which can produce inaccurate results. While we've taken steps to reduce the likelihood of hallucinations, they can still occur.
+- AI documentation is not available for tables with more than 1000 columns (prior to v0.3.12, this limit was 100 columns).
+- This feature is powered by LLMs, which can produce inaccurate results. While we've taken steps to reduce the likelihood of hallucinations, they may still occur.

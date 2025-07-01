@@ -8,6 +8,7 @@ import {
 } from '@app/searchV2/filters/utils';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import usePrevious from '@app/shared/usePrevious';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 
 import { EntityType, FacetFilterInput, FacetMetadata } from '@types';
@@ -18,6 +19,7 @@ interface Props {
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
     shouldUseAggregationsFromFilter?: boolean;
+    shouldApplyView?: boolean;
 }
 
 export default function useSearchFilterDropdown({
@@ -26,6 +28,7 @@ export default function useSearchFilterDropdown({
     onChangeFilters,
     aggregationsEntityTypes,
     shouldUseAggregationsFromFilter,
+    shouldApplyView = true,
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
     const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0 && !shouldUseAggregationsFromFilter;
@@ -46,7 +49,7 @@ export default function useSearchFilterDropdown({
                         types: aggregationsEntityTypes || (filter.field === ENTITY_FILTER_NAME ? null : entityFilters),
                         query,
                         orFilters,
-                        viewUrn,
+                        ...(shouldApplyView ? { viewUrn } : {}),
                         facets: [filter.field],
                     },
                 },
@@ -61,14 +64,19 @@ export default function useSearchFilterDropdown({
         viewUrn,
         shouldFetchAggregations,
         aggregationsEntityTypes,
+        shouldApplyView,
     ]);
 
-    const fetchedAggregations =
+    const newAggregations =
         data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
     const searchAggregations = filter.aggregations;
     const activeAggregations = searchAggregations.filter((agg) =>
         activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
     );
+
+    const prevNewAggregations = usePrevious(newAggregations);
+    // Avoid flicker while we fetch aggregations
+    const fetchedAggregations = newAggregations.length > 0 ? newAggregations : prevNewAggregations || [];
 
     const aggregations = shouldFetchAggregations
         ? [...fetchedAggregations, ...deduplicateAggregations(fetchedAggregations, activeAggregations)]

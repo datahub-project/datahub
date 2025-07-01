@@ -263,6 +263,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+            query
+            transformOperation
         }
         health {
             ...entityHealth
@@ -898,7 +900,7 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
+            count: 2000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: UPSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
@@ -916,7 +918,7 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
+            count: 2000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: DOWNSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }

@@ -81,7 +81,8 @@ public class DataJobType
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          DATA_TRANSFORM_LOGIC_ASPECT_NAME);
+          DATA_TRANSFORM_LOGIC_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 
@@ -145,7 +146,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -165,7 +166,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -178,7 +179,7 @@ public class DataJobType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

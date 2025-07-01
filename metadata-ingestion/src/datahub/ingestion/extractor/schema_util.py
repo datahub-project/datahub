@@ -290,6 +290,12 @@ class AvroToMceSchemaConverter:
           This way we can use the type/description of the non-null type if needed.
         """
 
+        # props to skip when building jsonProps
+        json_props_to_skip = [
+            "_nullable",
+            "native_data_type",
+        ]
+
         def __init__(
             self,
             schema: SchemaOrField,
@@ -407,6 +413,16 @@ class AvroToMceSchemaConverter:
                     or self._actual_schema.props.get("logicalType"),
                 )
 
+                json_props: Optional[Dict[str, Any]] = (
+                    {
+                        k: v
+                        for k, v in merged_props.items()
+                        if k not in self.json_props_to_skip
+                    }
+                    if merged_props
+                    else None
+                )
+
                 field = SchemaField(
                     fieldPath=field_path,
                     # Populate it with the simple native type for now.
@@ -421,7 +437,7 @@ class AvroToMceSchemaConverter:
                     isPartOfKey=self._converter._is_key_schema,
                     globalTags=tags_aspect,
                     glossaryTerms=meta_terms_aspect,
-                    jsonProps=json.dumps(merged_props) if merged_props else None,
+                    jsonProps=json.dumps(json_props) if json_props else None,
                 )
                 yield field
 

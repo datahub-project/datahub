@@ -6,4 +6,5 @@ import lombok.Data;
 public class IndexConfiguration {
   private String prefix;
   private DocIdsConfiguration docIds;
+  private Integer minSearchFilterLength;
 }

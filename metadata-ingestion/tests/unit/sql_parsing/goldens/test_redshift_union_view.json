@@ -12,6 +12,7 @@
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.sales_vw,PROD)"
     ],
     "column_lineage": null,
+    "joins": null,
     "debug_info": {
         "confidence": 0.3,
         "generalized_statement": "CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING"

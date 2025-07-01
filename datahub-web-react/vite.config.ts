@@ -3,6 +3,7 @@ import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { codecovVitePlugin } from "@codecov/vite-plugin";
 import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
@@ -45,7 +46,7 @@ export default defineConfig(({ mode }) => {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
-        '/track': frontendProxy,
+        '/openapi/v1/tracking/track': frontendProxy,
     };
 
     const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
@@ -85,6 +86,12 @@ export default defineConfig(({ mode }) => {
                     },
                 ],
                 structured: true,
+            }),
+            codecovVitePlugin({
+                enableBundleAnalysis: true,
+                bundleName: "datahub-react-web",
+                uploadToken: process.env.CODECOV_TOKEN,
+                gitService: "github",
             }),
         ],
         // optimizeDeps: {

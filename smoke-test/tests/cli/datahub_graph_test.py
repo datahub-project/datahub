@@ -125,7 +125,7 @@ def _ensure_dataset_present_correctly(auth_session, graph_client: DataHubGraph):
                         createdAt\n
                     }\n
                     outgoing: relationships(\n
-                      input: { types: ["SchemaFieldTaggedWith"], direction: OUTGOING, start: 0, count: 10000 }\n
+                      input: { types: ["SchemaFieldTaggedWith"], direction: OUTGOING, start: 0, count: 2000 }\n
                     ) {\n
                             start\n
                             count\n

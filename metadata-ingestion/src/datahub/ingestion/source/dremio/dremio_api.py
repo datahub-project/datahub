@@ -21,6 +21,7 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ class DremioAPIOperations:
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
+        self.start_time = connection_args.start_time
+        self.end_time = connection_args.end_time
         self.report = report
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
@@ -233,47 +236,71 @@ class DremioAPIOperations:
 
     def get(self, url: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.get(
-            url=(self.base_url + url),
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"GET request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["GET " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.get(
+                url=(self.base_url + url),
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["GET " + url] += (
+                timer.elapsed_seconds()
+            )
+            # response.raise_for_status()  # Enabling this line, makes integration tests to fail
+            return response.json()
 
     def post(self, url: str, data: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.post(
-            url=(self.base_url + url),
-            data=data,
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"POST request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["POST " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.post(
+                url=(self.base_url + url),
+                data=data,
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["POST " + url] += (
+                timer.elapsed_seconds()
+            )
+            # response.raise_for_status()  # Enabling this line, makes integration tests to fail
+            return response.json()
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
         try:
-            response = self.post(url="/sql", data=json.dumps({"sql": query}))
+            with PerfTimer() as timer:
+                logger.info(f"Executing query: {query}")
+                response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
-            if "errorMessage" in response:
-                self.report.failure(
-                    message="SQL Error", context=f"{response['errorMessage']}"
-                )
-                raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
+                if "errorMessage" in response:
+                    self.report.failure(
+                        message="SQL Error", context=f"{response['errorMessage']}"
+                    )
+                    raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
-            job_id = response["id"]
+                job_id = response["id"]
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(self.fetch_results, job_id)
-                try:
-                    return future.result(timeout=timeout)
-                except concurrent.futures.TimeoutError:
-                    self.cancel_query(job_id)
-                    raise DremioAPIException(
-                        f"Query execution timed out after {timeout} seconds"
-                    ) from None
-                except RuntimeError as e:
-                    raise DremioAPIException() from e
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(self.fetch_results, job_id)
+                    try:
+                        result = future.result(timeout=timeout)
+                        logger.info(
+                            f"Query executed in {timer.elapsed_seconds()} seconds with {len(result)} results"
+                        )
+                        return result
+                    except concurrent.futures.TimeoutError:
+                        self.cancel_query(job_id)
+                        raise DremioAPIException(
+                            f"Query execution timed out after {timeout} seconds"
+                        ) from None
+                    except RuntimeError as e:
+                        raise DremioAPIException() from e
 
         except requests.RequestException as e:
             raise DremioAPIException("Error executing query") from e
@@ -603,10 +630,25 @@ class DremioAPIOperations:
         return parents_list
 
     def extract_all_queries(self) -> List[Dict[str, Any]]:
+        # Convert datetime objects to string format for SQL queries
+        start_timestamp_str = None
+        end_timestamp_str = None
+
+        if self.start_time:
+            start_timestamp_str = self.start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        if self.end_time:
+            end_timestamp_str = self.end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
         if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS_CLOUD
+            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
         else:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS
+            jobs_query = DremioSQLQueries.get_query_all_jobs(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
 
         return self.execute_query(query=jobs_query)
 
@@ -685,6 +727,27 @@ class DremioAPIOperations:
 
         return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
 
+    def _could_match_pattern(self, pattern: str, path_components: List[str]) -> bool:
+        """
+        Check if a container path could potentially match a schema pattern.
+        This handles hierarchical path matching for container filtering.
+        """
+        if pattern == ".*":
+            return True
+
+        current_path = ".".join(path_components)
+
+        # Handle simple .* patterns (like "a.b.c.*")
+        if pattern.endswith(".*") and not any(c in pattern for c in "^$[](){}+?\\"):
+            # Simple dotstar pattern - check prefix matching
+            pattern_prefix = pattern[:-2]  # Remove ".*"
+            return current_path.lower().startswith(
+                pattern_prefix.lower()
+            ) or pattern_prefix.lower().startswith(current_path.lower())
+        else:
+            # Complex regex pattern - use existing regex matching logic
+            return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
+
     def should_include_container(self, path: List[str], name: str) -> bool:
         """
         Helper method to check if a container should be included based on schema patterns.
@@ -711,41 +774,8 @@ class DremioAPIOperations:
 
         # Check allow patterns
         for pattern in self.allow_schema_pattern:
-            # For patterns with wildcards, check if this path is a parent of the pattern
-            if "*" in pattern:
-                pattern_parts = pattern.split(".")
-                path_parts = path_components
-
-                # If pattern has exact same number of parts, check each component
-                if len(pattern_parts) == len(path_parts):
-                    matches = True
-                    for p_part, c_part in zip(pattern_parts, path_parts):
-                        if p_part != "*" and p_part.lower() != c_part.lower():
-                            matches = False
-                            break
-                    if matches:
-                        self.report.report_container_scanned(full_path)
-                        return True
-                # Otherwise check if current path is prefix match
-                else:
-                    # Remove the trailing wildcard if present
-                    if pattern_parts[-1] == "*":
-                        pattern_parts = pattern_parts[:-1]
-
-                    for i in range(len(path_parts)):
-                        current_path = ".".join(path_parts[: i + 1])
-                        pattern_prefix = ".".join(pattern_parts[: i + 1])
-
-                        if pattern_prefix.startswith(current_path):
-                            self.report.report_container_scanned(full_path)
-                            return True
-
-            # Direct pattern matching
-            if self._check_pattern_match(
-                pattern=pattern,
-                paths=[full_path],
-                allow_prefix=True,
-            ):
+            # Check if current path could potentially match this pattern
+            if self._could_match_pattern(pattern, path_components):
                 self.report.report_container_scanned(full_path)
                 return True
 

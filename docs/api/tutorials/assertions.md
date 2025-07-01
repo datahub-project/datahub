@@ -15,7 +15,7 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 
 ## Why Would You Use Assertions APIs?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud.
+The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
 
 ### Goal Of This Guide
 
@@ -1162,3 +1162,31 @@ urn:li:assertion:<unique-assertion-id>
 
 3. Generate the [**AssertionRunEvent**](/docs/generated/metamodel/entities/assertion.md#assertionrunevent-timeseries) timeseries aspect using the Python SDK. This aspect should contain the result of the assertion
    run at a given timestamp and will be shown on the results graph in DataHub's UI.
+
+## Create Subscription
+
+You can create subscriptions to receive notifications when assertions change state (pass, fail, or error) or when other entity changes occur. Subscriptions can be created at the dataset level (affecting all assertions on the dataset) or at the assertion level (affecting only specific assertions).
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/create_subscription.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+## Remove Subscription
+
+You can remove existing subscriptions to stop receiving notifications. The unsubscribe method supports selective removal of specific change types or complete removal of subscriptions.
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/remove_subscription.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>

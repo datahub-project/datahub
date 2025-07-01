@@ -25,6 +25,33 @@ const exampleTabs = [
     },
 ];
 
+const urlAwareTabs = [
+    {
+        key: 'overview',
+        name: 'Overview',
+        tooltip: 'View the overview',
+        component: <div>This is the overview content</div>,
+    },
+    {
+        key: 'details',
+        name: 'Details',
+        tooltip: 'View the details',
+        component: <div>This is the details content</div>,
+    },
+    {
+        key: 'settings',
+        name: 'Settings',
+        tooltip: 'View the settings',
+        component: <div>This is the settings content</div>,
+    },
+];
+
+const urlMap = {
+    overview: '/overview',
+    details: '/details',
+    settings: '/settings',
+};
+
 // Auto Docs
 const meta = {
     title: 'Components / Tabs',
@@ -50,6 +77,19 @@ const meta = {
         onChange: {
             description: 'The handler called when any tab is clicked',
         },
+        urlMap: {
+            description:
+                'A mapping of tab keys to URLs. When provided, the component will sync tab selection with the URL',
+        },
+        onUrlChange: {
+            description: 'A custom handler for URL changes. Defaults to window.history.replaceState',
+        },
+        defaultTab: {
+            description: 'The default tab to select when the URL does not match any tab',
+        },
+        getCurrentUrl: {
+            description: 'A custom function to get the current URL. Defaults to window.location.pathname',
+        },
     },
 
     // Args for the story
@@ -70,4 +110,29 @@ export const sandbox: Story = {
             <Tabs {...props} />
         </div>
     ),
+};
+
+const UrlAwareTabsDemo = () => {
+    const [selectedTab, setSelectedTab] = React.useState('overview');
+
+    return (
+        <div style={{ width: 225 }}>
+            <div style={{ marginBottom: '1rem' }}>
+                <p>Current URL: {window.location.pathname}</p>
+                <p>Selected Tab: {selectedTab}</p>
+            </div>
+            <Tabs
+                tabs={urlAwareTabs}
+                selectedTab={selectedTab}
+                onChange={setSelectedTab}
+                urlMap={urlMap}
+                defaultTab="overview"
+            />
+        </div>
+    );
+};
+
+export const urlAware: Story = {
+    tags: ['dev'],
+    render: () => <UrlAwareTabsDemo />,
 };

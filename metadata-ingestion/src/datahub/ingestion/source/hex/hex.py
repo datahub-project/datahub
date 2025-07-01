@@ -283,7 +283,12 @@ class HexSource(StatefulIngestionSourceBase):
                         self.report.report_warning(
                             title="Missing project for lineage",
                             message="Lineage missed because missed project, likely due to filter patterns or deleted project.",
-                            context=str(query_metadata),
+                            context=str(
+                                dict(
+                                    query_urn=query_metadata.urn,
+                                    hex_project_id=query_metadata.hex_project_id,
+                                )
+                            ),
                         )
 
         with self.report.new_stage("Emit"):

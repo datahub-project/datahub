@@ -286,6 +286,7 @@ class BigQuerySchemaGenerator:
         yield from gen_database_container(
             database=database,
             name=database,
+            qualified_name=database,
             sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
@@ -332,6 +333,7 @@ class BigQuerySchemaGenerator:
         yield from gen_schema_container(
             database=project_id,
             schema=dataset,
+            qualified_name=f"{project_id}.{dataset}",
             sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,

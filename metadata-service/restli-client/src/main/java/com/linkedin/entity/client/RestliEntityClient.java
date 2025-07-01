@@ -388,7 +388,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
@@ -418,7 +418,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -448,7 +448,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     EntitiesDoBrowseRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -482,7 +482,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
@@ -495,7 +495,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
@@ -555,7 +555,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -590,7 +590,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     final EntitiesDoListRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -623,7 +623,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -674,7 +674,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
@@ -714,7 +714,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer count,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
     final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -757,7 +757,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
@@ -806,7 +806,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     final EntitiesDoScrollAcrossLineageRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -892,7 +892,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     EntitiesDoListUrnsRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -929,7 +929,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     EntitiesDoFilterRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS

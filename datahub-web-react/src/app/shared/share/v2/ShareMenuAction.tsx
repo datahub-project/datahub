@@ -18,7 +18,13 @@ export default function ShareMenuAction() {
                 trigger={['hover']}
                 overlay={
                     <StyledMenu selectable={false}>
-                        <ShareButtonMenu urn={urn} entityType={entityType} subType={subType} name={name} />
+                        <ShareButtonMenu
+                            urn={urn}
+                            entityType={entityType}
+                            subType={subType}
+                            name={name}
+                            qualifiedName={entityData?.properties?.qualifiedName}
+                        />
                     </StyledMenu>
                 }
             >

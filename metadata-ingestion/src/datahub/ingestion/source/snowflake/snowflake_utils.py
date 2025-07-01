@@ -325,15 +325,10 @@ class SnowflakeIdentifierBuilder:
         user_email: Optional[str],
     ) -> str:
         if user_email:
-            return self.snowflake_identifier(
-                user_email
-                if self.identifier_config.email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
+            return self.snowflake_identifier(user_email)
         return self.snowflake_identifier(
             f"{user_name}@{self.identifier_config.email_domain}"
-            if self.identifier_config.email_as_user_identifier is True
-            and self.identifier_config.email_domain is not None
+            if self.identifier_config.email_domain is not None
             else user_name
         )
 

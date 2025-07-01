@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
 
+import { checkIfMac } from '@app/utils/checkIfMac';
+
 export default function useFocusElementByCommandK(ref: React.RefObject<HTMLElement>, disable?: boolean) {
     useEffect(() => {
         if (!disable) {
             const handleKeyDown = (event: KeyboardEvent) => {
-                const isMac = (navigator as any).userAgentData
-                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
-                    : navigator.userAgent.toLowerCase().includes('mac');
-
+                const isMac = checkIfMac();
                 // Support command-k to select the search bar on all platforms
                 // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'

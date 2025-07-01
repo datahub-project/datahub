@@ -43,9 +43,4 @@ DataHub `CorpGroupInfo` aspect:
 ### Extracting Group Membership
 
 This connector additional extracts the edges between Users and Groups that are stored in [Azure AD](https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http#response-1). It maps them to the `GroupMembership` aspect
-associated with DataHub users (CorpUsers). Today this has the unfortunate side effect of **overwriting** any Group Membership information that
-was created outside of the connector. That means if you've used the DataHub REST API to assign users to groups, this information will be overridden
-when the Azure AD Source is executed. If you intend to _always_ pull users, groups, and their relationships from your Identity Provider, then
-this should not matter.
-
-This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+associated with DataHub users (CorpUsers).

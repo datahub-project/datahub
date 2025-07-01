@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
@@ -148,6 +149,7 @@ public class ServletConfig implements WebMvcConfigurer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    objectMapper.registerModule(new Jdk8Module());
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);

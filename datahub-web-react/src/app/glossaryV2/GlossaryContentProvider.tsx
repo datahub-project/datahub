@@ -36,25 +36,23 @@ const ListWrapper = styled.div`
 
 interface Props {
     setIsCreateNodeModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsCreateTermModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
     hasTermsOrNodes: boolean;
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
     termsLoading: boolean;
     nodesLoading: boolean;
-    refetchForTerms: () => void;
-    refetchForNodes: () => void;
 }
 
 const GlossaryContentProvider = (props: Props) => {
     const {
         setIsCreateNodeModalVisible,
+        setIsCreateTermModalVisible,
         hasTermsOrNodes,
         nodes,
         terms,
         termsLoading,
         nodesLoading,
-        refetchForTerms,
-        refetchForNodes,
     } = props;
 
     return (
@@ -84,8 +82,8 @@ const GlossaryContentProvider = (props: Props) => {
                 <EmptyGlossarySection
                     title="Empty Glossary"
                     description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
-                    refetchForTerms={refetchForTerms}
-                    refetchForNodes={refetchForNodes}
+                    onAddTerm={() => setIsCreateTermModalVisible(true)}
+                    onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />
             )}
         </MainContentWrapper>

@@ -59,7 +59,6 @@ const PaginationInfoContainer = styled.span`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    overflow: auto;
 `;
 
 const StyledPagination = styled(Pagination)`

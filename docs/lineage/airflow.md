@@ -346,6 +346,10 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
+### Scheduler stalling
+
+For extremely large Airflow deployments with thousands of tasks, you may see issues where the plugin interferes with the performance of the Airflow scheduler. In those cases, you can set the `DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=0` environment variable. This makes the DataHub plugin run fully in background threads, but can cause us to miss some metadata if the scheduler shuts down soon after processing a task.
+
 ### Disabling the DataHub Plugin v2
 
 There are two ways to disable the DataHub Plugin v2:

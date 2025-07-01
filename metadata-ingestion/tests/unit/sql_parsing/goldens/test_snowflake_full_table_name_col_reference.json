@@ -19,7 +19,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
                     "column": "id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE\".\"ID\" AS \"ID\""
+            }
         },
         {
             "downstream": {
@@ -37,7 +41,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
                     "column": "id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN \"MY_TABLE\".\"ID\" > 100 THEN 1 ELSE 0 END AS \"ID_GT_100\""
+            }
         },
         {
             "downstream": {
@@ -51,9 +59,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
                     "column": "struct_field.field1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"MY_TABLE\".\"STRUCT_FIELD\".\"FIELD1\" AS \"STRUCT_FIELD1\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT my_db.my_schema.my_table.id, CASE WHEN my_db.my_schema.my_table.id > ? THEN ? ELSE ? END AS id_gt_100, my_db.my_schema.my_table.struct_field.field1 AS struct_field1 FROM my_db.my_schema.my_table"

@@ -24,6 +24,7 @@ def parse_procedure_code(
 ) -> Optional[DataJobInputOutputClass]:
     aggregator = SqlParsingAggregator(
         platform=schema_resolver.platform,
+        platform_instance=schema_resolver.platform_instance,
         env=schema_resolver.env,
         schema_resolver=schema_resolver,
         generate_lineage=True,

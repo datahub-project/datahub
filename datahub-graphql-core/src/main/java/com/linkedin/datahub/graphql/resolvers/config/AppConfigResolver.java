@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.ApplicationConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
 import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
@@ -187,6 +188,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setTheme(themeConfig);
     }
+    if (_visualConfiguration != null && _visualConfiguration.getApplication() != null) {
+      ApplicationConfig applicationConfig = new ApplicationConfig();
+      applicationConfig.setShowSidebarSectionWhenEmpty(
+          _visualConfiguration.getApplication().isShowSidebarSectionWhenEmpty());
+      visualConfig.setApplication(applicationConfig);
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -254,6 +261,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setShowManageTags(_featureFlags.isShowManageTags())
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
+            .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
+            .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
+            .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

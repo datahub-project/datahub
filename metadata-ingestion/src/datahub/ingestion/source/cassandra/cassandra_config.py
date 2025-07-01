@@ -79,6 +79,21 @@ class CassandraSourceConfig(
         description="Configuration for cloud-based Cassandra, such as DataStax Astra DB.",
     )
 
+    ssl_ca_certs: Optional[str] = Field(
+        default=None,
+        description="Path to the CA certificate file for SSL connections.",
+    )
+
+    ssl_certfile: Optional[str] = Field(
+        default=None,
+        description="Path to the SSL certificate file for SSL connections.",
+    )
+
+    ssl_keyfile: Optional[str] = Field(
+        default=None,
+        description="Path to the SSL key file for SSL connections.",
+    )
+
     keyspace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter keyspaces for ingestion.",

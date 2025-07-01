@@ -125,11 +125,9 @@ public class MetadataChangeProposalsProcessor {
                 if (log.isDebugEnabled()) {
                   log.debug("MetadataChangeProposal {}", event);
                 }
-                String urn = entityClient.ingestProposal(systemOperationContext, event, false);
-                if (urn == null) {
-                  throw new IllegalStateException("Failed to ingest MCP.");
-                }
-                log.info("Successfully processed MCP event urn: {}", urn);
+                entityClient.ingestProposal(systemOperationContext, event, false);
+
+                log.info("Successfully processed MCP event urn: {}", event.getEntityUrn());
               } catch (Throwable throwable) {
                 log.error("MCP Processor Error", throwable);
                 log.error("Message: {}", record);

@@ -357,6 +357,21 @@ type VisualConfig {
   Configuration for custom theme-ing
   """
   theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
 }
 
 """
@@ -692,6 +707,21 @@ type FeatureFlagsConfig {
   If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
   """
   showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
+  If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
 }
 
 """

@@ -567,7 +567,7 @@ public class EntityServiceImplTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     // Test case 1: async = true path
     // Arrange
@@ -625,7 +625,7 @@ public class EntityServiceImplTest {
                         .aspectName(DATASET_PROFILE_ASPECT_NAME)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     try {
       entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);

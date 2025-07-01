@@ -229,6 +229,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
     )
 
+    include_tags: bool = pydantic.Field(
+        default=True,
+        description="Option to enable/disable column/table tag extraction.",
+    )
+
     _rename_table_ownership = pydantic_renamed_field(
         "include_table_ownership", "include_ownership"
     )

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Configure Slack For Notifications
+# Slack App Setup
 
 <FeatureAvailability saasOnly />
 
@@ -176,7 +176,7 @@ To customize the channel where notifications are send, click the button to the r
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used.
 That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving.  -->
 
-## Sending Notifications
+## Configure Notifications
 
 For now, we support sending notifications to
 
@@ -186,7 +186,9 @@ For now, we support sending notifications to
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
-## How to find Team ID and Channel ID in Slack
+Learn more about how [subscriptions and notifications work](../subscription-and-notification.md), including what things you can be notified about and all the places you can receive notifications.
+
+### How to find Team ID and Channel ID in Slack
 
 :::note
 We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`).
@@ -215,7 +217,7 @@ We recommend just using the Slack channel name for simplicity (e.g. `#troublesho
 - Team ID = `TUMKD5EGJ` from above
 - Channel ID = `C029A3M079U` from above
 
-## How to find User ID in Slack
+### How to find User ID in Slack
 
 **Your User ID**
 

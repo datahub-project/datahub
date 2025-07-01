@@ -9,7 +9,6 @@ import pytest
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-import tests.test_helpers.mce_helpers
 from datahub.configuration.common import TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
@@ -96,6 +95,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     TagAssociationClass,
 )
+from datahub.testing import mce_helpers
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -503,7 +503,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert dataset properties aspect was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="datasetProperties",
             aspect_field_matcher={"description": "Test dataset"},
@@ -514,7 +514,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert Status aspect was generated
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="status",
             aspect_field_matcher={"removed": True},
@@ -533,7 +533,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert dataset properties aspect was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mce_aspect(
             entity_urn=mcp.entityUrn or "",
             aspect=test_aspect,
             aspect_type=DatasetPropertiesClass,
@@ -544,7 +544,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert Status aspect was generated
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="status",
             aspect_field_matcher={"removed": True},
@@ -566,7 +566,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert dataset properties aspect was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mce_aspect(
             entity_urn=mcp.entityUrn or "",
             aspect=test_aspect,
             aspect_type=DatasetPropertiesClass,
@@ -577,7 +577,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert Status aspect was generated
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="status",
             aspect_field_matcher={"removed": True},
@@ -601,7 +601,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert MCE was transformed
     assert (
-        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mce_aspect(
             entity_urn=mcp.entityUrn or "",
             aspect=StatusClass(removed=True),
             aspect_type=StatusClass,
@@ -612,7 +612,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert MCP aspect was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="datasetProperties",
             aspect_field_matcher={"description": "test dataset"},
@@ -635,7 +635,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert MCE was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mce_aspect(
             entity_urn=mcp.entityUrn or "",
             aspect=test_dataset_props_aspect,
             aspect_type=DatasetPropertiesClass,
@@ -646,7 +646,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert MCP aspect was preserved
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="globalTags",
             aspect_field_matcher={"tags": [{"tag": "urn:li:tag:test"}]},
@@ -657,7 +657,7 @@ def test_mark_status_dataset(tmp_path):
 
     # assert MCP Status aspect was generated
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="status",
             aspect_field_matcher={"removed": True},
@@ -1899,7 +1899,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
         "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooIndex,PROD)"
     )
     assert (
-        tests.test_helpers.mce_helpers.assert_mcp_entity_urn(
+        mce_helpers.assert_mcp_entity_urn(
             filter="ALL",
             entity_type="dataset",
             regex_pattern=urn_pattern,
@@ -1910,7 +1910,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
 
     # check on status aspect
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="status",
             aspect_field_matcher={"removed": False},
@@ -1921,7 +1921,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
 
     # check on globalTags aspect
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="globalTags",
             aspect_field_matcher={"tags": [{"tag": "urn:li:tag:EsComments"}]},
@@ -1932,7 +1932,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
 
     # check on globalTags aspect
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="browsePaths",
             aspect_field_matcher={"paths": ["/prod/elasticsearch/EsComments/fooIndex"]},
@@ -2002,7 +2002,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # there should be 30 MCP-s
     assert (
-        tests.test_helpers.mce_helpers.assert_mcp_entity_urn(
+        mce_helpers.assert_mcp_entity_urn(
             filter="ALL",
             entity_type="dataset",
             regex_pattern=urn_pattern,
@@ -2013,7 +2013,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # 10 globalTags aspects with new tag attached
     assert (
-        tests.test_helpers.mce_helpers.assert_for_each_entity(
+        mce_helpers.assert_for_each_entity(
             entity_type="dataset",
             aspect_name="globalTags",
             aspect_field_matcher={
@@ -2027,7 +2027,7 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
     # check on browsePaths aspect
     for i in range(0, 10):
         assert (
-            tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+            mce_helpers.assert_entity_mcp_aspect(
                 entity_urn=str(
                     DatasetUrn.create_from_ids(
                         platform_id="elasticsearch",

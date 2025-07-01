@@ -16,6 +16,9 @@ fragment glossaryNodeFields on GlossaryNode {
     properties {
         name
         description
+        customProperties {
+            ...customPropertiesFields
+        }
     }
     ownership {
         ...ownershipFields

@@ -6,6 +6,9 @@
 
 ### Breaking Changes
 
+- #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
+- #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
+
 ### Known Issues
 
 ### Potential Downtime
@@ -13,6 +16,8 @@
 ### Deprecations
 
 ### Other Notable Changes
+
+- #13726: Removed dgraph from tests
 
 -->
 
@@ -27,6 +32,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+
+- #13858 For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
 
 ### Other Notable Changes
 
@@ -45,6 +52,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13397: Ingestion Rest Emitter
   - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
   - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
 
 ### Potential Downtime
 
@@ -67,6 +75,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
   - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13426 - Added support for extracting column transformation logic when using `use_queries_v2` with warehouse ingestion.
+- #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0
 
@@ -89,6 +99,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 - #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
 - #12797: See Breaking Change above. Entity Type names are case sensitive, this will result in 4xx exceptions when this rule is violated.
+- Python SDK v1.0.0.3 - direct accesses to the `server_config` property on `DataHubRestEmitter` can throw an unknown attribute error if `test_connection` is not called prior to directly accessing it as the default empty map initialization was removed. This is resolved in v1.1.0.
 
 ### Potential Downtime
 

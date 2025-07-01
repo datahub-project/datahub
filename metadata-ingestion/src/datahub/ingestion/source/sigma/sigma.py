@@ -105,6 +105,7 @@ logger = logging.getLogger(__name__)
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

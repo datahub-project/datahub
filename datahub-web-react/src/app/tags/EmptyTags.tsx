@@ -32,7 +32,7 @@ const EmptyTags = ({ isEmptySearch }: Props) => {
                         <div>
                             {!isEmptySearch && (
                                 <Typography.Paragraph>
-                                    Tags can be used to organize and categorize data assets across the platform.
+                                    Tags can be used to organize data assets in DataHub.
                                 </Typography.Paragraph>
                             )}
                         </div>

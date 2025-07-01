@@ -541,6 +541,39 @@ def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
 def get_sorted_entity_names(
     entity_names: List[Tuple[str, EntityDefinition]]
 ) -> List[Tuple[str, List[str]]]:
+    """
+    Sort entity names by category and priority for documentation generation.
+    
+    This function organizes entities into a structured order for generating
+    documentation. Entities are grouped by category (CORE vs INTERNAL) and
+    within each category, sorted by priority and then alphabetically.
+    
+    Business Logic:
+    - CORE entities are displayed first, followed by INTERNAL entities
+    - Within each category, entities with priority values are sorted first
+    - Priority entities are sorted by their priority value (lower numbers = higher priority)
+    - Non-priority entities are sorted alphabetically after priority entities
+    - Zero and negative priority values are treated as valid priorities
+    
+    Args:
+        entity_names: List of tuples containing (entity_name, EntityDefinition)
+        
+    Returns:
+        List of tuples containing (EntityCategory, List[str]) where:
+        - First tuple: (EntityCategory.CORE, sorted_core_entity_names)
+        - Second tuple: (EntityCategory.INTERNAL, sorted_internal_entity_names)
+        
+    Example:
+        Input: [
+            ("dataset", EntityDefinition(priority=2, category=CORE)),
+            ("table", EntityDefinition(priority=None, category=CORE)),
+            ("internal", EntityDefinition(priority=1, category=INTERNAL))
+        ]
+        Output: [
+            (EntityCategory.CORE, ["dataset", "table"]),
+            (EntityCategory.INTERNAL, ["internal"])
+        ]
+    """
     core_entities = [
         (x, y) for (x, y) in entity_names if y.category == EntityCategory.CORE
     ]

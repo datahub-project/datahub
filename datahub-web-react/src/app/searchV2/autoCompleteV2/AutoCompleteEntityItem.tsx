@@ -15,13 +15,13 @@ const Container = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: 8px;
+    padding: 8px 13px 8px 8px;
 `;
 
 const ContentContainer = styled.div`
     display: flex;
     flex-direction: row;
-    gap: 8px;
+    gap: 16px;
     overflow: hidden;
     width: 100%;
 `;

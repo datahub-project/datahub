@@ -33,9 +33,10 @@ export const getSortedData = <T>(
     const activeColumn = columns.find((column) => column.key === sortColumn);
 
     // Sort based on the order and column sorter
-    if (activeColumn && activeColumn.sorter) {
+    if (activeColumn && typeof activeColumn.sorter === 'function') {
+        const sorterFn = activeColumn.sorter;
         return data.slice().sort((a, b) => {
-            return sortOrder === SortingState.ASCENDING ? activeColumn.sorter!(a, b) : activeColumn.sorter!(b, a);
+            return sortOrder === SortingState.ASCENDING ? sorterFn(a, b) : sorterFn(b, a);
         });
     }
 

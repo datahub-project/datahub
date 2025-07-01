@@ -355,8 +355,4 @@ public class SendMAEStep implements UpgradeStep {
     }
     return result;
   }
-
-  public static boolean containsKey(final Map<String, Optional<String>> parsedArgs, String key) {
-    return parsedArgs.containsKey(key) && parsedArgs.get(key).isPresent();
-  }
 }

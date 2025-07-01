@@ -27,7 +27,10 @@ def infer_kafka_broker_container() -> str:
     return lines[0]
 
 
-def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
+def wait_for_writes_to_sync(
+    max_timeout_in_sec: int = 120,
+    consumer_group: str = "generic-mae-consumer-job-client",
+) -> None:
     if USE_STATIC_SLEEP:
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
@@ -41,7 +44,7 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
         time.sleep(1)  # micro-sleep
 
         cmd = (
-            f"docker exec {KAFKA_BROKER_CONTAINER} /bin/kafka-consumer-groups --bootstrap-server {KAFKA_BOOTSTRAP_SERVER} --group generic-mae-consumer-job-client --describe | grep -v LAG "
+            f"docker exec {KAFKA_BROKER_CONTAINER} /bin/kafka-consumer-groups --bootstrap-server {KAFKA_BOOTSTRAP_SERVER} --group '{consumer_group}' --describe | grep -v LAG "
             + "| awk '{print $6}'"
         )
         try:

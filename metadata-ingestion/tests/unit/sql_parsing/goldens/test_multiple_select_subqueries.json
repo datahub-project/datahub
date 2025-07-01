@@ -27,9 +27,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,x,PROD)",
                     "column": "c"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(MAX(`_u_0`.`a`) + MAX(`_u_1`.`b`) + `x`.`c`) AS `y`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT SUM((SELECT MAX(a) AS a FROM x) + (SELECT MIN(b) AS b FROM x) + c) AS y FROM x"

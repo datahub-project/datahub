@@ -1061,7 +1061,7 @@ def test_operational_stats(
             OperationClass(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
-                actor=f"urn:li:corpuser:{query.actor.split('@')[0]}",
+                actor=f"urn:li:corpuser:{query.actor}",
                 operationType=(
                     query.type
                     if query.type in OPERATION_STATEMENT_TYPES.values()

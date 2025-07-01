@@ -56,8 +56,7 @@ public class DataHubIcebergWarehouse {
   // ge to the newly modified iceberg entity
   private final List<Urn> commonUrnsToEvict;
 
-  @VisibleForTesting
-  DataHubIcebergWarehouse(
+  public DataHubIcebergWarehouse(
       String platformInstance,
       IcebergWarehouseInfo icebergWarehouse,
       EntityService entityService,

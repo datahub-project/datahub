@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.Access;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -143,6 +145,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     mappingHelper.mapToResult(context, CONTAINER_ASPECT_NAME, DatasetMapper::mapContainers);
     mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, DatasetMapper::mapDomains);
     mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (dataset, dataMap) -> mapApplicationAssociation(context, dataset, dataMap));
+    mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
@@ -151,6 +156,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
+    mappingHelper.mapToResult(
+        "applications", (dataset, dataMap) -> mapApplicationAssociation(context, dataset, dataMap));
     mappingHelper.mapToResult(
         SIBLINGS_ASPECT_NAME,
         (dataset, dataMap) ->
@@ -300,5 +307,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
       @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    dataset.setApplication(
+        ApplicationAssociationMapper.map(context, applications, dataset.getUrn()));
   }
 }

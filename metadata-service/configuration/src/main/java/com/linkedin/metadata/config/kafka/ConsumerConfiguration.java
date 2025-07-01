@@ -16,5 +16,7 @@ public class ConsumerConfiguration {
   @Data
   public static class ConsumerOptions {
     private String autoOffsetReset;
+    private boolean fineGrainedLoggingEnabled;
+    private String aspectsToDrop;
   }
 }

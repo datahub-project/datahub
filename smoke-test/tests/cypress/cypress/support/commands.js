@@ -206,6 +206,10 @@ Cypress.Commands.add("goToDomain", (urn) => {
   cy.visit(`/domain/${urn}`);
 });
 
+Cypress.Commands.add("goToApplication", (urn) => {
+  cy.visit(`/application/${urn}`);
+});
+
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
   cy.contains("Data Landscape Summary", { timeout: 10000 });
@@ -432,6 +436,15 @@ Cypress.Commands.add(
     cy.get(
       `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
     ).click();
+    cy.clickOptionWithText("Yes");
+  },
+);
+
+Cypress.Commands.add(
+  "removeApplicationFromDataset",
+  (urn, dataset_name, application_urn) => {
+    cy.goToDataset(urn, dataset_name);
+    cy.get(`.sidebar-application-section .anticon-close`).click();
     cy.clickOptionWithText("Yes");
   },
 );

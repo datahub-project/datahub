@@ -36,10 +36,6 @@ PUT           /openapi/*path                                                   c
 HEAD          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 PATCH         /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 
-
-# Analytics route
-POST          /track                                                           controllers.TrackingController.track(request: Request)
-
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
 

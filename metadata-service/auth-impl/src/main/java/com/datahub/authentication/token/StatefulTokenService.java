@@ -148,7 +148,7 @@ public class StatefulTokenService extends StatelessTokenService {
         opContext,
         AspectsBatchImpl.builder()
             .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         false);
 
     return accessToken;

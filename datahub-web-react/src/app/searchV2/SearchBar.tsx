@@ -152,7 +152,7 @@ export interface SearchBarProps {
     isLoading?: boolean;
     initialQuery?: string;
     placeholderText: string;
-    suggestions: Array<AutoCompleteResultForEntity>;
+    suggestions?: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
@@ -284,7 +284,7 @@ export const SearchBar = ({
     }, [effectiveQuery, showViewAllResults]);
 
     const autoCompleteEntityOptions = useMemo(() => {
-        return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
+        return (suggestions ?? []).map((suggestion: AutoCompleteResultForEntity) => {
             const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
                 combineSiblings: finalCombineSiblings,
             });

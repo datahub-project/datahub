@@ -15,7 +15,13 @@ from typing import (
 
 import avro
 import yaml
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictStr,
+    root_validator,
+    validator,
+)
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
@@ -90,7 +96,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, str]
+PropertyValue: TypeAlias = Union[StrictStr, float]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
@@ -366,12 +372,6 @@ class Ownership(ConfigModel):
         return v
 
 
-class StructuredPropertyValue(ConfigModel):
-    value: Union[str, int, float, List[str], List[int], List[float]]
-    created: Optional[str] = None
-    lastModified: Optional[str] = None
-
-
 class DatasetRetrievalConfig(BaseModel):
     include_downstreams: Optional[bool] = False
 
@@ -383,7 +383,7 @@ class Dataset(StrictModel):
     urn: Optional[str] = None
     description: Optional[str] = None
     name: Optional[str] = None
-    schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
+    schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     subtype: Optional[str] = None
@@ -786,6 +786,7 @@ class Dataset(StrictModel):
         if schema_metadata:
             # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
             # Otherwise, we extract all fields
+            schema_fields = []
             if (
                 schema_metadata.platformSchema
                 and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)

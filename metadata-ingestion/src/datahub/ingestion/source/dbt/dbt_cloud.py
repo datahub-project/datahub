@@ -9,7 +9,9 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -261,6 +263,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
 

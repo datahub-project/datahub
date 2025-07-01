@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table_2023*`.`col1` AS `col1`"
+            }
         },
         {
             "downstream": {
@@ -41,9 +45,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table_2023*`.`col2` AS `col2`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT * FROM `bq-proj.dataset.table_2023*`"

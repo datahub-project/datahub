@@ -39,7 +39,7 @@ export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ ic
 export const TitleContainer = styled.div({
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 0,
     width: '100%',
 });
 

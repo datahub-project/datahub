@@ -18,7 +18,8 @@
                 },
                 "native_column_type": "INTEGER"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": null
         },
         {
             "downstream": {
@@ -31,7 +32,8 @@
                 },
                 "native_column_type": "TEXT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": null
         },
         {
             "downstream": {
@@ -44,7 +46,8 @@
                 },
                 "native_column_type": "REAL"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": null
         },
         {
             "downstream": {
@@ -57,9 +60,11 @@
                 },
                 "native_column_type": "REAL"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": null
         }
     ],
+    "joins": null,
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "CREATE TABLE IF NOT EXISTS costs (id INTEGER PRIMARY KEY, month TEXT NOT NULL, total_cost REAL NOT NULL, area REAL NOT NULL)"
