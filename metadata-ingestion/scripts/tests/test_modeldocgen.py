@@ -1015,6 +1015,12 @@ class TestLineageGeneration:
         assert "entities" in json_data
         assert json_data["entities"] == {}
 
+        # Verify metadata fields are present
+        assert "generated_by" in json_data
+        assert json_data["generated_by"] == "metadata-ingestion/scripts/modeldocgen.py"
+        assert "generated_at" in json_data
+        assert isinstance(json_data["generated_at"], str)
+
         # Verify it's valid JSON
         assert isinstance(json_string, str)
         assert json_string.strip().startswith("{")

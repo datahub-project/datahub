@@ -6,6 +6,7 @@ import re
 import shutil
 import unittest.mock
 from dataclasses import Field, dataclass, field
+from datetime import datetime, timezone
 from enum import auto
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -14,6 +15,7 @@ import avro.schema
 import click
 
 from datahub.configuration.common import ConfigEnum, PermissiveConfigModel
+from utils import should_write_json_file
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -406,6 +408,9 @@ def generate_lineage_json(lineage_data: LineageData) -> str:
             for entity_name, entity in lineage_data.entities.items()
         }
     }
+    
+    json_data["generated_by"] = "metadata-ingestion/scripts/modeldocgen.py"
+    json_data["generated_at"] = datetime.now(timezone.utc).isoformat()
     
     json_string = json.dumps(json_data, indent=2)
     logger.info(f"Generated lineage JSON with {len(json_string)} characters")
@@ -920,11 +925,15 @@ def generate(
             output_path = Path(lineage_output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Write lineage JSON file
-            with open(output_path, 'w') as f:
-                f.write(lineage_json)
+            # Parse the generated JSON to check if content has changed
+            new_json_data = json.loads(lineage_json)
             
-            logger.info(f"Successfully wrote lineage JSON to {lineage_output}")
+            write_file = should_write_json_file(output_path, new_json_data, "lineage file")
+            
+            if write_file:
+                with open(output_path, 'w') as f:
+                    f.write(lineage_json)
+                logger.info(f"Successfully wrote lineage JSON to {lineage_output}")
             
         except Exception as e:
             logger.error(f"Failed to generate lineage JSON: {e}")

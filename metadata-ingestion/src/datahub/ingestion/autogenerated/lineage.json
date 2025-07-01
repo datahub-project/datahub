@@ -4778,5 +4778,7 @@
         ]
       }
     }
-  }
+  },
+  "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
+  "generated_at": "2025-07-01T10:28:44.159801+00:00"
 }
