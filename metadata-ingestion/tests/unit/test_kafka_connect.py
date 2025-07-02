@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 
 import jpype
 import jpype.imports
-import pytest
 
 # Import the classes we're testing
 from datahub.ingestion.source.kafka_connect.common import (
