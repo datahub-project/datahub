@@ -227,11 +227,11 @@ WHERE
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
 
-        # For Partitioned Tables if it has row count but not a valid partition that meanst something went wrong with the parititon detection
+        # For partitioned tables, if it has a row count but not a valid partition, that means something went wrong with the partition detection.
         if partition is None and bq_table.partition_info and bq_table.rows_count:
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
-                message="profile skipped as  partition id or type was invalid",
+                message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
             )
             return None
