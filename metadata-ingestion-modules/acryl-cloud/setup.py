@@ -12,6 +12,7 @@ base_requirements = [
     "croniter",
     "pytz",
     "types-croniter",
+    "tzlocal",
 ]
 
 # Adding pydantic<2 since we use pydantic models to map to pyarrow models and that is only compatible in pydantic v1
