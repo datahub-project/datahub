@@ -30,6 +30,7 @@ export const Card = ({
     maxWidth,
     height,
     isEmpty,
+    style,
 }: CardProps) => {
     return (
         <>
@@ -41,7 +42,14 @@ export const Card = ({
                     </TitleContainer>
                 </CardContainer>
             ) : (
-                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height} width={width}>
+                <CardContainer
+                    hasButton={!!button}
+                    onClick={onClick}
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    style={style}
+                >
                     <Header iconAlignment={iconAlignment}>
                         {icon}
                         <TitleContainer>

@@ -1,8 +1,8 @@
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
 export interface CardProps {
-    title: string;
-    subTitle?: string;
+    title: string | React.ReactNode;
+    subTitle?: string | React.ReactNode;
     percent?: number;
     button?: React.ReactNode;
     onClick?: () => void;
@@ -13,4 +13,5 @@ export interface CardProps {
     maxWidth?: string;
     height?: string;
     isEmpty?: boolean;
+    style?: React.CSSProperties;
 }

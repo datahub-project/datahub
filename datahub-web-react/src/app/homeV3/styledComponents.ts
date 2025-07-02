@@ -21,9 +21,12 @@ export const ContentWrapper = styled.div`
 `;
 
 export const ContentContainer = styled.div`
-    padding: 40px 160px 16px 160px;
+    padding: 40px 40px 16px 40px;
     background-color: ${colors.white};
     height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
     z-index: 1;
 `;
 
@@ -34,4 +37,9 @@ export const StyledVectorBackground = styled(VectorBackground)`
     background: linear-gradient(180deg, #fbfbff 0%, #fafafb 74.57%);
     z-index: 0;
     pointer-events: none;
+`;
+
+export const CenteredContainer = styled.div`
+    max-width: 1016px;
+    width: 100%;
 `;
