@@ -52,6 +52,7 @@ const DescriptionContainer = styled.div`
     flex-direction: column;
     overflow: hidden;
     width: 100%;
+    align-self: center;
 `;
 
 const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`

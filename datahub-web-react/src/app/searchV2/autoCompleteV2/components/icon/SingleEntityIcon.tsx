@@ -14,6 +14,10 @@ const ImageIcon = styled(Image)<{ $size: number }>`
     background-color: transparent;
 `;
 
+const EntityIcon = styled.div`
+    display: flex;
+`;
+
 interface Props {
     entity: Entity;
     size: number;
@@ -36,7 +40,6 @@ export function SingleEntityIcon({ entity, size }: Props) {
                 $size={size}
                 onError={() => setIsBrokenPlatformLogoUrl(true)}
             />
-        )) ||
-        entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT)
+        )) || <EntityIcon>{entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT)}</EntityIcon>
     );
 }
