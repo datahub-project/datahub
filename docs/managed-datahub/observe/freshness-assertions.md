@@ -148,7 +148,7 @@ Once these are in place, you're ready to create your Freshness Assertions!
 ### Steps
 
 1. Navigate to the Table that to monitor for freshness
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -224,7 +224,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Freshness** to open the Freshness Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -238,23 +238,17 @@ To resume the assertion, simply click **Start**.
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
-## Smart Assertions ⚡
+## Anomaly Detection with Smart Assertions ⚡
 
 As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
-requiring any manual setup.
+requiring any manual setup. The Smart Assertion's ML model will train based on the Table change history that is captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
 
-If DataHub Cloud is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
 
 <p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/freshness-smart-assertion.png"/>
 </p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history, by default using the **Audit Log**.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
 
 ## Creating Freshness Assertions via API
 
@@ -289,6 +283,24 @@ mutation upsertDatasetFreshnessAssertionMonitor {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Freshness Assertion:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      evaluationSchedule: { timezone: "America/Los_Angeles", cron: "0 * * * *" }
       evaluationParameters: { sourceType: INFORMATION_SCHEMA }
       mode: ACTIVE
     }

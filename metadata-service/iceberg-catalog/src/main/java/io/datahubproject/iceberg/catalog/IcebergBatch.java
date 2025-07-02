@@ -153,7 +153,7 @@ public class IcebergBatch {
   public AspectsBatch asAspectsBatch() {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
-        .build();
+        .build(operationContext);
   }
 
   @VisibleForTesting

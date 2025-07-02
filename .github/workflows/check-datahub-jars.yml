@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - "metadata-integration/**"
   pull_request:

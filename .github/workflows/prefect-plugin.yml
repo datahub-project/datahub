@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/prefect-plugin.yml"
       - "metadata-ingestion-modules/prefect-plugin/**"
@@ -71,11 +72,13 @@ jobs:
           flags: ingestion-prefect-plugin
           name: pytest-prefect-${{ matrix.python-version }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest

@@ -15,6 +15,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections

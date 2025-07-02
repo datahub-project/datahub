@@ -23,12 +23,14 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
@@ -44,6 +46,7 @@ class Container(
     HasContainer,
     HasOwnership,
     HasInstitutionalMemory,
+    HasStructuredProperties,
     HasTags,
     HasTerms,
     HasDomain,
@@ -78,6 +81,7 @@ class Container(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         # Hack: while the type annotations say container_key is always a ContainerKey,
@@ -145,6 +149,9 @@ class Container(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:

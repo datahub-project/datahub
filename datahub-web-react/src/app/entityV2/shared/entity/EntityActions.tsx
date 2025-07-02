@@ -11,6 +11,7 @@ import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
@@ -36,6 +37,10 @@ export enum EntityActionItem {
      * Add a new Glossary Node as child
      */
     ADD_CHILD_GLOSSARY_NODE,
+    /**
+     * Batch add an Application to a set of assets
+     */
+    BATCH_ADD_APPLICATION,
 }
 
 const ButtonWrapper = styled.div`
@@ -72,9 +77,11 @@ function EntityActions(props: Props) {
     const [isBatchSetDataProductModalVisible, setIsBatchSetDataProductModalVisible] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isBatchSetApplicationModalVisible, setIsBatchSetApplicationModalVisible] = useState(false);
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
+    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -186,6 +193,40 @@ function EntityActions(props: Props) {
             });
     };
 
+    const batchSetApplication = (entityUrns: Array<string>) => {
+        batchSetApplicationMutation({
+            variables: {
+                input: {
+                    applicationUrn: urn,
+                    resourceUrns: entityUrns,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    setIsBatchSetApplicationModalVisible(false);
+                    message.loading({ content: 'Updating...', duration: 3 });
+                    setTimeout(() => {
+                        message.success({
+                            content: `Added assets to Application!`,
+                            duration: 3,
+                        });
+                        refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
+                    }, 3000);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add assets to Application. An unknown error occurred.`,
+                        duration: 3,
+                    }),
+                );
+            });
+    };
+
     const { entityData } = useEntityData();
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
@@ -245,6 +286,13 @@ function EntityActions(props: Props) {
                         </Button>
                     </Tooltip>
                 )}
+                {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
+                    <Tooltip title="Add Assets to Application" showArrow={false} placement="bottom">
+                        <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
+                            <LinkOutlined /> Add to Assets
+                        </Button>
+                    </Tooltip>
+                )}
             </ButtonWrapper>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
@@ -265,6 +313,17 @@ function EntityActions(props: Props) {
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
+                    )}
+                />
+            )}
+            {isBatchSetApplicationModalVisible && (
+                <SearchSelectModal
+                    titleText="Add assets to Application"
+                    continueText="Add"
+                    onContinue={batchSetApplication}
+                    onCancel={() => setIsBatchSetApplicationModalVisible(false)}
+                    fixedEntityTypes={Array.from(
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS),
                     )}
                 />
             )}

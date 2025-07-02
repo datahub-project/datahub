@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dashboard.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.InputFieldsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
@@ -148,6 +150,9 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (dashboard, dataMap) -> mapApplicationAssociation(context, dashboard, dataMap));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dashboard.class);
@@ -296,5 +301,14 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     dashboard.setDomain(DomainAssociationMapper.map(context, domains, dashboard.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull Dashboard dashboard,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    dashboard.setApplication(
+        ApplicationAssociationMapper.map(context, applications, dashboard.getUrn()));
   }
 }

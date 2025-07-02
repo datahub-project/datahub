@@ -79,7 +79,9 @@ public class EbeanEntityServiceOptimizationTest {
   public void testEmptyORMOptimization() {
     // empty batch
     assertSQL(
-        AspectsBatchImpl.builder().retrieverContext(opContext.getRetrieverContext()).build(),
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .build(opContext),
         0,
         0,
         0,
@@ -106,7 +108,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         nonExistingBaseCount + 1,
         1,
         0,
@@ -128,7 +130,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -155,7 +157,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -177,7 +179,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,
@@ -206,7 +208,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,

@@ -2723,6 +2723,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),id)"
                     ],
+                    "transformOperation": "COPY: `metadata_index`.`id` AS `id`",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 },
@@ -2735,6 +2736,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),urn)"
                     ],
+                    "transformOperation": "COPY: `metadata_index`.`urn` AS `urn`",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 },
@@ -2747,6 +2749,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),path)"
                     ],
+                    "transformOperation": "COPY: `metadata_index`.`path` AS `path`",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 },
@@ -2759,6 +2762,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),doubleVal)"
                     ],
+                    "transformOperation": "COPY: `metadata_index`.`doubleVal` AS `doubleVal`",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 }
@@ -2778,6 +2782,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE ALGORITHM=UNDEFINED\nDEFINER=\"root\"@\"localhost\"\nSQL SECURITY DEFINER VIEW `metadata_index_view` AS\nSELECT\n  `metadata_index`.`id` AS `id`,\n  `metadata_index`.`urn` AS `urn`,\n  `metadata_index`.`path` AS `path`,\n  `metadata_index`.`doubleVal` AS `doubleVal`\nFROM `metadata_index`",
                 "language": "SQL"

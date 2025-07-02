@@ -2,20 +2,25 @@ package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
@@ -49,11 +54,12 @@ import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class AutocompleteRequestHandlerTest {
-  private static SearchConfiguration testQueryConfig;
+  private static ElasticSearchConfiguration testQueryConfig;
   private AutocompleteRequestHandler handler;
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
@@ -61,9 +67,6 @@ public class AutocompleteRequestHandlerTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   static {
-    testQueryConfig = new SearchConfiguration();
-    testQueryConfig.setMaxTermBucketSize(20);
-
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
     exactMatchConfiguration.setExclusive(false);
     exactMatchConfiguration.setExactFactor(10.0f);
@@ -81,9 +84,16 @@ public class AutocompleteRequestHandlerTest {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
-    testQueryConfig.setExactMatch(exactMatchConfiguration);
-    testQueryConfig.setWordGram(wordGramConfiguration);
-    testQueryConfig.setPartial(partialConfiguration);
+    testQueryConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                    .maxTermBucketSize(20)
+                    .exactMatch(exactMatchConfiguration)
+                    .wordGram(wordGramConfiguration)
+                    .partial(partialConfiguration)
+                    .build())
+            .build();
   }
 
   @BeforeClass
@@ -94,7 +104,8 @@ public class AutocompleteRequestHandlerTest {
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
   }
 
   private static final QueryConfiguration TEST_QUERY_CONFIG =
@@ -241,7 +252,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
         withoutDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -269,7 +281,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     autocompleteRequest = withDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
@@ -314,7 +327,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
         withInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -355,7 +369,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     autocompleteRequest =
         noQueryCustomization.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -420,7 +435,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
         explicitNoInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -475,7 +491,8 @@ public class AutocompleteRequestHandlerTest {
                             .build()))
                 .build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     autocompleteRequest = explicit.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
@@ -620,7 +637,8 @@ public class AutocompleteRequestHandlerTest {
             entitySpec,
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
-            testQueryConfig);
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     return (BoolQueryBuilder)
         ((FunctionScoreQueryBuilder)
@@ -638,5 +656,88 @@ public class AutocompleteRequestHandlerTest {
                     .source()
                     .query())
             .query();
+  }
+
+  @Test
+  public void testApplyResultLimitInAutocompleteRequest() {
+    // Create SearchConfiguration with specific limits
+    SearchServiceConfiguration testLimitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                new LimitConfig()
+                    .setResults(
+                        new ResultsLimitConfig().setMax(50).setApiDefault(50).setStrict(false)))
+            .build();
+
+    // Create a handler with our test configuration
+    AutocompleteRequestHandler limitHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            TEST_ES_SEARCH_CONFIG,
+            testLimitConfig);
+
+    // Test with count below limit
+    int requestedCount = 30;
+    SearchRequest autocompleteRequest =
+        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    // Verify the requested count was used (not limited)
+    assertEquals(sourceBuilder.size(), requestedCount);
+
+    // Test with count above limit (non-strict)
+    requestedCount = 100;
+    autocompleteRequest =
+        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    sourceBuilder = autocompleteRequest.source();
+
+    // Verify the max limit was applied
+    assertEquals(sourceBuilder.size(), 50);
+  }
+
+  @Test
+  public void testApplyResultLimitWithStrictConfiguration() {
+    // Create SearchConfiguration with strict limits
+    SearchServiceConfiguration strictConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(50).setApiDefault(50).setStrict(true))
+                    .build())
+            .build();
+
+    // Create a handler with our strict configuration
+    AutocompleteRequestHandler strictHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            TEST_ES_SEARCH_CONFIG,
+            strictConfig);
+
+    // Test with count at the limit
+    int requestedCount = 50;
+    SearchRequest autocompleteRequest =
+        strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    // Verify exact limit was used
+    assertEquals(sourceBuilder.size(), 50);
+
+    // Test with count exceeding the limit in strict mode
+    // This should throw an IllegalArgumentException
+    try {
+      requestedCount = 100;
+      strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+      Assert.fail(
+          "Should throw IllegalArgumentException when count exceeds limit with strict config");
+    } catch (IllegalArgumentException e) {
+      // Expected exception
+      assertTrue(e.getMessage().contains("Result count exceeds limit of 50"));
+    }
   }
 }

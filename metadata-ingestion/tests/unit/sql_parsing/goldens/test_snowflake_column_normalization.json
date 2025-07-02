@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "TotalPrice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"O\".\"TOTALPRICE\") AS \"TOTAL_AGG\""
+            }
         },
         {
             "downstream": {
@@ -41,7 +45,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "TotalPrice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "AVG(\"O\".\"TOTALPRICE\") AS \"TOTAL_AVG\""
+            }
         },
         {
             "downstream": {
@@ -59,7 +67,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "TotalPrice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MIN(\"O\".\"TOTALPRICE\") AS \"TOTAL_MIN\""
+            }
         },
         {
             "downstream": {
@@ -77,9 +89,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "TotalPrice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MAX(\"O\".\"TOTALPRICE\") AS \"TOTAL_MAX\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT SUM(o.\"totalprice\") AS total_agg, AVG(\"TotalPrice\") AS total_avg, MIN(\"TOTALPRICE\") AS total_min, MAX(TotalPrice) AS total_max FROM snowflake_sample_data.tpch_sf1.orders AS o"

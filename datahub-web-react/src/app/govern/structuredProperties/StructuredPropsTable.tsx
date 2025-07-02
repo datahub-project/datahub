@@ -289,6 +289,18 @@ const StructuredPropsTable = ({
                     },
                     {
                         key: '1',
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    navigator.clipboard.writeText(record.entity.urn);
+                                }}
+                            >
+                                Copy Urn
+                            </MenuItem>
+                        ),
+                    },
+                    {
+                        key: '2',
                         disabled: !canEditProps,
                         label: (
                             <Tooltip
@@ -317,7 +329,7 @@ const StructuredPropsTable = ({
                         ),
                     },
                     {
-                        key: '2',
+                        key: '3',
                         disabled: !canEditProps,
                         label: (
                             <Tooltip

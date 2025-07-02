@@ -1,4 +1,5 @@
 import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -9,6 +10,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -22,7 +24,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { isOutputPort } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
 import { EntityType, MlModelGroup, SearchResult } from '@types';
@@ -107,6 +109,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
@@ -135,6 +138,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -152,6 +158,15 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     ];
 
     getSidebarTabs = () => [
+        {
+            name: 'Lineage',
+            component: LineageTab,
+            description: "View this data asset's upstream and downstream dependencies",
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
         {
             name: 'Properties',
             component: PropertiesTab,
@@ -221,6 +236,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }

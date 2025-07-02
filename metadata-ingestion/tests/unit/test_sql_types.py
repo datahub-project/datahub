@@ -2,8 +2,10 @@ import pytest
 
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
     resolve_athena_modified_type,
+    resolve_snowflake_modified_type,
     resolve_sql_type,
     resolve_trino_modified_type,
 )
@@ -70,6 +72,55 @@ def test_resolve_athena_modified_type(data_type, expected_data_type):
     assert (
         resolve_athena_modified_type(data_type)
         == ATHENA_SQL_TYPES_MAP[expected_data_type]
+    )
+
+
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [
+        ("BOOLEAN", "BOOLEAN"),
+        ("TINYINT", "TINYINT"),
+        ("BYTEINT", "BYTEINT"),
+        ("SMALLINT", "SMALLINT"),
+        ("INT", "INT"),
+        ("INTEGER", "INTEGER"),
+        ("BIGINT", "BIGINT"),
+        ("FLOAT", "FLOAT"),
+        ("FLOAT4", "FLOAT4"),
+        ("FLOAT8", "FLOAT8"),
+        ("DOUBLE", "DOUBLE"),
+        ("DOUBLE PRECISION", "DOUBLE PRECISION"),
+        ("REAL", "REAL"),
+        ("NUMBER(10,0)", "NUMBER"),
+        ("DECIMAL(38,2)", "DECIMAL"),
+        ("NUMERIC(15,4)", "NUMERIC"),
+        ("VARCHAR(20)", "VARCHAR"),
+        ("CHARACTER VARYING(50)", "CHARACTER VARYING"),
+        ("CHAR(10)", "CHAR"),
+        ("CHARACTER(5)", "CHARACTER"),
+        ("STRING", "STRING"),
+        ("TEXT", "TEXT"),
+        ("BINARY", "BINARY"),
+        ("VARBINARY", "VARBINARY"),
+        ("DATE", "DATE"),
+        ("DATETIME", "DATETIME"),
+        ("TIME", "TIME"),
+        ("TIME(3)", "TIME"),
+        ("TIMESTAMP", "TIMESTAMP"),
+        ("TIMESTAMP(3)", "TIMESTAMP"),
+        ("TIMESTAMP_LTZ", "TIMESTAMP_LTZ"),
+        ("TIMESTAMP_NTZ", "TIMESTAMP_NTZ"),
+        ("TIMESTAMP_TZ", "TIMESTAMP_TZ"),
+        ("VARIANT", "VARIANT"),
+        ("OBJECT", "OBJECT"),
+        ("ARRAY", "ARRAY"),
+        ("GEOGRAPHY", "GEOGRAPHY"),
+    ],
+)
+def test_resolve_snowflake_type(data_type, expected_data_type):
+    assert (
+        resolve_snowflake_modified_type(data_type)
+        == SNOWFLAKE_TYPES_MAP[expected_data_type]
     )
 
 

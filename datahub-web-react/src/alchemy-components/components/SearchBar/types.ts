@@ -7,6 +7,7 @@ export interface SearchBarProps {
     height?: string;
     onChange?: (value: string, event: React.ChangeEvent<HTMLInputElement>) => void;
     allowClear?: boolean;
+    clearIcon?: React.ReactNode;
     disabled?: boolean;
     suffix?: React.ReactNode;
 }

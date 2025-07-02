@@ -2,7 +2,7 @@ const learCardDropdownContent = [
         {
             title: "Weekly Demo",
             iconImage: "/img/icon-join-slack.png",
-            href: "https://pages.acryl.io/webinar-governance-ai-5",
+            href: "https://datahub.com/weekly-demo",
         },
         {
             title: "Use Cases",

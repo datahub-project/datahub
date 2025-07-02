@@ -5,6 +5,7 @@ import { DataProducts } from '@app/homeV2/content/tabs/discovery/sections/dataPr
 import { Domains } from '@app/homeV2/content/tabs/discovery/sections/domains/Domains';
 import { Insights } from '@app/homeV2/content/tabs/discovery/sections/insight/Insights';
 import { Platforms } from '@app/homeV2/content/tabs/discovery/sections/platform/Platforms';
+import { OnboardingCards } from '@src/app/homeV2/content/tabs/discovery/sections/onboarding/OnboardingCards';
 import { PinnedLinks } from '@src/app/homeV2/reference/sections/pinned/PinnedLinks';
 
 const Container = styled.div`
@@ -17,6 +18,7 @@ const Container = styled.div`
 export const DiscoveryTab = () => {
     return (
         <Container>
+            <OnboardingCards />
             <PinnedLinks hideIfEmpty />
             <Domains />
             <DataProducts />

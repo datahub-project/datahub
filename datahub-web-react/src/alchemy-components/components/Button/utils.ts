@@ -230,8 +230,7 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
 // Generate active styles for button
 const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
     borderColor: 'transparent',
-    backgroundColor: colorStyles.activeBgColor,
-    // TODO: Figure out how to make the #fff interior border transparent
+    backgroundColor: colorStyles.activeBgColor, // TODO: Figure out how to make the #fff interior border transparent
     boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 

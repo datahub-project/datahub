@@ -3,6 +3,7 @@ import { Text } from '@components';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
+import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
     BaseTable,
     HeaderContainer,
@@ -18,7 +19,6 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
-import { Tooltip2 } from '@components/components/Tooltip2';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -48,6 +48,7 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -94,10 +95,10 @@ export const Table = <T,>({
                                     width={column.width}
                                     minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
-                                    shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
+                                    shouldAddRightBorder={index !== finalColumns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
-                                        <Tooltip2 title={column.tooltipTitle}>
+                                        <StructuredPopover title={column.tooltipTitle}>
                                             <HeaderContainer alignment={column.alignment}>
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
@@ -133,7 +134,7 @@ export const Table = <T,>({
                                                     </SortIconsContainer>
                                                 )}
                                             </HeaderContainer>
-                                        </Tooltip2>
+                                        </StructuredPopover>
                                     ) : (
                                         <HeaderContainer alignment={column.alignment}>
                                             {column.title}
@@ -270,6 +271,7 @@ export const Table = <T,>({
                             </>
                         );
                     })}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

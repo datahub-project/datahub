@@ -1,0 +1,14 @@
+namespace com.linkedin.application
+
+/**
+ * Key for a Query
+ */
+@Aspect = {
+  "name": "applicationKey"
+}
+record ApplicationKey {
+  /**
+  * A unique id for the Application.
+  */
+  id: string
+}

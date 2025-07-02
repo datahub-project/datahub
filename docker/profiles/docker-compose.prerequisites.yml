@@ -20,6 +20,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -34,6 +35,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
@@ -75,6 +77,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-cassandra
   - debug-consumers
   - debug-neo4j
+  - debug-backend-aws
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -93,6 +96,11 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-cassandra
   - debug-consumers
   - debug-neo4j
+  - debug-backend-aws
+
+# AWS Infra profiles
+x-profiles-aws: &aws-profiles
+  - debug-backend-aws
 
 # Debug vs Quickstart Profiles
 x-profiles-quickstart: &profiles-quickstart
@@ -115,6 +123,7 @@ x-profiles-dev: &profiles-dev
   - debug-consumers
   - debug-neo4j
   - debug-elasticsearch
+  - debug-backend-aws
 
 services:
   mysql:
@@ -222,7 +231,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     command:
       - /bin/bash
       - -c
@@ -366,6 +375,23 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+  aws-localstack:
+    profiles: *aws-profiles
+    hostname: localstack
+    image: ${LOCALSTACK_IMAGE:-localstack/localstack:4}
+    ports:
+      - ${DATAHUB_MAPPED_LOCALSTACK_PORT:-4566}:4566                     # LocalStack's main service port
+    environment:
+      - AWS_DEFAULT_REGION=${LOCALSTACK_REGION:-us-east-1}
+      - SERVICES=${LOCALSTACK_SERVICES:-s3,sqs,iam,sts}
+    volumes:
+      - localstackdata:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 networks:
   default:
@@ -379,3 +405,4 @@ volumes:
   mysqldata:
   cassandradata:
   postgresdata:
+  localstackdata:

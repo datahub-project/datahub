@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Iterable, List, Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -99,6 +100,7 @@ def cleanup(config: BigQueryV2Config) -> None:
     SourceCapability.PARTITION_SUPPORT,
     "Enabled by default, partition keys and clustering keys are supported.",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -241,7 +243,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ).workunit_processor,
         ]
 
+    def _warn_deprecated_configs(self):
+        if (
+            self.config.match_fully_qualified_names is not None
+            and not self.config.match_fully_qualified_names
+            and self.config.schema_pattern is not None
+            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.report.report_warning(
+                message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
+                context="Config option deprecation warning",
+                title="Config option deprecation warning",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._warn_deprecated_configs()
         projects = get_projects(
             self.bq_schema_extractor.schema_api,
             self.report,

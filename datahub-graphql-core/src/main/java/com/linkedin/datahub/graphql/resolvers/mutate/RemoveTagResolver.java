@@ -15,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,8 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LabelUtils.isAuthorizedToUpdateTags(context, targetUrn, input.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTags(
+        context, targetUrn, input.getSubResource(), Collections.singleton(tagUrn))) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

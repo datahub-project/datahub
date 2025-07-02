@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.specific.dataset_cli import dataset
-from tests.test_helpers.mce_helpers import check_goldens_stream
+from datahub.testing.mce_helpers import check_goldens_stream
 
 TEST_RESOURCES_DIR = Path(__file__).parent / "test_resources"
 

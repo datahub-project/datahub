@@ -3,7 +3,7 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "0.15.0" // base default cli major version
+def cliMajorVersion = "1.1.0" // base default cli major version
 def inputFile = file("${rootProject.buildDir}/version.json")
 
 ext {

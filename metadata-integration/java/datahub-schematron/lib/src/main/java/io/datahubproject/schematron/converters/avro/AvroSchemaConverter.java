@@ -131,12 +131,15 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       FieldPath basePath = new FieldPath();
       basePath.setKeySchema(isKeySchema);
 
+      Set<String> visitedRecords = new HashSet<>();
+
       // Add the record type to the base path
       if (schema.getType() == Schema.Type.RECORD) {
         basePath = basePath.expandType(schema.getName(), schema.toString());
+        visitedRecords.add(schema.getFullName());
       }
 
-      processSchema(schema, basePath, defaultNullable, fields);
+      processSchema(schema, basePath, defaultNullable, fields, visitedRecords);
 
       return new SchemaMetadata()
           .setSchemaName(schema.getName())
@@ -155,17 +158,16 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
   }
 
   private void processSchema(
-      Schema schema, FieldPath fieldPath, boolean defaultNullable, List<SchemaField> fields) {
+      Schema schema,
+      FieldPath fieldPath,
+      boolean defaultNullable,
+      List<SchemaField> fields,
+      Set<String> visitedRecords) {
     if (schema.getType() == Schema.Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
-        processField(field, fieldPath, defaultNullable, fields);
+        processField(field, fieldPath, defaultNullable, fields, visitedRecords);
       }
     }
-  }
-
-  private void processField(
-      Schema.Field field, FieldPath fieldPath, boolean defaultNullable, List<SchemaField> fields) {
-    processField(field, fieldPath, defaultNullable, fields, false, null);
   }
 
   private void processField(
@@ -173,8 +175,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       FieldPath fieldPath,
       boolean defaultNullable,
       List<SchemaField> fields,
-      boolean nullableOverride) {
-    processField(field, fieldPath, defaultNullable, fields, nullableOverride, null);
+      Set<String> visitedRecords) {
+    processField(field, fieldPath, defaultNullable, fields, false, null, visitedRecords);
   }
 
   private void processField(
@@ -183,7 +185,18 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       boolean defaultNullable,
       List<SchemaField> fields,
       boolean nullableOverride,
-      DataHubType typeOverride) {
+      Set<String> visitedRecords) {
+    processField(field, fieldPath, defaultNullable, fields, nullableOverride, null, visitedRecords);
+  }
+
+  private void processField(
+      Schema.Field field,
+      FieldPath fieldPath,
+      boolean defaultNullable,
+      List<SchemaField> fields,
+      boolean nullableOverride,
+      DataHubType typeOverride,
+      Set<String> visitedRecords) {
     log.debug(
         "Processing field: {}, Field path : {}, Field schema: {}",
         field.name(),
@@ -215,17 +228,33 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     switch (fieldSchema.getType()) {
       case RECORD:
         processRecordField(
-            field, newPath, discriminatedType, defaultNullable, fields, isNullable, typeOverride);
+            field,
+            newPath,
+            discriminatedType,
+            defaultNullable,
+            fields,
+            isNullable,
+            typeOverride,
+            visitedRecords);
         break;
       case ARRAY:
-        processArrayField(field, newPath, discriminatedType, defaultNullable, fields, isNullable);
+        processArrayField(
+            field, newPath, discriminatedType, defaultNullable, fields, isNullable, visitedRecords);
         break;
       case MAP:
-        processMapField(field, newPath, discriminatedType, defaultNullable, fields, isNullable);
+        processMapField(
+            field, newPath, discriminatedType, defaultNullable, fields, isNullable, visitedRecords);
         break;
       case UNION:
         processUnionField(
-            field, newPath, discriminatedType, defaultNullable, fields, isNullable, typeOverride);
+            field,
+            newPath,
+            discriminatedType,
+            defaultNullable,
+            fields,
+            isNullable,
+            typeOverride,
+            visitedRecords);
         break;
       case ENUM:
         processEnumField(field, newPath, discriminatedType, defaultNullable, fields, isNullable);
@@ -244,7 +273,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       boolean defaultNullable,
       List<SchemaField> fields,
       boolean isNullable,
-      DataHubType typeOverride) {
+      DataHubType typeOverride,
+      Set<String> visitedRecords) {
 
     log.debug("Record Field Path before expand: {}", fieldPath.asString());
     FieldPath recordPath = fieldPath.expandType(discriminatedType, field.schema().toString());
@@ -255,7 +285,6 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             ? typeOverride.asSchemaFieldType()
             : new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType()));
 
-    // Add the record field itself
     SchemaField recordField =
         new SchemaField()
             .setFieldPath(recordPath.asString())
@@ -263,15 +292,24 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             .setNativeDataType(discriminatedType)
             .setNullable(isNullable || defaultNullable)
             .setIsPartOfKey(fieldPath.isKeySchema());
-
     populateCommonProperties(field, recordField);
-
     fields.add(recordField);
+
+    if (isCyclicReference(field, visitedRecords)) {
+      return;
+    }
+    visitedRecords.add(field.schema().getFullName());
 
     // Process nested fields
     for (Schema.Field nestedField : field.schema().getFields()) {
-      processField(nestedField, recordPath, defaultNullable, fields);
+      processField(nestedField, recordPath, defaultNullable, fields, visitedRecords);
     }
+
+    visitedRecords.remove(field.schema().getFullName());
+  }
+
+  private boolean isCyclicReference(Schema.Field field, Set<String> visitedRecords) {
+    return visitedRecords.contains(field.schema().getFullName());
   }
 
   @SneakyThrows
@@ -327,7 +365,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       String discriminatedType,
       boolean defaultNullable,
       List<SchemaField> fields,
-      boolean isNullable) {
+      boolean isNullable,
+      Set<String> visitedRecords) {
 
     Schema arraySchema = field.schema();
     Schema elementSchema = arraySchema.getElementType();
@@ -354,7 +393,14 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               elementSchema.getDoc() != null ? elementSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for an array element?
               );
-      processField(elementField, fieldPath, defaultNullable, fields, isNullable, arrayDataHubType);
+      processField(
+          elementField,
+          fieldPath,
+          defaultNullable,
+          fields,
+          isNullable,
+          arrayDataHubType,
+          visitedRecords);
     } else {
 
       SchemaField arrayField =
@@ -377,7 +423,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       String discriminatedType,
       boolean defaultNullable,
       List<SchemaField> fields,
-      boolean isNullable) {
+      boolean isNullable,
+      Set<String> visitedRecords) {
 
     Schema mapSchema = field.schema();
     Schema valueSchema = mapSchema.getValueType();
@@ -404,7 +451,14 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               .clonePlus(
                   new FieldElement(
                       Collections.singletonList("map"), new ArrayList<>(), null, null));
-      processField(valueField, valueFieldPath, defaultNullable, fields, isNullable, mapDataHubType);
+      processField(
+          valueField,
+          valueFieldPath,
+          defaultNullable,
+          fields,
+          isNullable,
+          mapDataHubType,
+          visitedRecords);
     } else {
       SchemaField mapField =
           new SchemaField()
@@ -426,7 +480,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       boolean defaultNullable,
       List<SchemaField> fields,
       boolean isNullable,
-      DataHubType typeOverride) {
+      DataHubType typeOverride,
+      Set<String> visitedRecords) {
 
     List<Schema> unionTypes = field.schema().getTypes();
 
@@ -444,7 +499,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
           fieldPath.popLast(),
           defaultNullable,
           fields,
-          true);
+          true,
+          visitedRecords);
       return;
     }
 
@@ -498,7 +554,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             typeIndex,
             unionFieldPath.asString(),
             unionFieldInner.doc());
-        processField(unionFieldInner, indexedFieldPath, defaultNullable, fields);
+        processField(unionFieldInner, indexedFieldPath, defaultNullable, fields, visitedRecords);
       }
       typeIndex++;
     }

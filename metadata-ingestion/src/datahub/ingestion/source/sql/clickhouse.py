@@ -379,7 +379,9 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """

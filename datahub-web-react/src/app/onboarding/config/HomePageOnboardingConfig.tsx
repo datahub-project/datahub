@@ -14,6 +14,7 @@ export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
 export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
 export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
+export const HOME_PAGE_ONBOARDING_CARDS_ID = 'home-page-onboarding-cards';
 
 export const HomePageOnboardingConfig: OnboardingStep[] = [
     {

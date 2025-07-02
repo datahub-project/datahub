@@ -146,14 +146,6 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
-                {isNestedDomainsEnabled && (
-                    <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
-                        <DomainParentSelect
-                            selectedParentUrn={selectedParentUrn}
-                            setSelectedParentUrn={setSelectedParentUrn}
-                        />
-                    </FormItemWithMargin>
-                )}
                 <FormItemWithMargin label={<FormItemLabel>Name</FormItemLabel>}>
                     <FormItemNoMargin
                         name={NAME_FIELD_NAME}
@@ -202,6 +194,14 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         />
                     </FormItemNoMargin>
                 </FormItemWithMargin>
+                {isNestedDomainsEnabled && (
+                    <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
+                        <DomainParentSelect
+                            selectedParentUrn={selectedParentUrn}
+                            setSelectedParentUrn={setSelectedParentUrn}
+                        />
+                    </FormItemWithMargin>
+                )}
                 <Collapse ghost>
                     <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
                         <FormItemWithMargin

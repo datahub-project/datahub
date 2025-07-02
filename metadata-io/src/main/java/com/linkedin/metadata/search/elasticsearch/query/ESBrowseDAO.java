@@ -16,7 +16,9 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -69,9 +71,10 @@ import org.opensearch.search.sort.SortOrder;
 public class ESBrowseDAO {
 
   private final RestHighLevelClient client;
-  @Nonnull private final SearchConfiguration searchConfiguration;
+  @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+  @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
   private static final String BROWSE_PATH = "browsePaths";
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
@@ -125,7 +128,8 @@ public class ESBrowseDAO {
       @Nonnull String path,
       @Nullable Filter filters,
       int from,
-      int size) {
+      @Nullable Integer size) {
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final Map<String, List<String>> requestMap = SearchUtils.getRequestMap(filters);
 
     final OperationContext finalOpContext =
@@ -291,11 +295,11 @@ public class ESBrowseDAO {
       @Nonnull String path,
       @Nonnull Map<String, List<String>> requestMap,
       int from,
-      int size) {
+      @Nullable Integer size) {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
     searchSourceBuilder.fetchSource(new String[] {BROWSE_PATH, URN}, null);
     searchSourceBuilder.sort(URN, SortOrder.ASC);
     searchSourceBuilder.query(buildQueryString(opContext, path, requestMap, false));
@@ -323,13 +327,13 @@ public class ESBrowseDAO {
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
     searchSourceBuilder.fetchSource(new String[] {BROWSE_PATH, URN}, null);
     searchSourceBuilder.sort(URN, SortOrder.ASC);
     searchSourceBuilder.query(buildQueryString(opContext, path, requestMap, false));
@@ -346,7 +350,11 @@ public class ESBrowseDAO {
    */
   @Nonnull
   private BrowseGroupsResult extractGroupsResponse(
-      @Nonnull SearchResponse groupsResponse, @Nonnull String path, int from, int size) {
+      @Nonnull SearchResponse groupsResponse,
+      @Nonnull String path,
+      int from,
+      @Nullable Integer size) {
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroup> groupsAgg =
         groups.getBuckets().stream()
@@ -455,11 +463,12 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     try {
       final OperationContext finalOpContext =
           opContext.withSearchFlags(
               flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
+      count = ConfigUtils.applyLimit(searchServiceConfig, count);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
@@ -503,11 +512,12 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     try {
       final OperationContext finalOpContext =
           opContext.withSearchFlags(
               flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
+      count = ConfigUtils.applyLimit(searchServiceConfig, count);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
@@ -646,7 +656,8 @@ public class ESBrowseDAO {
                 entitySpec,
                 searchConfiguration,
                 customSearchConfiguration,
-                queryFilterRewriteChain)
+                queryFilterRewriteChain,
+                searchServiceConfig)
             .getQuery(
                 finalOpContext,
                 input,
@@ -687,7 +698,8 @@ public class ESBrowseDAO {
                 entitySpecs,
                 searchConfiguration,
                 customSearchConfiguration,
-                queryFilterRewriteChain)
+                queryFilterRewriteChain,
+                searchServiceConfig)
             .getQuery(
                 finalOpContext,
                 input,
@@ -745,7 +757,11 @@ public class ESBrowseDAO {
    */
   @Nonnull
   private BrowseGroupsResultV2 extractGroupsResponseV2(
-      @Nonnull SearchResponse groupsResponse, @Nonnull String path, int from, int size) {
+      @Nonnull SearchResponse groupsResponse,
+      @Nonnull String path,
+      int from,
+      @Nullable Integer size) {
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroupV2> groupsAgg =
         groups.getBuckets().stream().map(this::mapBrowseResultGroupV2).collect(Collectors.toList());

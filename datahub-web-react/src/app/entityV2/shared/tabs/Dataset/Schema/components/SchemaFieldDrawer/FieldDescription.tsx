@@ -57,10 +57,9 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
-    isShowMoreEnabled?: boolean;
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo, isShowMoreEnabled }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -150,11 +149,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
                         <DescriptionWrapper>
                             {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
                             {!!displayedDescription && (
-                                <DescriptionSection
-                                    description={displayedDescription}
-                                    isShowMoreEnabled={isShowMoreEnabled}
-                                    isExpandable
-                                />
+                                <DescriptionSection description={displayedDescription} isExpandable />
                             )}
                         </DescriptionWrapper>
                     </>

@@ -377,7 +377,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"➡️  Upgrade via \"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif client_server_compat == 0 and encourage_cli_upgrade:
         with contextlib.suppress(Exception):
@@ -387,7 +388,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"You seem to be running an old version of datahub cli: {current_version} {get_days(current_release_date)}. Latest version is {latest_version} {get_days(latest_release_date)}.\nUpgrade via \"pip install -U 'acryl-datahub'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif encourage_quickstart_upgrade:
         try:

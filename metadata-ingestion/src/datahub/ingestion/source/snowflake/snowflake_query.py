@@ -43,13 +43,6 @@ class SnowflakeQuery:
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
         ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
-    ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.STREAM.capitalize()}',"
-        ")"
-    )
 
     @staticmethod
     def current_account() -> str:

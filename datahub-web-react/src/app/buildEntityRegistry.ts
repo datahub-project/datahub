@@ -1,5 +1,6 @@
 import { RoleEntity } from '@app/entity/Access/RoleEntity';
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { ApplicationEntity } from '@app/entity/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entity/chart/ChartEntity';
 import { ContainerEntity } from '@app/entity/container/ContainerEntity';
@@ -58,5 +59,6 @@ export default function buildEntityRegistry() {
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
+    registry.register(new ApplicationEntity());
     return registry;
 }

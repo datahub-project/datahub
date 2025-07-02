@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Application;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -248,6 +249,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new VersionSet();
       ((VersionSet) partialEntity).setUrn(input.toString());
       ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
+    }
+    if (input.getEntityType().equals(APPLICATION_ENTITY_NAME)) {
+      partialEntity = new Application();
+      ((Application) partialEntity).setUrn(input.toString());
+      ((Application) partialEntity).setType(EntityType.APPLICATION);
     }
     return partialEntity;
   }

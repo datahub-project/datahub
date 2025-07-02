@@ -198,7 +198,7 @@ public class EbeanEntityServiceTest
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build();
+            .build(opContext);
 
     // Execute the test
     List<UpdateAspectResult> results = entityService.ingestAspects(opContext, batch, false, true);
@@ -270,7 +270,7 @@ public class EbeanEntityServiceTest
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -348,7 +348,7 @@ public class EbeanEntityServiceTest
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -414,7 +414,7 @@ public class EbeanEntityServiceTest
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -467,7 +467,7 @@ public class EbeanEntityServiceTest
                         .systemMetadata(systemMetadata)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null))))
-            .build(),
+            .build(opContext),
         false,
         true);
     EnvelopedAspect envelopedAspect2 =
@@ -702,7 +702,7 @@ public class EbeanEntityServiceTest
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()
                   .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
-                  .build();
+                  .build(operationContext);
           entityService.ingestProposal(operationContext, batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {

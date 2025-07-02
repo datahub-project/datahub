@@ -11,7 +11,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080

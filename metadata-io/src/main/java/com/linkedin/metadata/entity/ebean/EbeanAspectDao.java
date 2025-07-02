@@ -964,6 +964,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @param urns urns for batch
    * @return separated batches
    */
+  // TODO: Remove? No usages of private method
   private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
       AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
     Map<Urn, List<MCPItem>> itemsByUrn =
@@ -977,7 +978,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .filter(entry -> !urns.contains(entry.getKey()))
                     .flatMap(entry -> entry.getValue().stream())
                     .collect(Collectors.toList()))
-            .build();
+            .build(null);
 
     List<AspectsBatch> nonEmptyBatches =
         urns.stream()
@@ -986,7 +987,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     AspectsBatchImpl.builder()
                         .retrieverContext(retrieverContext)
                         .items(itemsByUrn.get(urn))
-                        .build())
+                        .build(null))
             .filter(b -> !b.getItems().isEmpty())
             .collect(Collectors.toList());
 
