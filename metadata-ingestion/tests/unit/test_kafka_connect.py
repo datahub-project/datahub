@@ -546,8 +546,3 @@ class TestIntegration:
         assert len(lineages) == 1
         lineage = lineages[0]
         assert lineage.target_dataset == "test-project.test.test-topic"
-
-
-if __name__ == "__main__":
-    # Run the tests
-    pytest.main([__file__, "-v"])
