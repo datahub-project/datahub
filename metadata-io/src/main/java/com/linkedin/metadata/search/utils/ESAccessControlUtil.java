@@ -38,6 +38,7 @@ import io.datahubproject.metadata.services.RestrictedService;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -339,6 +340,8 @@ public class ESAccessControlUtil {
                     case "URN":
                     case "TAG":
                     case "DOMAIN":
+                    case "CONTAINER":
+                    case "DATA_PLATFORM_INSTANCE":
                       values.forEach(
                           value ->
                               startWithBoolQuery.should(
@@ -355,10 +358,12 @@ public class ESAccessControlUtil {
             });
   }
 
+  // Supported fields link to EntityFieldType
   private static Optional<String> toESField(
       PolicyMatchCriterion criterion, @Nullable AspectRetriever aspectRetriever) {
-    switch (criterion.getField()) {
+    switch (criterion.getField().toUpperCase(Locale.ROOT)) {
       case "TYPE":
+      case "RESOURCE_TYPE":
         return Optional.of(ES_INDEX_FIELD);
       case "URN":
         return Optional.of(
@@ -369,6 +374,13 @@ public class ESAccessControlUtil {
       case "DOMAIN":
         return Optional.of(
             ESUtils.toKeywordField(MappingsBuilder.DOMAINS_FIELD, false, aspectRetriever));
+      case "DATA_PLATFORM_INSTANCE":
+        return Optional.of(
+            ESUtils.toKeywordField(
+                MappingsBuilder.DATA_PLATFORM_INSTANCE_FIELD, false, aspectRetriever));
+      case "CONTAINER":
+        return Optional.of(
+            ESUtils.toKeywordField(MappingsBuilder.CONTAINER_FIELD, false, aspectRetriever));
       default:
         return Optional.empty();
     }
@@ -376,8 +388,9 @@ public class ESAccessControlUtil {
 
   private static Collection<String> toESValues(
       @Nonnull OperationContext opContext, @Nonnull PolicyMatchCriterion criterion) {
-    switch (criterion.getField()) {
+    switch (criterion.getField().toUpperCase(Locale.ROOT)) {
       case "TYPE":
+      case "RESOURCE_TYPE":
         return criterion.getValues().stream()
             .map(
                 value ->
@@ -392,6 +405,7 @@ public class ESAccessControlUtil {
             visitedDomains);
 
         return visitedDomains.stream().map(Urn::toString).sorted().collect(Collectors.toList());
+        // TODO: Support child containers?
       default:
         return criterion.getValues();
     }

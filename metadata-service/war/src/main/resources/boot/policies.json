@@ -165,7 +165,7 @@
         "filter": {
           "criteria": [
             {
-              "field": "resource_type",
+              "field": "TYPE",
               "values": ["dataset"]
             }
           ]
@@ -502,7 +502,7 @@
         "filter": {
           "criteria": [
             {
-              "field": "RESOURCE_TYPE",
+              "field": "TYPE",
               "values": [
                 "dataset",
                 "chart",

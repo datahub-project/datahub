@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static com.linkedin.metadata.utils.SearchUtil.URN_FIELD;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -315,6 +317,54 @@ public class ESAccessControlUtilTest {
                                                   .setCondition(PolicyMatchCondition.STARTS_WITH)
                                                   .setValues(
                                                       new StringArray(List.of(PREFIX_MATCH)))))))))
+          .put(
+              "resourceType",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("RESOURCE_TYPE")
+                                                  .setCondition(PolicyMatchCondition.EQUALS)
+                                                  .setValues(
+                                                      new StringArray(List.of("domain")))))))))
+          .put(
+              "resourceTypeCasing",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("resource_type")
+                                                  .setCondition(PolicyMatchCondition.EQUALS)
+                                                  .setValues(
+                                                      new StringArray(List.of("domain")))))))))
           .build();
 
   /** User A is a technical owner of the result User B has no ownership */
@@ -1153,5 +1203,45 @@ public class ESAccessControlUtilTest {
                                 .minimumShouldMatch(1)
                                 .should(QueryBuilders.prefixQuery("urn", PREFIX_MATCH))))
                 .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testResourceTypeCriteria() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(
+            List.of(TEST_POLICIES.get("resourceType"), TEST_POLICIES.get("resourceTypeCasing")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .minimumShouldMatch(1)
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(ES_INDEX_FIELD, "domainindex_v2")))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(URN_FIELD, TEST_USER_A.toString())))));
+
+    // USER B
+    OperationContext userBContext =
+        sessionWithUserBNoGroup(
+            List.of(TEST_POLICIES.get("resourceType"), TEST_POLICIES.get("resourceTypeCasing")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .minimumShouldMatch(1)
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(URN_FIELD, TEST_USER_B.toString())))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(ES_INDEX_FIELD, "domainindex_v2")))));
   }
 }

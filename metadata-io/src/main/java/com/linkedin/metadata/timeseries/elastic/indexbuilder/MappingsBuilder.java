@@ -25,6 +25,8 @@ public class MappingsBuilder {
   public static final String PARTITION_SPEC_PARTITION = "partition";
   public static final String PARTITION_SPEC_TIME_PARTITION = "timePartition";
   public static final String RUN_ID_FIELD = "runId";
+  public static final String DATA_PLATFORM_INSTANCE_FIELD = "platformInstance";
+  public static final String CONTAINER_FIELD = "container";
 
   private MappingsBuilder() {}
 
