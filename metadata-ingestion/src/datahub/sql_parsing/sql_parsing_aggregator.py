@@ -1494,9 +1494,9 @@ class SqlParsingAggregator(Closeable):
             return
 
         # If a query doesn't involve any allowed tables, skip it.
-        if downstream_urn is None and not any(
-            self.is_allowed_table(urn) for urn in query.upstreams
-        ):
+        if (
+            downstream_urn is None or not self.is_allowed_table(downstream_urn)
+        ) and not any(self.is_allowed_table(urn) for urn in query.upstreams):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
