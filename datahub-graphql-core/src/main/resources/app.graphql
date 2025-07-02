@@ -22,6 +22,11 @@ extend type Query {
   Fetch the global settings related to the docs propagation feature.
   """
   docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
 }
 
 extend type Mutation {
@@ -788,4 +793,14 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
 }
