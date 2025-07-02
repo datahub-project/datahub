@@ -420,4 +420,154 @@ public class SchemaFieldEvaluatorTest {
         results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
         STRUCTURED_PROPERTY_URN.toString());
   }
+
+  @Test
+  public void testEvaluateSharedStructuredPropWithNullStructuredProperties()
+      throws URISyntaxException {
+    // Sets up three schema fields: two with structured properties and one without (null)
+    // Validates that shared properties logic handles null structured properties without NPE
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    TestQuery testQuery =
+        new TestQuery(
+            TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY
+                + "."
+                + STRUCTURED_PROPERTIES_ASPECT_NAME
+                + "."
+                + TestsSchemaFieldUtils.SHARED_PROPERTIES);
+    assertTrue(evaluator.isEligible(DATASET_ENTITY_NAME, testQuery));
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(testQuery));
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
+    Urn schemaFieldUrn2 = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path2");
+    Urn schemaFieldUrn3 = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path3");
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"),
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path2")
+                    .setDescription("description"),
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path3")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"),
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path2"),
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path3"))));
+
+    PrimitivePropertyValueArray primitivePropertyArray = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue prop1 = new PrimitivePropertyValue();
+    prop1.setString("prop1");
+    primitivePropertyArray.add(prop1);
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:user"));
+    StructuredPropertyValueAssignment valueAssignment =
+        new StructuredPropertyValueAssignment()
+            .setValues(primitivePropertyArray)
+            .setPropertyUrn(STRUCTURED_PROPERTY_URN)
+            .setCreated(auditStamp)
+            .setLastModified(auditStamp);
+    StructuredPropertyValueAssignmentArray valueAssignments =
+        new StructuredPropertyValueAssignmentArray();
+    valueAssignments.add(valueAssignment);
+    StructuredProperties structuredProperties =
+        new StructuredProperties().setProperties(valueAssignments);
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    Map<Urn, EntityResponse> mockStructuredPropResponses = new HashMap<>();
+    // First schema field has structured properties
+    mockStructuredPropResponses.put(
+        schemaFieldUrn,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        STRUCTURED_PROPERTIES_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(structuredProperties.data()))))));
+    // Second schema field has structured properties
+    mockStructuredPropResponses.put(
+        schemaFieldUrn2,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn2)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        STRUCTURED_PROPERTIES_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(structuredProperties.data()))))));
+    // Third schema field has NO structured properties aspect (null case)
+    mockStructuredPropResponses.put(
+        schemaFieldUrn3,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn3)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(new EnvelopedAspectMap(ImmutableMap.of())));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(SCHEMA_FIELD_ENTITY_NAME),
+            eq(ImmutableSet.of(schemaFieldUrn, schemaFieldUrn2, schemaFieldUrn3)),
+            eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(mockStructuredPropResponses);
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+
+    // Should still return the shared property from the two fields that have properties
+    // The null filter prevents NPE and allows processing to continue
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        STRUCTURED_PROPERTY_URN.toString());
+  }
 }

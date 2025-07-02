@@ -185,6 +185,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
     List<Pair<Urn, StructuredProperties>> structuredPropertiesMap =
         responseMap.entrySet().stream()
             .map(entry -> new Pair<>(entry.getKey(), extractStructuredProperties(entry.getValue())))
+            .filter(entry -> entry.getValue() != null)
             .collect(Collectors.toList());
     Set<Urn> allProps =
         structuredPropertiesMap.stream()
