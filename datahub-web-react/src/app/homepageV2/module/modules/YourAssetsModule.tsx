@@ -3,9 +3,9 @@ import React from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
 import EmptyContent from '@app/homepageV2/module/components/EmptyContent';
+import EntityItem from '@app/homepageV2/module/components/EntityItem';
 import LargeModule from '@app/homepageV2/module/components/LargeModule';
 import { ModuleProps } from '@app/homepageV2/module/types';
-import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 
 export default function YourAssetsModule(props: ModuleProps) {
     const { user } = useUserContext();
@@ -22,7 +22,7 @@ export default function YourAssetsModule(props: ModuleProps) {
                     onLinkClick={() => {}}
                 />
             ) : (
-                originEntities.map((entity) => <AutoCompleteEntityItem entity={entity} key={entity.urn} />)
+                originEntities.map((entity) => <EntityItem entity={entity} key={entity.urn} />)
             )}
         </LargeModule>
     );
