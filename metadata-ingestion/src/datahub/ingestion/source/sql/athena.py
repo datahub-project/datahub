@@ -573,7 +573,7 @@ class AthenaSource(SQLAlchemySource):
         except Exception as e:
             # Athena does not support SHOW CREATE TABLE for views
             # and will throw an error. We need to handle this case
-            # and return None for the description and custom properties.
+            # and caller needs to fallback to sqlalchemy's get partitions call.
             logger.debug(
                 f"Failed to get table properties for {schema}.{table}: {e}",
                 exc_info=True,
