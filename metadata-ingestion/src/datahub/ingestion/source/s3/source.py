@@ -74,7 +74,6 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -859,8 +858,18 @@ class S3Source(StatefulIngestionSourceBase):
             bucket_name, folder_split[0], self.source_config.aws_config
         )
         for folder in folders:
+            # Ensure proper path joining - folder already includes trailing slash from list_folders
+            # but we need to handle the case where folder_split[1] might start with a slash
+            remaining_pattern = folder_split[1]
+            if remaining_pattern.startswith("/"):
+                remaining_pattern = remaining_pattern[1:]
+
+            # Ensure folder ends with slash for proper path construction
+            if not folder.endswith("/"):
+                folder = folder + "/"
+
             yield from self.resolve_templated_folders(
-                bucket_name, f"{folder}{folder_split[1]}"
+                bucket_name, f"{folder}{remaining_pattern}"
             )
 
     def get_dir_to_process(
@@ -937,20 +946,49 @@ class S3Source(StatefulIngestionSourceBase):
                 self.report.report_file_dropped(s3_uri)
             return allowed
 
-        s3_objects = (
-            obj
-            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
-            if _is_allowed_path(
-                path_spec, self.create_s3_path(obj.bucket_name, obj.key)
+        # Process objects in a memory-efficient streaming fashion
+        # Instead of loading all objects into memory, we'll accumulate folder data incrementally
+        folder_data: Dict[
+            str, Dict[str, Any]
+        ] = {}  # dirname -> {"objects": [obj], "total_size": int}
+
+        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+
+            if not _is_allowed_path(path_spec, s3_path):
+                continue
+
+            # Extract the directory name (folder) from the object key
+            dirname = obj.key.rsplit("/", 1)[0]
+
+            # Initialize folder data if we haven't seen this directory before
+            if dirname not in folder_data:
+                folder_data[dirname] = {
+                    "objects": [],
+                    "total_size": 0,
+                    "min_time": obj.last_modified,
+                    "max_time": obj.last_modified,
+                    "latest_obj": obj,
+                }
+
+            # Update folder statistics incrementally
+            folder_info = folder_data[dirname]
+            folder_info["objects"].append(obj)
+            folder_info["total_size"] += obj.size
+
+            # Track min/max times and latest object
+            if obj.last_modified < folder_info["min_time"]:
+                folder_info["min_time"] = obj.last_modified
+            if obj.last_modified > folder_info["max_time"]:
+                folder_info["max_time"] = obj.last_modified
+                folder_info["latest_obj"] = obj
+
+        # Yield folders after processing all objects
+        for _dirname, folder_info in folder_data.items():
+            latest_obj = folder_info["latest_obj"]
+            max_file_s3_path = self.create_s3_path(
+                latest_obj.bucket_name, latest_obj.key
             )
-        )
-        grouped_s3_objects_by_dirname = groupby_unsorted(
-            s3_objects,
-            key=lambda obj: obj.key.rsplit("/", 1)[0],
-        )
-        for _, group in grouped_s3_objects_by_dirname:
-            max_file = max(group, key=lambda x: x.last_modified)
-            max_file_s3_path = self.create_s3_path(max_file.bucket_name, max_file.key)
 
             # If partition_id is None, it means the folder is not a partition
             partition_id = path_spec.get_partition_from_path(max_file_s3_path)
@@ -958,10 +996,10 @@ class S3Source(StatefulIngestionSourceBase):
             yield Folder(
                 partition_id=partition_id,
                 is_partition=bool(partition_id),
-                creation_time=min(obj.last_modified for obj in group),
-                modification_time=max_file.last_modified,
+                creation_time=folder_info["min_time"],
+                modification_time=folder_info["max_time"],
                 sample_file=max_file_s3_path,
-                size=sum(obj.size for obj in group),
+                size=folder_info["total_size"],
             )
 
     def create_s3_path(self, bucket_name: str, key: str) -> str:
@@ -1014,7 +1052,7 @@ class S3Source(StatefulIngestionSourceBase):
             yield from self._process_simple_path(path_spec, bucket, bucket_name)
 
     def _process_templated_path(
-        self, path_spec: PathSpec, bucket: Bucket, bucket_name: str
+        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
     ) -> Iterable[BrowsePath]:
         """
         Process S3 paths containing {table} templates to create table-level datasets.
@@ -1250,7 +1288,7 @@ class S3Source(StatefulIngestionSourceBase):
             raise e
 
     def _process_simple_path(
-        self, path_spec: PathSpec, bucket: Bucket, bucket_name: str
+        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
     ) -> Iterable[BrowsePath]:
         """
         Process simple S3 paths without {table} templates to create file-level datasets.
