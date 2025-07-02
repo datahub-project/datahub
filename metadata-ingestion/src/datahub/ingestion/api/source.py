@@ -615,7 +615,9 @@ class Source(Closeable, metaclass=ABCMeta):
         pass
 
     def close(self) -> None:
-        self.get_report()._file_based_dict.close()
+        _file_based_dict = self.get_report()._file_based_dict
+        if _file_based_dict is not None:
+            _file_based_dict.close()
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
