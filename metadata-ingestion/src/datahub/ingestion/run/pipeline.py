@@ -578,11 +578,17 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().get_aspects_dict()
+        entity_dict: Dict[str, int]
+        for _, entity_dict in source_aspects.items():
+            for aspect_name, aspect_count in entity_dict.items():
+                entity_dict[aspect_name] = stats.discretize(aspect_count)
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []
