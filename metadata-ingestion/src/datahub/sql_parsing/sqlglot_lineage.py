@@ -1272,28 +1272,25 @@ def _normalize_db_or_schema(
     return db_or_schema
 
 
-def _preprocess_impala_insert_columns(sql: str) -> str:
+def _simplify_impala_insert_columns(sql: str) -> str:
     """
-    임팔라의 INSERT OVERWRITE table (컬럼리스트) 구문을
-    sqlglot이 파싱할 수 있는 형태로 변환합니다.
-
     예시 변환:
     INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
     -> INSERT OVERWRITE TABLE table_name SELECT ...
     """
 
-    # INSERT OVERWRITE table (컬럼리스트) 패턴 매칭
+    # INSERT OVERWRITE 테이블명 (컬럼리스트) 패턴 매칭
     # 대소문자 구분 없이, 공백 처리도 유연하게
     patterns = [
         # 기본 INSERT OVERWRITE table (컬럼) 패턴
         (
-            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(SELECT|VALUES|WITH)",
-            r"INSERT OVERWRITE TABLE \1 \3",
+            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
+            r"INSERT OVERWRITE TABLE \1 SELECT",
         ),
         # 파티션이 있는 경우: INSERT OVERWRITE table (컬럼) PARTITION (파티션)
         (
-            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\([^)]+\))\s+(SELECT|VALUES|WITH)",
-            r"INSERT OVERWRITE TABLE \1 \3 \4",
+            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\([^)]+\))\s+SELECT",
+            r"INSERT OVERWRITE TABLE \1 \3 SELECT",
         ),
     ]
 
@@ -1304,6 +1301,75 @@ def _preprocess_impala_insert_columns(sql: str) -> str:
         )
 
     return processed_sql
+
+
+def _simplify_impala_single_cte_insert(sql: str) -> str:
+    """
+    예시 변환:
+    WITH temp AS (SELECT ...) INSERT INTO/OVERWRITE ...
+    → INSERT INTO/OVERWRITE ... FROM (SELECT ...) AS temp
+    """
+
+    pattern = r"""
+        WITH\s+(?P<cte_name>\w+)\s+AS\s*\(
+        (?P<cte_query>.+?)
+        \)\s+
+        (?P<insert_stmt>INSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?[\w\.]+.+)
+    """
+
+    try:
+        match = re.search(pattern, sql, flags=re.IGNORECASE | re.DOTALL | re.VERBOSE)
+        if not match:
+            return sql
+
+        cte_name = match.group("cte_name")
+        cte_query = match.group("cte_query").strip()
+        insert_stmt = match.group("insert_stmt")
+
+        # FROM temp / JOIN temp → FROM (cte_query) AS temp
+        def _replace(match):
+            keyword = match.group(1)
+            alias = match.group(2) or ""
+            return f"{keyword} ({cte_query}) AS {alias.strip() or cte_name}"
+
+        usage_pattern = rf"""
+            \b(FROM|JOIN)\s+                # FROM or JOIN
+            {cte_name}                      # exact CTE name
+            (?:\s+(?:AS\s+)?(\w+))?         # optional alias
+            \b
+        """
+
+        rewritten_sql = re.sub(
+            usage_pattern,
+            _replace,
+            insert_stmt,
+            flags=re.IGNORECASE | re.VERBOSE,
+        )
+
+        return rewritten_sql
+
+    except Exception as e:
+        logger.warning(f"CTE inlining (multiple use) failed: {e}")
+        return sql
+
+
+def preprocess_impala_query(sql: str) -> str:
+    if not sql or not isinstance(sql, str):
+        return sql
+
+    # INSERT OVERWRITE/INTO + (컬럼리스트) 전처리
+    try:
+        sql = _simplify_impala_insert_columns(sql)
+    except Exception as e:
+        logger.warning(f"INSERT OVERWRITE + (Columns) rewrite failed: {e}")
+
+    # 2. WITH + INSERT 전처리
+    try:
+        sql = _simplify_impala_single_cte_insert(sql)
+    except Exception as e:
+        logger.warning(f"WITH-INSERT CTE rewrite failed: {e}")
+
+    return sql
 
 
 def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
@@ -1353,8 +1419,7 @@ def _sqlglot_lineage_inner(
         pass
     logger.debug("Parsing lineage from sql statement: %s", sql)
 
-    if isinstance(sql, str):
-        sql = _preprocess_impala_insert_columns(sql)
+    sql = preprocess_impala_query(sql)
     statement = parse_statement(sql, dialect=dialect)
 
     if isinstance(statement, sqlglot.exp.Command):
