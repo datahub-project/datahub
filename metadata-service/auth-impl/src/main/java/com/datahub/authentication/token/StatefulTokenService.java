@@ -46,7 +46,7 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nullable final String iss,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final String salt) {
-    super(signingKey, signingAlgorithm, iss);
+    super(systemOperationContext, signingKey, signingAlgorithm, iss);
     this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._revokedTokenCache =
