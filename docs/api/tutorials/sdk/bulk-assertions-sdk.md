@@ -52,19 +52,24 @@ The bulk assertion creation process follows these steps:
 
 ## Setup
 
-First, initialize the SDK client. For detailed client setup options and authentication methods, see the [DataHub Python SDK documentation](../../python-sdk/).
+Connect to your DataHub instance:
 
 ```python
 from datahub.sdk import DataHubClient
 
-# Initialize the DataHub client
-client = DataHubClient(
-    server="https://your-datahub-instance.com",  # http://localhost:8080 if you are running locally in dev mode
-    token="your-access-token",
-)
+client = DataHubClient(server="<your_server>", token="<your_token>")
+```
 
-# Alternatively, initialize via using the from_env() method after setting the DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN env vars
-# or by creating a ~/.datahubenv file via running `datahub init`.
+- **server**: The URL of your DataHub GMS server
+  - local: `http://localhost:8080`
+  - hosted: `https://<your_datahub_url>/gms`
+- **token**: You'll need to [generate a Personal Access Token](../../../authentication/personal-access-tokens.md) from your DataHub instance.
+
+Alternatively, initialize via using the `from_env()` method after setting the `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN` env vars or by creating a `~/.datahubenv` file via running `datahub init`.
+
+```python
+from datahub.sdk import DataHubClient
+
 client = DataHubClient.from_env()
 ```
 
