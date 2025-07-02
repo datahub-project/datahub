@@ -54,32 +54,26 @@ public class PageModuleMapper implements ModelMapper<EntityResponse, DataHubPage
     com.linkedin.datahub.graphql.generated.DataHubPageModuleProperties properties =
         new com.linkedin.datahub.graphql.generated.DataHubPageModuleProperties();
 
-    // Map name
     if (gmsModuleProperties.hasName()) {
       properties.setName(gmsModuleProperties.getName());
     }
 
-    // Map type
     if (gmsModuleProperties.hasType()) {
       properties.setType(PageModuleTypeMapper.map(gmsModuleProperties.getType()));
     }
 
-    // Map visibility
     if (gmsModuleProperties.hasVisibility()) {
       properties.setVisibility(PageModuleVisibilityMapper.map(gmsModuleProperties.getVisibility()));
     }
 
-    // Map params
     if (gmsModuleProperties.hasParams()) {
       properties.setParams(PageModuleParamsMapper.map(gmsModuleProperties.getParams()));
     }
 
-    // Map created audit stamp
     if (gmsModuleProperties.hasCreated()) {
       properties.setCreated(MapperUtils.createResolvedAuditStamp(gmsModuleProperties.getCreated()));
     }
 
-    // Map last modified audit stamp
     if (gmsModuleProperties.hasLastModified()) {
       properties.setLastModified(
           MapperUtils.createResolvedAuditStamp(gmsModuleProperties.getLastModified()));

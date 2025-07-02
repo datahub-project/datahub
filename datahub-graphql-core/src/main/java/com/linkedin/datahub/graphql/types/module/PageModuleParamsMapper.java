@@ -28,10 +28,7 @@ public class PageModuleParamsMapper
         new com.linkedin.datahub.graphql.generated.DataHubPageModuleParams();
 
     // Map link params if present
-    if (params.hasLinkParams()
-        && params.getLinkParams() != null
-        && params.getLinkParams().hasLinkUrn()
-        && params.getLinkParams().getLinkUrn() != null) {
+    if (params.getLinkParams() != null && params.getLinkParams().getLinkUrn() != null) {
       LinkModuleParams linkModuleParams = new LinkModuleParams();
       Post link = new Post();
       link.setUrn(params.getLinkParams().getLinkUrn().toString());
