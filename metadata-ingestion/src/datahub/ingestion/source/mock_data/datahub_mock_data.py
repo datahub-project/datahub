@@ -261,9 +261,7 @@ class DataHubMockDataSource(Source):
             fan_out, hops, fan_out_after_first
         )
 
-        logger.info(
-            f"About to create {tables_to_be_created} tables for lineage testing"
-        )
+        logger.info(f"About to create {tables_to_be_created} datasets mock data")
 
         for i in range(hops + 1):
             tables_at_level = tables_at_levels[i]
