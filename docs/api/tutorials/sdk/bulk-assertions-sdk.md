@@ -141,9 +141,6 @@ critical_datasets = find_tables_by_tag(client, "critical")
 ### Smart Freshness Assertions
 
 ```python
-import json
-from datetime import datetime
-
 # Storage for assertion URNs (for later updates)
 assertion_registry = {
     "freshness": {},
@@ -529,16 +526,14 @@ print(f"Batch results: {batch_results['total_processed']} processed, "
 
 ### 4. **Performance Considerations**
 
-- Process datasets in batches to avoid overwhelming the API
-- Add delays between batch processing if needed
-- Consider running during off-peak hours for large bulk operations
-
 :::important Production Considerations
 Our backend is designed to handle large scale operations. However, since writes are submitted asynchronously onto a Kafka queue, you may experience significant delays in the operations being applied. If you run into any issues, here are some tips that may help:
 
-1. **Consider running off peak** to prevent causing spikes in Kafka lag
+1. **Consider running off peak** to prevent causing spikes in Kafka lag for large bulk operations
 2. **Before you re-run sync** (i.e. to update), wait for GMS to complete processing the previous run to prevent inconsistencies and duplicating: i.e., check if last ingested item has reflected in GMS
 3. **Monitor processing status** through the DataHub UI or API to ensure operations complete successfully
+4. **Process datasets in batches** to avoid overwhelming the API
+5. **Add delays** between batch processing if needed
    :::
 
 ### 5. **Testing Strategy**
