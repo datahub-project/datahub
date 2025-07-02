@@ -18,6 +18,7 @@
 ### Other Notable Changes
 
 - #13726: Removed dgraph from tests
+- #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 
 -->
 
