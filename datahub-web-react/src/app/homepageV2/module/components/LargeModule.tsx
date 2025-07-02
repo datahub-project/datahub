@@ -1,4 +1,4 @@
-import { borders, colors, radius, spacing } from '@components';
+import { Loader, borders, colors, radius, spacing } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -37,10 +37,27 @@ const FloatingRightHeaderSection = styled.div`
 `;
 
 const Content = styled.div`
-    padding: 16px;
+    margin: 16px;
+    overflow-y: auto;
+    height: 222px;
 `;
 
-export default function LargeModule({ children, name, description, visibility }: React.PropsWithChildren<ModuleProps>) {
+const LoaderContainer = styled.div`
+    display: flex;
+    height: 100%;
+`;
+
+interface Props extends ModuleProps {
+    loading?: boolean;
+}
+
+export default function LargeModule({
+    children,
+    name,
+    description,
+    visibility,
+    loading,
+}: React.PropsWithChildren<Props>) {
     return (
         <ModuleContainer $height="316px">
             <ModuleHeader>
@@ -51,7 +68,15 @@ export default function LargeModule({ children, name, description, visibility }:
                     <ModuleMenu />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
-            <Content>{children}</Content>
+            <Content>
+                {loading ? (
+                    <LoaderContainer>
+                        <Loader />
+                    </LoaderContainer>
+                ) : (
+                    children
+                )}
+            </Content>
         </ModuleContainer>
     );
 }

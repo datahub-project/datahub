@@ -5,7 +5,8 @@ import DisplayName from '@app/searchV2/autoCompleteV2/components/DisplayName';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import Matches from '@app/searchV2/autoCompleteV2/components/matches/Matches';
 import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/EntitySubtitle';
-import { TYPE_COLOR, TYPE_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
+import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
+import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -33,9 +34,16 @@ const DescriptionContainer = styled.div`
     width: 100%;
 `;
 
-const IconContainer = styled.div`
+const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
     display: flex;
-    align-items: flex-start;
+    align-items: ${(props) => {
+        switch (props.$variant) {
+            case 'searchBar':
+                return 'flex-start';
+            default:
+                return 'center';
+        }
+    }};
     justify-content: center;
     width: 32px;
 `;
@@ -50,6 +58,7 @@ interface EntityAutocompleteItemProps {
     query?: string;
     siblings?: Entity[];
     matchedFields?: MatchedField[];
+    variant?: EntityItemVariant;
 }
 
 export default function AutoCompleteEntityItem({
@@ -57,15 +66,17 @@ export default function AutoCompleteEntityItem({
     query,
     siblings,
     matchedFields,
+    variant,
 }: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
+    const variantStyles = VARIANT_STYLES.get(variant ?? 'default');
 
     return (
         <Container>
             <ContentContainer>
-                <IconContainer>
+                <IconContainer $variant={variant}>
                     <EntityIcon entity={entity} siblings={siblings} />
                 </IconContainer>
 
@@ -79,7 +90,7 @@ export default function AutoCompleteEntityItem({
             </ContentContainer>
 
             <TypeContainer>
-                <Text color={TYPE_COLOR} colorLevel={TYPE_COLOR_LEVEL} size="sm">
+                <Text color={variantStyles?.typeColor} colorLevel={variantStyles?.typeColorLevel} size="sm">
                     {displayType}
                 </Text>
             </TypeContainer>
