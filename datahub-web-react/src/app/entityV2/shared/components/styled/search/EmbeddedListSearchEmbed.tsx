@@ -80,10 +80,12 @@ export const EmbeddedListSearchEmbed = ({
 
     const onChangeQuery = (q: string) => {
         setQuery(q);
+        setPage(1);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         setFilters(newFilters);
+        setPage(1);
     };
 
     const onChangePage = (newPage: number) => {
