@@ -80,6 +80,7 @@ telemetry:
 
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
+  v1AlgorithmEnabled: "${SECRET_SERVICE_V1_ALGORITHM_ENABLED:true}" # Force only v2 algorithm, invalidates all existing v1 encrypted secrets
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
