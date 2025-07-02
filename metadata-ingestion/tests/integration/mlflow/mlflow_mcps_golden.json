@@ -81,7 +81,7 @@
             "customProperties": {
                 "platform": "urn:li:dataPlatform:mlflow",
                 "id": "Default",
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-31/test_ingestion0/mlruns/0"
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-39/test_ingestion0/mlruns/0"
             },
             "name": "Default"
         }
@@ -152,7 +152,7 @@
             "customProperties": {
                 "platform": "urn:li:dataPlatform:mlflow",
                 "id": "test-experiment",
-                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-31/test_ingestion0/mlruns/766847104871454225"
+                "artifacts_location": "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-39/test_ingestion0/mlruns/766847104871454225"
             },
             "name": "test-experiment"
         }
@@ -298,7 +298,7 @@
             "customProperties": {},
             "id": "02660a3bee9941ed983667f678ce5611",
             "outputUrls": [
-                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-31/test_ingestion0/mlruns/766847104871454225/02660a3bee9941ed983667f678ce5611/artifacts"
+                "/private/var/folders/8_/y6mv42x92bl57_f1n4sp37s40000gn/T/pytest-of-yoonhyejin/pytest-39/test_ingestion0/mlruns/766847104871454225/02660a3bee9941ed983667f678ce5611/artifacts"
             ],
             "hyperParams": [
                 {
@@ -408,22 +408,6 @@
     "entityType": "mlModel",
     "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:mlflow"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "mlModel",
-    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "mlModelProperties",
     "aspect": {
         "json": {
@@ -452,10 +436,28 @@
                     "value": "0.85"
                 }
             ],
-            "tags": [],
+            "tags": [
+                "model_version_id:1"
+            ],
             "groups": [
                 "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,test-model,PROD)"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mlflow-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mlflow"
         }
     },
     "systemMetadata": {
@@ -478,26 +480,6 @@
             "aliases": [],
             "sortId": "0000000001",
             "versioningScheme": "LEXICOGRAPHIC_STRING"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "mlModel",
-    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:model_version_id:1"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -678,22 +660,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mlflow-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:model_version_id:1",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "model_version_id:1"
         }
     },
     "systemMetadata": {

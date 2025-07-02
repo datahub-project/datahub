@@ -60,6 +60,7 @@ from datahub.metadata.schema_classes import (
     MLHyperParamClass,
     MLMetricClass,
     MLModelGroupPropertiesClass,
+    MLModelPropertiesClass,
     MLTrainingRunPropertiesClass,
     PlatformResourceInfoClass,
     SubTypesClass,
@@ -74,12 +75,10 @@ from datahub.metadata.urns import (
     DataPlatformUrn,
     DatasetUrn,
     MlModelUrn,
-    TagUrn,
     VersionSetUrn,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
-from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 
@@ -202,7 +201,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MLModel, MLModelGroup]]:
         yield from self._get_tags_workunits()
         yield from self._get_experiment_workunits()
         yield from self._get_ml_model_workunits()
@@ -713,7 +714,9 @@ class MLflowSource(StatefulIngestionSourceBase):
         else:
             return None
 
-    def _get_ml_model_workunits(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+    def _get_ml_model_workunits(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MLModel, MLModelGroup]]:
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
@@ -744,7 +747,7 @@ class MLflowSource(StatefulIngestionSourceBase):
         registered_model: RegisteredModel,
         model_version: ModelVersion,
         run: Union[None, Run],
-    ) -> Entity:
+    ) -> MLModel:
         """
         Generate an MLModel workunit for an MLflow Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
@@ -777,9 +780,7 @@ class MLflowSource(StatefulIngestionSourceBase):
             if model_version.last_updated_timestamp
             else None
         )
-        model_version_tags: List[Union[str, TagUrn, TagAssociationClass]] = [
-            TagUrn(f"{k}:{v}") for k, v in model_version.tags.items()
-        ]
+        model_version_tags = [f"{k}:{v}" for k, v in model_version.tags.items()]
         ml_model = MLModel(
             id=f"{model_version.name}{self.config.model_name_separator}{model_version.version}",
             name=model_version.name,
@@ -792,9 +793,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             training_metrics=training_metrics,
             version=str(model_version.version),
             custom_properties=model_version.tags,
-            tags=model_version_tags,
             model_group=ml_model_group_urn,
             training_jobs=training_jobs,
+            extra_aspects=[MLModelPropertiesClass(tags=model_version_tags)],
         )
         return ml_model
 
