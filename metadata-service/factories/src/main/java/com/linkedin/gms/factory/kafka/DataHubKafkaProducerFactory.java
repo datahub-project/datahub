@@ -20,6 +20,16 @@ import org.springframework.context.annotation.DependsOn;
 @DependsOn("configurationProvider")
 public class DataHubKafkaProducerFactory {
 
+  @Bean(name = "systemInfoKafkaProducerConfig")
+  public Map<String, Object> getProducerConfig(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      final KafkaProperties properties,
+      @Qualifier("schemaRegistryConfig")
+          final KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    return buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties);
+  }
+
   @Bean(name = "kafkaProducer")
   protected Producer<String, IndexedRecord> createInstance(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
