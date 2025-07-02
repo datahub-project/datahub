@@ -6,9 +6,9 @@ import { ContainerSelector } from '@app/automations/fields/ContainerSelector';
 import { StepHeader } from '@app/automations/fields/components';
 import type { ComponentBaseProps } from '@app/automations/types';
 import { PreviewImage } from '@src/app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { useGetDataPlatformsQuery } from '@src/graphql/dataPlatform.generated';
 
-import type { DataPlatform } from '@types';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { type DataPlatform, EntityType } from '@types';
 
 // State Type (ensures the state is correctly applied across templates)
 export type PlatformSelectorStateType = {
@@ -27,17 +27,24 @@ export const PlatformSelector = ({ state, props, passStateToParent }: ComponentB
     const { platforms = [], containers = [] } = state as PlatformSelectorStateType;
 
     // Defined in @app/automations/fields/index
-    const { platformUrns, enableContainerSelection } = props;
+    const { enableContainerSelection } = props;
 
     // Get selectables platforms
-    const { data, loading } = useGetDataPlatformsQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
-            urns: platformUrns,
+            input: {
+                types: [EntityType.DataPlatform],
+                query: '*',
+                start: 0,
+                count: 100,
+            },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
     });
 
-    const dataPlatforms = (data?.entities as DataPlatform[]) || ([] as DataPlatform[]);
+    const dataPlatforms =
+        (data?.searchAcrossEntities?.searchResults?.flatMap((e) => e.entity) as DataPlatform[]) ||
+        ([] as DataPlatform[]);
 
     return (
         <>

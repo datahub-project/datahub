@@ -306,20 +306,6 @@ const platformSelector: Field = {
             props: {
                 // Turn on container selector in the platform selector
                 enableContainerSelection: false,
-
-                // Confirguable platform urns, this is the default list
-                platformUrns: [
-                    'urn:li:dataPlatform:snowflake',
-                    'urn:li:dataPlatform:bigquery',
-                    'urn:li:dataPlatform:redshift',
-                    'urn:li:dataPlatform:databricks',
-                    'urn:li:dataPlatform:hive',
-                    'urn:li:dataPlatform:tableau',
-                    'urn:li:dataPlatform:looker',
-                    'urn:li:dataPlatform:powerbi',
-                    'urn:li:dataPlatform:hudi',
-                    'urn:li:dataPlatform:kafka',
-                ],
             },
 
             // State mapping to connect form data to the component's state
