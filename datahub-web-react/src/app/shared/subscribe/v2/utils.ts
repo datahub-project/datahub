@@ -30,6 +30,8 @@ export const useSiblingOptionsForSubscriptions = (
             entityData?.platform?.name ??
             entityData?.dataPlatformInstance?.platform.name ??
             entityData?.platform?.urn ??
+            entityData?.properties?.name ??
+            entityData?.name ??
             urn,
         urn,
         platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
