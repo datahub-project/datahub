@@ -652,7 +652,7 @@ def _add_join_condition_lineage(
                     ):
                         new_upstreams.append(col_ref)
                         existing_upstream_keys.add((col_ref.table, col_ref.column))
-            print(f"new upstreams: {new_upstreams}")
+            logger.debug(f"new upstreams: {new_upstreams}")
             updated_lineage.append(
                 _ColumnLineageInfo(
                     downstream=lineage_info.downstream,
