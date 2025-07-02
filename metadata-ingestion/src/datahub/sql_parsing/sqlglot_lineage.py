@@ -77,7 +77,7 @@ SQL_PARSE_RESULT_CACHE_SIZE = 1000
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
-SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_LINEAGE_TIMEOUT_SECONDS = 30  # SQL에 대한 리니지 생성 timeout 시간 ( 10 -> 30 )
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
@@ -143,6 +143,7 @@ class DownstreamColumnRef(_ParserBaseModel):
 class ColumnTransformation(_ParserBaseModel):
     is_direct_copy: bool
     column_logic: str
+    # is_auxiliary: bool = False
 
 
 class _ColumnLineageInfo(_ParserBaseModel):
@@ -298,7 +299,7 @@ def _table_level_lineage(
     if isinstance(statement, sqlglot.exp.Update):
         tables = tables | modified
 
-    return tables, modified
+    return tables, modified  # in_tables, out_tables
 
 
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
@@ -610,6 +611,61 @@ def _select_statement_cll(
     return column_lineage
 
 
+def _add_join_condition_lineage(
+    column_lineage: List[_ColumnLineageInfo],
+    joins: List[_JoinInfo],
+) -> List[_ColumnLineageInfo]:
+    """
+    JOIN 조건에 참여하는 컬럼들을 기존 column_lineage에 추가하는 함수
+
+    예시: SELECT Y.A, X.C, Y.D FROM Y JOIN X ON X.A=Y.A AND X.B=Y.B
+    - Y.A의 upstream에 X.A 추가 (JOIN 조건 때문에)
+    - X.C, Y.D는 JOIN 조건에 참여하지 않으므로 변경 없음
+    """
+    if not joins or not column_lineage:
+        return column_lineage
+
+    # JOIN으로 인해 포함되는 모든 컬럼들 수집
+    join_columns = set()
+    for join_info in joins:
+        for col_ref in join_info.columns_involved:
+            if col_ref.column:
+                join_columns.add(col_ref.column)
+
+    updated_lineage = []  # 기존 column_lineage + join시 추가되는 리니지
+    for lineage_info in column_lineage:
+        downstream_col = lineage_info.downstream.column
+
+        # SELECT된 컬럼이 JOIN 조건에 참여하는 경우
+        if downstream_col and downstream_col in join_columns:
+            new_upstreams = list(lineage_info.upstreams)
+            existing_upstream_keys = {
+                (up.table, up.column) for up in lineage_info.upstreams if up.column
+            }
+
+            for join_info in joins:
+                for col_ref in join_info.columns_involved:
+                    if (
+                        col_ref.column == downstream_col
+                        and (col_ref.table, col_ref.column)
+                        not in existing_upstream_keys
+                    ):
+                        new_upstreams.append(col_ref)
+                        existing_upstream_keys.add((col_ref.table, col_ref.column))
+            print(f"new upstreams: {new_upstreams}")
+            updated_lineage.append(
+                _ColumnLineageInfo(
+                    downstream=lineage_info.downstream,
+                    upstreams=new_upstreams,
+                    logic=lineage_info.logic,
+                )
+            )
+        else:
+            # JOIN 조건에 참여하지 않는 컬럼은 그대로
+            updated_lineage.append(lineage_info)
+    return updated_lineage
+
+
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
     joins: Optional[List[_JoinInfo]] = None
@@ -691,6 +747,17 @@ def _column_level_lineage(
     except Exception as e:
         # This is a non-fatal error, so we can continue.
         logger.debug("Failed to list joins: %s", e)
+
+    # ADD : Column level lineage with Join Condition
+    if joins:
+        try:
+            column_lineage = _add_join_condition_lineage(
+                column_lineage=column_lineage,
+                joins=joins,
+            )
+        except Exception as e:
+            # This is a non-fatal error, so we can continue.
+            logger.debug("Failed to add joins condition lineage : %s", e)
 
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,
