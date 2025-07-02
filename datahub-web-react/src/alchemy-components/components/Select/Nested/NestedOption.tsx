@@ -105,6 +105,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            isMultiSelect: !!isMultiSelect,
             addOptions,
             removeOptions,
             setSelectedOptions,
@@ -215,6 +216,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            renderCustomOptionText={renderCustomOptionText}
                         />
                     ))}
                 </ChildOptions>

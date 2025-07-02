@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 
+import CreateNewDomainModal from '../CreateNewDomainModal';
+
 const Wrapper = styled.div`
     font-size: 20px;
     display: flex;
@@ -42,7 +44,13 @@ export default function DomainsSidebarHeader() {
                     onClick={() => setIsCreatingDomain(true)}
                 />
             </Tooltip>
-            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
+            <CreateNewDomainModal
+                onClose={() => setIsCreatingDomain(false)}
+                onCreate={(urn, id, name, description, parentDomain) => {
+                    updateListDomainsCache(client, urn, id, name, description, parentDomain);
+                }}
+                open={isCreatingDomain}
+            />
         </Wrapper>
     );
 }
