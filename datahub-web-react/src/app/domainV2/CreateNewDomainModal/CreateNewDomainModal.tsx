@@ -6,16 +6,15 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
+import DomainDetailsSection from '@app/domainV2/CreateNewDomainModal/DomainDetailsSection';
+import { CreateNewDomainModalProps } from '@app/domainV2/CreateNewDomainModal/types';
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { CorpUser, Entity } from '@types';
-
-import DomainDetailsSection from './DomainDetailsSection';
-import { CreateNewDomainModalProps } from './types';
+import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
 
 /**
  * Modal for creating a new domain with owners and optional parent domain
@@ -34,15 +33,25 @@ const CreateNewDomainModal: React.FC<CreateNewDomainModalProps> = ({ onClose, op
     );
 
     // Owners state
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const [placeholderOwners, setPlaceholderOwners] = useState<Entity[]>([]);
+    const [pendingOwnerEntities, setPendingOwnerEntities] = useState<Entity[]>([]);
 
     // Loading state
     const [isLoading, setIsLoading] = useState(false);
 
     // Mutations
     const [createDomainMutation] = useCreateDomainMutation();
+
+    const resetForm = () => {
+        setDomainName('');
+        setDomainDescription('');
+        setDomainId('');
+        setSelectedParentUrn((isNestedDomainsEnabled && entityData?.urn) || '');
+        setSelectedOwnerUrns([]);
+        setPlaceholderOwners([]);
+        setPendingOwnerEntities([]);
+    };
 
     // Set current user as placeholder owner when component mounts
     useEffect(() => {
@@ -56,8 +65,8 @@ const CreateNewDomainModal: React.FC<CreateNewDomainModalProps> = ({ onClose, op
         }
     }, [user, placeholderOwners.length]);
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
+    const onChangeOwners = (newOwners: Entity[]) => {
+        setPendingOwnerEntities(newOwners);
     };
 
     /**
@@ -72,7 +81,21 @@ const CreateNewDomainModal: React.FC<CreateNewDomainModalProps> = ({ onClose, op
         setIsLoading(true);
 
         try {
-            // Create the domain (owners will be added automatically by the backend)
+            // Create owner input objects from pending owner entities
+            const ownerInputs = pendingOwnerEntities.map((entity) => {
+                const ownerEntityType =
+                    entity && entity.type === EntityType.CorpGroup
+                        ? OwnerEntityType.CorpGroup
+                        : OwnerEntityType.CorpUser;
+
+                return {
+                    ownerUrn: entity.urn,
+                    ownerEntityType,
+                    ownershipType: OwnershipType.BusinessOwner,
+                };
+            });
+
+            // Create the domain with owners
             const createDomainResult = await createDomainMutation({
                 variables: {
                     input: {
@@ -80,6 +103,7 @@ const CreateNewDomainModal: React.FC<CreateNewDomainModalProps> = ({ onClose, op
                         name: domainName.trim(),
                         description: domainDescription,
                         parentDomain: selectedParentUrn || undefined,
+                        owners: ownerInputs,
                     },
                 },
             });
@@ -119,16 +143,6 @@ const CreateNewDomainModal: React.FC<CreateNewDomainModalProps> = ({ onClose, op
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const resetForm = () => {
-        setDomainName('');
-        setDomainDescription('');
-        setDomainId('');
-        setSelectedParentUrn((isNestedDomainsEnabled && entityData?.urn) || '');
-        setPendingOwners([]);
-        setSelectedOwnerUrns([]);
-        setPlaceholderOwners([]);
     };
 
     // Handle the Enter press

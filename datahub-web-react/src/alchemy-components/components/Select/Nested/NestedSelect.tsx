@@ -165,14 +165,12 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
             let newStagedOptions: OptionType[];
             if (stagedOptions.find((o) => o.value === option.value)) {
                 newStagedOptions = stagedOptions.filter((o) => o.value !== option.value);
+            } else if (!isMultiSelect) {
+                // Single selection: replace all options with just this one
+                newStagedOptions = [option];
             } else {
-                if (!isMultiSelect) {
-                    // Single selection: replace all options with just this one
-                    newStagedOptions = [option];
-                } else {
-                    // Multi selection: add to existing options
-                    newStagedOptions = [...stagedOptions, option];
-                }
+                // Multi selection: add to existing options
+                newStagedOptions = [...stagedOptions, option];
             }
             setStagedOptions(newStagedOptions);
             if (!isMultiSelect) {

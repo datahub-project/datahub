@@ -1,14 +1,14 @@
 import { Text } from '@components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { CorpUser, Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
@@ -56,12 +56,19 @@ const TitleContainer = styled.div`
     flex-direction: column;
 `;
 
+const OwnersContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+`;
+
 // Owners section props
-interface Props<T> {
+interface Props {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
     existingOwners: Owner[];
-    onChange: (owners: T[]) => void;
+    onChange: (owners: Entity[]) => void;
     placeholderOwners?: (Entity | CorpUser)[];
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
@@ -71,7 +78,7 @@ interface Props<T> {
 /**
  * Component for owner selection and management using standard components
  */
-const OwnersSection = <T,>({
+const OwnersSection = ({
     selectedOwnerUrns,
     setSelectedOwnerUrns,
     existingOwners,
@@ -85,12 +92,12 @@ const OwnersSection = <T,>({
     const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
 
     // Auto-select placeholder owners if they're not already selected (only once on mount)
-    React.useEffect(() => {
+    useEffect(() => {
         if (placeholderOwners && placeholderOwners.length > 0 && selectedOwnerUrns.length === 0) {
             const placeholderUrns = placeholderOwners.map((owner) => owner.urn);
             setSelectedOwnerUrns(placeholderUrns);
         }
-    }, [placeholderOwners]); // Only depend on placeholderOwners, not selectedOwnerUrns
+    }, [placeholderOwners, selectedOwnerUrns.length, setSelectedOwnerUrns]);
 
     // Autocomplete query for owners across both CorpUser and CorpGroup types
     const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
@@ -103,16 +110,6 @@ const OwnersSection = <T,>({
         EntityType.CorpUser,
     ]);
 
-    // Lazy load ownership types
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
-
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> =
         autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
@@ -121,7 +118,6 @@ const OwnersSection = <T,>({
 
     // Combine search results with placeholder owners
     const allResults = [...(placeholderOwners || []), ...searchResults];
-    console.log(allResults);
 
     const finalResults = allResults.filter((res) => !existingOwners.map((owner) => owner.owner.urn).includes(res.urn));
 
@@ -181,26 +177,8 @@ const OwnersSection = <T,>({
 
         setSelectedOwnerEntities(newEntities);
 
-        if (newValues.length > 0 && defaultOwnerType) {
-            const newOwners = newValues.map((urn) => {
-                const foundEntity = newEntities.find((e) => e.urn === urn);
-                const ownerEntityType =
-                    foundEntity && foundEntity.type === EntityType.CorpGroup
-                        ? OwnerEntityType.CorpGroup
-                        : OwnerEntityType.CorpUser;
-
-                return {
-                    ownerUrn: urn,
-                    ownerEntityType,
-                    ownershipTypeUrn: defaultOwnerType,
-                };
-            });
-
-            if (shouldSetOwnerEntities) {
-                onChange(newEntities as T[]);
-            } else {
-                onChange(newOwners as T[]);
-            }
+        if (newValues.length > 0) {
+            onChange(newEntities);
         } else {
             onChange([]);
         }

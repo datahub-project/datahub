@@ -101,8 +101,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
 
     function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
-            const selectedDomains = values.map((v) => v.entity).filter((r) => !!r) as Domain[];
-            onDomainsChange(selectedDomains);
+            const domainsToUpdate = values.map((v) => v.entity).filter((r) => !!r) as Domain[];
+            onDomainsChange(domainsToUpdate);
         } else {
             onDomainsChange([]);
         }
@@ -125,8 +125,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
                 isMultiSelect={isMultiSelect}
                 showSearch
                 implicitlySelectChildren={false}
-                areParentsSelectable={true}
-                shouldAlwaysSyncParentValues={true}
+                areParentsSelectable
+                shouldAlwaysSyncParentValues
                 hideParentCheckbox={false}
             />
         </div>

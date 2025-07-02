@@ -1,11 +1,10 @@
 import { Typography } from 'antd';
 import React from 'react';
 
+import DomainSelector from '@app/domainV2/CreateNewDomainModal/DomainSelector';
+import { DomainDetailsSectionProps } from '@app/domainV2/CreateNewDomainModal/types';
 import { Input, TextArea } from '@src/alchemy-components';
 import { Domain, EntityType } from '@src/types.generated';
-
-import DomainSelector from './DomainSelector';
-import { DomainDetailsSectionProps } from './types';
 
 const { Text } = Typography;
 
@@ -17,8 +16,6 @@ const DomainDetailsSection: React.FC<DomainDetailsSectionProps> = ({
     setDomainName,
     domainDescription,
     setDomainDescription,
-    domainId,
-    setDomainId,
     selectedParentUrn,
     setSelectedParentUrn,
     isNestedDomainsEnabled,

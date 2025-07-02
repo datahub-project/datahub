@@ -2,9 +2,8 @@ import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import CreateDomainModal from '@app/domainV2/CreateDomainModal';
-
-import CreateNewDomainModal from '../CreateNewDomainModal';
+import CreateNewDomainModal from '@app/domainV2/CreateNewDomainModal/CreateNewDomainModal';
+import { updateListDomainsCache } from '@app/domainV2/utils';
 
 const Wrapper = styled.div`
     font-size: 20px;
