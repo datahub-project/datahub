@@ -23,6 +23,7 @@ from datahub.ingestion.api.source import (
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -493,7 +494,7 @@ class SlackSource(StatefulIngestionSourceBase):
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=urn_channel,
                         aspect=SubTypesClass(
-                            typeNames=["Slack Channel"],
+                            typeNames=[DatasetSubTypes.SLACK_CHANNEL],
                         ),
                     ),
                 )
