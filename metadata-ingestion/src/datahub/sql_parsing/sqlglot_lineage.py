@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 from collections import defaultdict
 from typing import (
@@ -1271,6 +1272,40 @@ def _normalize_db_or_schema(
     return db_or_schema
 
 
+def _preprocess_impala_insert_columns(sql: str) -> str:
+    """
+    임팔라의 INSERT OVERWRITE table (컬럼리스트) 구문을
+    sqlglot이 파싱할 수 있는 형태로 변환합니다.
+
+    예시 변환:
+    INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
+    -> INSERT OVERWRITE TABLE table_name SELECT ...
+    """
+
+    # INSERT OVERWRITE table (컬럼리스트) 패턴 매칭
+    # 대소문자 구분 없이, 공백 처리도 유연하게
+    patterns = [
+        # 기본 INSERT OVERWRITE table (컬럼) 패턴
+        (
+            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(SELECT|VALUES|WITH)",
+            r"INSERT OVERWRITE TABLE \1 \3",
+        ),
+        # 파티션이 있는 경우: INSERT OVERWRITE table (컬럼) PARTITION (파티션)
+        (
+            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\([^)]+\))\s+(SELECT|VALUES|WITH)",
+            r"INSERT OVERWRITE TABLE \1 \3 \4",
+        ),
+    ]
+
+    processed_sql = sql
+    for pattern, replacement in patterns:
+        processed_sql = re.sub(
+            pattern, replacement, processed_sql, flags=re.IGNORECASE | re.DOTALL
+        )
+
+    return processed_sql
+
+
 def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
     """
     Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
@@ -1316,8 +1351,10 @@ def _sqlglot_lineage_inner(
         # default_schema = "public"
         # TODO: Re-enable this.
         pass
-
     logger.debug("Parsing lineage from sql statement: %s", sql)
+
+    if isinstance(sql, str):
+        sql = _preprocess_impala_insert_columns(sql)
     statement = parse_statement(sql, dialect=dialect)
 
     if isinstance(statement, sqlglot.exp.Command):
