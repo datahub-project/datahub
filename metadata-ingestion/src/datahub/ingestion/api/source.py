@@ -51,7 +51,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -206,10 +206,6 @@ class SourceReport(Report):
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
-    subtypes: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
-    )
-
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
     @property
@@ -224,40 +220,41 @@ class SourceReport(Report):
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
 
+    def _calculate_metrics(self, wu: MetadataWorkUnit) -> None:
+        urn = wu.get_urn()
+
+        if not isinstance(wu.metadata, MetadataChangeEvent):
+            mcps = [wu.metadata]
+        else:
+            mcps = list(mcps_from_mce(wu.metadata))
+
+        for mcp in mcps:
+            entityType = mcp.entityType
+            aspectName = mcp.aspectName
+
+            if urn not in self._urns_seen:
+                self._urns_seen.add(urn)
+                self.entities[entityType].append(urn)
+
+            if aspectName is None:
+                continue
+
+            self.aspects[entityType][aspectName] += 1
+            self.aspect_urn_samples[entityType][aspectName].append(urn)
+            if isinstance(mcp.aspect, UpstreamLineageClass):
+                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+                if upstream_lineage.fineGrainedLineages:
+                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
+                        urn
+                    )
+                    self.aspects[entityType]["fineGrainedLineages"] += 1
+
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
+        if not isinstance(wu, MetadataWorkUnit):
+            return
 
-        if isinstance(wu, MetadataWorkUnit):
-            urn = wu.get_urn()
-
-            # Specialized entity reporting.
-            if not isinstance(wu.metadata, MetadataChangeEvent):
-                mcps = [wu.metadata]
-            else:
-                mcps = list(mcps_from_mce(wu.metadata))
-
-            for mcp in mcps:
-                entityType = mcp.entityType
-                aspectName = mcp.aspectName
-
-                if urn not in self._urns_seen:
-                    self._urns_seen.add(urn)
-                    self.entities[entityType].append(urn)
-
-                if aspectName is not None:
-                    self.aspects[entityType][aspectName] += 1
-
-                    self.aspect_urn_samples[entityType][aspectName].append(urn)
-                    if isinstance(mcp.aspect, UpstreamLineageClass):
-                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                        if upstream_lineage.fineGrainedLineages:
-                            self.aspect_urn_samples[entityType][
-                                "fineGrainedLineages"
-                            ].append(urn)
-                            self.aspects[entityType]["fineGrainedLineages"] += 1
-                    elif isinstance(mcp.aspect, SubTypesClass):
-                        for subtype in mcp.aspect.typeNames:
-                            self.subtypes[entityType][subtype] += 1
+        self._calculate_metrics(wu)
 
     def report_warning(
         self,
@@ -364,10 +361,6 @@ class SourceReport(Report):
     def get_aspects_dict(self) -> Dict[str, Dict[str, int]]:
         """Convert the nested defaultdict aspects to a regular dict for serialization."""
         return self._discretize_dict_values(self.aspects)
-
-    def get_subtypes_dict(self) -> Dict[str, Dict[str, int]]:
-        """Convert the nested defaultdict subtypes to a regular dict for serialization."""
-        return self._discretize_dict_values(self.subtypes)
 
     def compute_stats(self) -> None:
         super().compute_stats()
