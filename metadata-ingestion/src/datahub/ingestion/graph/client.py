@@ -504,7 +504,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "limit": limit,
             "filter": filter,
         }
-        end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
+        end_point = f"{self._gms_server}/aspects?action=getTimeseriesAspectValues"
         resp: Dict = self._post_generic(end_point, query_body)
 
         values: Optional[List] = resp.get("value", {}).get("values")
@@ -524,7 +524,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_entity_raw(
         self, entity_urn: str, aspects: Optional[List[str]] = None
     ) -> Dict:
-        endpoint: str = f"{self.config.server}/entitiesV2/{Urn.url_encode(entity_urn)}"
+        endpoint: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}"
         if aspects is not None:
             assert aspects, "if provided, aspects must be a non-empty list"
             endpoint = f"{endpoint}?aspects=List(" + ",".join(aspects) + ")"
@@ -654,15 +654,15 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     @property
     def _search_endpoint(self):
-        return f"{self.config.server}/entities?action=search"
+        return f"{self._gms_server}/entities?action=search"
 
     @property
     def _relationships_endpoint(self):
-        return f"{self.config.server}/openapi/relationships/v1/"
+        return f"{self._gms_server}/openapi/relationships/v1/"
 
     @property
     def _aspect_count_endpoint(self):
-        return f"{self.config.server}/aspects?action=getCount"
+        return f"{self._gms_server}/aspects?action=getCount"
 
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
@@ -1209,7 +1209,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         operation_name: Optional[str] = None,
         format_exception: bool = True,
     ) -> Dict:
-        url = f"{self.config.server}/api/graphql"
+        url = f"{self._gms_server}/api/graphql"
 
         body: Dict = {
             "query": query,
@@ -1774,7 +1774,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        url = f"{self._gms_server}/openapi/v2/entity/batch/{entity_name}"
         response = self._session.post(url, data=json.dumps(payload), headers=headers)
         response.raise_for_status()
 
@@ -1831,7 +1831,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "Content-Type": "application/json",
         }
 
-        url = f"{self.config.server}/openapi/v3/entity/{entity_name}/batchGet"
+        url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/batchGet"
         if with_system_metadata:
             url += "?systemMetadata=true"
 
