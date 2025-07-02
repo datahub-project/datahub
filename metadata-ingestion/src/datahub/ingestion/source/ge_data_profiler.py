@@ -120,7 +120,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -206,6 +205,17 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
@@ -734,11 +744,41 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
+            results = self.dataset.engine.execute(
+                sa.select(
+                    [
+                        sa.column(column),
+                        sa.func.count(sa.column(column)),
+                    ]
+                )
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .group_by(sa.column(column))
+            ).fetchall()
+
             column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                ValueFrequencyClass(value=str(value), frequency=int(count))
+                for value, count in results
             ]
+            # sort so output is deterministic. don't do it in SQL because not all column
+            # types are sortable in SQL (such as JSON data types on Athena/Trino).
+            column_profile.distinctValueFrequencies = sorted(
+                column_profile.distinctValueFrequencies, key=lambda x: x.value
+            )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.report_warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
@@ -1395,12 +1435,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)

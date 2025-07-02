@@ -58,7 +58,8 @@ jobs:
           "jmacryl",
           "anthonyburdi",
           "esteban",
-          "anthonyburdi"
+          "anthonyburdi",
+          "ligfx"
           ]'),
           github.actor
           )

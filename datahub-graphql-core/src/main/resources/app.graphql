@@ -28,6 +28,11 @@ extend type Query {
   Fetch the global settings related to the docs propagation feature.
   """
   docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
 }
 
 extend type Mutation {
@@ -1505,6 +1510,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
+
+  """
   If enabled, allow on-demand creation of smart assertions.
   """
   onlineSmartAssertionsEnabled: Boolean!
@@ -1604,6 +1614,16 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
 }
 
 """

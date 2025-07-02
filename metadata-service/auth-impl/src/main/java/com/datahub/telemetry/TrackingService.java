@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -15,10 +16,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.Topics;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -111,11 +111,10 @@ public class TrackingService {
               USER_URNS_FIELD,
               PARENT_NODE_URN_FIELD));
 
-  private final MixpanelConfiguration mixpanelConfiguration;
+  private final TopicsConfiguration topicsConfiguration;
   private final SecretService secretService;
   private final MessageBuilder messageBuilder;
   private final MixpanelAPI mixpanelAPI;
-  private final boolean disableObfuscation;
   private final EntityService _entityService;
   private final GitVersion _gitVersion;
   private final ObjectMapper _objectMapper = new ObjectMapper();
@@ -124,19 +123,17 @@ public class TrackingService {
   private final Producer<String, String> dataHubUsageProducer;
 
   public TrackingService(
-      final MixpanelConfiguration mixpanelConfiguration,
+      final TopicsConfiguration topicsConfiguration,
       final SecretService secretService,
       final MessageBuilder messageBuilder,
       final MixpanelAPI mixpanelAPI,
       @Nonnull EntityService<?> entityService,
       @Nonnull GitVersion gitVersion,
       @Nullable Producer<String, String> dataHubUsageProducer) {
-    this.mixpanelConfiguration = mixpanelConfiguration;
+    this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;
     this.mixpanelAPI = mixpanelAPI;
-    this.disableObfuscation =
-        mixpanelConfiguration != null && mixpanelConfiguration.isDisableObfuscation();
     this._entityService = entityService;
     this._gitVersion = gitVersion;
     this.dataHubUsageProducer = dataHubUsageProducer;
@@ -157,59 +154,14 @@ public class TrackingService {
     }
   }
 
-  public void track(
-      @Nonnull final String eventName,
-      @Nonnull final OperationContext opContext,
-      @Nullable final Authenticator authenticator,
-      @Nullable final EntityClient entityClient) {
-    if (mixpanelAPI == null || messageBuilder == null) {
-      log.warn("Mixpanel tracking is not enabled. Skipping event: {}", eventName);
-      return;
-    }
-
-    try {
-      final String actorId = opContext.getActorContext().getActorUrn().toString();
-
-      // Create the event message using MessageBuilder
-      JSONObject message = messageBuilder.event(actorId, eventName, new JSONObject());
-
-      // Create properties object if it doesn't exist
-      JSONObject properties;
-      if (message.has("properties")) {
-        properties = message.getJSONObject("properties");
-      } else {
-        properties = new JSONObject();
-        message.put("properties", properties);
-      }
-
-      // Add properties to the event
-      properties.put("distinct_id", actorId);
-      properties.put("actor", actorId);
-      properties.put("version", _gitVersion.getVersion());
-      properties.put("time", System.currentTimeMillis() / 1000L);
-
-      // Sanitize the properties
-      JSONObject sanitizedProperties = sanitizeEvent(properties);
-      if (sanitizedProperties != null) {
-        message.put("properties", sanitizedProperties);
-      }
-
-      // log the message
-      log.info("Sending event {} to Mixpanel: {}", eventName, message.toString());
-      mixpanelAPI.sendMessage(message);
-      log.debug("Successfully sent event {} to Mixpanel", eventName);
-    } catch (Exception e) {
-      log.warn("Failed to track event: {}", eventName, e);
-    }
-  }
-
   /**
    * Parse a timestamp from various formats (numeric or string) and convert it to epoch milliseconds
    *
    * @param timestamp The timestamp to parse
    * @return The timestamp in epoch milliseconds
    */
-  private long parseTimestamp(Object timestamp) {
+  @VisibleForTesting
+  long parseTimestamp(Object timestamp) {
     if (timestamp == null) {
       return System.currentTimeMillis();
     }
@@ -273,14 +225,14 @@ public class TrackingService {
    * @param entityClient The entity client
    * @param eventData The event data as a JsonNode
    */
-  public void track(
+  public int track(
       @Nonnull final String eventName,
       @Nonnull final OperationContext opContext,
       @Nullable final Authenticator authenticator,
       @Nullable final EntityClient entityClient,
       @Nonnull final JsonNode eventData) {
     // Call the track method with all destinations
-    track(
+    return track(
         eventName,
         opContext,
         authenticator,
@@ -310,15 +262,17 @@ public class TrackingService {
 
     int numDestinationsSent = 0;
 
+    final String actorId =
+        eventData.has("actorUrn")
+            ? eventData.get("actorUrn").asText()
+            : opContext.getActorContext().getActorUrn().toString();
+
     // Send to Mixpanel if requested and available
     if (destinations.contains(TrackingDestination.MIXPANEL)
         && mixpanelAPI != null
         && messageBuilder != null) {
       try {
         log.debug("Mixpanel - Raw event data: {}", eventData.toPrettyString());
-
-        final String actorId = opContext.getSessionActorContext().getActorUrn().toString();
-        log.debug("Tracking event: {} with actorId: {}", eventName, actorId);
 
         // Create a new properties object
         JSONObject properties = new JSONObject();
@@ -428,7 +382,7 @@ public class TrackingService {
 
         String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
         dataHubUsageProducer.send(
-            new ProducerRecord<>(Topics.DATAHUB_USAGE_EVENT, eventJson),
+            new ProducerRecord<>(topicsConfiguration.getDataHubUsage(), actorId, eventJson),
             (metadata, exception) -> {
               if (exception != null) {
                 log.error(
@@ -496,17 +450,12 @@ public class TrackingService {
     while (keys.hasNext()) {
       final String key = keys.next();
       try {
-        if (disableObfuscation) {
-          // copy all the fields over
+        // we only send an allowed list of fields
+        if (ALLOWED_EVENT_FIELDS.contains(key)) {
           sanitizedEvent.put(key, event.get(key));
-        } else {
-          // we only send an allowed list of fields
-          if (ALLOWED_EVENT_FIELDS.contains(key)) {
-            sanitizedEvent.put(key, event.get(key));
-          } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(key)) {
-            // we obfuscate fields that are sensitive
-            sanitizedEvent.put(key, secretService.hashString(event.getString(key)));
-          }
+        } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(key)) {
+          // we obfuscate fields that are sensitive
+          sanitizedEvent.put(key, secretService.hashString(event.getString(key)));
         }
       } catch (JSONException e) {
         log.warn("Failed to sanitize field {}. Skipping this field.", key, e);
@@ -516,6 +465,7 @@ public class TrackingService {
   }
 
   @Nullable
+  @VisibleForTesting
   JSONObject createFailedEvent() {
     final ObjectNode failedEventObj = JsonNodeFactory.instance.objectNode();
     failedEventObj.put(APP_VERSION_FIELD, _gitVersion.getVersion());
@@ -525,6 +475,7 @@ public class TrackingService {
   }
 
   @Nullable
+  @VisibleForTesting
   JSONObject transformObjectNodeToJSONObject(@Nonnull final ObjectNode objectNode) {
     final JSONObject jsonObject;
     try {

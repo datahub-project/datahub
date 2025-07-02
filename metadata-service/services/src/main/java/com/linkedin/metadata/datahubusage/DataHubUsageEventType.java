@@ -112,6 +112,7 @@ public enum DataHubUsageEventType {
   UPDATE_ASPECT_EVENT("UpdateAspectEvent"),
   ENTITY_EVENT("EntityEvent"),
   FAILED_LOGIN_EVENT("FailedLogInEvent"),
+  DELETE_POLICY_EVENT("DeletePolicyEvent"),
 
   // SaaS only events
   COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),

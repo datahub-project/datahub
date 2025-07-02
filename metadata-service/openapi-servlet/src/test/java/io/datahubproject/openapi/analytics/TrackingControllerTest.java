@@ -73,7 +73,7 @@ public class TrackingControllerTest {
     // Verify response
     assertEquals(response.getStatusCode().value(), 200);
 
-    // Verify tracking service was called with the event and verify OperationContext details
+    // Verify tracking service was called with the event
     verify(trackingService)
         .track(
             eq("TestEvent"),

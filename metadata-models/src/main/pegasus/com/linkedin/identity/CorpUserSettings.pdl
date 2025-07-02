@@ -23,4 +23,9 @@ record CorpUserSettings {
    * Notification settings for a user
    */
   notificationSettings: optional NotificationSettings
+
+  /**
+   * Settings related to the home page for a user
+   */
+  homePage: optional CorpUserHomePageSettings
 }

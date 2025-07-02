@@ -9,6 +9,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.SecretServiceConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -39,6 +40,7 @@ public class RotateSecretsStep implements UpgradeStep {
 
   private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
+  private final SecretServiceConfiguration config;
 
   private String _existingKey;
   private String _newKey;
@@ -56,9 +58,12 @@ public class RotateSecretsStep implements UpgradeStep {
   }
 
   public RotateSecretsStep(
-      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
+      @Nonnull OperationContext systemOperationContext,
+      final EntityService<?> entityService,
+      final SecretServiceConfiguration config) {
     this.systemOperationContext = systemOperationContext;
     _entityService = entityService;
+    this.config = config;
   }
 
   @Override
@@ -86,8 +91,8 @@ public class RotateSecretsStep implements UpgradeStep {
               ? context.parsedArgs().get(NEW_KEY_ARG).get()
               : Objects.requireNonNull(System.getenv(NEW_KEY_ARG));
       // Will throw if not provided.
-      _existingSecretService = new SecretService(_existingKey);
-      _newSecretService = new SecretService(_newKey);
+      _existingSecretService = new SecretService(_existingKey, config.isV1AlgorithmEnabled());
+      _newSecretService = new SecretService(_newKey, config.isV1AlgorithmEnabled());
       _mode =
           context.parsedArgs().containsKey(MODE_ARG)
                   && context.parsedArgs().get(MODE_ARG).isPresent()
@@ -271,7 +276,7 @@ public class RotateSecretsStep implements UpgradeStep {
   private String tryDecryptSecret(final String secretValue, final String keyToTry) {
     try {
       // If decryption succeeds, then return immediately.
-      return new SecretService(keyToTry).decrypt(secretValue);
+      return new SecretService(keyToTry, config.isV1AlgorithmEnabled()).decrypt(secretValue);
     } catch (Exception e) {
       // No op - we just keep guessing.
       return null;

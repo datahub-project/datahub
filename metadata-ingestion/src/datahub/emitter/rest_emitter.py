@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -102,6 +103,22 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
     os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
 )
+
+
+def preserve_unicode_escapes(obj: Any) -> Any:
+    """Recursively convert unicode characters back to escape sequences"""
+    if isinstance(obj, dict):
+        return {k: preserve_unicode_escapes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [preserve_unicode_escapes(item) for item in obj]
+    elif isinstance(obj, str):
+        # Convert non-ASCII characters back to \u escapes
+        def escape_unicode(match: Any) -> Any:
+            return f"\\u{ord(match.group(0)):04x}"
+
+        return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
+    else:
+        return obj
 
 
 class EmitMode(ConfigEnum):
@@ -611,7 +628,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         else:
             url = f"{self._gms_server}/aspects?action=ingestProposal"
 
-            mcp_obj = pre_json_transform(mcp.to_obj())
+            mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
             payload_dict = {
                 "proposal": mcp_obj,
                 "async": "true"

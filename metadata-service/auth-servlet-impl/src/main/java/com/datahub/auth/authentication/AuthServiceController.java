@@ -35,7 +35,6 @@ import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -432,6 +431,8 @@ public class AuthServiceController {
   }
 
   /** Tracking endpoint */
+  // TODO: No longer used.
+  /*
   @PostMapping(value = "/track", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> track(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
@@ -476,6 +477,8 @@ public class AuthServiceController {
           }
         });
   }
+
+  */
 
   /**
    * Gets possible SSO settings.

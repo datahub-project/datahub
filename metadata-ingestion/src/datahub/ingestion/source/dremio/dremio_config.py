@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -118,6 +119,7 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
 class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
+    BaseTimeWindowConfig,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):

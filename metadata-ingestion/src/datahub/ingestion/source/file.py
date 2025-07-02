@@ -18,7 +18,9 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -187,6 +189,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin pulls metadata from a previously generated file.

@@ -135,6 +135,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showHomePageRedesign
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions

@@ -7,11 +7,16 @@ import useClickOutside from '@components/components/Utils/ClickOutside/useClickO
 export default function ClickOutside({
     children,
     onClickOutside,
+    width,
     ...options
 }: React.PropsWithChildren<ClickOutsideProps>) {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     useClickOutside(onClickOutside, { ...options, wrappers: [wrapperRef] });
 
-    return <Wrapper ref={wrapperRef}>{children}</Wrapper>;
+    return (
+        <Wrapper ref={wrapperRef} $width={width}>
+            {children}
+        </Wrapper>
+    );
 }

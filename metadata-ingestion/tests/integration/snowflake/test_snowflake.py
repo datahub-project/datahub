@@ -121,7 +121,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
-                        email_as_user_identifier=True,
                         incremental_lineage=False,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc

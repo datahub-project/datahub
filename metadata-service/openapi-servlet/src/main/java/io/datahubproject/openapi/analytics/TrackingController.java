@@ -57,7 +57,7 @@ public class TrackingController {
       log.warn("Authentication not found in request");
       return ResponseEntity.status(401).build();
     }
-    log.debug("Authentication verified for user: {}", authentication.getActor().getId());
+    log.debug("Authentication verified for user: {}", authentication.getActor());
 
     OperationContext opContext =
         OperationContext.asSession(

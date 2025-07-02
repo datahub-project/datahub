@@ -340,7 +340,7 @@ def test_add_lineage_chart_as_downstream(client: DataHubClient) -> None:
     client.lineage.add_lineage(upstream=upstream_dataset, downstream=downstream_chart)
 
     assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_chart_as_downstream_golden.json"
+        client, _GOLDEN_DIR / "test_lineage_chart_as_downstream_golden.json", ["time"]
     )
 
 

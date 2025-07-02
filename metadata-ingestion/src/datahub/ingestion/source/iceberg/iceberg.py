@@ -134,7 +134,9 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.OWNERSHIP,
     "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 class IcebergSource(StatefulIngestionSourceBase):
     """
     ## Integration Details

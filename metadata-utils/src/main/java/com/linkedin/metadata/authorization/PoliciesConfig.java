@@ -302,11 +302,10 @@ public class PoliciesConfig {
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
-
   static final Privilege EXECUTE_ENTITY_PRIVILEGE =
       Privilege.of("EXECUTE_ENTITY", "Execute Entity", "The ability to execute an Entity.");
 
-  public static final Privilege CREATE_ENTITY_PRIVILEGE =
+  static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
@@ -656,12 +655,14 @@ public class PoliciesConfig {
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
       Privilege.of(
-          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
+          "DATA_READ_ONLY",
+          "Iceberg Catalog Read only data-access",
+          "The ability to read the data in a dataset.");
 
   public static final Privilege DATA_READ_WRITE_PRIVILEGE =
       Privilege.of(
           "DATA_READ_WRITE",
-          "Read-write data-access",
+          "Iceberg Catalog Read-write data-access",
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =

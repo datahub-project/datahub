@@ -24,7 +24,7 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
+            backgroundColor: isSelected ? colors.violet[0] : colors.gray[1500],
         },
     };
 };

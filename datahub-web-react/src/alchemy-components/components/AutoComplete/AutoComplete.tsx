@@ -19,6 +19,7 @@ export default function AutoComplete({
     onChange,
     onClear,
     value,
+    clickOutsideWidth,
     ...props
 }: React.PropsWithChildren<AutoCompleteProps>) {
     const { open } = props;
@@ -60,10 +61,18 @@ export default function AutoComplete({
         }
     };
 
+    // Automatically close the dropdown on resize to avoid the dropdown's misalignment
+    useEffect(() => {
+        const onResize = () => setInternalOpen(false);
+        window.addEventListener('resize', onResize, true);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
     return (
         <ClickOutside
             ignoreSelector={AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR}
             onClickOutside={() => setInternalOpen(false)}
+            width={clickOutsideWidth}
         >
             <AntdAutoComplete
                 open={internalOpen}

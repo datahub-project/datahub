@@ -298,6 +298,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
+import com.linkedin.datahub.graphql.types.module.PageModuleType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
@@ -309,6 +310,7 @@ import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
+import com.linkedin.datahub.graphql.types.template.PageTemplateType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
@@ -491,6 +493,8 @@ public class GmsGraphQLEngine {
   private final VersionSetType versionSetType;
   private final IngestionSourceType ingestionSourceType;
   private final ExecutionRequestType executionRequestType;
+  private final PageTemplateType dataHubPageTemplateType;
+  private final PageModuleType dataHubPageModuleType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -619,6 +623,8 @@ public class GmsGraphQLEngine {
     this.versionSetType = new VersionSetType(entityClient);
     this.ingestionSourceType = new IngestionSourceType(entityClient);
     this.executionRequestType = new ExecutionRequestType(entityClient);
+    this.dataHubPageTemplateType = new PageTemplateType(entityClient);
+    this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
     this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
@@ -673,7 +679,9 @@ public class GmsGraphQLEngine {
                 businessAttributeType,
                 dataProcessInstanceType,
                 applicationType,
-                executionRequestType));
+                executionRequestType,
+                dataHubPageTemplateType,
+                dataHubPageModuleType));
     this.loadableTypes = new ArrayList<>(entityTypes);
 
     this.graphQLPlugins =
@@ -846,7 +854,9 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(OPERATIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TIMESERIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
