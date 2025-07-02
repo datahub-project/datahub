@@ -198,7 +198,7 @@ class SourceReportSubtypes:
     urn: str
     entity_type: str
     subType: str = field(default="unknown")
-    aspects: set[str] = field(default_factory=set)
+    aspects: Set[str] = field(default_factory=set)
 
 
 @dataclass
