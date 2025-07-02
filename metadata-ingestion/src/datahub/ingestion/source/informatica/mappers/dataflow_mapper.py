@@ -17,11 +17,12 @@ def make_dataflow_workunit(
         "scheduler": workflow_info.scheduler_name,
         "last_update_time": str(workflow_info.last_update_time),
     }
+
     flow_info = DataFlowInfoClass(
         name=flow_id,
         description=workflow_info.workflow_desc,
         project=None,
-        customProperties={k: v for k, v in props.items() if v},
+        customProperties={k: str(v) for k, v in workflow_info.dict().items() if v},
         env=env,
     )
 
