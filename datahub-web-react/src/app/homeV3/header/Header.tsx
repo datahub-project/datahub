@@ -2,8 +2,8 @@ import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import GreetingText from '@app/homepageV2/header/components/GreetingText';
-import SearchBar from '@app/homepageV2/header/components/SearchBar';
+import GreetingText from '@app/homeV3/header/components/GreetingText';
+import SearchBar from '@app/homeV3/header/components/SearchBar';
 
 export const HeaderWrapper = styled.div`
     display: flex;

@@ -13,15 +13,6 @@ export const PageWrapper = styled.div`
     box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.08);
 `;
 
-export const HeaderWrapper = styled.div`
-    height: 160px;
-    width: 100%;
-    overflow: hidden;
-    background: linear-gradient(180deg, #f8fcff 0%, #fafafb 100%);
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 12px 12px 0 0;
-`;
-
 export const ContentWrapper = styled.div`
     position: relative;
     width: 100%;

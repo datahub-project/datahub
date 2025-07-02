@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ContentContainer, ContentWrapper, StyledVectorBackground } from '@app/homepageV2/styledComponents';
+import { ContentContainer, ContentWrapper, StyledVectorBackground } from '@app/homeV3/styledComponents';
 
 const HomePageContent = () => {
     return (
