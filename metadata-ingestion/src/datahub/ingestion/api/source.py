@@ -52,7 +52,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -220,7 +220,7 @@ class SourceReport(Report):
     aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
-    _file_based_dict: Optional[FileBackedDict[str, SourceReportSubtypes]] = None
+    _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -254,9 +254,19 @@ class SourceReport(Report):
 
             if aspectName is None:
                 continue
+            self.aspects[entityType][aspectName] += 1
+            self.aspect_urn_samples[entityType][aspectName].append(urn)
             sub_type = "unknown"
-            if aspectName == "subTypes":
+            if isinstance(mcp.aspect, UpstreamLineageClass):
+                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+                if upstream_lineage.fineGrainedLineages:
+                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
+                        urn
+                    )
+                    self.aspects[entityType]["fineGrainedLineages"] += 1
+            elif isinstance(mcp.aspect, SubTypesClass):
                 sub_type = mcp.aspect.typeNames[0]
+            assert self._file_based_dict is not None
             if urn in self._file_based_dict:
                 if sub_type != "unknown":
                     self._file_based_dict[urn].subType = sub_type
@@ -270,16 +280,6 @@ class SourceReport(Report):
                     aspects={aspectName},
                 )
 
-            self.aspects[entityType][aspectName] += 1
-            self.aspect_urn_samples[entityType][aspectName].append(urn)
-            if isinstance(mcp.aspect, UpstreamLineageClass):
-                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                if upstream_lineage.fineGrainedLineages:
-                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
-                        urn
-                    )
-                    self.aspects[entityType]["fineGrainedLineages"] += 1
-
     def _calculate_metrics(self) -> None:
         query = """
         SELECT entityType, subTypes, aspects, count(*) as count
@@ -290,7 +290,7 @@ class SourceReport(Report):
         entity_subtype_aspect_counts: Dict[str, Dict[str, Dict[str, int]]] = (
             defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         )
-
+        assert self._file_based_dict is not None
         for row in self._file_based_dict.sql_query(query):
             entity_type = row["entityType"]
             sub_type = row["subTypes"]
@@ -615,7 +615,7 @@ class Source(Closeable, metaclass=ABCMeta):
         pass
 
     def close(self) -> None:
-        pass
+        self.get_report()._file_based_dict.close()
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
