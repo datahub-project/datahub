@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import json
 import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -54,6 +55,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -192,6 +194,14 @@ class StructuredLogs(Report):
 
 
 @dataclass
+class SourceReportSubtypes:
+    urn: str
+    entity_type: str
+    subType: str = field(default="unknown")
+    aspects: set[str] = field(default_factory=set)
+
+
+@dataclass
 class SourceReport(Report):
     event_not_produced_warn: bool = True
     events_produced: int = 0
@@ -202,9 +212,15 @@ class SourceReport(Report):
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
+    aspects_by_subtypes: Dict[str, Dict[str, Dict[str, int]]] = field(
+        default_factory=lambda: defaultdict(
+            lambda: defaultdict(lambda: defaultdict(int))
+        )
+    )
     aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
+    _file_based_dict: Optional[FileBackedDict[str, SourceReportSubtypes]] = None
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -220,7 +236,7 @@ class SourceReport(Report):
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
 
-    def _calculate_metrics(self, wu: MetadataWorkUnit) -> None:
+    def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
         urn = wu.get_urn()
 
         if not isinstance(wu.metadata, MetadataChangeEvent):
@@ -238,6 +254,21 @@ class SourceReport(Report):
 
             if aspectName is None:
                 continue
+            sub_type = "unknown"
+            if aspectName == "subTypes":
+                sub_type = mcp.aspect.typeNames[0]
+            if urn in self._file_based_dict:
+                if sub_type != "unknown":
+                    self._file_based_dict[urn].subType = sub_type
+                self._file_based_dict[urn].aspects.add(aspectName)
+                self._file_based_dict.mark_dirty(urn)
+            else:
+                self._file_based_dict[urn] = SourceReportSubtypes(
+                    urn=urn,
+                    entity_type=entityType,
+                    subType=sub_type,
+                    aspects={aspectName},
+                )
 
             self.aspects[entityType][aspectName] += 1
             self.aspect_urn_samples[entityType][aspectName].append(urn)
@@ -249,12 +280,38 @@ class SourceReport(Report):
                     )
                     self.aspects[entityType]["fineGrainedLineages"] += 1
 
+    def _calculate_metrics(self) -> None:
+        query = """
+        SELECT entityType, subTypes, aspects, count(*) as count
+        FROM urn_aspects 
+        group by entityType, subTypes, aspects
+        """
+
+        entity_subtype_aspect_counts: Dict[str, Dict[str, Dict[str, int]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        )
+
+        for row in self._file_based_dict.sql_query(query):
+            entity_type = row["entityType"]
+            sub_type = row["subTypes"]
+            count = row["count"]
+            aspects_raw = row["aspects"] or "[]"
+
+            aspects = json.loads(aspects_raw)
+            for aspect in aspects:
+                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += count
+
+        self.aspects_by_subtypes.clear()
+        for entity_type, subtype_counts in entity_subtype_aspect_counts.items():
+            for sub_type, aspect_counts in subtype_counts.items():
+                self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
+
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
         if not isinstance(wu, MetadataWorkUnit):
             return
 
-        self._calculate_metrics(wu)
+        self._store_workunit_data(wu)
 
     def report_warning(
         self,
@@ -335,6 +392,15 @@ class SourceReport(Report):
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
+        self._file_based_dict = FileBackedDict(
+            tablename="urn_aspects",
+            extra_columns={
+                "urn": lambda val: val.urn,
+                "entityType": lambda val: val.entity_type,
+                "subTypes": lambda val: val.subType,
+                "aspects": lambda val: json.dumps(sorted(list(val.aspects))),
+            },
+        )
 
     def as_obj(self) -> dict:
         return {
@@ -362,8 +428,29 @@ class SourceReport(Report):
         """Convert the nested defaultdict aspects to a regular dict for serialization."""
         return self._discretize_dict_values(self.aspects)
 
+    def get_aspects_by_subtypes_dict(self) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Get aspect counts grouped by entity type and subtype."""
+        return self._discretize_dict_values_nested(self.aspects_by_subtypes)
+
+    @staticmethod
+    def _discretize_dict_values_nested(
+        nested_dict: Dict[str, Dict[str, Dict[str, int]]],
+    ) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Helper method to discretize values in a nested dictionary structure with three levels."""
+        result = {}
+        for outer_key, middle_dict in nested_dict.items():
+            discretized_middle_dict: Dict[str, Dict[str, int]] = {}
+            for middle_key, inner_dict in middle_dict.items():
+                discretized_inner_dict: Dict[str, int] = {}
+                for inner_key, count in inner_dict.items():
+                    discretized_inner_dict[inner_key] = stats.discretize(count)
+                discretized_middle_dict[middle_key] = discretized_inner_dict
+            result[outer_key] = discretized_middle_dict
+        return result
+
     def compute_stats(self) -> None:
         super().compute_stats()
+        self._calculate_metrics()
 
         duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
