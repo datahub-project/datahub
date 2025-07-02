@@ -26,6 +26,8 @@ class DatasetSubTypes(StrEnum):
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
     API_ENDPOINT = "API Endpoint"
+    SLACK_CHANNEL = "Slack Channel"
+    PROJECTIONS = "Projections"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

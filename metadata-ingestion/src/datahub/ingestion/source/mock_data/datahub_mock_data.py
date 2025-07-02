@@ -15,6 +15,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
     DataHubMockDataReport,
 )
@@ -211,15 +212,19 @@ class DataHubMockDataSource(Source):
         pattern = self.config.gen_1.subtype_pattern
 
         if pattern == SubTypePattern.ALTERNATING:
-            return "Table" if table_index % 2 == 0 else "View"
+            return (
+                DatasetSubTypes.TABLE if table_index % 2 == 0 else DatasetSubTypes.VIEW
+            )
         elif pattern == SubTypePattern.LEVEL_BASED:
-            return self.config.gen_1.level_subtypes.get(table_level, "Table")
+            return self.config.gen_1.level_subtypes.get(
+                table_level, DatasetSubTypes.TABLE
+            )
         elif pattern == SubTypePattern.ALL_TABLE:
-            return "Table"
+            return DatasetSubTypes.TABLE
         elif pattern == SubTypePattern.ALL_VIEW:
-            return "View"
+            return DatasetSubTypes.VIEW
         else:
-            return "Table"  # default
+            return DatasetSubTypes.TABLE  # default
 
     def _get_subtypes_aspect(
         self, table_name: str, table_level: int, table_index: int
