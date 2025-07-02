@@ -1007,6 +1007,60 @@ def test_table_swap_id() -> None:
     )
 
 
+@freeze_time(FROZEN_TIME)
+def test_issue_7102() -> None:
+    """Test case for issue 7102: https://github.com/datahub-project/datahub/issues/7102"""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="""CREATE TEMPORARY TABLE tmp1 AS (
+  SELECT
+    t1.id
+    , t1.attr_column_1
+    , t1.attr_column_2
+    , t2.attr_column_3
+    , t3.not_used
+  FROM src_table_1 AS t1
+  INNER JOIN src_table_2 AS t2 USING (id_1)
+  INNER JOIN src_table_3 AS t3 USING (id_2)
+)""",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
+    )
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="""INSERT INTO target_table
+SELECT
+  t.id
+  , t.attr_column_1
+  , t.attr_column_2
+  , t.attr_column_3
+  , s.attr_column_4
+FROM tmp1 AS t
+INNER JOIN src_table_4 AS s USING (id)""",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    check_goldens_stream(
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_issue_7102.json",
+    )
+
+
 def test_sql_aggreator_close_cleans_tmp(tmp_path):
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     with patch("tempfile.tempdir", str(tmp_path)):
