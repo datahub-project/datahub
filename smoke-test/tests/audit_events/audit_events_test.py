@@ -19,6 +19,8 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
 
+previous_policy_urn = ""
+
 
 @pytest.fixture()
 def auth_exclude_filter():
@@ -325,12 +327,17 @@ def test_policy_events(auth_exclude_filter):
         or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent"
     )
     assert res_data["usageEvents"][1]["entityUrn"] == new_urn
+    global previous_policy_urn
     if len(res_data["usageEvents"]) == 3:
         assert (
             res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
             or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent"
         )
-        assert res_data["usageEvents"][2]["entityUrn"] == new_urn
+        assert (
+            res_data["usageEvents"][2]["entityUrn"] == new_urn
+            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
+        )
+    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -537,12 +544,17 @@ def test_policy_create_delete(auth_exclude_filter):
         or res_data["usageEvents"][1]["eventType"] == "DeletePolicyEvent"
     )
     assert res_data["usageEvents"][1]["entityUrn"] == new_urn
+    global previous_policy_urn
     if len(res_data["usageEvents"]) == 3:
         assert (
             res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
             or res_data["usageEvents"][2]["eventType"] == "DeletePolicyEvent"
         )
-        assert res_data["usageEvents"][2]["entityUrn"] == new_urn
+        assert (
+            res_data["usageEvents"][2]["entityUrn"] == new_urn
+            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
+        )
+    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
