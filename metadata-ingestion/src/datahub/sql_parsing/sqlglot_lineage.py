@@ -116,9 +116,6 @@ class ColumnRef(_FrozenModel):
     table: Urn
     column: str
 
-    def __hash__(self) -> int:
-        return hash((self.table, self.column))
-
 
 class _DownstreamColumnRef(_ParserBaseModel):
     table: Optional[_TableName] = None
@@ -126,7 +123,7 @@ class _DownstreamColumnRef(_ParserBaseModel):
     column_type: Optional[sqlglot.exp.DataType] = None
 
 
-class DownstreamColumnRef(_ParserBaseModel):
+class DownstreamColumnRef(_FrozenModel):
     table: Optional[Urn] = None
     column: str
     column_type: Optional[SchemaFieldDataTypeClass] = None
@@ -142,16 +139,10 @@ class DownstreamColumnRef(_ParserBaseModel):
             return v
         return SchemaFieldDataTypeClass.from_obj(v)
 
-    def __hash__(self) -> int:
-        return hash((self.table, self.column, self.native_column_type))
 
-
-class ColumnTransformation(_ParserBaseModel):
+class ColumnTransformation(_FrozenModel):
     is_direct_copy: bool
     column_logic: str
-
-    def __hash__(self) -> int:
-        return hash((self.is_direct_copy, self.column_logic))
 
 
 class _ColumnLineageInfo(_ParserBaseModel):
