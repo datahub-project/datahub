@@ -1,31 +1,31 @@
 """
-This module contains the classes that represent assertions. These
-classes are used to provide a user-friendly interface for creating and
-managing assertions.
+This module contains the base classes and mixins for assertions.
 
-The actual Assertion Entity classes are defined in `metadata-ingestion/src/datahub/sdk`.
+The actual assertion classes are now split into separate files for better maintainability:
+- SmartFreshnessAssertion -> smart_freshness_assertion.py
+- SmartVolumeAssertion -> smart_volume_assertion.py
+- VolumeAssertion -> volume_assertion.py
+- FreshnessAssertion -> freshness_assertion.py
+- SqlAssertion -> sql_assertion.py
 """
 
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from typing_extensions import Self
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
-    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
     ExclusionWindowTypes,
-    FixedRangeExclusionWindow,
     InferenceSensitivity,
-    TimeWindowSizeInputTypes,
     _DetectionMechanismTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
@@ -34,13 +34,6 @@ from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.smart_column_metric_assertion_input import (
     SmartColumnMetricAssertionParameters,
-)
-from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
-    SqlAssertionCondition,
-    SqlAssertionCriteria,
-)
-from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
-    VolumeAssertionCriteria,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import (
@@ -163,6 +156,12 @@ class _HasSmartFunctionality:
                         f"Monitor {monitor.urn} has a fixed range exclusion window with no fixed range, skipping"
                     )
                     continue
+                # Import FixedRangeExclusionWindow locally to avoid circular import
+                # between assertion_base.py and assertion_input.py
+                from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+                    FixedRangeExclusionWindow,
+                )
+
                 exclusion_windows.append(
                     FixedRangeExclusionWindow(
                         start=parse_ts_millis(raw_window.fixedRange.startTimeMillis),
@@ -715,802 +714,62 @@ class _AssertionPublic(ABC):
         return parameters
 
 
-class SmartFreshnessAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
-    """
-    A class that represents a smart freshness assertion.
-    """
+if TYPE_CHECKING:
+    # Import the assertion classes from their separate files for type checking
+    from acryl_datahub_cloud.sdk.assertion.freshness_assertion import FreshnessAssertion
+    from acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion import (
+        SmartFreshnessAssertion,
+    )
+    from acryl_datahub_cloud.sdk.assertion.smart_volume_assertion import (
+        SmartVolumeAssertion,
+    )
+    from acryl_datahub_cloud.sdk.assertion.sql_assertion import SqlAssertion
+    from acryl_datahub_cloud.sdk.assertion.volume_assertion import VolumeAssertion
 
-    def __init__(
-        self,
-        *,
-        urn: AssertionUrn,
-        dataset_urn: DatasetUrn,
-        display_name: str,
-        mode: AssertionMode,
-        schedule: models.CronScheduleClass = DEFAULT_SCHEDULE,
-        sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
-        exclusion_windows: list[ExclusionWindowTypes],
-        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
-        incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: Optional[
-            _DetectionMechanismTypes
-        ] = DEFAULT_DETECTION_MECHANISM,
-        tags: list[TagUrn],
-        created_by: Optional[CorpUserUrn] = None,
-        created_at: Union[datetime, None] = None,
-        updated_by: Optional[CorpUserUrn] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """
-        Initialize a smart freshness assertion.
 
-        Note: Values can be accessed, but not set on the assertion object.
-        To update an assertion, use the `upsert_*` method.
-        Args:
-            urn: The urn of the assertion.
-            dataset_urn: The urn of the dataset that the assertion is for.
-            display_name: The display name of the assertion.
-            mode: The mode of the assertion (active, inactive).
-            schedule: The schedule of the assertion.
-            sensitivity: The sensitivity of the assertion (low, medium, high).
-            exclusion_windows: The exclusion windows of the assertion.
-            training_data_lookback_days: The max number of days of data to use for training the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            detection_mechanism: The detection mechanism of the assertion.
-            tags: The tags applied to the assertion.
-            created_by: The urn of the user that created the assertion.
-            created_at: The timestamp of when the assertion was created.
-            updated_by: The urn of the user that updated the assertion.
-            updated_at: The timestamp of when the assertion was updated.
-        """
-        # Initialize the mixins first
-        _HasSchedule.__init__(self, schedule=schedule)
-        _HasSmartFunctionality.__init__(
-            self,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
-        )
-        # Then initialize the parent class
-        _AssertionPublic.__init__(
-            self,
-            urn=urn,
-            dataset_urn=dataset_urn,
-            display_name=display_name,
-            mode=mode,
-            incident_behavior=incident_behavior,
-            detection_mechanism=detection_mechanism,
-            created_by=created_by,
-            created_at=created_at,
-            updated_by=updated_by,
-            updated_at=updated_at,
-            tags=tags,
+# For runtime access, we'll use dynamic imports to avoid circular dependencies
+def __getattr__(name: str) -> type:
+    """Dynamic import for assertion classes to avoid circular dependencies."""
+    if name == "SmartFreshnessAssertion":
+        from acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion import (
+            SmartFreshnessAssertion,
         )
 
-    @classmethod
-    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
-        """
-        Create a smart freshness assertion from the assertion and monitor entities.
-
-        Note: This is a private method since it is intended to be called internally by the client.
-        """
-        return cls(
-            urn=assertion.urn,
-            dataset_urn=assertion.dataset,
-            display_name=assertion.description or "",
-            mode=cls._get_mode(monitor),
-            schedule=cls._get_schedule(monitor),
-            sensitivity=cls._get_sensitivity(monitor),
-            exclusion_windows=cls._get_exclusion_windows(monitor),
-            training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
-            incident_behavior=cls._get_incident_behavior(assertion),
-            detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
-            created_by=cls._get_created_by(assertion),
-            created_at=cls._get_created_at(assertion),
-            updated_by=cls._get_updated_by(assertion),
-            updated_at=cls._get_updated_at(assertion),
-            tags=cls._get_tags(assertion),
+        return SmartFreshnessAssertion
+    elif name == "SmartVolumeAssertion":
+        from acryl_datahub_cloud.sdk.assertion.smart_volume_assertion import (
+            SmartVolumeAssertion,
         )
 
-    @staticmethod
-    def _get_detection_mechanism(
-        assertion: Assertion,
-        monitor: Monitor,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism for freshness assertions."""
-        parameters = _AssertionPublic._get_validated_detection_context(
-            monitor,
-            assertion,
-            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
-            models.FreshnessAssertionInfoClass,
-            default,
-        )
-        if parameters is None:
-            return default
-        if parameters.datasetFreshnessParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            return default
-        source_type = parameters.datasetFreshnessParameters.sourceType
-        if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetFreshnessSourceTypeClass.AUDIT_LOG:
-            return DetectionMechanism.AUDIT_LOG
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE:
-            return _AssertionPublic._get_field_value_detection_mechanism(
-                assertion, parameters
-            )
-        elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
-            return DetectionMechanism.DATAHUB_OPERATION
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
-            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
-        else:
-            raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
+        return SmartVolumeAssertion
+    elif name == "VolumeAssertion":
+        from acryl_datahub_cloud.sdk.assertion.volume_assertion import VolumeAssertion
 
-
-class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
-    """
-    A class that represents a smart volume assertion.
-    """
-
-    def __init__(
-        self,
-        *,
-        urn: AssertionUrn,
-        dataset_urn: DatasetUrn,
-        display_name: str,
-        mode: AssertionMode,
-        schedule: models.CronScheduleClass,
-        sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
-        exclusion_windows: list[ExclusionWindowTypes],
-        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
-        incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: Optional[
-            _DetectionMechanismTypes
-        ] = DEFAULT_DETECTION_MECHANISM,
-        tags: list[TagUrn],
-        created_by: Optional[CorpUserUrn] = None,
-        created_at: Union[datetime, None] = None,
-        updated_by: Optional[CorpUserUrn] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """
-        Initialize a smart volume assertion.
-
-        Note: Values can be accessed, but not set on the assertion object.
-        To update an assertion, use the `upsert_*` method.
-        Args:
-            urn: The urn of the assertion.
-            dataset_urn: The urn of the dataset that the assertion is for.
-            display_name: The display name of the assertion.
-            mode: The mode of the assertion (active, inactive).
-            schedule: The schedule of the assertion.
-            sensitivity: The sensitivity of the assertion (low, medium, high).
-            exclusion_windows: The exclusion windows of the assertion.
-            training_data_lookback_days: The max number of days of data to use for training the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            detection_mechanism: The detection mechanism of the assertion.
-            tags: The tags applied to the assertion.
-            created_by: The urn of the user that created the assertion.
-            created_at: The timestamp of when the assertion was created.
-            updated_by: The urn of the user that updated the assertion.
-            updated_at: The timestamp of when the assertion was updated.
-        """
-        # Initialize the mixins first
-        _HasSchedule.__init__(self, schedule=schedule)
-        _HasSmartFunctionality.__init__(
-            self,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
-        )
-        # Then initialize the parent class
-        _AssertionPublic.__init__(
-            self,
-            urn=urn,
-            dataset_urn=dataset_urn,
-            display_name=display_name,
-            mode=mode,
-            incident_behavior=incident_behavior,
-            detection_mechanism=detection_mechanism,
-            created_by=created_by,
-            created_at=created_at,
-            updated_by=updated_by,
-            updated_at=updated_at,
-            tags=tags,
+        return VolumeAssertion
+    elif name == "FreshnessAssertion":
+        from acryl_datahub_cloud.sdk.assertion.freshness_assertion import (
+            FreshnessAssertion,
         )
 
-    @classmethod
-    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
-        """
-        Create a smart freshness assertion from the assertion and monitor entities.
+        return FreshnessAssertion
+    elif name == "SqlAssertion":
+        from acryl_datahub_cloud.sdk.assertion.sql_assertion import SqlAssertion
 
-        Note: This is a private method since it is intended to be called internally by the client.
-        """
-        return cls(
-            urn=assertion.urn,
-            dataset_urn=assertion.dataset,
-            display_name=assertion.description or "",
-            mode=cls._get_mode(monitor),
-            schedule=cls._get_schedule(monitor),
-            sensitivity=cls._get_sensitivity(monitor),
-            exclusion_windows=cls._get_exclusion_windows(monitor),
-            training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
-            incident_behavior=cls._get_incident_behavior(assertion),
-            detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
-            created_by=cls._get_created_by(assertion),
-            created_at=cls._get_created_at(assertion),
-            updated_by=cls._get_updated_by(assertion),
-            updated_at=cls._get_updated_at(assertion),
-            tags=cls._get_tags(assertion),
-        )
-
-    @staticmethod
-    def _get_detection_mechanism(
-        assertion: Assertion,
-        monitor: Monitor,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism for volume assertions."""
-        parameters = _AssertionPublic._get_validated_detection_context(
-            monitor,
-            assertion,
-            models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
-            models.VolumeAssertionInfoClass,
-            default,
-        )
-        if parameters is None:
-            return default
-        if parameters.datasetVolumeParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetVolumeParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            if default is None:
-                return DEFAULT_DETECTION_MECHANISM
-            else:
-                return default
-        source_type = parameters.datasetVolumeParameters.sourceType
-        if source_type == models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetVolumeSourceTypeClass.QUERY:
-            additional_filter = _AssertionPublic._get_additional_filter(assertion)
-            return DetectionMechanism.QUERY(additional_filter=additional_filter)
-        elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
-            return DetectionMechanism.DATASET_PROFILE
-        else:
-            raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
+        return SqlAssertion
+    else:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
-class VolumeAssertion(_HasSchedule, _AssertionPublic):
-    """
-    A class that represents a volume assertion.
-    """
-
-    def __init__(
-        self,
-        *,
-        urn: AssertionUrn,
-        dataset_urn: DatasetUrn,
-        display_name: str,
-        mode: AssertionMode,
-        schedule: models.CronScheduleClass,
-        criteria: VolumeAssertionCriteria,
-        tags: list[TagUrn],
-        incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: Optional[
-            _DetectionMechanismTypes
-        ] = DEFAULT_DETECTION_MECHANISM,
-        created_by: Optional[CorpUserUrn] = None,
-        created_at: Union[datetime, None] = None,
-        updated_by: Optional[CorpUserUrn] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """
-        Initialize a volume assertion.
-
-        Note: Values can be accessed, but not set on the assertion object.
-        To update an assertion, use the `upsert_*` method.
-        Args:
-            urn: The urn of the assertion.
-            dataset_urn: The urn of the dataset that the assertion is for.
-            display_name: The display name of the assertion.
-            mode: The mode of the assertion (active, inactive).
-            schedule: The schedule of the assertion.
-            criteria: The volume assertion criteria.
-            tags: The tags applied to the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            detection_mechanism: The detection mechanism of the assertion.
-            created_by: The urn of the user that created the assertion.
-            created_at: The timestamp of when the assertion was created.
-            updated_by: The urn of the user that updated the assertion.
-            updated_at: The timestamp of when the assertion was updated.
-        """
-        _HasSchedule.__init__(self, schedule=schedule)
-        _AssertionPublic.__init__(
-            self,
-            urn=urn,
-            dataset_urn=dataset_urn,
-            display_name=display_name,
-            mode=mode,
-            incident_behavior=incident_behavior,
-            detection_mechanism=detection_mechanism,
-            created_by=created_by,
-            created_at=created_at,
-            updated_by=updated_by,
-            updated_at=updated_at,
-            tags=tags,
-        )
-        self._criteria = criteria
-
-    @property
-    def criteria(self) -> VolumeAssertionCriteria:
-        return self._criteria
-
-    @staticmethod
-    def _get_volume_definition(
-        assertion: Assertion,
-    ) -> VolumeAssertionCriteria:
-        """Get volume assertion definition from a DataHub assertion entity."""
-        return VolumeAssertionCriteria.from_assertion(assertion)
-
-    @staticmethod
-    def _get_detection_mechanism(
-        assertion: Assertion,
-        monitor: Monitor,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism for volume assertions."""
-        parameters = _AssertionPublic._get_validated_detection_context(
-            monitor,
-            assertion,
-            models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
-            models.VolumeAssertionInfoClass,
-            default,
-        )
-        if parameters is None:
-            return default
-        if parameters.datasetVolumeParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetVolumeParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            if default is None:
-                return DEFAULT_DETECTION_MECHANISM
-            else:
-                return default
-        source_type = parameters.datasetVolumeParameters.sourceType
-        if source_type == models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetVolumeSourceTypeClass.QUERY:
-            additional_filter = _AssertionPublic._get_additional_filter(assertion)
-            return DetectionMechanism.QUERY(additional_filter=additional_filter)
-        elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
-            return DetectionMechanism.DATASET_PROFILE
-        else:
-            raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
-
-    @classmethod
-    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
-        """
-        Create a volume assertion from the assertion and monitor entities.
-        """
-        return cls(
-            urn=assertion.urn,
-            dataset_urn=assertion.dataset,
-            display_name=assertion.description or "",
-            mode=cls._get_mode(monitor),
-            schedule=cls._get_schedule(monitor),
-            criteria=cls._get_volume_definition(assertion),
-            incident_behavior=cls._get_incident_behavior(assertion),
-            detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
-            created_by=cls._get_created_by(assertion),
-            created_at=cls._get_created_at(assertion),
-            updated_by=cls._get_updated_by(assertion),
-            updated_at=cls._get_updated_at(assertion),
-            tags=cls._get_tags(assertion),
-        )
-
-
-class FreshnessAssertion(_HasSchedule, _AssertionPublic):
-    """
-    A class that represents a freshness assertion.
-    """
-
-    def __init__(
-        self,
-        *,
-        urn: AssertionUrn,
-        dataset_urn: DatasetUrn,
-        display_name: str,
-        mode: AssertionMode,
-        schedule: models.CronScheduleClass,
-        freshness_schedule_check_type: Union[
-            str, models.FreshnessAssertionScheduleTypeClass
-        ],
-        lookback_window: Optional[TimeWindowSizeInputTypes],
-        tags: list[TagUrn],
-        incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: Optional[
-            _DetectionMechanismTypes
-        ] = DEFAULT_DETECTION_MECHANISM,
-        created_by: Optional[CorpUserUrn] = None,
-        created_at: Union[datetime, None] = None,
-        updated_by: Optional[CorpUserUrn] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """
-        Initialize a freshness assertion.
-
-        Note: Values can be accessed, but not set on the assertion object.
-        To update an assertion, use the `upsert_*` method.
-        Args:
-            urn: The urn of the assertion.
-            dataset_urn: The urn of the dataset that the assertion is for.
-            display_name: The display name of the assertion.
-            mode: The mode of the assertion (active, inactive).
-            schedule: The schedule of the assertion.
-            freshness_schedule_check_type: The type of freshness schedule check to be used for the assertion.
-            lookback_window: The lookback window to be used for the assertion.
-            tags: The tags applied to the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            detection_mechanism: The detection mechanism of the assertion.
-            created_by: The urn of the user that created the assertion.
-            created_at: The timestamp of when the assertion was created.
-            updated_by: The urn of the user that updated the assertion.
-            updated_at: The timestamp of when the assertion was updated.
-        """
-        _HasSchedule.__init__(self, schedule=schedule)
-        _AssertionPublic.__init__(
-            self,
-            urn=urn,
-            dataset_urn=dataset_urn,
-            display_name=display_name,
-            mode=mode,
-            incident_behavior=incident_behavior,
-            detection_mechanism=detection_mechanism,
-            created_by=created_by,
-            created_at=created_at,
-            updated_by=updated_by,
-            updated_at=updated_at,
-            tags=tags,
-        )
-        self._freshness_schedule_check_type = freshness_schedule_check_type
-        self._lookback_window = lookback_window
-
-    @property
-    def freshness_schedule_check_type(
-        self,
-    ) -> Union[str, models.FreshnessAssertionScheduleTypeClass]:
-        return self._freshness_schedule_check_type
-
-    @property
-    def lookback_window(self) -> Optional[TimeWindowSizeInputTypes]:
-        return self._lookback_window
-
-    @staticmethod
-    def _get_freshness_schedule_check_type(
-        assertion: Assertion,
-    ) -> Union[str, models.FreshnessAssertionScheduleTypeClass]:
-        if assertion.info is None:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} does not have a freshness assertion info, which is not supported"
-            )
-        if isinstance(assertion.info, models.FreshnessAssertionInfoClass):
-            if assertion.info.schedule is None:
-                raise SDKNotYetSupportedError(
-                    f"Traditional freshness assertion {assertion.urn} does not have a schedule, which is not supported"
-                )
-            return assertion.info.schedule.type
-        else:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} is not a freshness assertion"
-            )
-
-    @staticmethod
-    def _get_lookback_window(
-        assertion: Assertion,
-    ) -> Optional[models.FixedIntervalScheduleClass]:
-        if assertion.info is None:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} does not have a freshness assertion info, which is not supported"
-            )
-        if isinstance(assertion.info, models.FreshnessAssertionInfoClass):
-            if assertion.info.schedule is None:
-                raise SDKNotYetSupportedError(
-                    f"Traditional freshness assertion {assertion.urn} does not have a schedule, which is not supported"
-                )
-            return assertion.info.schedule.fixedInterval
-        else:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} is not a freshness assertion"
-            )
-
-    @staticmethod
-    def _get_detection_mechanism(
-        assertion: Assertion,
-        monitor: Monitor,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Get the detection mechanism for freshness assertions."""
-        parameters = _AssertionPublic._get_validated_detection_context(
-            monitor,
-            assertion,
-            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
-            models.FreshnessAssertionInfoClass,
-            default,
-        )
-        if parameters is None:
-            return default
-        if parameters.datasetFreshnessParameters is None:
-            logger.warning(
-                f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
-            )
-            return default
-        source_type = parameters.datasetFreshnessParameters.sourceType
-        if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
-            return DetectionMechanism.INFORMATION_SCHEMA
-        elif source_type == models.DatasetFreshnessSourceTypeClass.AUDIT_LOG:
-            return DetectionMechanism.AUDIT_LOG
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE:
-            return _AssertionPublic._get_field_value_detection_mechanism(
-                assertion, parameters
-            )
-        elif source_type == models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION:
-            return DetectionMechanism.DATAHUB_OPERATION
-        elif source_type == models.DatasetFreshnessSourceTypeClass.FILE_METADATA:
-            raise SDKNotYetSupportedError("FILE_METADATA DatasetFreshnessSourceType")
-        else:
-            raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
-
-    @classmethod
-    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
-        """
-        Create a freshness assertion from the assertion and monitor entities.
-        """
-        return cls(
-            urn=assertion.urn,
-            dataset_urn=assertion.dataset,
-            display_name=assertion.description or "",
-            mode=cls._get_mode(monitor),
-            schedule=cls._get_schedule(monitor),
-            freshness_schedule_check_type=cls._get_freshness_schedule_check_type(
-                assertion
-            ),
-            lookback_window=cls._get_lookback_window(assertion),
-            incident_behavior=cls._get_incident_behavior(assertion),
-            detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
-            created_by=cls._get_created_by(assertion),
-            created_at=cls._get_created_at(assertion),
-            updated_by=cls._get_updated_by(assertion),
-            updated_at=cls._get_updated_at(assertion),
-            tags=cls._get_tags(assertion),
-        )
-
-
-class SqlAssertion(_AssertionPublic, _HasSchedule):
-    """
-    A class that represents a SQL assertion.
-    """
-
-    def __init__(
-        self,
-        *,
-        urn: AssertionUrn,
-        dataset_urn: DatasetUrn,
-        display_name: str,
-        mode: AssertionMode,
-        statement: str,
-        criteria: SqlAssertionCriteria,
-        schedule: models.CronScheduleClass,
-        tags: list[TagUrn],
-        incident_behavior: list[AssertionIncidentBehavior],
-        created_by: Optional[CorpUserUrn] = None,
-        created_at: Union[datetime, None] = None,
-        updated_by: Optional[CorpUserUrn] = None,
-        updated_at: Optional[datetime] = None,
-    ):
-        """
-        Initialize a SQL assertion.
-
-        Note: Values can be accessed, but not set on the assertion object.
-        To update an assertion, use the `upsert_*` method.
-        Args:
-            urn: The urn of the assertion.
-            dataset_urn: The urn of the dataset that the assertion is for.
-            display_name: The display name of the assertion.
-            mode: The mode of the assertion (active, inactive).
-            statement: The SQL statement to be used for the assertion.
-            criteria: The criteria to be used for the assertion.
-            schedule: The schedule of the assertion.
-            tags: The tags applied to the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            created_by: The urn of the user that created the assertion.
-            created_at: The timestamp of when the assertion was created.
-            updated_by: The urn of the user that updated the assertion.
-            updated_at: The timestamp of when the assertion was updated.
-        """
-        # Initialize the mixins first
-        _AssertionPublic.__init__(
-            self,
-            urn=urn,
-            dataset_urn=dataset_urn,
-            display_name=display_name,
-            mode=mode,
-            tags=tags,
-            incident_behavior=incident_behavior,
-            created_by=created_by,
-            created_at=created_at,
-            updated_by=updated_by,
-            updated_at=updated_at,
-        )
-        _HasSchedule.__init__(self, schedule=schedule)
-        # Then initialize the parent class
-        self._statement = statement
-        self._criteria = criteria
-
-    @property
-    def statement(self) -> str:
-        return self._statement
-
-    @property
-    def criteria_condition(self) -> Union[SqlAssertionCondition, str]:
-        return self._criteria.condition
-
-    @property
-    def criteria_parameters(
-        self,
-    ) -> Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]:
-        return self._criteria.parameters
-
-    @staticmethod
-    def _get_detection_mechanism(
-        assertion: Assertion,
-        monitor: Monitor,
-        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
-    ) -> Optional[_DetectionMechanismTypes]:
-        """Sql assertions do not have a detection mechanism."""
-        return None
-
-    @staticmethod
-    def _get_statement(assertion: Assertion) -> str:
-        if assertion.info is None:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} does not have a SQL assertion info, which is not supported"
-            )
-        if isinstance(assertion.info, models.SqlAssertionInfoClass):
-            return assertion.info.statement
-        else:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} is not a SQL assertion"
-            )
-
-    @staticmethod
-    def _get_condition_from_model_assertion_info(
-        assertion_info: models.SqlAssertionInfoClass,
-    ) -> SqlAssertionCondition:
-        """Convert stored assertion info to condition enum."""
-        # Handle value-based conditions (no change type)
-        if str(assertion_info.type) == str(models.SqlAssertionTypeClass.METRIC):
-            value_conditions = {
-                str(
-                    models.AssertionStdOperatorClass.EQUAL_TO
-                ): SqlAssertionCondition.IS_EQUAL_TO,
-                str(
-                    models.AssertionStdOperatorClass.NOT_EQUAL_TO
-                ): SqlAssertionCondition.IS_NOT_EQUAL_TO,
-                str(
-                    models.AssertionStdOperatorClass.GREATER_THAN
-                ): SqlAssertionCondition.IS_GREATER_THAN,
-                str(
-                    models.AssertionStdOperatorClass.LESS_THAN
-                ): SqlAssertionCondition.IS_LESS_THAN,
-                str(
-                    models.AssertionStdOperatorClass.BETWEEN
-                ): SqlAssertionCondition.IS_WITHIN_A_RANGE,
-            }
-            if str(assertion_info.operator) in value_conditions:
-                return value_conditions[str(assertion_info.operator)]
-
-        # Handle growth-based conditions (with change type)
-        elif str(assertion_info.type) == str(
-            models.SqlAssertionTypeClass.METRIC_CHANGE
-        ):
-            assert assertion_info.changeType is not None, (
-                "changeType must be present for METRIC_CHANGE assertions"
-            )
-
-            growth_conditions = {
-                (
-                    str(models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO),
-                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
-                ): SqlAssertionCondition.GROWS_AT_MOST_ABSOLUTE,
-                (
-                    str(models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO),
-                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
-                ): SqlAssertionCondition.GROWS_AT_MOST_PERCENTAGE,
-                (
-                    str(models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO),
-                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
-                ): SqlAssertionCondition.GROWS_AT_LEAST_ABSOLUTE,
-                (
-                    str(models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO),
-                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
-                ): SqlAssertionCondition.GROWS_AT_LEAST_PERCENTAGE,
-                (
-                    str(models.AssertionStdOperatorClass.BETWEEN),
-                    str(models.AssertionValueChangeTypeClass.ABSOLUTE),
-                ): SqlAssertionCondition.GROWS_WITHIN_A_RANGE_ABSOLUTE,
-                (
-                    str(models.AssertionStdOperatorClass.BETWEEN),
-                    str(models.AssertionValueChangeTypeClass.PERCENTAGE),
-                ): SqlAssertionCondition.GROWS_WITHIN_A_RANGE_PERCENTAGE,
-            }
-
-            key = (str(assertion_info.operator), str(assertion_info.changeType))
-            if key in growth_conditions:
-                return growth_conditions[key]
-
-        raise ValueError(
-            f"Unsupported combination: type={assertion_info.type}, operator={assertion_info.operator}, changeType={assertion_info.changeType}"
-        )
-
-    @staticmethod
-    def _get_criteria(assertion: Assertion) -> SqlAssertionCriteria:
-        if assertion.info is None:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} does not have a SQL assertion info, which is not supported"
-            )
-        if isinstance(assertion.info, models.SqlAssertionInfoClass):
-            parameters: Union[float, tuple[float, float]]
-            if assertion.info.parameters.value is not None:
-                parameters = float(assertion.info.parameters.value.value)
-            elif (
-                assertion.info.parameters.maxValue is not None
-                and assertion.info.parameters.minValue is not None
-            ):
-                # min and max values are in the order of min, max
-                parameters = (
-                    float(assertion.info.parameters.minValue.value),
-                    float(assertion.info.parameters.maxValue.value),
-                )
-            else:
-                raise SDKNotYetSupportedError(
-                    f"Assertion {assertion.urn} does not have a valid parameters for the SQL assertion"
-                )
-
-            condition = SqlAssertion._get_condition_from_model_assertion_info(
-                assertion.info
-            )
-
-            return SqlAssertionCriteria(
-                condition=condition,
-                parameters=parameters,
-            )
-        else:
-            raise SDKNotYetSupportedError(
-                f"Assertion {assertion.urn} is not a SQL assertion"
-            )
-
-    @classmethod
-    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
-        """
-        Create a SQL assertion from the assertion and monitor entities.
-        """
-        return cls(
-            urn=assertion.urn,
-            dataset_urn=assertion.dataset,
-            display_name=assertion.description or "",
-            mode=cls._get_mode(monitor),
-            statement=cls._get_statement(assertion),
-            criteria=cls._get_criteria(assertion),
-            schedule=cls._get_schedule(
-                monitor, default=DEFAULT_EVERY_SIX_HOURS_SCHEDULE
-            ),
-            tags=cls._get_tags(assertion),
-            incident_behavior=cls._get_incident_behavior(assertion),
-            created_by=cls._get_created_by(assertion),
-            created_at=cls._get_created_at(assertion),
-            updated_by=cls._get_updated_by(assertion),
-            updated_at=cls._get_updated_at(assertion),
-        )
+# Export all classes for backward compatibility
+__all__ = [
+    "AssertionMode",
+    "_HasSchedule",
+    "_HasSmartFunctionality",
+    "_HasColumnMetricFunctionality",
+    "_AssertionPublic",
+    "SmartFreshnessAssertion",
+    "SmartVolumeAssertion",
+    "VolumeAssertion",
+    "FreshnessAssertion",
+    "SqlAssertion",
+]
