@@ -780,6 +780,9 @@ class MLflowSource(StatefulIngestionSourceBase):
             if model_version.last_updated_timestamp
             else None
         )
+        # MLflow "tags" are key-value metadata, not suitable for DataHub's real tags.
+        # Stored as-is in custom_properties, and also formatted as "key:value" in MLModelPropertiesClass.tags for UI display.
+        # This is MLflow-specific; use HasTag separately for actual DataHub tags.
         model_version_tags = [f"{k}:{v}" for k, v in model_version.tags.items()]
         ml_model = MLModel(
             id=f"{model_version.name}{self.config.model_name_separator}{model_version.version}",
