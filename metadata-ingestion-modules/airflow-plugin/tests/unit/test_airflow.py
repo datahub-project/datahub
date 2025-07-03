@@ -7,20 +7,15 @@ from unittest import mock
 from unittest.mock import Mock
 
 import airflow.configuration
-import airflow.version
-import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
+from airflow.utils.state import DagRunState
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
-from datahub_airflow_plugin._airflow_shims import (
-    AIRFLOW_PATCHED,
-    AIRFLOW_VERSION,
-    EmptyOperator,
-)
+from datahub_airflow_plugin._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
@@ -284,28 +279,15 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             )
             op1 >> op2
 
-        # Airflow < 2.2 requires the execution_date parameter. Newer Airflow
-        # versions do not require it, but will attempt to find the associated
-        # run_id in the database if execution_date is provided. As such, we
-        # must fake the run_id parameter for newer Airflow versions.
-        # We need to add type:ignore in else to suppress mypy error in Airflow < 2.2
-        if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
-            ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
-            # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(
-                state="success",  # type: ignore[arg-type]
-                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
-            )
-        else:
-            from airflow.utils.state import DagRunState
+        # We must fake the run_id parameter.
 
-            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")  # type: ignore[call-arg]
-            dag_run = DagRun(
-                state=DagRunState.SUCCESS,
-                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
-            )
+        ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
+        dag_run = DagRun(
+            state=DagRunState.SUCCESS,
+            run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
+        )
 
-        ti.dag_run = dag_run  # type: ignore
+        ti.dag_run = dag_run
         ti.start_date = datetime.datetime.utcnow()
         ti.execution_date = DEFAULT_DATE
 
