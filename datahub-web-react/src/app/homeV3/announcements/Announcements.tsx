@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { useGetAnnouncements } from '@app/homeV2/content/tabs/announcements/useGetAnnouncements';
 import { AnnouncementCard } from '@app/homeV3/announcements/AnnouncementCard';
-import { CenteredContainer } from '@app/homeV3/styledComponents';
 
 const AnnouncementsContainer = styled.div`
     display: flex;
@@ -19,12 +18,10 @@ export const Announcements = () => {
     });
 
     return (
-        <CenteredContainer>
-            <AnnouncementsContainer>
-                {sortedAnnouncements.map((announcement) => (
-                    <AnnouncementCard key={announcement.urn} announcement={announcement} />
-                ))}
-            </AnnouncementsContainer>
-        </CenteredContainer>
+        <AnnouncementsContainer>
+            {sortedAnnouncements.map((announcement) => (
+                <AnnouncementCard key={announcement.urn} announcement={announcement} />
+            ))}
+        </AnnouncementsContainer>
     );
 };

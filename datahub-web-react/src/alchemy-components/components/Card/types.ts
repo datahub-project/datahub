@@ -14,4 +14,5 @@ export interface CardProps {
     height?: string;
     isEmpty?: boolean;
     style?: React.CSSProperties;
+    isCardClickable?: boolean;
 }

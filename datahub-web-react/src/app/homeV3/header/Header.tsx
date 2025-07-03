@@ -11,7 +11,6 @@ export const HeaderWrapper = styled.div`
     justify-content: center;
     padding: 27px 40px 24px 40px;
     width: 100%;
-    overflow: hidden;
     background: linear-gradient(180deg, #f8fcff 0%, #fafafb 100%);
     border: 1px solid ${colors.gray[100]};
     border-radius: 12px 12px 0 0;

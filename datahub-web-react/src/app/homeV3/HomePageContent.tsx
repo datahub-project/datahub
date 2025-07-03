@@ -3,7 +3,7 @@ import React from 'react';
 import { Announcements } from '@app/homeV3/announcements/Announcements';
 import Module from '@app/homeV3/module/Module';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { ContentContainer, ContentWrapper, StyledVectorBackground } from '@app/homeV3/styledComponents';
+import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
 
 const SAMPLE_MODULES: ModuleProps[] = [
     {
@@ -22,15 +22,16 @@ const SAMPLE_MODULES: ModuleProps[] = [
 
 const HomePageContent = () => {
     return (
-        <ContentWrapper>
-            <StyledVectorBackground />
-            <ContentContainer>
-                <Announcements />
-                {SAMPLE_MODULES.map((sampleModule) => (
-                    <Module {...sampleModule} key={sampleModule.name} />
-                ))}
-            </ContentContainer>
-        </ContentWrapper>
+        <ContentContainer>
+            <CenteredContainer>
+                <ContentDiv>
+                    <Announcements />
+                    {SAMPLE_MODULES.map((sampleModule) => (
+                        <Module {...sampleModule} key={sampleModule.name} />
+                    ))}
+                </ContentDiv>
+            </CenteredContainer>
+        </ContentContainer>
     );
 };
 
