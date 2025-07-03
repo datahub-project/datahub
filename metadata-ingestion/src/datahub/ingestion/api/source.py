@@ -1,9 +1,7 @@
 import contextlib
 import datetime
-import json
 import logging
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
@@ -16,7 +14,6 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Set,
     Type,
     TypeVar,
     Union,
@@ -29,7 +26,6 @@ from typing_extensions import LiteralString, Self
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
@@ -38,7 +34,7 @@ from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import ExamplesReport, Report
 from datahub.ingestion.api.source_helpers import (
     AutoSystemMetadata,
     auto_browse_path_v2,
@@ -51,11 +47,8 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
-from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -194,33 +187,10 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReportSubtypes:
-    urn: str
-    entity_type: str
-    subType: str = field(default="unknown")
-    aspects: Set[str] = field(default_factory=set)
-
-
-@dataclass
-class SourceReport(Report):
+class SourceReport(ExamplesReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
-
-    _urns_seen: Set[str] = field(default_factory=set)
-    entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
-    aspects: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
-    )
-    aspects_by_subtypes: Dict[str, Dict[str, Dict[str, int]]] = field(
-        default_factory=lambda: defaultdict(
-            lambda: defaultdict(lambda: defaultdict(int))
-        )
-    )
-    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
-    )
-    _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -236,82 +206,12 @@ class SourceReport(Report):
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
 
-    def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
-        urn = wu.get_urn()
-
-        if not isinstance(wu.metadata, MetadataChangeEvent):
-            mcps = [wu.metadata]
-        else:
-            mcps = list(mcps_from_mce(wu.metadata))
-
-        for mcp in mcps:
-            entityType = mcp.entityType
-            aspectName = mcp.aspectName
-
-            if urn not in self._urns_seen:
-                self._urns_seen.add(urn)
-                self.entities[entityType].append(urn)
-
-            if aspectName is None:
-                continue
-            self.aspects[entityType][aspectName] += 1
-            self.aspect_urn_samples[entityType][aspectName].append(urn)
-            sub_type = "unknown"
-            if isinstance(mcp.aspect, UpstreamLineageClass):
-                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                if upstream_lineage.fineGrainedLineages:
-                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
-                        urn
-                    )
-                    self.aspects[entityType]["fineGrainedLineages"] += 1
-            elif isinstance(mcp.aspect, SubTypesClass):
-                sub_type = mcp.aspect.typeNames[0]
-            assert self._file_based_dict is not None
-            if urn in self._file_based_dict:
-                if sub_type != "unknown":
-                    self._file_based_dict[urn].subType = sub_type
-                self._file_based_dict[urn].aspects.add(aspectName)
-                self._file_based_dict.mark_dirty(urn)
-            else:
-                self._file_based_dict[urn] = SourceReportSubtypes(
-                    urn=urn,
-                    entity_type=entityType,
-                    subType=sub_type,
-                    aspects={aspectName},
-                )
-
-    def _calculate_metrics(self) -> None:
-        query = """
-        SELECT entityType, subTypes, aspects, count(*) as count
-        FROM urn_aspects 
-        group by entityType, subTypes, aspects
-        """
-
-        entity_subtype_aspect_counts: Dict[str, Dict[str, Dict[str, int]]] = (
-            defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-        )
-        assert self._file_based_dict is not None
-        for row in self._file_based_dict.sql_query(query):
-            entity_type = row["entityType"]
-            sub_type = row["subTypes"]
-            count = row["count"]
-            aspects_raw = row["aspects"] or "[]"
-
-            aspects = json.loads(aspects_raw)
-            for aspect in aspects:
-                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += count
-
-        self.aspects_by_subtypes.clear()
-        for entity_type, subtype_counts in entity_subtype_aspect_counts.items():
-            for sub_type, aspect_counts in subtype_counts.items():
-                self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
-
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
         if not isinstance(wu, MetadataWorkUnit):
             return
 
-        self._store_workunit_data(wu)
+        super()._store_workunit_data(wu)
 
     def report_warning(
         self,
@@ -390,17 +290,9 @@ class SourceReport(Report):
             )
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
-        self._file_based_dict = FileBackedDict(
-            tablename="urn_aspects",
-            extra_columns={
-                "urn": lambda val: val.urn,
-                "entityType": lambda val: val.entity_type,
-                "subTypes": lambda val: val.subType,
-                "aspects": lambda val: json.dumps(sorted(list(val.aspects))),
-            },
-        )
 
     def as_obj(self) -> dict:
         return {
@@ -450,7 +342,6 @@ class SourceReport(Report):
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self._calculate_metrics()
 
         duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
@@ -615,7 +506,8 @@ class Source(Closeable, metaclass=ABCMeta):
         pass
 
     def close(self) -> None:
-        pass
+        super().close()
+        self.get_report().close()
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()

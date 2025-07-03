@@ -92,5 +92,6 @@ class BigQueryQueriesSource(Source):
         return self.report
 
     def close(self) -> None:
+        super().close()
         self.queries_extractor.close()
         self.connection.close()
