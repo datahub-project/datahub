@@ -859,6 +859,7 @@ module.exports = {
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/assertions",
         "docs/api/tutorials/custom-assertions",
+        "docs/api/tutorials/sdk/bulk-assertions-sdk",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
         "docs/api/tutorials/data-contracts",

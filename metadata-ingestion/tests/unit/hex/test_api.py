@@ -35,8 +35,7 @@ class TestHexAPI(unittest.TestCase):
         self.base_url = "https://test.hex.tech/api/v1"
         self.page_size = 8  # Small page size to test pagination
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_fetch_projects_pagination(self, mock_get):
+    def test_fetch_projects_pagination(self):
         page1_data = load_json_data("hex_projects_page1.json")
         page2_data = load_json_data("hex_projects_page2.json")
 
@@ -45,8 +44,6 @@ class TestHexAPI(unittest.TestCase):
         mock_response2 = MagicMock()
         mock_response2.json.return_value = page2_data
 
-        mock_get.side_effect = [mock_response1, mock_response2]
-
         hex_api = HexApi(
             token=self.token,
             report=self.report,
@@ -54,10 +51,13 @@ class TestHexAPI(unittest.TestCase):
             page_size=self.page_size,
         )
 
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(
+            hex_api.session, "get", side_effect=[mock_response1, mock_response2]
+        ) as mock_get:
+            results = list(hex_api.fetch_projects())
 
         # check pagination
-
         assert mock_get.call_count == 2
         assert self.report.fetch_projects_page_calls == 2
         assert self.report.fetch_projects_page_items == len(
@@ -89,8 +89,7 @@ class TestHexAPI(unittest.TestCase):
             ("4759f33c-1ab9-403d-92e8-9bef48de00c4", "Cancelled Orders"),
         }
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_map_data_project(self, mock_get):
+    def test_map_data_project(self):
         # Test mapping of a project
         project_data = {
             "id": "project1",
@@ -153,8 +152,7 @@ class TestHexAPI(unittest.TestCase):
             == datetime(2022, 1, 3, 12, 0, 0, tzinfo=timezone.utc)
         )
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_map_data_component(self, mock_get):
+    def test_map_data_component(self):
         # Test mapping of a component
         component_data = {
             "id": "component1",
@@ -217,13 +215,11 @@ class TestHexAPI(unittest.TestCase):
             == datetime(2022, 2, 3, 12, 0, 0, tzinfo=timezone.utc)
         )
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_fetch_projects_failure_http_error(self, mock_get):
+    def test_fetch_projects_failure_http_error(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "500 Server Error: Internal Server Error"
         )
-        mock_get.return_value = mock_response
 
         hex_api = HexApi(
             token=self.token,
@@ -231,8 +227,10 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # No exception should be raised; gracefully finish with no results and proper error reporting
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_response):
+            # No exception should be raised; gracefully finish with no results and proper error reporting
+            results = list(hex_api.fetch_projects())
 
         # Verify results are empty and error was reported
         assert len(results) == 0
@@ -250,13 +248,11 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
     @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
-    def test_fetch_projects_failure_response_validation(self, mock_parse_obj, mock_get):
+    def test_fetch_projects_failure_response_validation(self, mock_parse_obj):
         # Create a dummy http response
         mock_response = MagicMock()
         mock_response.json.return_value = {"whatever": "json"}
-        mock_get.return_value = mock_response
         # and simulate ValidationError when parsing the response
         mock_parse_obj.side_effect = ValidationError([], model=HexApiProjectApiResource)
 
@@ -266,8 +262,10 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # No exception should be raised; gracefully finish with no results and proper error reporting
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_response):
+            # No exception should be raised; gracefully finish with no results and proper error reporting
+            results = list(hex_api.fetch_projects())
 
         # Verify results are empty and error was reported
         assert len(results) == 0
@@ -286,16 +284,14 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
     @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
     @patch("datahub.ingestion.source.hex.api.HexApi._map_data_from_model")
     def test_fetch_projects_warning_model_mapping(
-        self, mock_map_data_from_model, mock_parse_obj, mock_get
+        self, mock_map_data_from_model, mock_parse_obj
     ):
         # Create a dummy http response
         mock_get_response = MagicMock()
         mock_get_response.json.return_value = {"values": [{"whatever": "json"}]}
-        mock_get.return_value = mock_get_response
         # create a couple of dummy project items
         mock_parse_obj.return_value = HexApiProjectsListResponse(
             values=[
@@ -337,8 +333,10 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # Should not raise exception, but log warning
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_get_response):
+            # Should not raise exception, but log warning
+            results = list(hex_api.fetch_projects())
 
         # We should still get the valid item but skip the problematic one
         assert len(results) == 1
