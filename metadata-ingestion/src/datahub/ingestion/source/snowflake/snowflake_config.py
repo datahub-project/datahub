@@ -350,6 +350,12 @@ class SnowflakeV2Config(
         "Only applicable if `use_queries_v2` is enabled.",
     )
 
+    push_down_database_pattern_query_log: bool = Field(
+        default=True,
+        description="If enabled, pushes down database pattern filtering to the query log SQL query for improved performance. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:

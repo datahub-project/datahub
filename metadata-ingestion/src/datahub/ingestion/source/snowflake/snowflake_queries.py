@@ -113,6 +113,11 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_query_usage_statistics: bool = True
     include_operations: bool = True
 
+    push_down_database_pattern_query_log: bool = pydantic.Field(
+        default=True,
+        description="If enabled, pushes down database pattern filtering to the query log SQL query for improved performance.",
+    )
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -348,7 +353,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
-            database_pattern=self.filters.filter_config.database_pattern,
+            database_pattern=self.filters.filter_config.database_pattern
+            if self.config.push_down_database_pattern_query_log
+            else None,
         )
 
         with self.structured_reporter.report_exc(
