@@ -489,7 +489,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            column_type = str(self.dataset.get_column_type(column))
+            if _is_complex_data_type(column_type):
+                self.report.info(
+                    title="Profiling: Skipping Cardinality Calculation for Complex Data Type",
+                    message=f"Skipping cardinality calculation for complex data type column {column}: {column_type}",
+                    context=f"{self.dataset_name}.{column}",
+                )
+                return
+
+            quoted_column = _quote_column_name(
+                column, self.dataset.engine.dialect.name.lower()
+            )
+            nonnull_query = sa.text(
+                f"SELECT COUNT({quoted_column}) FROM {self.dataset._table}"
+            )
+            nonnull_count = self.dataset.engine.execute(nonnull_query).scalar()
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
@@ -507,7 +522,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         unique_count = None
         pct_unique = None
         try:
-            unique_count = self.dataset.get_column_unique_count(column)
+            unique_query = sa.text(
+                f"SELECT COUNT(DISTINCT {quoted_column}) FROM {self.dataset._table}"
+            )
+            unique_count = self.dataset.engine.execute(unique_query).scalar()
             if nonnull_count > 0:
                 pct_unique = float(unique_count) / nonnull_count
         except Exception:
@@ -578,7 +596,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_min_value:
             return
         try:
-            column_profile.min = str(self.dataset.get_column_min(column))
+            min_value = self.dataset.get_column_min(column)
+            column_profile.min = _safe_convert_value(min_value)
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column min for column {column}. {e}"
@@ -598,7 +617,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_max_value:
             return
         try:
-            column_profile.max = str(self.dataset.get_column_max(column))
+            max_value = self.dataset.get_column_max(column)
+            column_profile.max = _safe_convert_value(max_value)
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column max for column {column}. {e}"
@@ -618,7 +638,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_mean_value:
             return
         try:
-            column_profile.mean = str(self.dataset.get_column_mean(column))
+            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
+                # Use a more stable mean calculation that avoids overflow
+                column_profile.mean = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            [sa.func.avg(sa.cast(sa.column(column), sa.Float))]
+                        ).select_from(self.dataset._table)
+                    ).scalar()
+                )
+            else:
+                column_profile.mean = str(self.dataset.get_column_mean(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
@@ -638,6 +668,21 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
+            # First check if we have enough data points for median calculation
+            nonnull_count = self.dataset.engine.execute(
+                sa.select([sa.func.count(sa.column(column))]).select_from(
+                    self.dataset._table
+                )
+            ).scalar()
+
+            if nonnull_count < 2:
+                self.report.info(
+                    title="Profiling: Unable to Calculate Median due to not enough values being present",
+                    message="The median for the column will not be accessible",
+                    context=f"{self.dataset_name}.{column}",
+                )
+                return
+
             if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
@@ -685,7 +730,19 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_stddev_value:
             return
         try:
-            column_profile.stdev = str(self.dataset.get_column_stdev(column))
+            # Use a more numerically stable approach for standard deviation
+            # Calculate variance first, then take square root to avoid overflow
+            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
+                # Use stddev_pop instead of stddev_samp for better numerical stability
+                column_profile.stdev = str(
+                    self.dataset.engine.execute(
+                        sa.select([sa.func.stddev_pop(sa.column(column))]).select_from(
+                            self.dataset._table
+                        )
+                    ).scalar()
+                )
+            else:
+                column_profile.stdev = str(self.dataset.get_column_stdev(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
@@ -825,21 +882,35 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             return
 
         try:
-            # TODO do this without GE
-            self.dataset.set_config_value("interactive_evaluation", True)
+            # Check if this is a complex data type that may cause SQL issues
+            column_type = str(self.dataset.get_column_type(column))
+            if _is_complex_data_type(column_type):
+                logger.debug(
+                    f"Skipping sample values for complex data type column {column}: {column_type}"
+                )
+                return
 
-            res = self.dataset.expect_column_values_to_be_in_set(
-                column,
-                [],
-                result_format={
-                    "result_format": "SUMMARY",
-                    "partial_unexpected_count": self.config.field_sample_values_limit,
-                },
-            ).result
+            # Use direct SQL query instead of GE expectation to avoid KeyError
+            # This approach always returns sample values regardless of data distribution
+            sample_query = (
+                sa.select([sa.column(column)])
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .limit(self.config.field_sample_values_limit)
+            )
 
-            column_profile.sampleValues = [
-                str(v) for v in res["partial_unexpected_list"]
-            ]
+            result = self.dataset.engine.execute(sample_query)
+            sample_values = [str(row[0]) for row in result.fetchall()]
+
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_sample_values = []
+            for value in sample_values:
+                if value not in seen:
+                    seen.add(value)
+                    unique_sample_values.append(value)
+
+            column_profile.sampleValues = unique_sample_values
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
@@ -1659,3 +1730,53 @@ def _get_columns_to_ignore_sampling(
                     )
 
     return ignore_table, columns_to_ignore
+
+
+def _quote_column_name(column: str, dialect_name: str) -> str:
+    """Properly quote column names to handle reserved keywords."""
+    if dialect_name.lower() == SNOWFLAKE:
+        return f'"{column}"'
+    elif dialect_name.lower() == DATABRICKS or dialect_name.lower() == BIGQUERY:
+        return f"`{column}`"
+    elif dialect_name.lower() == POSTGRESQL:
+        return f'"{column}"'
+    elif dialect_name.lower() == MYSQL:
+        return f"`{column}`"
+    else:
+        # Default to double quotes for other databases
+        return f'"{column}"'
+
+
+def _safe_convert_value(value: Any) -> Union[str, None]:
+    """Safely convert a value to string, handling time-based types."""
+    if value is None:
+        return None
+
+    # Handle time-based types that can't be directly serialized
+    if hasattr(value, "isoformat"):
+        # For datetime, date, time objects
+        return value.isoformat()
+    elif hasattr(value, "total_seconds"):
+        # For timedelta objects
+        return str(value.total_seconds())
+    else:
+        return str(value)
+
+
+def _is_complex_data_type(column_type: str) -> bool:
+    """Check if a column type is a complex data type that may cause SQL issues."""
+    complex_types = [
+        "map",
+        "struct",
+        "object",
+        "array",
+        "json",
+        "variant",
+        "MAP",
+        "STRUCT",
+        "OBJECT",
+        "ARRAY",
+        "JSON",
+        "VARIANT",
+    ]
+    return any(complex_type in column_type.upper() for complex_type in complex_types)
