@@ -115,7 +115,7 @@ class DataHubEventsConsumer:
         response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()
 
-        external_events_response = ExternalEventsResponse.parse_obj(response.json())
+        external_events_response = ExternalEventsResponse.model_validate(response.json())
 
         # Update our internal offset_id to the newly returned offset
         self.offset_id = external_events_response.offsetId

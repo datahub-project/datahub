@@ -19,9 +19,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from pydantic import validator
-from pydantic.fields import Field
-from pydantic.main import BaseModel
+from pydantic import field_validator, Field, BaseModel
 from ratelimit import limits, sleep_and_retry
 
 import datahub.metadata.schema_classes as models
@@ -111,13 +109,15 @@ class SourceDetails(BaseModel):
         description="The direction that the metadata was propagated through.",
     )
 
-    @validator("propagated", pre=True)
+    @field_validator("propagated", mode="before")
+    @classmethod
     def convert_boolean_to_lowercase_string(cls, v: Any) -> Optional[str]:
         if isinstance(v, bool):
             return str(v).lower()
         return v
 
-    @validator("propagation_depth", "propagation_started_at", pre=True)
+    @field_validator("propagation_depth", "propagation_started_at", mode="before")
+    @classmethod
     def convert_to_int(cls, v: Any) -> Optional[int]:
         if v is not None:
             return int(v)

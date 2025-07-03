@@ -38,6 +38,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- DataHub Actions: Upgraded to use Pydantic V2 exclusively. This improves performance and provides better type validation. The migration updates all model validation from `parse_obj()` to `model_validate()` and validators from `@validator` to `@field_validator`. This change is internal to DataHub Actions and should not affect end users.
+
 ## 1.1.0
 
 ### Breaking Changes
