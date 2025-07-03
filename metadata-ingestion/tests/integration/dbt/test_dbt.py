@@ -39,8 +39,8 @@ class DbtTestConfig:
     catalog_file: str = "dbt_catalog.json"
     sources_file: str = "dbt_sources.json"
     run_results_files: List[str] = dataclasses.field(default_factory=list)
-    source_config_modifier: Dict[str, Any] = dataclasses.field(default_factory=dict)
-    sink_config_modifier: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    source_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    sink_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def set_paths(
         self,
@@ -108,14 +108,14 @@ class DbtTestConfig:
                     }
                 },
             },
-            **self.source_config_modifier,
+            **self.source_config_modifiers,
         )
 
         self.sink_config = dict(
             {
                 "filename": self.output_path,
             },
-            **self.sink_config_modifier,
+            **self.sink_config_modifiers,
         )
 
 
@@ -127,7 +127,7 @@ class DbtTestConfig:
             "dbt-test-with-schemas-dbt-enabled",
             "dbt_enabled_with_schemas_mces.json",
             "dbt_enabled_with_schemas_mces_golden.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "enable_meta_mapping": True,
                 "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
@@ -137,7 +137,7 @@ class DbtTestConfig:
             "dbt_test_with_complex_owner_patterns_mces.json",
             "dbt_test_with_complex_owner_patterns_mces_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
@@ -149,7 +149,7 @@ class DbtTestConfig:
             "dbt-test-with-data-platform-instance",
             "dbt_test_with_data_platform_instance_mces.json",
             "dbt_test_with_data_platform_instance_mces_golden.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "platform_instance": "dbt-instance-1",
             },
         ),
@@ -157,7 +157,7 @@ class DbtTestConfig:
             "dbt-test-with-non-incremental-lineage",
             "dbt_test_with_non_incremental_lineage_mces.json",
             "dbt_test_with_non_incremental_lineage_mces_golden.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "incremental_lineage": "False",
             },
         ),
@@ -165,7 +165,7 @@ class DbtTestConfig:
             "dbt-test-with-target-platform-instance",
             "dbt_test_with_target_platform_instance_mces.json",
             "dbt_test_with_target_platform_instance_mces_golden.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "target_platform_instance": "ps-instance-1",
             },
         ),
@@ -176,7 +176,7 @@ class DbtTestConfig:
             catalog_file="sample_dbt_catalog_1.json",
             manifest_file="sample_dbt_manifest_1.json",
             sources_file="sample_dbt_sources_1.json",
-            source_config_modifier={
+            source_config_modifiers={
                 "enable_meta_mapping": True,
                 "column_meta_mapping": {
                     "terms": {
@@ -209,7 +209,7 @@ class DbtTestConfig:
             manifest_file="sample_dbt_manifest_2.json",
             sources_file="sample_dbt_sources_2.json",
             run_results_files=["sample_dbt_run_results_2.json"],
-            source_config_modifier={},
+            source_config_modifiers={},
         ),
         DbtTestConfig(
             "dbt-prefer-sql-parser-lineage",
@@ -219,7 +219,7 @@ class DbtTestConfig:
             manifest_file="sample_dbt_manifest_2.json",
             sources_file="sample_dbt_sources_2.json",
             run_results_files=["sample_dbt_run_results_2.json"],
-            source_config_modifier={
+            source_config_modifiers={
                 "prefer_sql_parser_lineage": True,
                 "skip_sources_in_lineage": True,
                 # "entities_enabled": {"sources": "NO"},
