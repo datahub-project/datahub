@@ -578,6 +578,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    "pentaho": set(),
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -853,6 +854,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "pentaho = datahub.ingestion.source.pentaho.pentaho:PentahoSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
