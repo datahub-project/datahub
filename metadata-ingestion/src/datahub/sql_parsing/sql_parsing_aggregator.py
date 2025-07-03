@@ -384,7 +384,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
-        shared_sql_connection: Optional[ConnectionWrapper] = None
+        shared_sql_connection: Optional[ConnectionWrapper] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
