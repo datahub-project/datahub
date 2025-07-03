@@ -42,7 +42,6 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     SourceCapability,
-    SourceCapabilityModifier,
     TestableSource,
     TestConnectionReport,
 )
@@ -55,6 +54,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport

@@ -6,8 +6,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
     Source,
     SourceCapability as SourceCapability,
-    SourceCapabilityModifier,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:

@@ -30,7 +30,7 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         class_or_exception = source_registry._ensure_not_lazy(plugin_name)
         if isinstance(class_or_exception, Exception):
             # Log the specific error but don't re-raise it
-            logger.warning(f"Plugin {plugin_name} failed to load: {class_or_exception}")
+            logger.exception(f"Plugin {plugin_name} failed to load", exc_info=True)
             return None
         source_type = source_registry.get(plugin_name)
         logger.debug(f"Source class is {source_type}")
@@ -71,8 +71,10 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
 
         return plugin
 
-    except Exception as e:
-        logger.warning(f"Failed to load capabilities for {plugin_name}: {e}")
+    except Exception:
+        logger.exception(
+            f"Failed to load capabilities for {plugin_name}", exc_info=True
+        )
         return None
 
 
@@ -146,8 +148,8 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
                 logger.info(
                     f"Loaded existing capability data for {len(existing_capabilities)} plugins"
                 )
-        except Exception as e:
-            logger.warning(f"Failed to load existing capability data: {e}")
+        except Exception:
+            logger.exception("Failed to load existing capability data", exc_info=True)
 
     missing_plugins = set(existing_capabilities.keys()) - set(
         summary.plugin_details.keys()
