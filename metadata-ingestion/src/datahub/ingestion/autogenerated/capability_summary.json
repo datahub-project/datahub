@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-03T16:13:56.884633+00:00",
+  "generated_at": "2025-07-03T16:56:25.058126+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -46,7 +46,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
           "modifiers": [
-            "TABLE"
+            "Table"
           ],
           "supported": true
         },
@@ -54,7 +54,7 @@
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
           "modifiers": [
-            "TABLE"
+            "Table"
           ],
           "supported": true
         },
@@ -92,7 +92,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
           "modifiers": [
-            "TABLE"
+            "Table"
           ],
           "supported": true
         },
@@ -258,7 +258,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -296,7 +296,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -356,7 +356,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -400,7 +400,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -688,7 +688,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -726,7 +726,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -968,7 +968,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1012,7 +1012,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1084,7 +1084,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1122,7 +1122,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1156,7 +1156,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1510,7 +1510,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1554,7 +1554,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1716,8 +1716,8 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "modifiers": [
-            "STORED_PROCEDURE",
-            "VIEW"
+            "Stored Procedure",
+            "View"
           ],
           "supported": true
         },
@@ -1761,8 +1761,8 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
           "modifiers": [
-            "STORED_PROCEDURE",
-            "VIEW"
+            "Stored Procedure",
+            "View"
           ],
           "supported": true
         },
@@ -1796,7 +1796,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1840,7 +1840,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1948,7 +1948,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -1980,7 +1980,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2014,7 +2014,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2058,7 +2058,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2212,7 +2212,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2250,7 +2250,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2284,7 +2284,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2632,7 +2632,7 @@
           "capability": "DATA_PROFILING",
           "description": "Only table level profiling is supported via `profiling.enabled` config field",
           "modifiers": [
-            "TABLE"
+            "Table"
           ],
           "supported": true
         },
@@ -2872,7 +2872,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2910,7 +2910,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -2978,8 +2978,8 @@
           "capability": "USAGE_STATS",
           "description": "Dashboard/Chart view counts, enabled using extract_usage_stats config",
           "modifiers": [
-            "DASHBOARD",
-            "CHART"
+            "Dashboard",
+            "Chart"
           ],
           "supported": true
         },
@@ -3135,7 +3135,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -3173,7 +3173,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },
@@ -3301,7 +3301,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "modifiers": [
-            "VIEW"
+            "View"
           ],
           "supported": true
         },

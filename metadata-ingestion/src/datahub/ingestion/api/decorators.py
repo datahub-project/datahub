@@ -1,3 +1,6 @@
+# So that SourceCapabilityModifier can be resolved at runtime
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Type
