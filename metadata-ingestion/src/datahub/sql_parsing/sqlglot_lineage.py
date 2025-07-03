@@ -29,6 +29,7 @@ import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
+from sqlglot import exp
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -1278,98 +1279,28 @@ def _simplify_impala_insert_columns(sql: str) -> str:
     INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
     -> INSERT OVERWRITE TABLE table_name SELECT ...
     """
-
     # INSERT OVERWRITE 테이블명 (컬럼리스트) 패턴 매칭
     # 대소문자 구분 없이, 공백 처리도 유연하게
     patterns = [
-        # 기본 INSERT OVERWRITE table (컬럼) 패턴
         (
-            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
-            r"INSERT OVERWRITE TABLE \1 SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\(.+?\))\s+SELECT",
+            r"INSERT \1 TABLE \2 \4 SELECT",
         ),
-        # 파티션이 있는 경우: INSERT OVERWRITE table (컬럼) PARTITION (파티션)
         (
-            r"INSERT\s+OVERWRITE\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\([^)]+\))\s+SELECT",
-            r"INSERT OVERWRITE TABLE \1 \3 SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
+            r"INSERT \1 TABLE \2 SELECT",
         ),
     ]
-
-    processed_sql = sql
-    for pattern, replacement in patterns:
-        processed_sql = re.sub(
-            pattern, replacement, processed_sql, flags=re.IGNORECASE | re.DOTALL
-        )
-
-    return processed_sql
-
-
-def _simplify_impala_single_cte_insert(sql: str) -> str:
-    """
-    예시 변환:
-    WITH temp AS (SELECT ...) INSERT INTO/OVERWRITE ...
-    → INSERT INTO/OVERWRITE ... FROM (SELECT ...) AS temp
-    """
-
-    pattern = r"""
-        WITH\s+(?P<cte_name>\w+)\s+AS\s*\(
-        (?P<cte_query>.+?)
-        \)\s+
-        (?P<insert_stmt>INSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?[\w\.]+.+)
-    """
-
     try:
-        match = re.search(pattern, sql, flags=re.IGNORECASE | re.DOTALL | re.VERBOSE)
-        if not match:
-            return sql
-
-        cte_name = match.group("cte_name")
-        cte_query = match.group("cte_query").strip()
-        insert_stmt = match.group("insert_stmt")
-
-        # FROM temp / JOIN temp → FROM (cte_query) AS temp
-        def _replace(match):
-            keyword = match.group(1)
-            alias = match.group(2) or ""
-            return f"{keyword} ({cte_query}) AS {alias.strip() or cte_name}"
-
-        usage_pattern = rf"""
-            \b(FROM|JOIN)\s+                # FROM or JOIN
-            {cte_name}                      # exact CTE name
-            (?:\s+(?:AS\s+)?(\w+))?         # optional alias
-            \b
-        """
-
-        rewritten_sql = re.sub(
-            usage_pattern,
-            _replace,
-            insert_stmt,
-            flags=re.IGNORECASE | re.VERBOSE,
-        )
-
-        return rewritten_sql
-
-    except Exception as e:
-        logger.warning(f"CTE inlining (multiple use) failed: {e}")
-        return sql
-
-
-def preprocess_impala_query(sql: str) -> str:
-    if not sql or not isinstance(sql, str):
-        return sql
-
-    # INSERT OVERWRITE/INTO + (컬럼리스트) 전처리
-    try:
-        sql = _simplify_impala_insert_columns(sql)
+        processed_sql = sql
+        for pattern, replacement in patterns:
+            processed_sql = re.sub(
+                pattern, replacement, processed_sql, flags=re.IGNORECASE | re.DOTALL
+            )
+        return processed_sql
     except Exception as e:
         logger.warning(f"INSERT OVERWRITE + (Columns) rewrite failed: {e}")
-
-    # 2. WITH + INSERT 전처리
-    try:
-        sql = _simplify_impala_single_cte_insert(sql)
-    except Exception as e:
-        logger.warning(f"WITH-INSERT CTE rewrite failed: {e}")
-
-    return sql
+        return sql
 
 
 def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
@@ -1392,6 +1323,49 @@ def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expr
         expression=statement,
     )
     return create
+
+
+def _simplify_impala_cte_insert(statement: exp.Expression) -> exp.Expression:
+    if not isinstance(statement, exp.Insert):  # insert에서만 작동
+        return statement
+
+    with_clause = statement.find(exp.With)
+    if not with_clause:
+        return statement
+
+    cte_defs = {}
+    # 1. CTE 정의 수집
+    for cte in with_clause.expressions:
+        name = cte.alias_or_name
+        cte_defs[name] = cte.this
+
+    # 2. WITH 절 제거
+    statement.set("with", None)
+
+    # 3. 재귀적으로 CTE 참조를 서브쿼리로 교체
+    def replace_cte_refs(expr: exp.Expression) -> exp.Expression:
+        if isinstance(expr, exp.Table) and expr.name in cte_defs:
+            # 재귀적으로 CTE 내부의 다른 CTE 참조도 교체
+            subquery_expr = cte_defs[expr.name].copy().transform(replace_cte_refs)
+
+            # 서브쿼리 생성 시 별명 보존
+            alias = expr.alias or expr.name
+            return exp.Subquery(
+                this=subquery_expr, alias=exp.TableAlias(this=exp.to_identifier(alias))
+            )
+        return expr
+
+    try:
+        insert_expr = statement.args.get("expression")
+        if insert_expr:
+            insert_expr = insert_expr.transform(replace_cte_refs)
+            statement.set("expression", insert_expr)
+    except Exception as e:
+        logger.warning(f"CTE inlining failed: {e}")
+        # 실패 시 원본 statement 그대로 반환
+        return statement
+
+    return statement
 
 
 def _sqlglot_lineage_inner(
@@ -1419,7 +1393,7 @@ def _sqlglot_lineage_inner(
         pass
     logger.debug("Parsing lineage from sql statement: %s", sql)
 
-    sql = preprocess_impala_query(sql)
+    sql = _simplify_impala_insert_columns(sql)
     statement = parse_statement(sql, dialect=dialect)
 
     if isinstance(statement, sqlglot.exp.Command):
@@ -1438,6 +1412,7 @@ def _sqlglot_lineage_inner(
     # )
 
     statement = _simplify_select_into(statement)
+    statement = _simplify_impala_cte_insert(statement)
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,
