@@ -44,6 +44,11 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
 )
+from datahub.ingestion.source.snowflake.stored_proc_lineage import (
+    StoredProcCall,
+    StoredProcLineageReport,
+    StoredProcLineageTracker,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -55,7 +60,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
     TableRename,
     TableSwap,
-    UrnStr,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -66,7 +70,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
-    FileBackedDict,
     FileBackedList,
 )
 from datahub.utilities.perf_timer import PerfTimer
@@ -132,6 +135,7 @@ class SnowflakeQueriesExtractorReport(Report):
     aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
     num_stream_queries_observed: int = 0
@@ -143,28 +147,6 @@ class SnowflakeQueriesExtractorReport(Report):
 class SnowflakeQueriesSourceReport(SourceReport):
     window: Optional[BaseTimeWindowConfig] = None
     queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
-
-
-@dataclasses.dataclass
-class StoredProcCall:
-    snowflake_root_query_id: str
-
-    # Query text will typically be something like:
-    # "CALL SALES_FORECASTING.CUSTOMER_ANALYSIS_PROC();"
-    query_text: str
-
-    timestamp: datetime
-    user: CorpUserUrn
-    default_db: str
-    default_schema: str
-
-
-@dataclass
-class StoredProcExecutionLineage:
-    call: StoredProcCall
-
-    inputs: List[UrnStr]
-    outputs: List[UrnStr]
 
 
 class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
@@ -302,10 +284,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 for entry in self.fetch_query_log(users):
                     queries.append(entry)
 
-        # { root_query_id -> StoredProcExecutionLineage }
-        stored_proc_execution_lineage: FileBackedDict[StoredProcExecutionLineage] = (
-            self._exit_stack.enter_context(FileBackedDict())
+        stored_proc_tracker: StoredProcLineageTracker = self._exit_stack.enter_context(
+            StoredProcLineageTracker(
+                platform=self.identifiers.platform,
+                shared_connection=shared_connection,
+            )
         )
+        self.report.stored_proc_lineage = stored_proc_tracker.report
 
         with self.report.audit_log_load_timer:
             for i, query in enumerate(queries):
@@ -313,64 +298,23 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     logger.info(f"Added {i} query log entries to SQL aggregator")
 
                 if isinstance(query, StoredProcCall):
-                    stored_proc_execution_lineage[query.snowflake_root_query_id] = (
-                        StoredProcExecutionLineage(
-                            call=query,
-                            # Will be populated by subsequent rows.
-                            inputs=[],
-                            outputs=[],
-                        )
-                    )
+                    stored_proc_tracker.add_stored_proc_call(query)
                     continue
 
-                self.aggregator.add(query)
-
-                if (
+                if not (
                     isinstance(query, PreparsedQuery)
-                    and (
-                        snowflake_root_query_id := (query.extra_info or {}).get(
-                            "snowflake_root_query_id"
-                        )
-                    )
-                    and snowflake_root_query_id in stored_proc_execution_lineage
+                    and stored_proc_tracker.add_related_query(query)
                 ):
-                    stored_proc_execution = stored_proc_execution_lineage.for_mutation(
-                        snowflake_root_query_id
-                    )
-                    stored_proc_execution.inputs.extend(query.upstreams)
-                    if query.downstream is not None:
-                        stored_proc_execution.outputs.append(query.downstream)
+                    # Only add to aggregator if it's not part of a stored procedure.
+                    self.aggregator.add(query)
 
-            for stored_proc_execution in stored_proc_execution_lineage.values():
-                # For stored procedures, we can only get table-level lineage from the audit log.
-
-                # TODO: Add counters / reporting for the stored proc lineage.
-                if not stored_proc_execution.inputs:
-                    continue
-
-                for downstream in stored_proc_execution.outputs:
-                    stored_proc_query_id = get_query_fingerprint(
-                        stored_proc_execution.call.query_text,
-                        self.identifiers.platform,
-                        fast=True,
-                        secondary_id=downstream,
-                    )
-
-                    # TODO: Make this the lowest priority lineage - so that it doesn't override other lineage entries.
-                    self.aggregator.add(
-                        PreparsedQuery(
-                            query_id=stored_proc_query_id,
-                            query_text=stored_proc_execution.call.query_text,
-                            upstreams=stored_proc_execution.inputs,
-                            downstream=downstream,
-                            query_count=0,
-                            user=stored_proc_execution.call.user,
-                            timestamp=stored_proc_execution.call.timestamp,
-                        )
-                    )
+            # Generate and add stored procedure lineage entries.
+            for lineage_entry in stored_proc_tracker.build_merged_lineage_entries():
+                # TODO: Make this the lowest priority lineage - so that it doesn't override other lineage entries.
+                self.aggregator.add(lineage_entry)
 
         with self.report.aggregator_generate_timer:
-          yield from auto_workunit(self.aggregator.gen_metadata())
+            yield from auto_workunit(self.aggregator.gen_metadata())
 
     def fetch_users(self) -> UsersMapping:
         users: UsersMapping = dict()
