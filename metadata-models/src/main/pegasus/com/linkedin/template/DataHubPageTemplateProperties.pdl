@@ -15,7 +15,7 @@ record DataHubPageTemplateProperties  {
   @Relationship = {
     "/*/modules/*": {
       "name": "ContainedIn",
-      "entityTypes": [ "module" ]
+      "entityTypes": [ "dataHubPageModule" ]
     }
   } 
   rows: array[DataHubPageTemplateRow]
