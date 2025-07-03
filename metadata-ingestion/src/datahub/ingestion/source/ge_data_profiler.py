@@ -489,15 +489,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            column_type = str(self.dataset.get_column_type(column))
-            if _is_complex_data_type(column_type):
-                self.report.info(
-                    title="Profiling: Skipping Cardinality Calculation for Complex Data Type",
-                    message=f"Skipping cardinality calculation for complex data type column {column}: {column_type}",
-                    context=f"{self.dataset_name}.{column}",
-                )
-                return
-
             quoted_column = _quote_column_name(
                 column, self.dataset.engine.dialect.name.lower()
             )
@@ -882,14 +873,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             return
 
         try:
-            # Check if this is a complex data type that may cause SQL issues
-            column_type = str(self.dataset.get_column_type(column))
-            if _is_complex_data_type(column_type):
-                logger.debug(
-                    f"Skipping sample values for complex data type column {column}: {column_type}"
-                )
-                return
-
             # Use direct SQL query instead of GE expectation to avoid KeyError
             # This approach always returns sample values regardless of data distribution
             sample_query = (
@@ -1761,22 +1744,3 @@ def _safe_convert_value(value: Any) -> Union[str, None]:
         return str(value.total_seconds())
     else:
         return str(value)
-
-
-def _is_complex_data_type(column_type: str) -> bool:
-    """Check if a column type is a complex data type that may cause SQL issues."""
-    complex_types = [
-        "map",
-        "struct",
-        "object",
-        "array",
-        "json",
-        "variant",
-        "MAP",
-        "STRUCT",
-        "OBJECT",
-        "ARRAY",
-        "JSON",
-        "VARIANT",
-    ]
-    return any(complex_type in column_type.upper() for complex_type in complex_types)
