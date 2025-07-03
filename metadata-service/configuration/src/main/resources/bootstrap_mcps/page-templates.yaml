@@ -1,0 +1,17 @@
+# Instructions to add additional entry
+# 1. Add new entry to this list
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityUrn: urn:li:dataHubPageTemplate:home_default_1
+  entityType: dataHubPageTemplate
+  aspectName: dataHubPageTemplateProperties
+  changeType: UPSERT
+  aspect:
+    rows:
+      - modules:
+        - "urn:li:dataHubPageModule:your_assets"
+    surface:
+      surfaceType: HOME_PAGE
+    visibility:
+      scope: GLOBAL
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
