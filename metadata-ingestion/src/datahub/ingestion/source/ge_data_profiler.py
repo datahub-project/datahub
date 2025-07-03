@@ -489,10 +489,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_query = sa.text(
-                f"SELECT COUNT({column}) FROM {self.dataset._table}"
-            )
-            nonnull_count = self.dataset.engine.execute(nonnull_query).scalar()
+            nonnull_count = self.dataset.get_column_nonnull_count(column)
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
@@ -510,10 +507,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         unique_count = None
         pct_unique = None
         try:
-            unique_query = sa.text(
-                f"SELECT COUNT(DISTINCT {column}) FROM {self.dataset._table}"
-            )
-            unique_count = self.dataset.engine.execute(unique_query).scalar()
+            unique_count = self.dataset.get_column_unique_count(column)
             if nonnull_count > 0:
                 pct_unique = float(unique_count) / nonnull_count
         except Exception:
@@ -626,17 +620,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_mean_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
-                # Use a more stable mean calculation that avoids overflow
-                column_profile.mean = str(
-                    self.dataset.engine.execute(
-                        sa.select(
-                            [sa.func.avg(sa.cast(sa.column(column), sa.Float))]
-                        ).select_from(self.dataset._table)
-                    ).scalar()
-                )
-            else:
-                column_profile.mean = str(self.dataset.get_column_mean(column))
+            column_profile.mean = str(self.dataset.get_column_mean(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
@@ -656,21 +640,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            # First check if we have enough data points for median calculation
-            nonnull_count = self.dataset.engine.execute(
-                sa.select([sa.func.count(sa.column(column))]).select_from(
-                    self.dataset._table
-                )
-            ).scalar()
-
-            if nonnull_count < 2:
-                self.report.info(
-                    title="Profiling: Unable to Calculate Median due to not enough values being present",
-                    message="The median for the column will not be accessible",
-                    context=f"{self.dataset_name}.{column}",
-                )
-                return
-
             if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
