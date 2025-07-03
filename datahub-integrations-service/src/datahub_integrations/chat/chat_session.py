@@ -1,6 +1,7 @@
 from datahub_integrations.gen_ai.mlflow_init import MLFLOW_ENABLED, MLFLOW_INITIALIZED
 
 import contextlib
+import re
 import uuid
 from typing import (
     Callable,
@@ -40,27 +41,14 @@ from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
 from datahub_integrations.slack.utils.string import truncate
 
 assert MLFLOW_INITIALIZED
-MAX_TOOL_CALLS = 18
+MAX_TOOL_CALLS = 20
 MESSAGE_LENGTH_SOFT_LIMIT = 2000
 
 _CHATBOT_MODEL = get_bedrock_model_env_variable(
     "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
 )
 
-# Mapping of tool names to user-friendly progress messages
-PROGRESS_MESSAGES = {
-    "get_entity": "Looking up details about this data asset...",
-    "search": "Searching through DataHub's catalog...",
-    "get_lineage": "Analyzing data relationships and dependencies...",
-    "get_dataset_queries": "Retrieving query history and usage patterns...",
-    "get_datahub_coordinates": "Finding the exact location in DataHub...",
-    "respond_to_user": "Preparing your response...",
-}
-
-# Default progress message if tool not found in mapping
-DEFAULT_PROGRESS_MESSAGE = "Processing your request..."
-
-ProgressCallback = Callable[[str], None]
+ProgressCallback = Callable[[List[str]], None]
 
 
 class ChatSessionMaxTokensExceededError(Exception):
@@ -104,13 +92,63 @@ metadata management, data discovery, data governance, and data quality.
 DataHub AI provides thorough responses to more complex and open-ended questions or to anything where a long response is requested, but concise responses to simpler questions and tasks.
 
 DataHub AI makes use of the available tools in order to effectively answer the person's question. DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
+DataHub AI will not make more than 10 tool calls in a single response.
 
 DataHub AI provides the shortest answer it can to the person’s message, while respecting any stated length and comprehensiveness preferences given by the person. DataHub AI addresses the specific query or task at hand, avoiding tangential information unless absolutely critical for completing the request.
 
 DataHub AI avoids writing lists, but if it does need to write a list, DataHub AI focuses on key info instead of trying to be comprehensive. If DataHub AI can answer the human in 1-3 sentences or a short paragraph, it does. If DataHub AI can write a natural language list of a few comma separated items instead of a numbered or bullet-pointed list, it does so. DataHub AI tries to stay focused and share fewer, high quality examples or ideas rather than many.
 
+For any progress or reasoning updates, always use short, user-friendly, and non-technical statements. Keep each step under 75 characters if possible, and never exceed 300 characters. If a step is too long, provide a concise summary suitable for a progress bar or status update.
+
 DataHub AI is now being connected with a person.
 """
+
+
+class FilteredProgressListener:
+    # Not super happy with the naming of this. But the purpose is to
+    # 1. encapsulate the history -> progress message logic
+    # 2. ensure that the progress callback is only called when things change
+    def __init__(
+        self,
+        history: ChatHistory,
+        progress_callback: Optional[ProgressCallback],
+        start_offset: int = 0,
+    ):
+        self.history = history
+        self.progress_callback = progress_callback
+        self.start_offset = start_offset
+
+        self._last_progress_steps: Optional[List[str]] = None
+
+    @classmethod
+    def _sanitize_progress_step(cls, step: str) -> str:
+        """Replace trailing colon (with optional whitespace) with a period"""
+        return re.sub(r":\s*$", ".", step).strip()
+
+    @classmethod
+    def get_progress_steps(
+        cls, history: ChatHistory, *, start_offset: int
+    ) -> List[str]:
+        """Get current progress steps derived from chat history"""
+        steps = []
+
+        for message in history.messages[start_offset:]:
+            if isinstance(message, ReasoningMessage):
+                sanitized_text = cls._sanitize_progress_step(message.text)
+                steps.append(truncate(sanitized_text, max_length=1000))
+            # elif isinstance(message, ToolCallRequest):
+            #     steps.append(self._get_progress_message(message.tool_name))
+
+        return steps
+
+    def _handle_history_updated(self) -> None:
+        current_steps = self.get_progress_steps(
+            self.history, start_offset=self.start_offset
+        )
+        if current_steps != self._last_progress_steps:
+            self._last_progress_steps = current_steps
+            if self.progress_callback:
+                self.progress_callback(current_steps)
 
 
 class ChatSession:
@@ -119,7 +157,6 @@ class ChatSession:
         tools: Sequence[ToolWrapper | FastMCP],
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
-        progress_callback: Optional[ProgressCallback] = None,
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
         self.tools: List[ToolWrapper] = [
@@ -131,8 +168,11 @@ class ChatSession:
         ] + [_respond_to_user_tool]
         self.client = client
         self.history: ChatHistory = history or ChatHistory()
-        self._progress_callback = progress_callback
-        self._progress_messages: List[str] = []  # Store progress messages
+
+        # Create a dummy progress listener to start with.
+        self._progress_listener = FilteredProgressListener(
+            history=self.history, progress_callback=None
+        )
 
         # This requires a model that supports prompt caching.
         # See https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models
@@ -150,50 +190,37 @@ class ChatSession:
         )
 
     def _add_message(self, message: Message) -> None:
-        logger.debug(
-            f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400)}"
-        )
-        self.history.add_message(message)
+        # Log messages for debugging purposes.
+        if isinstance(message, ToolResult):
+            logger.debug(
+                f"Adding ToolResult for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000)}"
+            )
+        elif isinstance(message, ToolResultError):
+            logger.debug(
+                f"Adding ToolResultError for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000)}"
+            )
+        else:
+            logger.debug(
+                f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400)}"
+            )
 
-        # Add internal messages to progress display
-        if isinstance(message, ReasoningMessage):
-            if message.text not in self._progress_messages:  # Avoid duplicates
-                self._progress_messages.append(message.text)
-                self._report_progress("")  # Trigger progress update
+        self.history.add_message(message)
+        self._progress_listener._handle_history_updated()
 
     @contextlib.contextmanager
     def set_progress_callback(
         self, progress_callback: ProgressCallback
     ) -> Iterator[None]:
-        prev_progress_callback = self._progress_callback
-        self._progress_callback = progress_callback
+        prev_progress_listener = self._progress_listener
+        self._progress_listener = FilteredProgressListener(
+            history=self.history,
+            progress_callback=progress_callback,
+            start_offset=len(self.history.messages),
+        )
         try:
             yield
         finally:
-            self._progress_callback = prev_progress_callback
-
-    def _report_progress(self, message: str) -> None:
-        """Report progress if callback is configured"""
-        if self._progress_callback:
-            if message == "Thinking...":
-                # For "Thinking...", append it to existing messages
-                messages_to_show = self._progress_messages + [message]
-            elif message:  # Only add non-empty messages
-                # For other messages, add to the list and show with "Thinking..."
-                if message not in self._progress_messages:  # Avoid duplicates
-                    self._progress_messages.append(message)
-                messages_to_show = self._progress_messages + ["Thinking..."]
-            else:
-                # For empty messages, just show current progress with "Thinking..."
-                messages_to_show = self._progress_messages + ["Thinking..."]
-
-            # Join all messages with newlines
-            full_message = "\n".join(messages_to_show)
-            self._progress_callback(full_message)
-
-    def _get_progress_message(self, tool_name: str) -> str:
-        """Get user-friendly progress message for a tool"""
-        return PROGRESS_MESSAGES.get(tool_name, DEFAULT_PROGRESS_MESSAGE)
+            self._progress_listener = prev_progress_listener
 
     def _prepare_messages(self) -> list[dict]:
         # Message history will have something like this. Potential locations
@@ -240,8 +267,6 @@ class ChatSession:
 
     def _generate_tool_call(self) -> None:
         bedrock_client = get_bedrock_client()
-
-        self._report_progress("Thinking...")
 
         messages = self._prepare_messages()
 
@@ -297,9 +322,6 @@ class ChatSession:
             elif "toolUse" in content_block:
                 tool_use = content_block["toolUse"]
                 tool_name = tool_use["name"]
-
-                # Report progress before tool execution
-                self._report_progress(self._get_progress_message(tool_name))
 
                 tool = self.tool_map[tool_name]
                 tool_request = ToolCallRequest(

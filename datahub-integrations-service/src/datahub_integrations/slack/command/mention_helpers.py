@@ -17,7 +17,7 @@ _TEST_MODE_NO_MESSAGE_READ = get_boolean_env_variable(
 if _TEST_MODE_NO_MESSAGE_READ:
     logger.info("Running in test mode, with no message read permission")
 
-DATAHUB_THINKING_MESSAGE_PREFIX = "Sure thing! I'm looking through the available data to answer your question. Hold on a second..."
+DATAHUB_INITIAL_THINKING_MESSAGE = "Sure thing! I'm looking through the available data to answer your question. Hold on a second..."
 DATAHUB_FEEDBACK_PROMPT = "Was this response helpful?"
 
 
@@ -32,12 +32,15 @@ def clean_message_text(text: str) -> Optional[str]:
         The cleaned message text, or None if the message should be skipped entirely
     """
 
-    # Skip progress messages
-    if text.endswith("⏳"):
+    # Skip initial thinking message
+    if DATAHUB_INITIAL_THINKING_MESSAGE in text:
         return None
 
-    # Skip initial thinking message
-    if text.startswith(DATAHUB_THINKING_MESSAGE_PREFIX):
+    # Skip progress messages (both those that start with progress prefixes and those that end with ⏳)
+    progress_prefixes = ["⏳", ":hourglass_flowing_sand:"]
+    if any(
+        text.startswith(prefix) or text.endswith(prefix) for prefix in progress_prefixes
+    ):
         return None
 
     # Remove the feedback question and buttons

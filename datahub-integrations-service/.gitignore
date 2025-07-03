@@ -10,6 +10,7 @@ clients/java/src/
 experiments/*-private/
 /mlflow-data/
 /judge_cache
+.claude/settings.local.json
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

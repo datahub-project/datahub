@@ -37,7 +37,7 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
         graph = create_uncached_datahub_graph(key=case.instance)
         client = DataHubClient(graph=graph)
         history = ChatHistory(messages=[HumanMessage(text=case.message)])
-        session = ChatSession(tools=mcp.get_all_tools(), client=client, history=history)
+        session = ChatSession(tools=[mcp], client=client, history=history)
 
         next_message: NextMessage = await asyncer.asyncify(
             session.generate_next_message

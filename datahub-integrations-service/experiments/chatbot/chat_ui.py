@@ -23,7 +23,7 @@ st.markdown(f"Connected to {frontend_url()}")
 def _make_empty_chat_session() -> ChatSession:
     st.text("Resetting chat session")
     return ChatSession(
-        tools=mcp.get_all_tools(),
+        tools=[mcp],
         client=client(),
     )
 
@@ -72,7 +72,7 @@ if prompt := st.chat_input("Type your message here..."):
     with (
         st.status("Generating response...", expanded=True) as status,
         _chat_session().set_progress_callback(
-            lambda message: status.update(label=message)
+            lambda messages: status.update(label="\n".join(messages))
         ),
     ):
         try:

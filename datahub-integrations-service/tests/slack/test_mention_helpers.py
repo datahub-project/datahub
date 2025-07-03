@@ -1,6 +1,6 @@
 from datahub_integrations.chat.chat_history import AssistantMessage, HumanMessage
 from datahub_integrations.slack.command.mention_helpers import (
-    DATAHUB_THINKING_MESSAGE_PREFIX,
+    DATAHUB_INITIAL_THINKING_MESSAGE,
     clean_message_text,
     parse_thread_message,
 )
@@ -9,7 +9,7 @@ from datahub_integrations.slack.command.mention_helpers import (
 def test_clean_message() -> None:
     assert clean_message_text("Processing ⏳") is None
 
-    text = DATAHUB_THINKING_MESSAGE_PREFIX + " any text"
+    text = DATAHUB_INITIAL_THINKING_MESSAGE + " any text"
     assert clean_message_text(text) is None
 
     text = (
@@ -33,7 +33,7 @@ def test_parse_thread_message() -> None:
     assert (
         parse_thread_message(
             {
-                "text": DATAHUB_THINKING_MESSAGE_PREFIX + " any text",
+                "text": DATAHUB_INITIAL_THINKING_MESSAGE + " any text",
                 "bot_id": "B0123456789",
             }
         )

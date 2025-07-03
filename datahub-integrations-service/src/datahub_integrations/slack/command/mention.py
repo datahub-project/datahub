@@ -15,7 +15,7 @@ from datahub_integrations.chat.linkify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
-    DATAHUB_THINKING_MESSAGE_PREFIX,
+    DATAHUB_INITIAL_THINKING_MESSAGE,
     SlackPermissionError,
     fetch_thread_history,
 )
@@ -53,6 +53,31 @@ class SlackMentionEvent(BaseModel):
         return self.original_thread_ts or self.message_ts
 
 
+def _build_progress_message(steps: List[str]) -> tuple[str, List[dict]]:
+    # returns (plain text message fallback, rich Slack message blocks)
+    # Current step is always the last one
+    current_step = steps[-1]
+    # Previous steps are everything except the last
+    previous_steps = steps[:-1]
+
+    # Show last 9 previous steps (Slack limit: 10 elements)
+    shown_previous = previous_steps[-9:]
+
+    # Build display elements
+    elements = [f":white_check_mark: _{step}_" for step in shown_previous]
+    elements.append(f":hourglass_flowing_sand: _*{current_step}*_")
+
+    # Render blocks
+    blocks = [
+        {
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": element} for element in elements],
+        }
+    ]
+
+    return f":hourglass_flowing_sand: _*{current_step}*_", blocks
+
+
 def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     Process a message event and send a response in a thread.
@@ -66,10 +91,12 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 
     try:
         # Send a placeholder message to indicate we're processing
+        text, blocks = _build_progress_message([DATAHUB_INITIAL_THINKING_MESSAGE])
         response_ts = app.client.chat_postMessage(
             channel=channel_id,
             thread_ts=event.thread_ts,  # Reply in the thread
-            text=f"{DATAHUB_THINKING_MESSAGE_PREFIX} ⏳",
+            text=text,
+            blocks=blocks,
             icon_url=ACRYL_SLACK_ICON_URL,
             mrkdwn=True,
         )["ts"]
@@ -78,19 +105,20 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         user_info = app.client.users_info(user=event.user_id)["user"]
         user_name = user_info["name"]
 
-        def progress_callback(message: str) -> None:
-            """Update the placeholder message with progress updates"""
+        def progress_callback(steps: List[str]) -> None:
             try:
-                if response_ts is not None:
+                if response_ts is not None and steps:
+                    text, blocks = _build_progress_message(steps)
                     app.client.chat_update(
                         channel=channel_id,
                         ts=response_ts,
-                        text=f"{message} ⏳",
+                        blocks=blocks,
+                        text=text,
                         icon_url=ACRYL_SLACK_ICON_URL,
                         mrkdwn=True,
                     )
             except Exception as e:
-                logger.error(f"Failed to update progress message: {str(e)}")
+                logger.warning(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
         message, followup_questions = _generation_mention_response(
@@ -159,7 +187,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 def _generation_mention_response(
     client: WebClient,
     event: SlackMentionEvent,
-    progress_callback: Callable[[str], None],
+    progress_callback: Callable[[List[str]], None],
     response_ts: str,
 ) -> Tuple[str, List[str]]:
     message_text = event.message_text
@@ -192,9 +220,9 @@ def _generation_mention_response(
         tools=[mcp],
         client=DataHubClient(graph=graph),
         history=history,
-        progress_callback=progress_callback,
     )
-    response = chat_session.generate_next_message()
+    with chat_session.set_progress_callback(progress_callback):
+        response = chat_session.generate_next_message()
     assert isinstance(response, NextMessage)
 
     # Add the intermediate thinking messages to the history store.
@@ -302,7 +330,11 @@ def _build_response(
             buttons.append(
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": question, "emoji": True},
+                    "text": {
+                        "type": "plain_text",
+                        "text": truncate(question, 75),
+                        "emoji": True,
+                    },
                     "action_id": f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}_{i}",
                     "value": FollowupQuestionPayload(
                         question=question,
