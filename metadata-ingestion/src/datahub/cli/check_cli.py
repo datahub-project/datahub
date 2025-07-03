@@ -478,3 +478,30 @@ def server_config() -> None:
     server_config = graph.get_server_config()
 
     click.echo(pprint.pformat(server_config))
+
+
+@check.command()
+@click.option(
+    "--urn", required=True, help="The urn or urn pattern (supports % for wildcard)"
+)
+@click.option("--aspect", default=None, help="Filter to a specific aspect name.")
+@click.option(
+    "--start", type=int, default=None, help="Row number of sql store to restore from."
+)
+@click.option("--batch-size", type=int, default=None, help="How many rows to restore.")
+def restore_indices(
+    urn: str,
+    aspect: Optional[str],
+    start: Optional[int],
+    batch_size: Optional[int],
+) -> None:
+    """Resync metadata changes into the search and graph indices."""
+    graph = get_default_graph(ClientMode.CLI)
+
+    result = graph.restore_indices(
+        urn_pattern=urn,
+        aspect=aspect,
+        start=start,
+        batch_size=batch_size,
+    )
+    click.echo(result)

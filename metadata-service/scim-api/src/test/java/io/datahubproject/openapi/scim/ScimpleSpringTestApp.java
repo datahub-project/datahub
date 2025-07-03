@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.config.EbeanConfiguration;
@@ -53,6 +54,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @SpringBootApplication(
@@ -65,6 +67,7 @@ import org.springframework.context.annotation.Primary;
       "com.linkedin.gms.factory.scim",
       "io.datahubproject.openapi.scim"
     })
+@Import({ConfigurationProvider.class})
 public class ScimpleSpringTestApp {
   @Value("${secretService.encryptionKey}")
   private String encryptionKey;
@@ -79,8 +82,9 @@ public class ScimpleSpringTestApp {
   @ConditionalOnMissingBean
   @Primary
   @Nonnull
-  protected SecretService getInstance() {
-    return new SecretService(this.encryptionKey);
+  protected SecretService getInstance(final ConfigurationProvider configurationProvider) {
+    return new SecretService(
+        this.encryptionKey, configurationProvider.getSecretService().isV1AlgorithmEnabled());
   }
 
   @Bean

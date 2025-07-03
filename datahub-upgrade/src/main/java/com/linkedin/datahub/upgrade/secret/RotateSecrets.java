@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.metadata.config.SecretServiceConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -36,8 +37,10 @@ public class RotateSecrets implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RotateSecrets(
-      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
-    _steps = buildSteps(systemOperationContext, entityService);
+      @Nonnull OperationContext systemOperationContext,
+      final EntityService<?> entityService,
+      final SecretServiceConfiguration config) {
+    _steps = buildSteps(systemOperationContext, entityService, config);
   }
 
   @Override
@@ -51,9 +54,11 @@ public class RotateSecrets implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
-      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
+      @Nonnull OperationContext systemOperationContext,
+      final EntityService<?> entityService,
+      final SecretServiceConfiguration config) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new RotateSecretsStep(systemOperationContext, entityService));
+    steps.add(new RotateSecretsStep(systemOperationContext, entityService, config));
     return steps;
   }
 

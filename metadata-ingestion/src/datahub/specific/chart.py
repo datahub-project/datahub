@@ -77,7 +77,7 @@ class ChartPatchBuilder(
             ChartInfo.ASPECT_NAME,
             "add",
             path=("inputEdges", input_urn),
-            value=input_urn,
+            value=input_edge,
         )
         return self
 

@@ -17,6 +17,7 @@ import {
     getEntitiesIngestedByType,
     getSortInput,
     getSourceStatus,
+    getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
 import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
@@ -96,7 +97,7 @@ describe('getEntitiesIngestedByType', () => {
                 displayName: 'container',
             },
             {
-                count: 1521,
+                count: 1505,
                 displayName: 'dataset',
             },
         ]);
@@ -156,6 +157,105 @@ describe('getSortInput', () => {
             sortOrder: SortOrder.Descending,
             field: 'name',
         });
+    });
+});
+
+describe('getTotalEntitiesIngested', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getTotalEntitiesIngested({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when an exception occurs during processing', () => {
+        // Create a malformed structured report to trigger an exception
+        const malformedReport = {
+            source: {
+                report: {
+                    // Missing aspects property to trigger exception
+                },
+            },
+        };
+
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(malformedReport));
+        expect(result).toBeNull();
+    });
+
+    test('returns null when aspects object is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects: {},
+                },
+            },
+        };
+
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('correctly calculates total from multiple entity types', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects: {
+                        container: {
+                            containerProperties: 156,
+                            container: 117,
+                        },
+                        dataset: {
+                            status: 1505,
+                            schemaMetadata: 1505,
+                            datasetProperties: 1505,
+                            container: 1505,
+                            operation: 1521,
+                        },
+                        dashboard: {
+                            status: 42,
+                            dashboardInfo: 42,
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        expect(result).toBe(156 + 1505 + 42); // 1703
+    });
+
+    test('correctly calculates total from single entity type', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects: {
+                        container: {
+                            containerProperties: 156,
+                            container: 117,
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        expect(result).toBe(156);
+    });
+
+    test('handles aspects with non-numeric values', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects: {
+                        container: {
+                            containerProperties: '156',
+                            container: 117,
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        expect(result).toBe(156);
     });
 });
 

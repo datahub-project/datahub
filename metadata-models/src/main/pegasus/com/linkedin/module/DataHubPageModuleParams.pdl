@@ -1,0 +1,22 @@
+namespace com.linkedin.module
+
+import com.linkedin.common.Urn
+
+/**
+ * The specific parameters stored for a module
+ */
+record DataHubPageModuleParams {
+  /**
+   * The params required if the module is type LINK
+   */
+  linkParams: optional record LinkModuleParams {
+    linkUrn: Urn
+  }
+
+  /**
+   * The params required if the module is type RICH_TEXT
+   */
+  richTextParams: optional record RichTextModuleParams {
+    content: string
+  }
+}

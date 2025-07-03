@@ -110,7 +110,7 @@ jobs:
             config:
               base_folder: ${{ github.workspace }}
               parse_table_names_from_sql: true
-              github_info:
+              git_info:
                 repo: ${{ github.repository }}
                 branch: ${{ github.ref }}
               # Options

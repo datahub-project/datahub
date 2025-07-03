@@ -47,9 +47,6 @@ PUT           /integrations/*path                                             co
 GET           /admin/dashboard/*path                                         controllers.Application.proxy(path: String, request: Request)
 POST          /admin/dashboard/*path                                         controllers.Application.proxy(path: String, request: Request)
 
-# Analytics route
-POST          /track                                                           controllers.TrackingController.track(request: Request)
-
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
 

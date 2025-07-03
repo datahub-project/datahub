@@ -107,6 +107,9 @@ public class DataHubAppConfiguration {
   /** SystemMetadata Service configuration */
   private SystemMetadataServiceConfig systemMetadataService;
 
+  /* Secret service configuration */
+  private SecretServiceConfiguration secretService;
+
   /** EntityService configuration */
   private EntityServiceConfiguration entityService;
 

@@ -29,6 +29,7 @@ import lombok.experimental.SuperBuilder;
   @JsonSubTypes.Type(value = CreatePolicyEvent.class, name = "CreatePolicyEvent"),
   @JsonSubTypes.Type(value = CreateUserEvent.class, name = "CreateUserEvent"),
   @JsonSubTypes.Type(value = DeleteEntityEvent.class, name = "DeleteEntityEvent"),
+  @JsonSubTypes.Type(value = DeletePolicyEvent.class, name = "DeletePolicyEvent"),
   @JsonSubTypes.Type(value = LogInEvent.class, name = "LogInEvent"),
   @JsonSubTypes.Type(value = RevokeAccessTokenEvent.class, name = "RevokeAccessTokenEvent"),
   @JsonSubTypes.Type(value = EntityEvent.class, name = "EntityEvent"),

@@ -136,7 +136,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 <summary>Python SDK: Add fine-grained lineage to a dataset</summary>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/add_lineage_dataset_to_dataset_with_query_node.py show_path_as_comment }}
 ```
 
 </details>

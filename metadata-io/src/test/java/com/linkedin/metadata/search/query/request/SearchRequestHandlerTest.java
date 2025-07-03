@@ -1316,11 +1316,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchHits mockHits = mock(SearchHits.class);
 
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getTotalHits())
-        .thenReturn(
-            new TotalHits(
-                TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault(),
-                TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
     when(mockHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockResponse.getAggregations()).thenReturn(null);
     when(mockResponse.getSuggest()).thenReturn(null);
@@ -1340,12 +1336,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
 
     // Should use the default from the service config default
-    assertEquals(
-        result.getPageSize().intValue(),
-        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
-    assertEquals(
-        result.getNumEntities().intValue(),
-        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getPageSize().intValue(), 100);
+    assertEquals(result.getNumEntities().intValue(), 100);
   }
 
   @Test

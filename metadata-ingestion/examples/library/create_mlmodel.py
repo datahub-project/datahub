@@ -1,48 +1,48 @@
-import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.urns import MlFeatureUrn, MlModelGroupUrn
+from datahub.sdk import DataHubClient
+from datahub.sdk.mlmodel import MLModel
 
-# Create an emitter to DataHub over REST
-emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
-model_urn = builder.make_ml_model_urn(
-    model_name="my-recommendations-model-run-1", platform="science", env="PROD"
+client = DataHubClient.from_env()
+
+mlmodel = MLModel(
+    id="my-recommendations-model",
+    name="My Recommendations Model",
+    platform="mlflow",
+    model_group=MlModelGroupUrn(
+        platform="mlflow", name="my-recommendations-model-group"
+    ),
+    custom_properties={
+        "framework": "pytorch",
+    },
+    extra_aspects=[
+        models.MLModelPropertiesClass(
+            mlFeatures=[
+                str(
+                    MlFeatureUrn(
+                        feature_namespace="users_feature_table", name="user_signup_date"
+                    )
+                ),
+                str(
+                    MlFeatureUrn(
+                        feature_namespace="users_feature_table",
+                        name="user_last_active_date",
+                    )
+                ),
+            ]
+        )
+    ],
+    training_metrics={
+        "accuracy": "1.0",
+        "precision": "0.95",
+        "recall": "0.90",
+        "f1_score": "0.92",
+    },
+    hyper_params={
+        "learning_rate": "0.01",
+        "num_epochs": "100",
+        "batch_size": "32",
+    },
 )
-model_group_urns = [
-    builder.make_ml_model_group_urn(
-        group_name="my-recommendations-model-group", platform="science", env="PROD"
-    )
-]
-feature_urns = [
-    builder.make_ml_feature_urn(
-        feature_name="user_signup_date", feature_table_name="users_feature_table"
-    ),
-    builder.make_ml_feature_urn(
-        feature_name="user_last_active_date", feature_table_name="users_feature_table"
-    ),
-]
 
-metadata_change_proposal = MetadataChangeProposalWrapper(
-    entityType="mlModel",
-    changeType=models.ChangeTypeClass.UPSERT,
-    entityUrn=model_urn,
-    aspectName="mlModelProperties",
-    aspect=models.MLModelPropertiesClass(
-        description="my feature",
-        groups=model_group_urns,
-        mlFeatures=feature_urns,
-        trainingMetrics=[
-            models.MLMetricClass(
-                name="accuracy", description="accuracy of the model", value="1.0"
-            )
-        ],
-        hyperParams=[
-            models.MLHyperParamClass(
-                name="hyper_1", description="hyper_1", value="0.102"
-            )
-        ],
-    ),
-)
-
-# Emit metadata!
-emitter.emit(metadata_change_proposal)
+client.entities.update(mlmodel)

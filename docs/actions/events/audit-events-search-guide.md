@@ -133,6 +133,7 @@ Several event types track specific creation, update, and deletion actions:
 - **RevokeAccessTokenEvent**: Tracks access token revocation
 - **CreatePolicyEvent**: Tracks policy creation
 - **UpdatePolicyEvent**: Tracks policy updates
+- **DeletePolicyEvent**: Tracks policy deletes
 - **CreateIngestionSourceEvent**: Tracks ingestion source creation
 - **UpdateIngestionSourceEvent**: Tracks ingestion source updates
 - **DeleteEntityEvent**: Tracks entity deletion

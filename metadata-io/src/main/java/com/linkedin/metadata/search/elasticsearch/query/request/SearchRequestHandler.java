@@ -50,12 +50,12 @@ import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESPredicateUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -660,11 +660,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   @Nonnull
   private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
-    try {
-      return Urn.createFromString(hit.getSourceAsMap().get("urn").toString());
-    } catch (URISyntaxException e) {
-      throw new RuntimeException("Invalid urn in search document " + e);
-    }
+    return UrnExtractionUtils.extractUrnFromSearchHit(hit);
   }
 
   /**

@@ -33,6 +33,8 @@ public class Constants {
   public static final String TIMESERIES_SCHEMA_FILE = "timeseries.graphql";
 
   public static final String QUERY_SCHEMA_FILE = "query.graphql";
+  public static final String TEMPLATE_SCHEMA_FILE = "template.graphql";
+  public static final String MODULE_SCHEMA_FILE = "module.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

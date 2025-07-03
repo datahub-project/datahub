@@ -12,9 +12,13 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public interface GraphService {
 
@@ -259,4 +263,22 @@ public interface GraphService {
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
+
+  /**
+   * Returns list of edge documents for the given graph node and relationship tuples. Non-directed
+   *
+   * @param opContext operation context
+   * @param edgeTuples Non-directed nodes and relationship types
+   * @return list of documents matching the input criteria
+   */
+  List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples);
+
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @Data
+  class EdgeTuple {
+    String a;
+    String b;
+    String relationshipType;
+  }
 }

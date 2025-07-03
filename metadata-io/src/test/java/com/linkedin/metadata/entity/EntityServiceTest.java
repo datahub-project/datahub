@@ -1230,15 +1230,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         opContext,
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
-            .items(items.subList(0, 2))
-            .build(opContext),
-        true,
-        true);
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext())
-            .items(items.subList(2, 3))
+            .items(items)
             .build(opContext),
         true,
         true);
