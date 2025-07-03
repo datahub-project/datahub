@@ -2,7 +2,7 @@ import { Card, Collapse } from 'antd';
 import React from 'react';
 
 import { IconStyleType } from '@app/entity/Entity';
-import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import ERModelSidebarPreviewCard from '@app/preview/ERModelSidebarPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, ErModelRelationshipCardinality, GlobalTags, GlossaryTerms, Owner } from '@types';
@@ -32,7 +32,7 @@ export const ERModelRelationshipPreviewCard = ({
     const getERModelRelationHeader = (): JSX.Element => {
         return (
             <div style={{ width: '100%', display: 'inline-block' }}>
-                <DefaultPreviewCard
+                <ERModelSidebarPreviewCard
                     url={entityRegistry.getEntityUrl(EntityType.ErModelRelationship, urn)}
                     name={name || ''}
                     urn={urn}
