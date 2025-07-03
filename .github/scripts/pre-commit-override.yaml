@@ -13,3 +13,9 @@ repos:
         language: system
         files: ^metadata-ingestion/src/datahub/ingestion/source/.*\.py$
         pass_filenames: false
+      - id: update-lineage-file
+        name: update-lineage-file
+        entry: ./gradlew :metadata-ingestion:lineageGen
+        language: system
+        files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
+        pass_filenames: false

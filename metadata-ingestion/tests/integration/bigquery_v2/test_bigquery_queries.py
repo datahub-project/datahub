@@ -107,4 +107,6 @@ def test_source_close_cleans_tmp(projects_client, client, tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         # This closes QueriesExtractor which in turn closes SqlParsingAggregator
         source.close()
-        assert len(os.listdir(tmp_path)) == 0
+        assert len(os.listdir(tmp_path)) == 0, (
+            f"Files left in {tmp_path}: {os.listdir(tmp_path)}"
+        )

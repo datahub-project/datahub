@@ -663,6 +663,7 @@ class SnowflakeQueriesSource(Source):
     def close(self) -> None:
         self.connection.close()
         self.queries_extractor.close()
+        super().close()
 
 
 # Make sure we don't try to generate too much info for a single query.

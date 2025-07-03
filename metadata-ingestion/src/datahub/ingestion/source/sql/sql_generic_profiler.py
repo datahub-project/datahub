@@ -57,10 +57,11 @@ class GenericProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
         ge_profile_requests: List[GEProfilerRequest] = [
             cast(GEProfilerRequest, request)
             for request in requests
-            if not request.profile_table_level_only
+            if not request.profile_table_level_only or request.table.rows_count == 0
         ]
         table_level_profile_requests: List[TableProfilerRequest] = [
             request for request in requests if request.profile_table_level_only
