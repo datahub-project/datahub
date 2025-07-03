@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import Module from '@app/homepageV2/module/Module';
 import { ModuleProps } from '@app/homepageV2/module/types';
 import { ContentContainer, ContentWrapper, StyledVectorBackground } from '@app/homepageV2/styledComponents';
@@ -20,6 +21,9 @@ const SAMPLE_MODULES: ModuleProps[] = [
 ];
 
 const HomePageContent = () => {
+    // TODO: use the default template from global settings OR the one from user settings. prefer user settings
+    const { settings } = useGlobalSettings();
+
     return (
         <ContentWrapper>
             <StyledVectorBackground />
