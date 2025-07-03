@@ -489,11 +489,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            quoted_column = _quote_column_name(
-                column, self.dataset.engine.dialect.name.lower()
-            )
             nonnull_query = sa.text(
-                f"SELECT COUNT({quoted_column}) FROM {self.dataset._table}"
+                f"SELECT COUNT({column}) FROM {self.dataset._table}"
             )
             nonnull_count = self.dataset.engine.execute(nonnull_query).scalar()
             column_spec.nonnull_count = nonnull_count
@@ -514,7 +511,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         pct_unique = None
         try:
             unique_query = sa.text(
-                f"SELECT COUNT(DISTINCT {quoted_column}) FROM {self.dataset._table}"
+                f"SELECT COUNT(DISTINCT {column}) FROM {self.dataset._table}"
             )
             unique_count = self.dataset.engine.execute(unique_query).scalar()
             if nonnull_count > 0:
@@ -721,13 +718,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_stddev_value:
             return
         try:
-            # Use a more numerically stable approach for standard deviation
-            # Calculate variance first, then take square root to avoid overflow
             if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
-                # Use stddev_pop instead of stddev_samp for better numerical stability
                 column_profile.stdev = str(
                     self.dataset.engine.execute(
-                        sa.select([sa.func.stddev_pop(sa.column(column))]).select_from(
+                        sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(
                             self.dataset._table
                         )
                     ).scalar()
@@ -885,7 +879,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             result = self.dataset.engine.execute(sample_query)
             sample_values = [str(row[0]) for row in result.fetchall()]
 
-            # Remove duplicates while preserving order
             seen = set()
             unique_sample_values = []
             for value in sample_values:
@@ -1713,21 +1706,6 @@ def _get_columns_to_ignore_sampling(
                     )
 
     return ignore_table, columns_to_ignore
-
-
-def _quote_column_name(column: str, dialect_name: str) -> str:
-    """Properly quote column names to handle reserved keywords."""
-    if dialect_name.lower() == SNOWFLAKE:
-        return f'"{column}"'
-    elif dialect_name.lower() == DATABRICKS or dialect_name.lower() == BIGQUERY:
-        return f"`{column}`"
-    elif dialect_name.lower() == POSTGRESQL:
-        return f'"{column}"'
-    elif dialect_name.lower() == MYSQL:
-        return f"`{column}`"
-    else:
-        # Default to double quotes for other databases
-        return f'"{column}"'
 
 
 def _safe_convert_value(value: Any) -> Union[str, None]:

@@ -1,35 +1,9 @@
 from datahub.ingestion.source.ge_data_profiler import (
-    _quote_column_name,
     _safe_convert_value,
 )
 
 
 class TestGEProfilerHelpers:
-    """Test the helper functions added to fix profiling issues."""
-
-    def test_quote_column_name(self):
-        """Test column name quoting for different database dialects."""
-        # Test Snowflake - should use double quotes
-        assert _quote_column_name("default", "snowflake") == '"default"'
-        assert _quote_column_name("when", "snowflake") == '"when"'
-        assert _quote_column_name("normal_column", "snowflake") == '"normal_column"'
-
-        # Test Databricks - should use backticks
-        assert _quote_column_name("default", "databricks") == "`default`"
-        assert _quote_column_name("when", "databricks") == "`when`"
-
-        # Test BigQuery - should use backticks
-        assert _quote_column_name("default", "bigquery") == "`default`"
-
-        # Test PostgreSQL - should use double quotes
-        assert _quote_column_name("default", "postgresql") == '"default"'
-
-        # Test MySQL - should use backticks
-        assert _quote_column_name("default", "mysql") == "`default`"
-
-        # Test unknown dialect - should default to double quotes
-        assert _quote_column_name("default", "unknown_db") == '"default"'
-
     def test_safe_convert_value(self):
         """Test safe value conversion for different data types."""
         from datetime import date, datetime, time, timedelta
