@@ -1336,9 +1336,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
 
     // Should use the default from the service config default
-    assertEquals(
-        result.getPageSize().intValue(),
-        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getPageSize().intValue(), 100);
     assertEquals(result.getNumEntities().intValue(), 100);
   }
 

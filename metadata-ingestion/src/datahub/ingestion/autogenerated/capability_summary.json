@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-06-27T16:37:01.425637+00:00",
+  "generated_at": "2025-07-03T00:22:06.076994+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -23,6 +23,13 @@
       "classname": "datahub.ingestion.source.abs.source.ABSSource",
       "platform_id": "abs",
       "platform_name": "ABS Data Lake",
+      "support_status": "INCUBATING"
+    },
+    "acryl-cs-issues": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.acryl_cs_issues.source.AcrylCSIssuesSource",
+      "platform_id": "acryl",
+      "platform_name": "Acryl",
       "support_status": "INCUBATING"
     },
     "athena": {
@@ -387,6 +394,13 @@
       "platform_name": "DataHub",
       "support_status": "TESTING"
     },
+    "datahub-action-request-owner": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.action_request.action_request_owner_source.ActionRequestOwnerSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
     "datahub-apply": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.apply.datahub_apply.DataHubApplySource",
@@ -408,12 +422,26 @@
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
     },
+    "datahub-forms-notifications": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source.DataHubFormsNotificationsSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
       "platform_id": "datahubgc",
       "platform_name": "DataHubGc",
       "support_status": "TESTING"
+    },
+    "datahub-lineage-features": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.lineage_features.source.DataHubLineageFeaturesSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
     },
     "datahub-lineage-file": {
       "capabilities": [
@@ -433,12 +461,66 @@
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
     },
+    "datahub-metadata-sharing": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_metadata_sharing.metadata_sharing_source.DataHubMetadataSharingSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
     "datahub-mock-data": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
       "platform_id": "datahubmockdata",
       "platform_name": "DataHubMockData",
       "support_status": "TESTING"
+    },
+    "datahub-reporting-extract-graph": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_reporting.extract_graph.DataHubReportingExtractGraphSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-reporting-extract-sql": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_reporting.extract_sql.DataHubReportingExtractSQLSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-reporting-forms": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_reporting.forms.DataHubReportingFormsSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-restore": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "supported": true
+        }
+      ],
+      "classname": "acryl_datahub_cloud.datahub_restore.source.DataHubRestoreSource",
+      "platform_id": "datahub",
+      "platform_name": "datahub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-usage-reporting": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "supported": true
+        }
+      ],
+      "classname": "acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter.DataHubUsageFeatureReportingSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
     },
     "dbt": {
       "capabilities": [
