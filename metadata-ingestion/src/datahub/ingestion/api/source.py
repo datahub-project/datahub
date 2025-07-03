@@ -75,6 +75,14 @@ class SourceCapability(Enum):
     TEST_CONNECTION = "Test Connection"
 
 
+class SourceCapabilityModifier(Enum):
+    TABLE = "Table"
+    VIEW = "View"
+    STORED_PROCEDURE = "Stored Procedure"
+    DASHBOARD = "Dashboard"
+    CHART = "Chart"
+
+
 class StructuredLogLevel(Enum):
     INFO = logging.INFO
     WARN = logging.WARN

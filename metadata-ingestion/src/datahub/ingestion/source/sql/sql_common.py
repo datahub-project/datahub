@@ -42,6 +42,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     SourceCapability,
+    SourceCapabilityModifier,
     TestableSource,
     TestConnectionReport,
 )
@@ -305,10 +306,12 @@ class ProfileMetadata:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for views via `include_view_lineage`",
+    modifiers=[SourceCapabilityModifier.VIEW],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for views via `include_view_column_lineage`",
+    modifiers=[SourceCapabilityModifier.VIEW],
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(

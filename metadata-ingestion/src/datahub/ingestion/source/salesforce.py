@@ -25,6 +25,7 @@ from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceCapabilityModifier,
     SupportStatus,
     capability,
     config_class,
@@ -532,11 +533,11 @@ class SalesforceApi:
 @capability(
     capability_name=SourceCapability.DATA_PROFILING,
     description="Only table level profiling is supported via `profiling.enabled` config field",
+    modifiers=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     capability_name=SourceCapability.DELETION_DETECTION,
-    description="Not supported yet",
-    supported=False,
+    description="Enabled by default via stateful ingestion",
 )
 @capability(
     capability_name=SourceCapability.SCHEMA_METADATA,

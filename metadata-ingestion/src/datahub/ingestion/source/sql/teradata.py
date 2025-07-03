@@ -445,7 +445,10 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default when stateful ingestion is turned on",
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")

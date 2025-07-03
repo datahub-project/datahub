@@ -20,6 +20,7 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceCapabilityModifier,
     SupportStatus,
     capability,
     config_class,
@@ -321,9 +322,18 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+    modifiers=[SourceCapabilityModifier.TABLE],
 )
-@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
-@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Supported for S3 tables",
+    modifiers=[SourceCapabilityModifier.TABLE],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Supported for S3 tables",
+    modifiers=[SourceCapabilityModifier.TABLE],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """

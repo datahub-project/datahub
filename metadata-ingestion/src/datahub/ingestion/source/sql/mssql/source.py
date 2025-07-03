@@ -18,6 +18,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceCapabilityModifier,
     SupportStatus,
     capability,
     config_class,
@@ -177,10 +178,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+    modifiers=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+    modifiers=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 class SQLServerSource(SQLAlchemySource):
     """

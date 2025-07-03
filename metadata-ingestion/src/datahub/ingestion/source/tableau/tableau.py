@@ -63,6 +63,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceCapabilityModifier,
     SupportStatus,
     capability,
     config_class,
@@ -867,10 +868,11 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @capability(
     SourceCapability.USAGE_STATS,
     "Dashboard/Chart view counts, enabled using extract_usage_stats config",
+    modifiers=[SourceCapabilityModifier.DASHBOARD, SourceCapabilityModifier.CHART],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on.",
+    "Enabled by default via stateful ingestion.",
 )
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
