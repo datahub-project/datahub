@@ -2012,8 +2012,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         });
   }
 
-  protected Attributes mapEventAttributes(
-      MetadataChangeLog metadataChangeLog, OperationContext opContext) {
+  @VisibleForTesting
+  Attributes mapEventAttributes(MetadataChangeLog metadataChangeLog, OperationContext opContext) {
     AttributesBuilder attributesBuilder = Attributes.builder();
 
     Optional.ofNullable(metadataChangeLog.getSystemMetadata())
@@ -2055,7 +2055,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * Right now this is limited to target use cases so the logic is simplified, might make sense to
    * make this entity registry & model driven
    */
-  protected void mapAspectToUsageEvent(
+  @VisibleForTesting
+  void mapAspectToUsageEvent(
       AttributesBuilder attributesBuilder, MetadataChangeLog metadataChangeLog) {
     String aspectName =
         Optional.ofNullable(metadataChangeLog.getAspectName()).orElse(StringUtils.EMPTY);
@@ -2099,6 +2100,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       switch (aspectName) {
         case ACCESS_TOKEN_KEY_ASPECT_NAME:
           eventType = DataHubUsageEventType.REVOKE_ACCESS_TOKEN_EVENT.getType();
+          break;
+        case DATAHUB_POLICY_KEY_ASPECT_NAME:
+          eventType = DataHubUsageEventType.DELETE_POLICY_EVENT.getType();
           break;
         default:
           eventType = DataHubUsageEventType.DELETE_ENTITY_EVENT.getType();

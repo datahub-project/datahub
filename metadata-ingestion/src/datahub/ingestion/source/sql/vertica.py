@@ -25,6 +25,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -497,7 +498,7 @@ class VerticaSource(SQLAlchemySource):
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["Projections"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 
         if self.config.domain:
