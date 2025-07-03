@@ -482,20 +482,29 @@ def server_config() -> None:
 
 @check.command()
 @click.option(
-    "--urn", required=True, help="The urn or urn pattern (supports % for wildcard)"
+    "--urn", required=False, help="The urn or urn pattern (supports % for wildcard)"
 )
 @click.option("--aspect", default=None, help="Filter to a specific aspect name.")
 @click.option(
     "--start", type=int, default=None, help="Row number of sql store to restore from."
 )
 @click.option("--batch-size", type=int, default=None, help="How many rows to restore.")
+@click.option(
+    "--file",
+    required=False,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="File absolute path containing URNs (one per line) to restore indices",
+)
 def restore_indices(
-    urn: str,
+    urn: Optional[str],
     aspect: Optional[str],
     start: Optional[int],
     batch_size: Optional[int],
+    file: Optional[str],
 ) -> None:
     """Resync metadata changes into the search and graph indices."""
+    if urn is None and file is None:
+        raise click.UsageError("Either --urn or --file must be provided")
     graph = get_default_graph(ClientMode.CLI)
 
     result = graph.restore_indices(
@@ -503,5 +512,14 @@ def restore_indices(
         aspect=aspect,
         start=start,
         batch_size=batch_size,
+        file=file,
     )
     click.echo(result)
+
+
+@check.command()
+def get_kafka_consumer_offsets() -> None:
+    """Get Kafka consumer offsets from the DataHub API."""
+    graph = get_default_graph(ClientMode.CLI)
+    result = graph.get_kafka_consumer_offsets()
+    pprint.pprint(result)

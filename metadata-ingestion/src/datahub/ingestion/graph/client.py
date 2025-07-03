@@ -22,6 +22,7 @@ from typing import (
     Union,
 )
 
+import progressbar
 from avro.schema import RecordSchema
 from pydantic import BaseModel
 from requests.models import HTTPError
@@ -1434,13 +1435,45 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
+    def get_kafka_consumer_offsets(
+        self,
+    ) -> dict:
+        """
+        Get Kafka consumer offsets from the DataHub API.
+
+        Args:
+            graph (DataHubGraph): The DataHub graph client
+
+        """
+        urls = {
+            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
+            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
+            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
+        }
+
+        params = {"skipCache": "true", "detailed": "true"}
+        results = {}
+        for key, url in urls.items():
+            response = self._get_generic(url=url, params=params)
+            results[key] = response
+            if "errors" in response:
+                logger.error(f"Error: {response['errors']}")
+        return results
+
+    def _restore_index_call(self, payload_obj: dict) -> None:
+        result = self._post_generic(
+            f"{self._gms_server}/operations?action=restoreIndices", payload_obj
+        )
+        logger.debug(f"Restore indices result: {result}")
+
     def restore_indices(
         self,
         urn_pattern: str,
         aspect: Optional[str] = None,
         start: Optional[int] = None,
         batch_size: Optional[int] = None,
-    ) -> str:
+        file: Optional[str] = None,
+    ) -> dict:
         """Restore the indices for a given urn or urn-like pattern.
 
         Args:
@@ -1452,22 +1485,30 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Returns:
             A string containing the result of the restore indices operation. This format is subject to change.
         """
-        if "%" in urn_pattern:
-            payload_obj: dict = {"urnLike": urn_pattern}
+        payload_obj = {}
+        if file is not None:
+            with open(file) as f:
+                for urn in progressbar.progressbar(f.readlines()):
+                    urn = urn.strip()
+                    if "%" in urn:
+                        payload_obj["urnLike"] = urn
+                    else:
+                        payload_obj["urn"] = urn
+                    if aspect is not None:
+                        payload_obj["aspect"] = aspect
+                    self._restore_index_call(payload_obj)
         else:
-            payload_obj = {"urn": urn_pattern}
-        if aspect is not None:
-            payload_obj["aspect"] = aspect
-        if start is not None:
-            payload_obj["start"] = start
-        if batch_size is not None:
-            payload_obj["batchSize"] = batch_size
-        raw_result = self._post_generic(
-            f"{self._gms_server}/operations?action=restoreIndices", payload_obj
-        )
-        result = raw_result["value"]
-        logger.debug(f"Restore indices result: {result}")
-        return result
+            if "%" in urn_pattern:
+                payload_obj: dict = {"urnLike": urn_pattern}
+            else:
+                payload_obj = {"urn": urn_pattern}
+            if aspect is not None:
+                payload_obj["aspect"] = aspect
+            if start is not None:
+                payload_obj["start"] = start
+            if batch_size is not None:
+                payload_obj["batchSize"] = batch_size
+            self._restore_index_call(payload_obj)
 
     @functools.lru_cache
     def _make_schema_resolver(
