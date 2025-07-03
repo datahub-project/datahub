@@ -129,6 +129,8 @@ class SnowflakeQueriesExtractorReport(Report):
     users_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
     num_ddl_queries_dropped: int = 0
@@ -367,7 +369,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         )
                     )
 
-        yield from auto_workunit(self.aggregator.gen_metadata())
+        with self.report.aggregator_generate_timer:
+          yield from auto_workunit(self.aggregator.gen_metadata())
 
     def fetch_users(self) -> UsersMapping:
         users: UsersMapping = dict()
@@ -760,6 +763,7 @@ class SnowflakeQueriesSource(Source):
     def close(self) -> None:
         self.connection.close()
         self.queries_extractor.close()
+        super().close()
 
 
 # Make sure we don't try to generate too much info for a single query.
