@@ -3,7 +3,7 @@ from typing import Optional
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass, SchemaFieldClass, SchemaMetadataClass, OtherSchemaClass,

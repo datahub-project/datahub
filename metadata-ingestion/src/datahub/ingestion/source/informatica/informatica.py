@@ -30,7 +30,7 @@ from datahub.ingestion.source.informatica.mappers.dataflow_mapper import (
     make_dataflow_workunit,
 )
 from datahub.ingestion.source.informatica.mappers.datajob_mapper import (
-    make_datajob_workunit,
+    make_datajob_workunit, make_datajob_query_workunit,
 )
 from datahub.ingestion.source.informatica.mappers.dataset_mapper import (
     make_dataset_snapshot_workunit, make_schema_metadata_workunit,
@@ -40,7 +40,7 @@ from datahub.ingestion.source.informatica.mappers.lineage_mapper import (
     make_synonym_lineage_mcp,
 )
 from datahub.ingestion.source.informatica.sql_loader import load_sql
-from datahub.metadata._schema_classes import MetadataChangeProposalClass, StringTypeClass, NumberTypeClass, \
+from datahub.metadata.schema_classes import MetadataChangeProposalClass, StringTypeClass, NumberTypeClass, \
     BooleanTypeClass, DateTypeClass, SchemaFieldClass, SchemaFieldDataTypeClass
 
 logger = logging.getLogger(__name__)
@@ -284,7 +284,7 @@ class InformaticaSource(Source):
             transform_query = decoded_query.replace(
                 "$$P_TARGET_NAME", target_table_name
             ).replace("$$p_target_name", target_table_name)
-            parsed = sqlglot.parse_one(transform_query)
+            parsed = sqlglot.parse_one(transform_query, "oracle")
             return [
                 f"{t.args.get('db')}.{t.this.sql()}"
                 if t.args.get("db")
@@ -381,6 +381,7 @@ class InformaticaSource(Source):
                             source_qualifier.full_query,
                             f"{target.schema_name}.{target_table_name}",
                         )
+                        yield make_datajob_query_workunit(job_urn,html.unescape(source_qualifier.full_query))
 
                         for table in source_tables:
                             if "." not in table:

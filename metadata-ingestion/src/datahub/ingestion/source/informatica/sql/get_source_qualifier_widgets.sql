@@ -2,9 +2,9 @@ SELECT SWI.SESSION_ID,
        SWI.WIDGET_ID,
        SWI.MAPPING_ID,
        SWI.INSTANCE_ID,
-       REPLACE(REPLACE(XMLAGG(XMLELEMENT(E, WA_SQL.ATTR_VALUE) ORDER BY wa_sql.line_no).GETCLOBVAL(), '<E>',
+       REPLACE(REPLACE(XMLAGG(XMLELEMENT(E, rtrim(WA_SQL.ATTR_VALUE)) ORDER BY wa_sql.line_no).GETCLOBVAL(), '<E>',
                                ''), '</E>', '')      AS FULL_QUERY,
-       REPLACE(REPLACE(XMLAGG(XMLELEMENT(E, WA_FILTER.ATTR_VALUE) ORDER BY wa_filter.line_no).GETCLOBVAL(),
+       REPLACE(REPLACE(XMLAGG(XMLELEMENT(E, rtrim(WA_FILTER.ATTR_VALUE)) ORDER BY wa_filter.line_no).GETCLOBVAL(),
                                '<E>', ''), '</E>', '') AS FULL_FILTER
 FROM {metadata_schema}.OPB_SWIDGET_INST SWI
          JOIN {metadata_schema}.OPB_WIDGET_ATTR WA_SQL
@@ -16,3 +16,7 @@ WHERE SWI.MAPPING_ID = :mapping_id
   AND SWI.SESSION_ID = :session_id
   AND SWI.WIDGET_TYPE in (3, 45)
 GROUP BY SWI.SESSION_ID, SWI.WIDGET_ID, SWI.MAPPING_ID, SWI.INSTANCE_ID
+
+
+
+

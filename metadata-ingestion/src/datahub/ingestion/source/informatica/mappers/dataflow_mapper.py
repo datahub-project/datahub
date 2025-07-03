@@ -1,7 +1,7 @@
 from datahub.emitter.mce_builder import make_data_flow_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.data_classes import WorkflowInfo
-from datahub.metadata._schema_classes import (
+from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     MetadataChangeEventClass,
