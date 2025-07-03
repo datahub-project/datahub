@@ -92,14 +92,14 @@ class CapabilitySetting:
     capability: SourceCapability
     description: str
     supported: bool
-    modifiers: Optional[List[SourceCapabilityModifier]] = None
+    subtype_modifier: Optional[List[SourceCapabilityModifier]] = None
 
 
 def capability(
     capability_name: SourceCapability,
     description: str,
     supported: bool = True,
-    modifiers: Optional[List[SourceCapabilityModifier]] = None,
+    subtype_modifier: Optional[List[SourceCapabilityModifier]] = None,
 ) -> Callable[[Type], Type]:
     """
     A decorator to mark a source as having a certain capability
@@ -125,7 +125,7 @@ def capability(
             capability=capability_name,
             description=description,
             supported=supported,
-            modifiers=modifiers,
+            subtype_modifier=subtype_modifier,
         )
         return cls
 

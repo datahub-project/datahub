@@ -535,7 +535,7 @@ class SalesforceApi:
 @capability(
     capability_name=SourceCapability.DATA_PROFILING,
     description="Only table level profiling is supported via `profiling.enabled` config field",
-    modifiers=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     capability_name=SourceCapability.DELETION_DETECTION,

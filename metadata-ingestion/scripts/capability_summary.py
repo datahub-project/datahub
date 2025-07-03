@@ -119,8 +119,8 @@ def generate_capability_summary() -> CapabilitySummary:
                         "capability": capability_name,
                         "supported": cap_setting.supported,
                         "description": cap_setting.description,
-                        "modifiers": [m for m in cap_setting.modifiers]
-                        if cap_setting.modifiers
+                        "subtype_modifier": [m for m in cap_setting.subtype_modifier]
+                        if cap_setting.subtype_modifier
                         else None,
                     }
                 )

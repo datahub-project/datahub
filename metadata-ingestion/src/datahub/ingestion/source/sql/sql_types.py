@@ -206,7 +206,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "cstring[]": ArrayType,
 }
 
-# Postgres types with modifiers (identifiable by non-empty typmodin and typmodout columns)
+# Postgres types with subtype_modifier (identifiable by non-empty typmodin and typmodout columns)
 POSTGRES_MODIFIED_TYPES = {
     "character varying",
     "character varying[]",

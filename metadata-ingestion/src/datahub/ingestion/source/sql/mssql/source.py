@@ -178,7 +178,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
-    modifiers=[
+    subtype_modifier=[
         SourceCapabilityModifier.STORED_PROCEDURE,
         SourceCapabilityModifier.VIEW,
     ],
@@ -186,7 +186,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
-    modifiers=[
+    subtype_modifier=[
         SourceCapabilityModifier.STORED_PROCEDURE,
         SourceCapabilityModifier.VIEW,
     ],

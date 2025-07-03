@@ -868,7 +868,10 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @capability(
     SourceCapability.USAGE_STATS,
     "Dashboard/Chart view counts, enabled using extract_usage_stats config",
-    modifiers=[SourceCapabilityModifier.DASHBOARD, SourceCapabilityModifier.CHART],
+    subtype_modifier=[
+        SourceCapabilityModifier.DASHBOARD,
+        SourceCapabilityModifier.CHART,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,

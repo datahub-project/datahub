@@ -324,17 +324,17 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
-    modifiers=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Supported for S3 tables",
-    modifiers=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Supported for S3 tables",
-    modifiers=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
