@@ -5,7 +5,7 @@ from typing import Any, Dict
 import pytest
 
 from datahub.ingestion.sink.file import write_metadata_file
-from datahub.metadata._urns.urn_defs import CorpUserUrn
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     QueryMetadata,
     SqlParsingAggregator,
