@@ -24,6 +24,8 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     FixedRangeExclusionWindow,
     InferenceSensitivity,
     _DetectionMechanismTypes,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_freshness_assertion_input import (
     _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (

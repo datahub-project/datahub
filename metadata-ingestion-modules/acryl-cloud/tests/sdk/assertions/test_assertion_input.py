@@ -33,12 +33,14 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _DetectionMechanismTypes,
     _InformationSchema,
     _is_source_type_valid,
-    _SmartFreshnessAssertionInput,
     _try_parse_incident_behavior,
     _validate_cron_schedule,
 )
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
     _FreshnessAssertionInput,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_freshness_assertion_input import (
+    _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     SqlAssertionCondition,

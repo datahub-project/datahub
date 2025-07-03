@@ -33,12 +33,16 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     InferenceSensitivity,
     TimeWindowSizeInputTypes,
     _DetectionMechanismTypes,
-    _SmartFreshnessAssertionInput,
-    _SmartVolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     MetricInputType,
     OperatorInputType,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_freshness_assertion_input import (
+    _SmartFreshnessAssertionInput,
+)
+from acryl_datahub_cloud.sdk.assertion_input.smart_volume_assertion_input import (
+    _SmartVolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.sql_assertion_input import (
     SqlAssertionCondition,
