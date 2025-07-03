@@ -507,14 +507,13 @@ def restore_indices(
         raise click.UsageError("Either --urn or --file must be provided")
     graph = get_default_graph(ClientMode.CLI)
 
-    result = graph.restore_indices(
+    graph.restore_indices(
         urn_pattern=urn,
         aspect=aspect,
         start=start,
         batch_size=batch_size,
         file=file,
     )
-    click.echo(result)
 
 
 @check.command()

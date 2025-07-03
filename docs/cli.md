@@ -303,7 +303,7 @@ The `check` command allows you to check if all plugins are loaded correctly as w
 This command allows you to restore indices for one or more `urn`.
 
 ```shell
-datahub check restore-indices --help
+datahub --debug check restore-indices --urn "URN"
 ```
 
 It can also take `--file` argument that points to a file that has list of urns like
@@ -321,6 +321,8 @@ urn:li:dataset:(urn:li:dataPlatform:redshift,test_db.schema3.test_few_rows,PROD)
 ```
 
 #### get-kafka-consumer-offsets
+
+This required DataHub Cloud `0.3.12.x` or above version.
 
 ```shell
 datahub check get-kafka-consumer-offsets

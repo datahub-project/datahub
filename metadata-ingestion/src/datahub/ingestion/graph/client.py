@@ -1468,19 +1468,20 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def restore_indices(
         self,
-        urn_pattern: str,
+        urn_pattern: Optional[str] = None,
         aspect: Optional[str] = None,
         start: Optional[int] = None,
         batch_size: Optional[int] = None,
         file: Optional[str] = None,
-    ) -> dict:
+    ) -> None:
         """Restore the indices for a given urn or urn-like pattern.
 
         Args:
-            urn_pattern: The exact URN or a pattern (with % for wildcard) to match URNs.
+            urn_pattern: The exact URN or a pattern (with % for wildcard) to match URNs. If not provided, will restore indices from the file.
             aspect: Optional aspect string to restore indices for a specific aspect.
-            start: Optional integer to decide which row number of sql store to restore from. Default: 0.
-            batch_size: Optional integer to decide how many rows to restore. Default: 10.
+            start: Optional integer to decide which row number of sql store to restore from. Default: 0. Ignored in case file is provided.
+            batch_size: Optional integer to decide how many rows to restore. Default: 10. Ignored in case file is provided.
+            file: Optional file path to a file containing URNs to restore indices for.
 
         Returns:
             A string containing the result of the restore indices operation. This format is subject to change.
@@ -1498,10 +1499,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         payload_obj["aspect"] = aspect
                     self._restore_index_call(payload_obj)
         else:
-            if "%" in urn_pattern:
-                payload_obj: dict = {"urnLike": urn_pattern}
-            else:
-                payload_obj = {"urn": urn_pattern}
+            if urn_pattern is not None:
+                if "%" in urn_pattern:
+                    payload_obj["urnLike"] = urn_pattern
+                else:
+                    payload_obj["urn"] = urn_pattern
             if aspect is not None:
                 payload_obj["aspect"] = aspect
             if start is not None:
