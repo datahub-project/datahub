@@ -69,6 +69,7 @@ dev_requirements = {
 setup(
     **{
         **_codegen_config,
+        "python_requires": ">=3.10",
         "install_requires": [
             *_codegen_config["install_requires"],
             *base_requirements,

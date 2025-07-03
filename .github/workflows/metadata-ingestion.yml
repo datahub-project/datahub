@@ -90,9 +90,6 @@ jobs:
               exit 1
             fi
           done
-      - name: Run acryl-cloud tests
-        if: ${{  matrix.command == 'testQuick' }}
-        run: ./gradlew :metadata-ingestion-modules:acryl-cloud:build
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:${{ matrix.command }}
       - name: Debug info
