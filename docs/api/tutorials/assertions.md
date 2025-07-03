@@ -543,7 +543,7 @@ mutation runAssertionsForAsset {
 
 </Tabs>
 
-### Experimental: Providing Dynamic Parameters to Assertions
+<!-- ### Experimental: Providing Dynamic Parameters to Assertions
 
 You can provide **dynamic parameters** to your assertions to customize their behavior. This is particularly useful for
 assertions that require dynamic parameters, such as a threshold value that changes based on the time of day.
@@ -575,7 +575,7 @@ mutation runAssertion {
 ```
 
 At runtime, the `${parameterName}` placeholder in the SQL fragment will be replaced with the provided `parameterValue` before the query
-is sent to the database for execution.
+is sent to the database for execution. -->
 
 ## Get Assertion Details
 

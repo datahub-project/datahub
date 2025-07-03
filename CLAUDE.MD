@@ -26,6 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) or any other agent w
 - `metadata-ingestion/build.gradle` contains our build.gradle that has gradle tasks defined for this module
 - `pyproject.toml`, `setup.py`, `setup.cfg` in the folder contain rules about the code style for the repository
 - The `.md` files at top level in this folder gives you important information about the concepts of ingestion
+- You can see examples of how to define various aspect types in `metadata-ingestion/src/datahub/emitter/mcp_builder.py`
 - Source code goes in `metadata-ingestion/src/`
 - Tests go in `metadata-ingestion/tests/` (not in `src/`)
 - **Testing conventions for metadata-ingestion**:
