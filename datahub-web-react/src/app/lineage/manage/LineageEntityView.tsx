@@ -9,7 +9,7 @@ import { getPlatformName } from '@app/entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Container, Entity } from '@types';
+import { Entity } from '@types';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -43,21 +43,6 @@ interface Props {
     displaySearchResult?: boolean;
 }
 
-interface DbSchemaPair {
-    db?: string;
-    schema?: string;
-}
-
-function extractDbSchema(containers?: Container[]): DbSchemaPair | undefined {
-    if (containers && containers.length === 2 && containers[0]?.properties?.name && containers[1]?.properties?.name) {
-        return {
-            db: containers[1]?.properties?.name,
-            schema: containers[0]?.properties?.name,
-        };
-    }
-    return undefined;
-}
-
 export default function LineageEntityView({ entity, displaySearchResult }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
@@ -66,8 +51,8 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const platformName = getPlatformName(genericProps);
     const containers = entityData?.parentContainers?.containers;
-
-    const dbSchema = extractDbSchema(containers);
+    const remainingContainers = containers?.slice(1);
+    const directContainer = containers ? containers[0] : null;
 
     return (
         <EntityWrapper shrinkPadding={displaySearchResult}>
@@ -81,12 +66,17 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                     <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
                 )}
                 <span>{platformName}</span>
-                {dbSchema && (
+                {remainingContainers &&
+                    remainingContainers.map((container) => (
+                        <>
+                            <StyledRightOutlined data-testid="right-arrow" />
+                            <span>{container?.properties?.name}</span>
+                        </>
+                    ))}
+                {directContainer && (
                     <>
                         <StyledRightOutlined data-testid="right-arrow" />
-                        <span>{dbSchema.schema}</span>
-                        <StyledRightOutlined data-testid="right-arrow" />
-                        <span>{dbSchema.schema}</span>
+                        <span>{directContainer?.properties?.name}</span>
                     </>
                 )}
             </PlatformContent>
