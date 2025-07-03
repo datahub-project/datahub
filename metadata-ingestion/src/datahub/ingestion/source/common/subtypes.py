@@ -157,4 +157,5 @@ def create_source_capability_modifier_enum():
     return globals()["SourceCapabilityModifier"]
 
 
+# This will have all values from the enums above
 SourceCapabilityModifier = create_source_capability_modifier_enum()

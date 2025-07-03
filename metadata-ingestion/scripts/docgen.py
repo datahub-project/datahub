@@ -445,8 +445,11 @@ def generate(
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
+                        description = cap_setting.description
+                        if cap_setting.modifiers:
+                            description += f" Supported for {', '.join(cap_setting.modifiers)}"
                         f.write(
-                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
+                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
                     f.write("\n")
 
