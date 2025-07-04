@@ -79,7 +79,7 @@ def test_create_list_delete_global_view(auth_session):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(
@@ -200,7 +200,7 @@ def test_create_list_delete_personal_view(auth_session):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(
