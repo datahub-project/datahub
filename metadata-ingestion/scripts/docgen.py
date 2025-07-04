@@ -177,7 +177,8 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
             capabilities.append(CapabilitySetting(
                 capability=capability,
                 supported=cap_data["supported"],
-                description=cap_data["description"]
+                description=cap_data["description"],
+                subtype_modifier=cap_data.get("subtype_modifier", None)
             ))
         plugin.capabilities = capabilities
     
@@ -445,8 +446,13 @@ def generate(
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
+                        description = cap_setting.description
+                        if not description.endswith("."):
+                            description += "."
+                        if cap_setting.subtype_modifier:
+                            description += f" Supported for types - {', '.join(cap_setting.subtype_modifier)}."
                         f.write(
-                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
+                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
                     f.write("\n")
 

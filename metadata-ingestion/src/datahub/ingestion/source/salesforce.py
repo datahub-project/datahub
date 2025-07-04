@@ -33,7 +33,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -532,11 +535,11 @@ class SalesforceApi:
 @capability(
     capability_name=SourceCapability.DATA_PROFILING,
     description="Only table level profiling is supported via `profiling.enabled` config field",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
 @capability(
     capability_name=SourceCapability.DELETION_DETECTION,
-    description="Not supported yet",
-    supported=False,
+    description="Enabled by default via stateful ingestion",
 )
 @capability(
     capability_name=SourceCapability.SCHEMA_METADATA,
