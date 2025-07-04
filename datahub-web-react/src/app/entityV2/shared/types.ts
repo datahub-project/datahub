@@ -1,5 +1,3 @@
-import { ReactElement } from 'react';
-
 export enum TabRenderType {
     /**
      * A default, full screen tab.
@@ -63,7 +61,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
-    getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
+    getCount?: (GenericEntityProperties, T, loading: boolean) => number | undefined;
     supportsFullsize?: boolean; // As per TabFullsizedContext
 };
 
