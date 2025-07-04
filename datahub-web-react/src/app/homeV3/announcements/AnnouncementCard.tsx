@@ -39,9 +39,10 @@ const cardStyles = {
 
 interface Props {
     announcement: Post;
+    onDismiss: (urn: string) => void;
 }
 
-export const AnnouncementCard = ({ announcement }: Props) => {
+export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
     return (
         <Card
             icon={<Icon icon="MegaphoneSimple" source="phosphor" color="violet" weight="fill" size="2xl" />}
@@ -55,7 +56,15 @@ export const AnnouncementCard = ({ announcement }: Props) => {
                     <StyledEditor content={announcement.content.description} readOnly />
                 ) : undefined
             }
-            button={<StyledIcon icon="X" source="phosphor" color="violet" size="xl" onClick={() => console.log('')} />}
+            button={
+                <StyledIcon
+                    icon="X"
+                    source="phosphor"
+                    color="violet"
+                    size="xl"
+                    onClick={() => onDismiss(announcement.urn)}
+                />
+            }
             width="100%"
             style={cardStyles}
             isCardClickable={false}

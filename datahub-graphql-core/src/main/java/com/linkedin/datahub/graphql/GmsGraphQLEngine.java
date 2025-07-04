@@ -202,6 +202,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
@@ -1291,6 +1292,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateCorpUserViewsSettings",
                   new UpdateCorpUserViewsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateUserHomePageSettings",
+                  new UpdateUserHomePageSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateLineage",
                   new UpdateLineageResolver(this.entityService, this.lineageService))
