@@ -7,20 +7,18 @@ import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { HALF_SECOND_IN_MS, MAX_ROWS_BEFORE_DEBOUNCE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { ViewSelectPopoverContent } from '@app/entityV2/view/select/ViewSelectPopoverContent';
 import { renderSelectedView } from '@app/entityV2/view/select/renderSelectedView';
 import { renderViewOptionGroup } from '@app/entityV2/view/select/renderViewOptionGroup';
 import '@app/entityV2/view/select/style.css';
-import { filterViews } from '@app/entityV2/view/select/utils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
 import { PageRoutes } from '@conf/Global';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
-import { DataHubView, DataHubViewType } from '@types';
+import { DataHubView } from '@types';
+import useViewsData from './hooks/useViewsData';
+import useViewTypesToShow from './hooks/useViewTypesToShow';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;
@@ -157,78 +155,40 @@ interface Props {
 export const ViewSelect = ({ isOpen, onOpenChange }: Props) => {
     const history = useHistory();
     const userContext = useUserContext();
+
+    const {
+        selectedUrn,
+        setSelectedUrn,
+        hoverViewUrn,
+        setHoverViewUrn,
+        selectedViewName,
+        setSelectedView,
+        highlightedPublicViewData,
+        highlightedPrivateViewData,
+        privateViewCount,
+        publicViewCount,
+        hasViews,
+        debouncedSetFilterText,
+    } = useViewsData();
+
     const [viewBuilderDisplayState, setViewBuilderDisplayState] = useState<ViewBuilderDisplayState>(
         DEFAULT_VIEW_BUILDER_DISPLAY_STATE,
     );
-    const [selectedUrn, setSelectedUrn] = useState<string | undefined>(
-        userContext.localState?.selectedViewUrn || undefined,
-    );
-    const [hoverViewUrn, setHoverViewUrn] = useState<string | undefined>(undefined);
-    const [privateView, setPrivateView] = useState<boolean>(true);
-    const [publicView, setPublicView] = useState<boolean>(true);
 
-    const [filterText, setFilterText] = useState('');
+    const {showPrivateViews, showPublicViews, onViewsTypeChanged} = useViewTypesToShow()
+
     const [isInternalOpen, setIsInternalOpen] = useState(!!isOpen);
-    const [selectedViewName, setSelectedView] = useState<string>('');
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const selectRef = useRef(null);
 
     const scrollToRef = useRef<HTMLDivElement>(null);
-    /**
-     * Queries - Notice, each of these queries is cached. Here we fetch both the user's private views,
-     * along with all public views.
-     */
-
-    const { data: privateViewsData } = useListMyViewsQuery({
-        variables: {
-            start: 0,
-            count: DEFAULT_LIST_VIEWS_PAGE_SIZE,
-            viewType: DataHubViewType.Personal,
-        },
-        fetchPolicy: 'cache-first',
-    });
-
-    // Fetch Public Views
-    const { data: publicViewsData } = useListGlobalViewsQuery({
-        variables: {
-            start: 0,
-            count: DEFAULT_LIST_VIEWS_PAGE_SIZE,
-        },
-        fetchPolicy: 'cache-first',
-    });
-
+    
     // Possibility to control open/close state by parents components
     useEffect(() => {
         if (isOpen !== undefined) setIsInternalOpen(isOpen);
     }, [isOpen]);
-
-    useEffect(() => {
-        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
-        const selectedView =
-            privateViewsData?.listMyViews?.views?.find(
-                (view) => view?.urn === userContext.localState?.selectedViewUrn,
-            ) ||
-            publicViewsData?.listGlobalViews?.views?.find(
-                (view) => view?.urn === userContext.localState?.selectedViewUrn,
-            );
-        if (selectedView === undefined) {
-            setSelectedView('');
-        } else {
-            setSelectedView(selectedView.name);
-        }
-    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
-
-    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
-    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
-
-    const debouncedSetFilterText = debounce(
-        (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
-        (highlightedPublicViewData.length || highlightedPrivateViewData.length) > MAX_ROWS_BEFORE_DEBOUNCE
-            ? HALF_SECOND_IN_MS
-            : 0,
-    );
 
     /**
      * Event Handlers
@@ -299,24 +259,10 @@ export const ViewSelect = ({ isOpen, onOpenChange }: Props) => {
         updateOpenState(false);
     };
 
-    const onClickViewTypeFilter = (type: string) => {
-        setPrivateView(type === 'private' || type === 'all');
-        setPublicView(type === 'public' || type === 'all');
-    };
-
     const onOpenChangeHandler = useCallback(() => {
         scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         updateOpenState(!isInternalOpen);
     }, [isInternalOpen, updateOpenState]);
-
-    /**
-     * Render variables
-     */
-    const privateViews = highlightedPrivateViewData || [];
-    const publicViews = highlightedPublicViewData || [];
-    const privateViewCount = privateViews?.length || 0;
-    const publicViewCount = publicViews?.length || 0;
-    const hasViews = privateViewCount > 0 || publicViewCount > 0 || false;
 
     return (
         <>
@@ -328,16 +274,16 @@ export const ViewSelect = ({ isOpen, onOpenChange }: Props) => {
                     content={
                         <>
                             <ViewSelectPopoverContent
-                                privateView={privateView}
-                                publicView={publicView}
+                                privateView={showPrivateViews}
+                                publicView={showPublicViews}
                                 onClickCreateView={onClickCreateView}
                                 onClickManageViews={onClickManageViews}
-                                onClickViewTypeFilter={onClickViewTypeFilter}
+                                onClickViewTypeFilter={onViewsTypeChanged}
                                 onChangeSearch={debouncedSetFilterText}
                             >
                                 {hasViews &&
                                     privateViewCount > 0 &&
-                                    privateView &&
+                                    showPrivateViews &&
                                     renderViewOptionGroup({
                                         selectedUrn,
                                         views: highlightedPrivateViewData,
@@ -353,7 +299,7 @@ export const ViewSelect = ({ isOpen, onOpenChange }: Props) => {
                                     })}
                                 {hasViews &&
                                     publicViewCount > 0 &&
-                                    publicView &&
+                                    showPublicViews &&
                                     renderViewOptionGroup({
                                         selectedUrn,
                                         views: highlightedPublicViewData,

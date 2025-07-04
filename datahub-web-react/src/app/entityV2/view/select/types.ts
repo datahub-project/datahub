@@ -1,0 +1,1 @@
+export type ViewTypesFilterOption = 'all' | 'public' | 'private';
