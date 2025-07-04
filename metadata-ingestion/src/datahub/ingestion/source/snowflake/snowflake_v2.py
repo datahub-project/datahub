@@ -591,6 +591,7 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        push_down_database_pattern_query_log=self.config.push_down_database_pattern_query_log,
                     ),
                     structured_report=self.report,
                     filters=self.filters,

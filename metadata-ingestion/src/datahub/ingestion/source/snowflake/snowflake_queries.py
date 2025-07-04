@@ -113,6 +113,11 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_query_usage_statistics: bool = True
     include_operations: bool = True
 
+    push_down_database_pattern_query_log: bool = pydantic.Field(
+        default=True,
+        description="If enabled, pushes down database pattern filtering to the query log SQL query for improved performance.",
+    )
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -348,6 +353,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
+            database_pattern=self.filters.filter_config.database_pattern
+            if self.config.push_down_database_pattern_query_log
+            else None,
         )
 
         with self.structured_reporter.report_exc(
@@ -670,11 +678,67 @@ class SnowflakeQueriesSource(Source):
 _MAX_TABLES_PER_QUERY = 20
 
 
+def _build_database_filter_condition(
+    database_pattern: Optional[AllowDenyPattern],
+) -> str:
+    """
+    Build a SQL WHERE condition for database filtering based on AllowDenyPattern.
+
+    Args:
+        database_pattern: The AllowDenyPattern configuration for database filtering
+
+    Returns:
+        A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+
+    Examples:
+        >>> from datahub.configuration.common import AllowDenyPattern
+        >>> pattern = AllowDenyPattern(allow=["^PROD_.*"], deny=[".*_TEMP$"])
+        >>> _build_database_filter_condition(pattern)
+        '(database_name RLIKE \'^PROD_.*\') AND (database_name NOT RLIKE \'.*_TEMP$\')'
+
+        >>> _build_database_filter_condition(None)
+        'TRUE'
+    """
+    if not database_pattern:
+        return "TRUE"
+
+    allow_patterns = database_pattern.allow
+    deny_patterns = database_pattern.deny
+
+    database_conditions = []
+
+    # Add allow patterns (if not the default "allow all")
+    if allow_patterns and allow_patterns != [".*"]:
+        allow_conditions = []
+        for pattern in allow_patterns:
+            # Escape single quotes that might be present in the regex pattern
+            escaped_pattern = pattern.replace("'", "''")
+            allow_conditions.append(f"database_name RLIKE '{escaped_pattern}'")
+        if allow_conditions:
+            database_conditions.append(f"({' OR '.join(allow_conditions)})")
+
+    # Add deny patterns
+    if deny_patterns:
+        deny_conditions = []
+        for pattern in deny_patterns:
+            # Escape single quotes that might be present in the regex pattern
+            escaped_pattern = pattern.replace("'", "''")
+            deny_conditions.append(f"database_name NOT RLIKE '{escaped_pattern}'")
+        if deny_conditions:
+            database_conditions.append(f"({' AND '.join(deny_conditions)})")
+
+    if database_conditions:
+        return " AND ".join(database_conditions)
+    else:
+        return "TRUE"
+
+
 def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
     bucket_duration: BucketDuration,
     deny_usernames: Optional[List[str]],
+    database_pattern: Optional[AllowDenyPattern] = None,
 ) -> str:
     start_time_millis = int(start_time.timestamp() * 1000)
     end_time_millis = int(end_time.timestamp() * 1000)
@@ -683,6 +747,8 @@ def _build_enriched_query_log_query(
     if deny_usernames:
         user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
         users_filter = f"user_name NOT IN ({user_not_in})"
+
+    database_filter = _build_database_filter_condition(database_pattern)
 
     time_bucket_size = bucket_duration.value
     assert time_bucket_size in ("HOUR", "DAY", "MONTH")
@@ -710,6 +776,7 @@ fingerprinted_queries as (
         AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
         AND execution_status = 'SUCCESS'
         AND {users_filter}
+        AND {database_filter or "TRUE"}
 )
 , deduplicated_queries as (
     SELECT
