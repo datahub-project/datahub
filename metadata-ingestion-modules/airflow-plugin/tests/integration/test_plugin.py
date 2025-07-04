@@ -244,6 +244,23 @@ def _run_airflow(
                 "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             },
         ).get_uri(),
+        "AIRFLOW_CONN_MY_BIGQUERY": Connection(
+            conn_id="my_bigquery",
+            conn_type="google_cloud_platform",
+            extra={
+                "project": "test_project",
+                "keyfile_dict": {
+                    "type": "service_account",
+                    "project_id": "test_project",
+                    "private_key_id": "test_key_id",
+                    "private_key": "-----BEGIN PRIVATE KEY-----\nfake_key\n-----END PRIVATE KEY-----\n",
+                    "client_email": "test@test_project.iam.gserviceaccount.com",
+                    "client_id": "123456789",
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                },
+            },
+        ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
             conn_id="my_sqlite",
             conn_type="sqlite",
@@ -406,6 +423,7 @@ test_cases = [
     DagTestCase("custom_operator_sql_parsing", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
+    DagTestCase("bigquery_insert_job_operator", v2_only=True),
 ]
 
 
