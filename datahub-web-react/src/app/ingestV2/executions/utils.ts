@@ -32,7 +32,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'CircleNotch') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'X') ||
         (status === EXECUTION_REQUEST_STATUS_ABORTED && 'X') ||
-        'CircleNotch'
+        'Clock'
     );
 };
 
