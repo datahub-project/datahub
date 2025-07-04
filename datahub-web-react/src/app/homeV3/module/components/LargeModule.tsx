@@ -2,12 +2,12 @@ import { Loader, borders, colors, radius, spacing } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import ModuleContainer from '@app/homepageV2/module/components/ModuleContainer';
-import ModuleDescription from '@app/homepageV2/module/components/ModuleDescription';
-import ModuleMenu from '@app/homepageV2/module/components/ModuleMenu';
-import ModuleName from '@app/homepageV2/module/components/ModuleName';
-import PublicModuleBadge from '@app/homepageV2/module/components/PublicModuleBadge';
-import { ModuleProps } from '@app/homepageV2/module/types';
+import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
+import ModuleDescription from '@app/homeV3/module/components/ModuleDescription';
+import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
+import ModuleName from '@app/homeV3/module/components/ModuleName';
+import PublicModuleBadge from '@app/homeV3/module/components/PublicModuleBadge';
+import { ModuleProps } from '@app/homeV3/module/types';
 
 const ModuleHeader = styled.div`
     position: relative;

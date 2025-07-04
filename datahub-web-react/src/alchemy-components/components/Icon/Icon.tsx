@@ -20,6 +20,7 @@ export const Icon = ({
     size = iconDefaults.size,
     color = iconDefaults.color,
     rotate = iconDefaults.rotate,
+    weight,
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
@@ -52,6 +53,7 @@ export const Icon = ({
                     color: getColor(color),
                 }}
                 style={{ color: getColor(color) }}
+                weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
             />
         </IconWrapper>
     );

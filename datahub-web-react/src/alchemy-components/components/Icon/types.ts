@@ -15,11 +15,13 @@ const names = createEnum(AVAILABLE_ICONS);
 export type IconNames = keyof typeof names;
 
 export type MaterialIconVariant = 'filled' | 'outline';
+export type PhosphorIconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
 export type IconSource = 'material' | 'phosphor';
 
 export interface IconPropsDefaults {
     source: IconSource;
     variant: MaterialIconVariant;
+    weight?: PhosphorIconWeight;
     size: FontSizeOptions;
     color: FontColorOptions;
     rotate: RotationOptions;
