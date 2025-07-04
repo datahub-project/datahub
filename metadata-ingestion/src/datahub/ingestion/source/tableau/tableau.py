@@ -528,6 +528,14 @@ class TableauConfig(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
+    emit_published_datasources_regardless_of_workbook: bool = Field(
+        default=False,
+        description="Ingest all published data sources, including those not connected to workbooks.",
+    )
+    emit_embedded_datasources_regardless_of_workbook: bool = Field(
+        default=False,
+        description="Ingest all embedded data sources, including those not connected to workbooks.",
+    )
 
     env: str = Field(
         default=builder.DEFAULT_ENV,
@@ -2855,7 +2863,11 @@ class TableauSiteSource:
         return datasource
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_published_datasources_regardless_of_workbook
+            else {c.ID_WITH_IN: self.datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=published_datasource_graphql_query,
@@ -3548,7 +3560,11 @@ class TableauSiteSource:
         return browse_paths
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_embedded_datasources_regardless_of_workbook
+            else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=embedded_datasource_graphql_query,
