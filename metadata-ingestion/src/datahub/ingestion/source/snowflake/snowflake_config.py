@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -51,6 +52,11 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
     r".*\.SNOWPARK_TEMP_TABLE_.+",  # snowpark
 ]
+
+
+class QueryDedupStrategyType(Enum):
+    STANDARD = "STANDARD"
+    NONE = "NONE"
 
 
 class TagOption(StrEnum):
@@ -246,6 +252,11 @@ class SnowflakeV2Config(
         default=True,
         description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
         "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
+    )
+
+    query_dedup_strategy: QueryDedupStrategyType = Field(
+        default=QueryDedupStrategyType.STANDARD,
+        description="Choose strategy for queries deduplication.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
