@@ -352,7 +352,7 @@ def test_get_folder_info_ignores_disallowed_path(
     assert f"File {expected_called_s3_uri} not allowed and skipping" in caplog.text, (
         "Dropped file should be logged"
     )
-    assert s3_source.get_report().filtered == [expected_called_s3_uri], (
+    assert list(s3_source.get_report().filtered) == [expected_called_s3_uri], (
         "Dropped file should be in the report.filtered"
     )
     assert res == [], "Dropped file should not be in the result"
