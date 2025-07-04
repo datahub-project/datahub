@@ -1,5 +1,9 @@
+import json
 import logging
-from typing import Dict, Iterable, List, Optional
+import os
+import tempfile
+from enum import Enum
+from typing import Dict, Iterable, List, Optional, Union
 
 from pydantic import Field, SecretStr, validator
 
@@ -37,6 +41,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class GCSAuthType(str, Enum):
+    HMAC = "hmac"
+    WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
+
+
 class HMACKey(ConfigModel):
     hmac_access_id: str = Field(description="Access ID")
     hmac_access_secret: SecretStr = Field(description="Secret")
@@ -45,8 +54,29 @@ class HMACKey(ConfigModel):
 class GCSSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
 ):
-    credential: HMACKey = Field(
-        description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys)",
+    auth_type: GCSAuthType = Field(
+        default=GCSAuthType.HMAC,
+        description="Authentication type to use. Defaults to HMAC keys. Set to 'workload_identity_federation' to use Workload Identity Federation.",
+    )
+
+    credential: Optional[HMACKey] = Field(
+        default=None,
+        description="Google cloud storage [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys). Required when auth_type is 'hmac'.",
+    )
+
+    gcp_wif_configuration: Optional[str] = Field(
+        default=None,
+        description="Path to the Google Cloud Workload Identity Federation configuration JSON file. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration_json is not provided.",
+    )
+
+    gcp_wif_configuration_json: Optional[Union[str, Dict]] = Field(
+        default=None,
+        description="Google Cloud Workload Identity Federation configuration as JSON string or dict. Alternative to gcp_wif_configuration file path. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration is not provided.",
+    )
+
+    gcp_wif_configuration_json_string: Optional[str] = Field(
+        default=None,
+        description="Google Cloud Workload Identity Federation configuration as a JSON string (contents of the configuration file). Useful for copying configuration from files into secrets. Alternative to gcp_wif_configuration file path. Required when auth_type is 'workload_identity_federation' and other gcp_wif_configuration options are not provided.",
     )
 
     max_rows: int = Field(
@@ -60,6 +90,58 @@ class GCSSourceConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @validator("credential", always=True)
+    def validate_credential(cls, v, values):
+        auth_type = values.get("auth_type", GCSAuthType.HMAC)
+        if auth_type == GCSAuthType.HMAC and v is None:
+            raise ValueError("credential is required when auth_type is 'hmac'")
+        return v
+
+    @validator("gcp_wif_configuration_json_string", always=True)
+    def validate_gcp_wif_configuration_options(cls, v, values):
+        auth_type = values.get("auth_type", GCSAuthType.HMAC)
+        gcp_wif_configuration = values.get("gcp_wif_configuration")
+        gcp_wif_configuration_json = values.get("gcp_wif_configuration_json")
+
+        if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
+            wif_options = [gcp_wif_configuration, gcp_wif_configuration_json, v]
+            provided_options = [opt for opt in wif_options if opt is not None]
+
+            if len(provided_options) == 0:
+                raise ValueError(
+                    "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
+                    "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
+                )
+            elif len(provided_options) > 1:
+                raise ValueError(
+                    "Cannot specify multiple WIF configuration options. Use only one of: "
+                    "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
+                )
+
+        # Validate JSON format for both JSON options
+        if gcp_wif_configuration_json:
+            if isinstance(gcp_wif_configuration_json, str):
+                try:
+                    json.loads(gcp_wif_configuration_json)
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"gcp_wif_configuration_json must be valid JSON: {e}"
+                    ) from e
+            elif not isinstance(gcp_wif_configuration_json, dict):
+                raise ValueError(
+                    "gcp_wif_configuration_json must be either a JSON string or a dictionary"
+                )
+
+        if v:
+            try:
+                json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"gcp_wif_configuration_json_string must be valid JSON: {e}"
+                ) from e
+
+        return v
 
     @validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
@@ -91,6 +173,7 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
+        self._temp_wif_file_path: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -98,21 +181,120 @@ class GCSSource(StatefulIngestionSourceBase):
         config = GCSSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def _setup_wif_credentials(self) -> None:
+        """Set up Workload Identity Federation credentials."""
+        if self.config.gcp_wif_configuration:
+            # Use the provided file path directly
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+                self.config.gcp_wif_configuration
+            )
+            logger.info(
+                "Using Workload Identity Federation configuration from file: %s",
+                self.config.gcp_wif_configuration,
+            )
+        elif (
+            self.config.gcp_wif_configuration_json
+            or self.config.gcp_wif_configuration_json_string
+        ):
+            # Create a temporary file to hold the JSON content
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, suffix=".json"
+                ) as temp_file:
+                    if self.config.gcp_wif_configuration_json:
+                        if isinstance(self.config.gcp_wif_configuration_json, dict):
+                            json.dump(
+                                self.config.gcp_wif_configuration_json,
+                                temp_file,
+                                indent=2,
+                            )
+                        else:
+                            # It's already a JSON string (validated in the validator)
+                            temp_file.write(self.config.gcp_wif_configuration_json)
+                    elif self.config.gcp_wif_configuration_json_string:
+                        # Write the JSON string directly (validated in the validator)
+                        temp_file.write(self.config.gcp_wif_configuration_json_string)
+
+                    temp_file.flush()
+                    self._temp_wif_file_path = temp_file.name
+                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+                        self._temp_wif_file_path
+                    )
+                    logger.info(
+                        "Created temporary Workload Identity Federation configuration file: %s",
+                        self._temp_wif_file_path,
+                    )
+            except Exception as e:
+                logger.error("Failed to create temporary WIF configuration file: %s", e)
+                raise ValueError(
+                    f"Failed to setup Workload Identity Federation credentials: {e}"
+                ) from e
+
+    def _cleanup_temp_files(self) -> None:
+        """Clean up any temporary files created for WIF configuration."""
+        if self._temp_wif_file_path and os.path.exists(self._temp_wif_file_path):
+            try:
+                os.unlink(self._temp_wif_file_path)
+                logger.debug(
+                    "Cleaned up temporary WIF configuration file: %s",
+                    self._temp_wif_file_path,
+                )
+                self._temp_wif_file_path = None
+            except Exception as e:
+                logger.warning(
+                    "Failed to clean up temporary WIF configuration file %s: %s",
+                    self._temp_wif_file_path,
+                    e,
+                )
+
     def create_equivalent_s3_config(self):
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
-        s3_config = DataLakeSourceConfig(
-            path_specs=s3_path_specs,
-            aws_config=AwsConnectionConfig(
-                aws_endpoint_url="https://storage.googleapis.com",
-                aws_access_key_id=self.config.credential.hmac_access_id,
-                aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
-                aws_region="auto",
-            ),
-            env=self.config.env,
-            max_rows=self.config.max_rows,
-            number_of_files_to_sample=self.config.number_of_files_to_sample,
-        )
+        if self.config.auth_type == GCSAuthType.HMAC:
+            if not self.config.credential:
+                raise ValueError(
+                    "HMAC credentials are required when auth_type is 'hmac'"
+                )
+
+            s3_config = DataLakeSourceConfig(
+                path_specs=s3_path_specs,
+                aws_config=AwsConnectionConfig(
+                    aws_endpoint_url="https://storage.googleapis.com",
+                    aws_access_key_id=self.config.credential.hmac_access_id,
+                    aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
+                    aws_region="auto",
+                ),
+                env=self.config.env,
+                max_rows=self.config.max_rows,
+                number_of_files_to_sample=self.config.number_of_files_to_sample,
+            )
+        else:  # workload_identity_federation
+            wif_options = [
+                self.config.gcp_wif_configuration,
+                self.config.gcp_wif_configuration_json,
+                self.config.gcp_wif_configuration_json_string,
+            ]
+            if not any(wif_options):
+                raise ValueError(
+                    "One of gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string is required when auth_type is 'workload_identity_federation'"
+                )
+
+            # For workload identity federation, we don't use HMAC credentials
+            # The authentication will be handled by the Google Cloud client libraries
+            # using the GOOGLE_APPLICATION_CREDENTIALS environment variable
+            self._setup_wif_credentials()
+
+            s3_config = DataLakeSourceConfig(
+                path_specs=s3_path_specs,
+                aws_config=AwsConnectionConfig(
+                    aws_endpoint_url="https://storage.googleapis.com",
+                    aws_region="auto",
+                ),
+                env=self.config.env,
+                max_rows=self.config.max_rows,
+                number_of_files_to_sample=self.config.number_of_files_to_sample,
+            )
+
         return s3_config
 
     def create_equivalent_s3_path_specs(self):
@@ -174,4 +356,19 @@ class GCSSource(StatefulIngestionSourceBase):
         return self.s3_source.get_workunits_internal()
 
     def get_report(self):
+        # Clean up temporary files before returning the report
+        self._cleanup_temp_files()
         return self.report
+
+    def close(self) -> None:
+        """Clean up resources when the source is closed."""
+        self._cleanup_temp_files()
+        super().close()
+
+    def __del__(self):
+        """Destructor to ensure cleanup even if close() is not called explicitly."""
+        try:
+            self._cleanup_temp_files()
+        except Exception:
+            # Ignore errors during destruction
+            pass
