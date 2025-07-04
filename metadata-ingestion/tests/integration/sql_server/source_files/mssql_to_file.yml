@@ -13,6 +13,9 @@ source:
     # uri_args:
     #   driver: "ODBC Driver 17 for SQL Server"
     convert_urns_to_lowercase: true
+    schema_pattern:
+      deny:
+        - .*John.*
 
 sink:
   type: file
