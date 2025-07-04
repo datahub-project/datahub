@@ -289,6 +289,7 @@ project.ext.externalDependency = [
     'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.27',
     'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
+    'k8': 'io.fabric8:kubernetes-client:7.3.1',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,

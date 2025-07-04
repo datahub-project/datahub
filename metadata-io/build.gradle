@@ -66,6 +66,7 @@ dependencies {
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
+  implementation(externalDependency.k8)
 
   annotationProcessor externalDependency.lombok
 
