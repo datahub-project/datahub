@@ -6,14 +6,11 @@ import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
+import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
-import {
-    CONNECTORS_WITH_TEST_CONNECTION,
-    RECIPE_FIELDS,
-    RecipeSections,
-} from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
@@ -125,6 +122,7 @@ function RecipeForm(props: Props) {
     const secrets =
         data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
+    const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
@@ -167,7 +165,7 @@ function RecipeForm(props: Props) {
                             updateFormValue={updateFormValue}
                         />
                     ))}
-                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
+                    {getConnectorsWithTestConnectionFromHook().has(type as string) && (
                         <TestConnectionWrapper>
                             <TestConnectionButton
                                 recipe={displayRecipe}

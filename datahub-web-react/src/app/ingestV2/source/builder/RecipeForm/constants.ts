@@ -1,3 +1,4 @@
+import { capabilitySummaryManager } from '@app/ingestV2/shared/capabilitySummary';
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -588,23 +589,10 @@ export const RECIPE_FIELDS: RecipeFields = {
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
-    SNOWFLAKE,
-    LOOKER,
-    BIGQUERY,
-    UNITY_CATALOG,
-    SAC,
-    MYSQL,
-    POSTGRES,
-    REDSHIFT,
-    MSSQL,
-    MARIADB,
-    TRINO,
-    PRESTO,
-    HIVE,
-    TABLEAU,
-    KAFKA,
-    DBT_CLOUD,
-    POWER_BI,
-    VERTICA,
-]);
+capabilitySummaryManager.fetchCapabilitySummary().catch((error) => {
+    console.warn('Failed to fetch capability summary for test connection detection:', error);
+});
+
+export const getConnectorsWithTestConnection = (): Set<string> => {
+    return capabilitySummaryManager.getConnectorsWithTestConnection();
+};
