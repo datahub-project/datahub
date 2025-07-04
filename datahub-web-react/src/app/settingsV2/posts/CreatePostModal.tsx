@@ -1,4 +1,4 @@
-import { Form, Modal, message } from 'antd';
+import { Form, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import CreatePostForm from '@app/settingsV2/posts/CreatePostForm';
@@ -13,7 +13,7 @@ import {
 } from '@app/settingsV2/posts/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';

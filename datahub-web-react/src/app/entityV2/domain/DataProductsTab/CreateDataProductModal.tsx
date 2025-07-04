@@ -1,4 +1,5 @@
-import { Button, Modal, message } from 'antd';
+import { Modal } from '@components';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
@@ -65,16 +66,19 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}
             open
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" onClick={createDataProduct} disabled={!builderState.name}>
-                        Create
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    onClick: createDataProduct,
+                    variant: 'filled',
+                    disabled: !builderState.name,
+                },
+            ]}
         >
             <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
         </Modal>

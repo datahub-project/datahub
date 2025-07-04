@@ -1,25 +1,15 @@
-import { Form, Input, Modal, Typography, message, notification } from 'antd';
+import { Form, Input, Typography, message, notification } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { OwnershipTypeBuilderState } from '@app/entityV2/ownership/table/types';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
 
 const NAME_INPUT_TEST_ID = 'ownership-type-name-input';
 const DESCRIPTION_INPUT_TEST_ID = 'ownership-type-description-input';
-
-const TitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const TitleText = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 700;
-`;
 
 const FormItemContainer = styled.div`
     display: flex;
@@ -165,16 +155,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
     const onUpsert = ownershipType ? onUpdateOwnershipType : onCreateOwnershipType;
     const titleText = ownershipType ? 'Edit Ownership Type' : 'Create Ownership Type';
     return (
-        <Modal
-            open={isOpen}
-            onCancel={onClose}
-            title={
-                <TitleContainer>
-                    <TitleText>{titleText}</TitleText>
-                </TitleContainer>
-            }
-            footer={null}
-        >
+        <Modal open={isOpen} onCancel={onClose} title={titleText}>
             <Form form={form}>
                 <FormItemContainer>
                     <FormItemTitle>Name</FormItemTitle>
