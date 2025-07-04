@@ -20,65 +20,6 @@ def test_client(graph_client: DataHubGraph) -> DataHubClient:
     return DataHubClient(graph=graph_client)
 
 
-@pytest.fixture(scope="module")
-def test_datasets(
-    test_client: DataHubClient,
-) -> Generator[Dict[str, Dataset], None, None]:
-    datasets = {
-        "upstream": Dataset(
-            platform="snowflake",
-            name="test_lineage_upstream_001",
-            schema=[("name", "string"), ("id", "int")],
-        ),
-        "downstream1": Dataset(
-            platform="snowflake",
-            name="test_lineage_downstream_001",
-            schema=[("name", "string"), ("id", "int")],
-        ),
-        "downstream2": Dataset(
-            platform="snowflake",
-            name="test_lineage_downstream_002",
-            schema=[("name", "string"), ("id", "int")],
-        ),
-        "downstream3": Dataset(
-            platform="mysql",
-            name="test_lineage_downstream_003",
-            schema=[("name", "string"), ("id", "int")],
-        ),
-    }
-    try:
-        for entity in datasets.values():
-            test_client._graph.delete_entity(str(entity.urn), hard=True)
-        for entity in datasets.values():
-            test_client.entities.upsert(entity)
-        test_client.lineage.add_lineage(
-            upstream=str(datasets["upstream"].urn),
-            downstream=str(datasets["downstream1"].urn),
-            column_lineage=True,
-        )
-        test_client.lineage.add_lineage(
-            upstream=str(datasets["downstream1"].urn),
-            downstream=str(datasets["downstream2"].urn),
-            column_lineage=True,
-        )
-        test_client.lineage.add_lineage(
-            upstream=str(datasets["downstream2"].urn),
-            downstream=str(datasets["downstream3"].urn),
-            column_lineage=True,
-        )
-        wait_for_writes_to_sync()
-        time.sleep(5)
-
-        yield datasets
-
-    finally:
-        for entity in datasets.values():
-            try:
-                test_client._graph.delete_entity(str(entity.urn), hard=True)
-            except Exception as e:
-                logger.warning(f"Could not delete entity {entity.urn}: {e}")
-
-
 def robust_lineage_retrieval(
     test_client: DataHubClient,
     source_urn: str,
@@ -112,6 +53,67 @@ def robust_lineage_retrieval(
         f"Failed to retrieve lineage results after {max_retries} attempts. "
         "Possible synchronization or infrastructure issues."
     )
+
+
+@pytest.fixture(scope="module")
+def test_datasets(
+    test_client: DataHubClient,
+) -> Generator[Dict[str, Dataset], None, None]:
+    datasets = {
+        "upstream": Dataset(
+            platform="snowflake",
+            name="test_lineage_upstream_001",
+            schema=[("name", "string"), ("id", "int")],
+        ),
+        "downstream1": Dataset(
+            platform="snowflake",
+            name="test_lineage_downstream_001",
+            schema=[("name", "string"), ("id", "int")],
+        ),
+        "downstream2": Dataset(
+            platform="snowflake",
+            name="test_lineage_downstream_002",
+            schema=[("name", "string"), ("id", "int")],
+        ),
+        "downstream3": Dataset(
+            platform="mysql",
+            name="test_lineage_downstream_003",
+            schema=[("name", "string"), ("id", "int")],
+        ),
+    }
+
+    for entity in datasets.values():
+        test_client._graph.delete_entity(str(entity.urn), hard=True)
+    for entity in datasets.values():
+        test_client.entities.upsert(entity)
+
+    # Add lineage
+    test_client.lineage.add_lineage(
+        upstream=str(datasets["upstream"].urn),
+        downstream=str(datasets["downstream1"].urn),
+        column_lineage=True,
+    )
+    test_client.lineage.add_lineage(
+        upstream=str(datasets["downstream1"].urn),
+        downstream=str(datasets["downstream2"].urn),
+        column_lineage=True,
+    )
+    test_client.lineage.add_lineage(
+        upstream=str(datasets["downstream2"].urn),
+        downstream=str(datasets["downstream3"].urn),
+        column_lineage=True,
+    )
+
+    wait_for_writes_to_sync()
+
+    yield datasets
+
+    # Cleanup
+    for entity in datasets.values():
+        try:
+            test_client._graph.delete_entity(str(entity.urn), hard=True)
+        except Exception as e:
+            raise Exception(f"Could not delete entity {entity.urn}: {e}")
 
 
 def validate_lineage_results(
