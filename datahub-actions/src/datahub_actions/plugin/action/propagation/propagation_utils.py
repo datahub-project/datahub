@@ -19,7 +19,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from pydantic import field_validator, Field, BaseModel
+from pydantic import BaseModel, Field, field_validator
 from ratelimit import limits, sleep_and_retry
 
 import datahub.metadata.schema_classes as models
@@ -129,7 +129,7 @@ class SourceDetails(BaseModel):
         Metadata Attribution MCPs.
         """
         result = {}
-        for k, v in self.dict(exclude_none=True).items():
+        for k, v in self.model_dump(exclude_none=True).items():
             if isinstance(v, Enum):
                 result[k] = v.value  # Use the enum's value
             elif isinstance(v, int):
