@@ -145,6 +145,7 @@ const ManageTags = () => {
                 size="md"
                 color="violet"
                 icon={{ icon: 'Plus', source: 'phosphor' }}
+                data-testid="add-tag-button"
             >
                 Create Tag
             </Button>
