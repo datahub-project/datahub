@@ -1,8 +1,11 @@
 import logging
+import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
+from threading import Lock
 from typing import (
     Any,
     Dict,
@@ -63,6 +66,53 @@ from datahub.utilities.groupby import groupby_unsorted
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Common excluded databases used in multiple places
+EXCLUDED_DATABASES = [
+    "All",
+    "Crashdumps",
+    "Default",
+    "DemoNow_Monitor",
+    "EXTUSER",
+    "External_AP",
+    "GLOBAL_FUNCTIONS",
+    "LockLogShredder",
+    "PUBLIC",
+    "SQLJ",
+    "SYSBAR",
+    "SYSJDBC",
+    "SYSLIB",
+    "SYSSPATIAL",
+    "SYSUDTLIB",
+    "SYSUIF",
+    "SysAdmin",
+    "Sys_Calendar",
+    "SystemFe",
+    "TDBCMgmt",
+    "TDMaps",
+    "TDPUSER",
+    "TDQCD",
+    "TDStats",
+    "TD_ANALYTICS_DB",
+    "TD_SERVER_DB",
+    "TD_SYSFNLIB",
+    "TD_SYSGPL",
+    "TD_SYSXML",
+    "TDaaS_BAR",
+    "TDaaS_DB",
+    "TDaaS_Maint",
+    "TDaaS_Monitor",
+    "TDaaS_Support",
+    "TDaaS_TDBCMgmt1",
+    "TDaaS_TDBCMgmt2",
+    "dbcmngr",
+    "mldb",
+    "system",
+    "tapidb",
+    "tdwm",
+    "val",
+    "dbc",
+]
+
 register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.INTERVAL_DAY, TimeTypeClass)
 register_custom_type(custom_types.INTERVAL_DAY_TO_SECOND, TimeTypeClass)
@@ -99,7 +149,8 @@ class TeradataTable:
     request_text: Optional[str]
 
 
-# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+# Cache size of 1 is sufficient since schemas are processed sequentially
+# Note: This cache is per-process and helps when processing multiple tables in the same schema
 @lru_cache(maxsize=1)
 def get_schema_columns(
     self: Any, connection: Connection, dbc_columns: str, schema: str
@@ -117,7 +168,8 @@ def get_schema_columns(
     return columns
 
 
-# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+# Cache size of 1 is sufficient since schemas are processed sequentially
+# Note: This cache is per-process and helps when processing multiple tables in the same schema
 @lru_cache(maxsize=1)
 def get_schema_pk_constraints(
     self: Any, connection: Connection, schema: str
@@ -171,6 +223,10 @@ def optimized_get_pk_constraint(
         index_name = self.normalize_name(
             index_column.IndexName
         )  # There should be just one IndexName
+
+        # Update counter if available
+        if hasattr(self, "report"):
+            self.report.num_primary_keys_processed += 1
 
     return {"constrained_columns": index_columns, "name": index_name}
 
@@ -228,23 +284,55 @@ def optimized_get_columns(
             table_name, []
         )
 
+    start_time = time.time()
+
     final_column_info = []
     # Don't care about ART tables now
     # Ignore the non-functional column in a PTI table
     for row in res:
-        col_info = self._get_column_info(row)
-        if "TSColumnType" in col_info and col_info["TSColumnType"] is not None:
-            if (
-                col_info["ColumnName"] == "TD_TIMEBUCKET"
-                and col_info["TSColumnType"].strip() == "TB"
+        try:
+            col_info = self._get_column_info(row)
+
+            # Add CommentString as comment field for column description
+            if hasattr(row, "CommentString") and row.CommentString:
+                col_info["comment"] = row.CommentString.strip()
+            elif (
+                isinstance(row, dict)
+                and "CommentString" in row
+                and row["CommentString"]
             ):
-                continue
-        final_column_info.append(col_info)
+                col_info["comment"] = row["CommentString"].strip()
+
+            if "TSColumnType" in col_info and col_info["TSColumnType"] is not None:
+                if (
+                    col_info["ColumnName"] == "TD_TIMEBUCKET"
+                    and col_info["TSColumnType"].strip() == "TB"
+                ):
+                    continue
+            final_column_info.append(col_info)
+
+            # Update counter - access report through self from the connection context
+            if hasattr(self, "report"):
+                self.report.num_columns_processed += 1
+
+        except Exception as e:
+            logger.error(
+                f"Failed to process column {getattr(row, 'ColumnName', 'unknown')}: {e}"
+            )
+            if hasattr(self, "report"):
+                self.report.num_column_extraction_failures += 1
+            continue
+
+    # Update timing
+    if hasattr(self, "report"):
+        end_time = time.time()
+        self.report.column_extraction_duration_seconds += end_time - start_time
 
     return final_column_info
 
 
-# lru cache is set to 1 which work only in single threaded environment but it keeps the memory footprint lower
+# Cache size of 1 is sufficient since schemas are processed sequentially
+# Note: This cache is per-process and helps when processing multiple tables in the same schema
 @lru_cache(maxsize=1)
 def get_schema_foreign_keys(
     self: Any, connection: Connection, schema: str
@@ -337,6 +425,8 @@ class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport
     num_queries_parsed: int = 0
     num_view_ddl_parsed: int = 0
     num_table_parse_failures: int = 0
+    num_views_processed: int = 0
+    num_view_processing_failures: int = 0
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -353,53 +443,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
     database_pattern = Field(
-        default=AllowDenyPattern(
-            deny=[
-                "All",
-                "Crashdumps",
-                "Default",
-                "DemoNow_Monitor",
-                "EXTUSER",
-                "External_AP",
-                "GLOBAL_FUNCTIONS",
-                "LockLogShredder",
-                "PUBLIC",
-                "SQLJ",
-                "SYSBAR",
-                "SYSJDBC",
-                "SYSLIB",
-                "SYSSPATIAL",
-                "SYSUDTLIB",
-                "SYSUIF",
-                "SysAdmin",
-                "Sys_Calendar",
-                "SystemFe",
-                "TDBCMgmt",
-                "TDMaps",
-                "TDPUSER",
-                "TDQCD",
-                "TDStats",
-                "TD_ANALYTICS_DB",
-                "TD_SERVER_DB",
-                "TD_SYSFNLIB",
-                "TD_SYSGPL",
-                "TD_SYSXML",
-                "TDaaS_BAR",
-                "TDaaS_DB",
-                "TDaaS_Maint",
-                "TDaaS_Monitor",
-                "TDaaS_Support",
-                "TDaaS_TDBCMgmt1",
-                "TDaaS_TDBCMgmt2",
-                "dbcmngr",
-                "mldb",
-                "system",
-                "tapidb",
-                "tdwm",
-                "val",
-                "dbc",
-            ]
-        ),
+        default=AllowDenyPattern(deny=EXCLUDED_DATABASES),
         description="Regex patterns for databases to filter in ingestion.",
     )
     include_table_lineage = Field(
@@ -436,6 +480,51 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     use_qvci: bool = Field(
         default=False,
         description="Whether to use QVCI to get column information. This is faster but requires to have QVCI enabled.",
+    )
+
+    include_historical_lineage: bool = Field(
+        default=False,
+        description="Whether to include historical lineage data from PDCRDATA.DBQLSqlTbl_Hst in addition to current DBC.QryLogV data. "
+        "This provides access to historical query logs that may have been archived. "
+        "The historical table existence is checked automatically and gracefully falls back to current data only if not available.",
+    )
+
+    lineage_processing_workers: int = Field(
+        default=1,
+        description="Number of worker threads to use for parallel SQL parsing during lineage processing. "
+        "Uses single database query followed by parallel SQL parsing (no additional DB connections). "
+        "Set to 1 for single-threaded processing. Higher values can significantly improve performance "
+        "for large volumes of lineage queries without increasing database load.",
+    )
+
+    lineage_batch_size: int = Field(
+        default=1000,
+        description="Number of SQL statements to parse in each batch when using multi-threading. "
+        "Only used when lineage_processing_workers > 1. "
+        "Larger batches reduce threading overhead but may increase memory usage.",
+    )
+
+    view_processing_workers: int = Field(
+        default=1,
+        description="Number of worker threads to use for parallel view processing. "
+        "Multi-threading is currently EXPERIMENTAL and may cause stability issues. "
+        "Set to 1 (default) for stable single-threaded processing. "
+        "Higher values can improve performance but may increase database load and cause crashes.",
+    )
+
+    view_batch_size: int = Field(
+        default=50,
+        description="Number of views to process in each batch when using multi-threading. "
+        "Only used when view_processing_workers > 1. "
+        "Smaller batches are recommended for view processing due to the overhead of help commands.",
+    )
+
+    enable_experimental_threading: bool = Field(
+        default=False,
+        description="Enable multi-threading features for lineage and view processing. "
+        "Lineage processing uses optimized approach with single DB query + parallel SQL parsing. "
+        "View processing may still have stability issues due to help command execution. "
+        "Required when lineage_processing_workers > 1 or view_processing_workers > 1.",
     )
 
 
@@ -503,7 +592,88 @@ class TeradataSource(TwoTierSQLAlchemySource):
     ORDER BY "query_id", "row_no"
     """.strip()
 
-    TABLES_AND_VIEWS_QUERY: str = """
+    QUERY_TEXT_QUERY_WITH_HISTORY: str = """
+    SELECT
+        s.QueryID as "query_id",
+        UserName as "user",
+        StartTime AT TIME ZONE 'GMT' as "timestamp",
+        DefaultDatabase as default_database,
+        s.SqlTextInfo as "query_text",
+        s.SqlRowNo as "row_no"
+    FROM "DBC".QryLogV as l
+    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
+    WHERE
+        l.ErrorCode = 0
+        AND l.statementtype not in (
+        'Unrecognized type',
+        'Create Database/User',
+        'Help',
+        'Modify Database',
+        'Drop Table',
+        'Show',
+        'Not Applicable',
+        'Grant',
+        'Abort',
+        'Database',
+        'Flush Query Logging',
+        'Null',
+        'Begin/End DBQL',
+        'Revoke'
+    )
+        and "timestamp" >= TIMESTAMP '{start_time}'
+        and "timestamp" < TIMESTAMP '{end_time}'
+        and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
+        and default_database not in ('DEMONOW_MONITOR')
+        {databases_filter}
+    UNION ALL
+    SELECT
+        h.QueryID as "query_id",
+        h.UserName as "user",
+        h.StartTime AT TIME ZONE 'GMT' as "timestamp",
+        h.DefaultDatabase as default_database,
+        h.SqlTextInfo as "query_text",
+        h.SqlRowNo as "row_no"
+    FROM "PDCRDATA".DBQLSqlTbl_Hst as h
+    WHERE
+        h.ErrorCode = 0
+        AND h.statementtype not in (
+        'Unrecognized type',
+        'Create Database/User',
+        'Help',
+        'Modify Database',
+        'Drop Table',
+        'Show',
+        'Not Applicable',
+        'Grant',
+        'Abort',
+        'Database',
+        'Flush Query Logging',
+        'Null',
+        'Begin/End DBQL',
+        'Revoke'
+    )
+        and h.StartTime AT TIME ZONE 'GMT' >= TIMESTAMP '{start_time}'
+        and h.StartTime AT TIME ZONE 'GMT' < TIMESTAMP '{end_time}'
+        and h.CollectTimeStamp >= TIMESTAMP '{start_time}'
+        and h.DefaultDatabase not in ('DEMONOW_MONITOR')
+        {databases_filter_history}
+    ORDER BY "query_id", "row_no"
+    """.strip()
+
+    LINEAGE_TIMESTAMP_BOUND_QUERY_WITH_HISTORY: str = """
+    SELECT 
+        MIN("min_ts") as "min_ts", 
+        MAX("max_ts") as "max_ts" 
+    FROM (
+        SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" 
+        FROM DBC.QryLogV
+        UNION ALL
+        SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" 
+        FROM PDCRDATA.DBQLSqlTbl_Hst
+    ) combined_timestamps
+    """.strip()
+
+    TABLES_AND_VIEWS_QUERY: str = f"""
 SELECT
     t.DataBaseName,
     t.TableName as name,
@@ -521,51 +691,7 @@ SELECT
     t.LastAlterTimeStamp,
     t.RequestText
 FROM dbc.TablesV t
-WHERE DataBaseName NOT IN (
-                'All',
-                'Crashdumps',
-                'Default',
-                'DemoNow_Monitor',
-                'EXTUSER',
-                'External_AP',
-                'GLOBAL_FUNCTIONS',
-                'LockLogShredder',
-                'PUBLIC',
-                'SQLJ',
-                'SYSBAR',
-                'SYSJDBC',
-                'SYSLIB',
-                'SYSSPATIAL',
-                'SYSUDTLIB',
-                'SYSUIF',
-                'SysAdmin',
-                'Sys_Calendar',
-                'SystemFe',
-                'TDBCMgmt',
-                'TDMaps',
-                'TDPUSER',
-                'TDQCD',
-                'TDStats',
-                'TD_ANALYTICS_DB',
-                'TD_SERVER_DB',
-                'TD_SYSFNLIB',
-                'TD_SYSGPL',
-                'TD_SYSXML',
-                'TDaaS_BAR',
-                'TDaaS_DB',
-                'TDaaS_Maint',
-                'TDaaS_Monitor',
-                'TDaaS_Support',
-                'TDaaS_TDBCMgmt1',
-                'TDaaS_TDBCMgmt2',
-                'dbcmngr',
-                'mldb',
-                'system',
-                'tapidb',
-                'tdwm',
-                'val',
-                'dbc'
-)
+WHERE DataBaseName NOT IN ({",".join([f"'{db}'" for db in EXCLUDED_DATABASES])})
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
      """.strip()
@@ -577,14 +703,15 @@ ORDER by DataBaseName, TableName;
 
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
+        self._report_lock = Lock()  # Thread safety for report counters
 
         self.builder: SqlParsingBuilder = SqlParsingBuilder(
-            usage_config=(
-                self.config.usage if self.config.include_usage_statistics else None
-            ),
+            usage_config=self.config.usage,  # Always pass usage config
             generate_lineage=True,
             generate_usage_statistics=self.config.include_usage_statistics,
-            generate_operations=self.config.usage.include_operational_stats,
+            generate_operations=self.config.usage.include_operational_stats
+            if self.config.include_usage_statistics
+            else False,
         )
 
         self.schema_resolver = self._init_schema_resolver()
@@ -790,17 +917,198 @@ ORDER by DataBaseName, TableName;
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        view_names = [
+            i.name
+            for i in filter(
+                lambda t: t.object_type == "View", self._tables_cache[schema]
+            )
+        ]
+
         setattr(  # noqa: B010
             inspector,
             "get_view_names",
-            lambda schema: [
-                i.name
-                for i in filter(
-                    lambda t: t.object_type == "View", self._tables_cache[schema]
-                )
-            ],
+            lambda schema: view_names,
         )
-        yield from super().loop_views(inspector, schema, sql_config)
+
+        # Check if we should use multi-threading for view processing
+        # Only use multi-threading when explicitly enabled and help commands are needed (not using QVCI)
+        if (
+            self.config.view_processing_workers > 1
+            and self.config.enable_experimental_threading
+            and not self.config.use_qvci
+            and len(view_names) > 1
+        ):
+            logger.warning(
+                "Using EXPERIMENTAL multi-threaded view processing. "
+                "This may cause crashes and is not recommended for production."
+            )
+            yield from self._loop_views_multi_threaded(
+                inspector, schema, sql_config, view_names
+            )
+        else:
+            if (
+                self.config.view_processing_workers > 1
+                and not self.config.enable_experimental_threading
+            ):
+                logger.info(
+                    "Multi-threaded view processing requested but experimental threading not enabled. "
+                    "Using single-threaded processing. Set enable_experimental_threading=true to enable."
+                )
+            for work_unit in super().loop_views(inspector, schema, sql_config):
+                # Count processed views in single-threaded mode
+                with self._report_lock:
+                    self.report.num_views_processed += 1
+                    if self.report.num_views_processed % 10 == 0:
+                        logger.info(f"Processed {self.report.num_views_processed} views")
+                yield work_unit
+
+    def _loop_views_multi_threaded(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLCommonConfig,
+        view_names: List[str],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """Multi-threaded view processing to parallelize help command execution."""
+        logger.info(
+            f"Using {self.config.view_processing_workers} worker threads for view processing"
+        )
+
+        total_views = len(view_names)
+        logger.info(
+            f"Processing {total_views} views in schema '{schema}' with multi-threading"
+        )
+
+        if not view_names:
+            return
+
+        # Group views into batches
+        batch_size = self.config.view_batch_size
+        view_batches = [
+            view_names[i : i + batch_size]
+            for i in range(0, len(view_names), batch_size)
+        ]
+
+        logger.info(
+            f"Processing {len(view_batches)} view batches with {self.config.view_processing_workers} workers"
+        )
+
+        def process_view_batch(
+            batch_info: Tuple[int, List[str]],
+        ) -> Tuple[int, List[Union[SqlWorkUnit, MetadataWorkUnit]]]:
+            """Process a batch of views with improved thread safety."""
+            batch_idx, view_batch = batch_info
+            work_units = []
+
+            # Create a new engine connection for this thread
+            thread_engine = self.get_metadata_engine()
+
+            try:
+                with thread_engine.connect() as connection:
+                    # Create a thread-local inspector
+                    thread_inspector = inspect(connection)
+                    thread_inspector._datahub_database = getattr(  # type: ignore[attr-defined]
+                        inspector, "_datahub_database", None
+                    )
+
+                    # Set view names for this batch
+                    setattr(  # noqa: B010
+                        thread_inspector,
+                        "get_view_names",
+                        lambda schema: view_batch,
+                    )
+
+                    for view_name in view_batch:
+                        try:
+                            # Process single view using parent method logic
+                            # Note: _process_view requires dataset_name as first parameter
+                            dataset_name = self.get_identifier(
+                                schema=schema,
+                                entity=view_name,
+                                inspector=thread_inspector,
+                            )
+                            for work_unit in self._process_view(
+                                dataset_name,
+                                thread_inspector,
+                                schema,
+                                view_name,
+                                sql_config,
+                            ):
+                                work_units.append(work_unit)
+
+                            # Thread-safe counter update
+                            with self._report_lock:
+                                if hasattr(self.report, "num_views_processed"):
+                                    self.report.num_views_processed += 1
+                                    current_count = self.report.num_views_processed
+                                else:
+                                    # Initialize counter if it doesn't exist
+                                    self.report.num_views_processed = 1
+                                    current_count = 1
+
+                            if current_count % 10 == 0:
+                                logger.info(f"Processed {current_count} views")
+
+                        except Exception as e:
+                            logger.error(
+                                f"Error processing view {view_name} in batch {batch_idx}: {e}"
+                            )
+                            with self._report_lock:
+                                if hasattr(self.report, "num_view_processing_failures"):
+                                    self.report.num_view_processing_failures += 1
+                                else:
+                                    self.report.num_view_processing_failures = 1
+                            continue
+
+            except Exception as e:
+                logger.error(f"Error in view batch {batch_idx} processing: {e}")
+            finally:
+                # Ensure engine is properly disposed
+                thread_engine.dispose()
+
+            return batch_idx, work_units
+
+        # Process batches in parallel using ThreadPoolExecutor
+        with ThreadPoolExecutor(
+            max_workers=self.config.view_processing_workers
+        ) as executor:
+            # Submit all batches to the thread pool with batch index
+            future_to_batch = {
+                executor.submit(process_view_batch, (i, batch)): i
+                for i, batch in enumerate(view_batches)
+            }
+
+            # Collect results as they complete
+            completed_batches = {}
+            for future in as_completed(future_to_batch):
+                original_batch_idx = future_to_batch[future]
+                try:
+                    batch_idx, work_units = future.result()
+                    completed_batches[batch_idx] = work_units
+                    logger.debug(
+                        f"Completed view batch {batch_idx + 1}/{len(view_batches)} with {len(work_units)} work units"
+                    )
+
+                except Exception as e:
+                    logger.error(
+                        f"Error processing view batch {original_batch_idx}: {e}"
+                    )
+                    with self._report_lock:
+                        if hasattr(self.report, "num_view_processing_failures"):
+                            self.report.num_view_processing_failures += 1
+                        else:
+                            self.report.num_view_processing_failures = 1
+                    completed_batches[
+                        original_batch_idx
+                    ] = []  # Empty result for failed batch
+
+            # Yield results in original order to maintain consistency
+            for i in range(len(view_batches)):
+                if i in completed_batches:
+                    for work_unit in completed_batches[i]:
+                        yield work_unit
+
+        logger.info(f"Completed multi-threaded view processing of {total_views} views")
 
     def cache_tables_and_views(self) -> None:
         engine = self.get_metadata_engine()
@@ -825,11 +1133,39 @@ ORDER by DataBaseName, TableName;
             self._tables_cache[table.database].append(table)
 
     def get_audit_log_mcps(self, urns: Set[str]) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract lineage metadata from audit logs with optional multi-threading support.
+        Uses optimized approach: single DB query + parallel SQL parsing.
+        """
+        if (
+            self.config.lineage_processing_workers <= 1
+            or not self.config.enable_experimental_threading
+        ):
+            if (
+                self.config.lineage_processing_workers > 1
+                and not self.config.enable_experimental_threading
+            ):
+                logger.info(
+                    "Multi-threaded lineage processing requested but threading not enabled. "
+                    "Using single-threaded processing. Set enable_experimental_threading=true to enable."
+                )
+            yield from self._get_audit_log_mcps_single_threaded(urns)
+        else:
+            logger.info(
+                "Using optimized multi-threaded lineage processing: single DB query + parallel SQL parsing."
+            )
+            yield from self._get_audit_log_mcps_multi_threaded(urns)
+
+    def _get_audit_log_mcps_single_threaded(
+        self, urns: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Single-threaded lineage extraction (original implementation)."""
         engine = self.get_metadata_engine()
         for entry in engine.execute(self._make_lineage_query()):
-            self.report.num_queries_parsed += 1
-            if self.report.num_queries_parsed % 1000 == 0:
-                logger.info(f"Parsed {self.report.num_queries_parsed} queries")
+            with self._report_lock:
+                self.report.num_queries_parsed += 1
+                if self.report.num_queries_parsed % 1000 == 0:
+                    logger.info(f"Parsed {self.report.num_queries_parsed} queries")
 
             yield from self.gen_lineage_from_query(
                 query=entry.query_text,
@@ -838,6 +1174,238 @@ ORDER by DataBaseName, TableName;
                 user=entry.user,
                 urns=urns,
             )
+
+    def _get_audit_log_mcps_multi_threaded(
+        self, urns: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Optimized multi-threaded lineage extraction with chunked database fetching."""
+        logger.info(
+            f"Using {self.config.lineage_processing_workers} worker threads for lineage processing"
+        )
+
+        # Step 1: Fetch SQL statements in chunks to avoid connection timeouts
+        logger.info("Fetching lineage queries from database in chunks...")
+        try:
+            lineage_entries = list(self._fetch_lineage_entries_chunked())
+        except Exception as e:
+            logger.error(f"Failed to fetch lineage entries: {e}")
+            logger.info("Falling back to single-threaded processing...")
+            yield from self._get_audit_log_mcps_single_threaded(urns)
+            return
+
+        total_queries = len(lineage_entries)
+        logger.info(
+            f"Retrieved {total_queries} lineage queries for parallel processing"
+        )
+
+        if not lineage_entries:
+            return
+
+        # Step 2: Group SQL statements into batches for parallel processing
+        batch_size = self.config.lineage_batch_size
+        batches = [
+            lineage_entries[i : i + batch_size]
+            for i in range(0, len(lineage_entries), batch_size)
+        ]
+
+        logger.info(
+            f"Processing {len(batches)} batches with {self.config.lineage_processing_workers} workers"
+        )
+
+        def process_sql_batch(
+            batch_info: Tuple[int, List[Any]],
+        ) -> Tuple[int, List[MetadataWorkUnit]]:
+            """Process a batch of SQL statements with thread isolation."""
+            batch_idx, batch_entries = batch_info
+            work_units = []
+
+            # Create completely isolated thread-local instances
+            try:
+                # Create thread-local schema resolver copy
+                thread_schema_resolver = SchemaResolver(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+
+                # Create thread-local SQL parsing builder
+                thread_builder = SqlParsingBuilder(
+                    usage_config=self.config.usage,  # Always pass usage config, even if not generating stats
+                    generate_lineage=True,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    generate_operations=self.config.usage.include_operational_stats
+                    if self.config.include_usage_statistics
+                    else False,
+                )
+
+                for entry in batch_entries:
+                    try:
+                        # Thread-safe counter update
+                        with self._report_lock:
+                            self.report.num_queries_parsed += 1
+                            current_count = self.report.num_queries_parsed
+
+                        if current_count % 1000 == 0:
+                            logger.info(f"Parsed {current_count} queries")
+
+                        # Use thread-local schema resolver for lineage parsing
+                        result = sqlglot_lineage(
+                            sql=str(entry.query_text).replace("(NOT CASESPECIFIC)", ""),
+                            schema_resolver=thread_schema_resolver,  # Use thread-local schema resolver
+                            default_db=None,
+                            default_schema=str(entry.default_database)
+                            if entry.default_database
+                            else self.config.default_db,
+                        )
+
+                        if not result.debug_info.table_error:
+                            # Process with thread-local builder
+                            lineage_work_units = list(
+                                thread_builder.process_sql_parsing_result(
+                                    result,
+                                    query=str(entry.query_text),
+                                    is_view_ddl=False,
+                                    query_timestamp=entry.timestamp,
+                                    user=f"urn:li:corpuser:{entry.user}"
+                                    if entry.user
+                                    else None,
+                                    include_urns=urns,
+                                )
+                            )
+                            work_units.extend(lineage_work_units)
+                        else:
+                            with self._report_lock:
+                                self.report.num_table_parse_failures += 1
+
+                    except Exception as e:
+                        logger.debug(f"Error parsing SQL in batch {batch_idx}: {e}")
+                        with self._report_lock:
+                            self.report.num_table_parse_failures += 1
+                        continue
+
+            except Exception as e:
+                logger.error(f"Error in SQL parsing batch {batch_idx}: {e}")
+                with self._report_lock:
+                    self.report.num_table_parse_failures += 1
+
+            return batch_idx, work_units
+
+        # Step 3: Process SQL statements in parallel (using shared schema resolver)
+        try:
+            with ThreadPoolExecutor(
+                max_workers=self.config.lineage_processing_workers,
+                thread_name_prefix="lineage_worker",
+            ) as executor:
+                future_to_batch = {
+                    executor.submit(process_sql_batch, (i, batch)): i
+                    for i, batch in enumerate(batches)
+                }
+
+                # Collect results in order
+                completed_batches = {}
+                for future in as_completed(future_to_batch):
+                    original_batch_idx = future_to_batch[future]
+                    try:
+                        batch_idx, work_units = future.result(
+                            timeout=300
+                        )  # 5 minute timeout per batch
+                        completed_batches[batch_idx] = work_units
+                        logger.debug(
+                            f"Completed SQL parsing batch {batch_idx + 1}/{len(batches)} with {len(work_units)} work units"
+                        )
+
+                    except Exception as e:
+                        logger.error(
+                            f"Error processing SQL parsing batch {original_batch_idx}: {e}"
+                        )
+                        with self._report_lock:
+                            self.report.num_table_parse_failures += 1
+                        completed_batches[original_batch_idx] = []
+
+                # Yield results in original order
+                for i in range(len(batches)):
+                    if i in completed_batches:
+                        for work_unit in completed_batches[i]:
+                            yield work_unit
+
+        except Exception as e:
+            logger.error(f"Critical error in multi-threaded lineage processing: {e}")
+            logger.info("Falling back to single-threaded processing...")
+            yield from self._get_audit_log_mcps_single_threaded(urns)
+            return
+
+        logger.info(
+            f"Completed optimized multi-threaded lineage processing of {total_queries} queries"
+        )
+
+    def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
+        """Fetch lineage entries using server-side cursor to handle large result sets efficiently."""
+        base_query = self._make_lineage_query()
+
+        fetch_engine = self.get_metadata_engine()
+        try:
+            with fetch_engine.connect() as conn:
+                logger.info("Executing lineage query with server-side cursor...")
+
+                # Use server-side cursor for streaming large result sets
+                # This avoids loading all data into memory at once
+                result = conn.execute(text(base_query))
+
+                # Stream results in batches to avoid memory issues
+                batch_size = 5000
+                batch_count = 0
+                total_count = 0
+
+                while True:
+                    # Fetch a batch of rows
+                    batch = result.fetchmany(batch_size)
+                    if not batch:
+                        break
+
+                    batch_count += 1
+                    total_count += len(batch)
+
+                    logger.info(
+                        f"Fetched batch {batch_count}: {len(batch)} lineage entries (total: {total_count})"
+                    )
+                    yield from batch
+
+                logger.info(
+                    f"Completed fetching {total_count} lineage entries in {batch_count} batches"
+                )
+
+        except Exception as e:
+            logger.error(f"Error fetching lineage entries: {e}")
+            raise
+        finally:
+            fetch_engine.dispose()
+
+    def _check_historical_table_exists(self) -> bool:
+        """
+        Check if the PDCRDATA.DBQLSqlTbl_Hst table exists and is accessible.
+
+        Returns:
+            bool: True if the historical table exists and is accessible, False otherwise.
+        """
+        try:
+            engine = self.get_metadata_engine()
+            # Use a simple query to check if the table exists and is accessible
+            check_query = """
+                SELECT TOP 1 QueryID 
+                FROM PDCRDATA.DBQLSqlTbl_Hst 
+                WHERE 1=0
+            """
+            with engine.connect() as conn:
+                conn.execute(text(check_query))
+                logger.info(
+                    "Historical lineage table PDCRDATA.DBQLSqlTbl_Hst is available"
+                )
+                return True
+        except Exception as e:
+            logger.info(
+                f"Historical lineage table PDCRDATA.DBQLSqlTbl_Hst is not available: {e}"
+            )
+            return False
 
     def _make_lineage_query(self) -> str:
         databases_filter = (
@@ -848,11 +1416,38 @@ ORDER by DataBaseName, TableName;
             )
         )
 
-        query = self.QUERY_TEXT_QUERY.format(
-            start_time=self.config.start_time,
-            end_time=self.config.end_time,
-            databases_filter=databases_filter,
-        )
+        # Determine which query to use based on configuration and table availability
+        if (
+            self.config.include_historical_lineage
+            and self._check_historical_table_exists()
+        ):
+            logger.info(
+                "Using historical lineage data from both DBC.QryLogV and PDCRDATA.DBQLSqlTbl_Hst"
+            )
+            # For historical query, we need the database filter for both current and historical parts
+            databases_filter_history = (
+                databases_filter.replace("default_database", "h.DefaultDatabase")
+                if databases_filter
+                else ""
+            )
+
+            query = self.QUERY_TEXT_QUERY_WITH_HISTORY.format(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                databases_filter=databases_filter,
+                databases_filter_history=databases_filter_history,
+            )
+        else:
+            if self.config.include_historical_lineage:
+                logger.warning(
+                    "Historical lineage was requested but PDCRDATA.DBQLSqlTbl_Hst table is not available. Falling back to current data only."
+                )
+
+            query = self.QUERY_TEXT_QUERY.format(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                databases_filter=databases_filter,
+            )
         return query
 
     def gen_lineage_from_query(
@@ -888,24 +1483,88 @@ ORDER by DataBaseName, TableName;
                 include_urns=urns,
             )
 
+    def _parse_sql_for_lineage(
+        self,
+        query_text: str,
+        default_database: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        user: Optional[str] = None,
+        view_urn: Optional[str] = None,
+        urns: Optional[Set[str]] = None,
+        schema_resolver: Optional[SchemaResolver] = None,
+        thread_builder: Optional[SqlParsingBuilder] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Pure SQL parsing for lineage extraction - no database connections needed."""
+        if schema_resolver is None:
+            schema_resolver = self.schema_resolver
+
+        # Pure SQL parsing using sqlglot - completely independent of database connections
+        result = sqlglot_lineage(
+            sql=query_text.replace(
+                "(NOT CASESPECIFIC)", ""
+            ),  # Teradata-specific cleanup
+            schema_resolver=schema_resolver,
+            default_db=None,
+            default_schema=default_database
+            if default_database
+            else self.config.default_db,
+        )
+
+        if result.debug_info.table_error:
+            logger.debug(
+                f"Error parsing table lineage ({view_urn}):\n{result.debug_info.table_error}"
+            )
+            # Error counting handled by caller
+        else:
+            # Use thread-local builder if provided, otherwise use main builder instance
+            builder_to_use = (
+                thread_builder if thread_builder is not None else self.builder
+            )
+            yield from builder_to_use.process_sql_parsing_result(
+                result,
+                query=query_text,
+                is_view_ddl=view_urn is not None,
+                query_timestamp=timestamp,
+                user=f"urn:li:corpuser:{user}" if user else None,
+                include_urns=urns,
+            )
+
     def get_metadata_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(url, **self.config.options)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        logger.info("Starting Teradata metadata extraction")
+
         # Add all schemas to the schema resolver
         # Sql parser operates on lowercase urns so we need to lowercase the urns
-        for wu in auto_lowercase_urns(super().get_workunits_internal()):
-            urn = wu.get_urn()
-            schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-            if schema_metadata:
-                self.schema_resolver.add_schema_metadata(urn, schema_metadata)
-            yield wu
+        with self.report.new_stage("Schema metadata extraction"):
+            schema_wu_count = 0
+            for wu in auto_lowercase_urns(super().get_workunits_internal()):
+                urn = wu.get_urn()
+                schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+                if schema_metadata:
+                    self.schema_resolver.add_schema_metadata(urn, schema_metadata)
+                schema_wu_count += 1
+                if schema_wu_count % 100 == 0:
+                    logger.info(f"Processed {schema_wu_count} schema work units")
+                yield wu
+            logger.info(
+                f"Completed schema metadata extraction: {schema_wu_count} work units"
+            )
 
         urns = self.schema_resolver.get_urns()
         if self.config.include_table_lineage or self.config.include_usage_statistics:
             with self.report.new_stage("Audit log extraction"):
+                logger.info(f"Starting lineage extraction for {len(urns)} URNs")
                 yield from self.get_audit_log_mcps(urns=urns)
 
-        yield from self.builder.gen_workunits()
+        with self.report.new_stage("SQL parsing builder"):
+            builder_wu_count = 0
+            for wu in self.builder.gen_workunits():
+                builder_wu_count += 1
+                if builder_wu_count % 100 == 0:
+                    logger.info(f"Generated {builder_wu_count} builder work units")
+                yield wu
+            logger.info(f"Completed SQL parsing builder: {builder_wu_count} work units")
