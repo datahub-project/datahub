@@ -94,7 +94,7 @@ integration_test_requirements = {
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
-    "apache-airflow[snowflake,amazon]>=2.0.2",
+    "apache-airflow[snowflake,amazon,google]>=2.0.2",
     # A collection of issues we've encountered:
     # - Connexion's new version breaks Airflow:
     #   See https://github.com/apache/airflow/issues/35234.
