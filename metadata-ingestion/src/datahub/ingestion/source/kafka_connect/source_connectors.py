@@ -392,7 +392,7 @@ class MongoSourceConnector(BaseConnector):
             db_connection_url=connector_manifest.config.get("connection.uri"),
             source_platform="mongodb",
             database_name=connector_manifest.config.get("database"),
-            topic_prefix=connector_manifest.config.get("topic_prefix"),
+            topic_prefix=connector_manifest.config.get("topic.prefix"),
             transforms=(
                 connector_manifest.config["transforms"].split(",")
                 if "transforms" in connector_manifest.config
@@ -406,7 +406,11 @@ class MongoSourceConnector(BaseConnector):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
-        topic_naming_pattern = r"mongodb\.(\w+)\.(\w+)"
+        topic_prefix = parser.topic_prefix or ""
+
+        # Escape topic_prefix to handle cases where it contains dots
+        # Some users configure topic.prefix like "my.mongodb" which breaks the regex
+        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.(\w+)\.(\w+)"
 
         if not self.connector_manifest.topic_names:
             return lineages
@@ -514,7 +518,10 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
-            topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
+            # Escape server_name to handle cases where topic.prefix contains dots
+            # Some users configure topic.prefix like "my.server" which breaks the regex
+            server_name = server_name or ""
+            topic_naming_pattern = rf"({re.escape(server_name)})\.(\w+\.\w+)"
 
             if not self.connector_manifest.topic_names:
                 return lineages

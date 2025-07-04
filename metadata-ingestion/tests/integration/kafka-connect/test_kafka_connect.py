@@ -290,7 +290,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "database.port": "3306",
                 "database.user": "root",
                 "database.password": "rootpwd",
-                "database.server.name": "debezium.topics",
+                "database.server.name": "all.debezium.topics",
                 "database.history.kafka.bootstrap.servers": "test_broker:9092",
                 "database.history.kafka.topic": "dbhistory.debeziummysql",
                 "database.allowPublicKeyRetrieval": "true",
@@ -359,7 +359,7 @@ def loaded_kafka_connect(kafka_connect_runner):
             "config": {
                 "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
                 "connection.uri": "mongodb://test_mongo:27017",
-                "topic.prefix": "mongodb",
+                "topic.prefix": "my.mongodb.topic.prefix",
                 "database": "test_db",
                 "collection": "purchases",
                 "startup.mode": "copy_existing"
