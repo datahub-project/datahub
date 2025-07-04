@@ -1,4 +1,6 @@
-from typing import Dict, Generator
+import logging
+import time
+from typing import Dict, Generator, Literal, Optional
 
 import pytest
 
@@ -7,8 +9,10 @@ from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageResult
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_filters import FilterDsl as F
+from datahub.sdk.search_filters import Filter, FilterDsl as F
 from tests.utils import wait_for_writes_to_sync
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -42,39 +46,72 @@ def test_datasets(
             schema=[("name", "string"), ("id", "int")],
         ),
     }
-
-    for entity in datasets.values():
-        test_client._graph.delete_entity(str(entity.urn), hard=True)
-    for entity in datasets.values():
-        test_client.entities.upsert(entity)
-
-    # Add lineage
-    test_client.lineage.add_lineage(
-        upstream=str(datasets["upstream"].urn),
-        downstream=str(datasets["downstream1"].urn),
-        column_lineage=True,
-    )
-    test_client.lineage.add_lineage(
-        upstream=str(datasets["downstream1"].urn),
-        downstream=str(datasets["downstream2"].urn),
-        column_lineage=True,
-    )
-    test_client.lineage.add_lineage(
-        upstream=str(datasets["downstream2"].urn),
-        downstream=str(datasets["downstream3"].urn),
-        column_lineage=True,
-    )
-
-    wait_for_writes_to_sync()
-
-    yield datasets
-
-    # Cleanup
-    for entity in datasets.values():
-        try:
+    try:
+        for entity in datasets.values():
             test_client._graph.delete_entity(str(entity.urn), hard=True)
+        for entity in datasets.values():
+            test_client.entities.upsert(entity)
+        test_client.lineage.add_lineage(
+            upstream=str(datasets["upstream"].urn),
+            downstream=str(datasets["downstream1"].urn),
+            column_lineage=True,
+        )
+        test_client.lineage.add_lineage(
+            upstream=str(datasets["downstream1"].urn),
+            downstream=str(datasets["downstream2"].urn),
+            column_lineage=True,
+        )
+        test_client.lineage.add_lineage(
+            upstream=str(datasets["downstream2"].urn),
+            downstream=str(datasets["downstream3"].urn),
+            column_lineage=True,
+        )
+        wait_for_writes_to_sync()
+        time.sleep(5)
+
+        yield datasets
+
+    finally:
+        for entity in datasets.values():
+            try:
+                test_client._graph.delete_entity(str(entity.urn), hard=True)
+            except Exception as e:
+                logger.warning(f"Could not delete entity {entity.urn}: {e}")
+
+
+def robust_lineage_retrieval(
+    test_client: DataHubClient,
+    source_urn: str,
+    source_column: Optional[str],
+    direction: Literal["downstream", "upstream"] = "downstream",
+    max_hops: int = 3,
+    filter: Optional[Filter] = None,
+    max_retries: int = 5,
+) -> list[LineageResult]:
+    for attempt in range(max_retries):
+        try:
+            lineage_results = test_client.lineage.get_lineage(
+                source_urn=source_urn,
+                source_column=source_column,
+                direction=direction,
+                max_hops=max_hops,
+                filter=filter,
+            )
+
+            logger.info(
+                f"Attempt {attempt + 1}: Retrieved {len(lineage_results)} lineage results"
+            )
+
+            return lineage_results
+
         except Exception as e:
-            raise Exception(f"Could not delete entity {entity.urn}: {e}")
+            logger.warning(f"Lineage retrieval attempt {attempt + 1} failed: {e}")
+            time.sleep(10)  # Give time for lineage propagation
+
+    raise AssertionError(
+        f"Failed to retrieve lineage results after {max_retries} attempts. "
+        "Possible synchronization or infrastructure issues."
+    )
 
 
 def validate_lineage_results(
@@ -100,12 +137,9 @@ def validate_lineage_results(
 def test_table_level_lineage(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):
-    table_lineage_results = test_client.lineage.get_lineage(
-        source_urn=str(test_datasets["upstream"].urn),
-        direction="downstream",
-        max_hops=3,
+    table_lineage_results = robust_lineage_retrieval(
+        test_client, source_urn=str(test_datasets["upstream"].urn), source_column=None
     )
-
     assert len(table_lineage_results) == 3
     urns = {r.urn for r in table_lineage_results}
     expected = {
@@ -142,13 +176,9 @@ def test_table_level_lineage(
 def test_column_level_lineage(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):
-    column_lineage_results = test_client.lineage.get_lineage(
-        source_urn=str(test_datasets["upstream"].urn),
-        source_column="id",
-        direction="downstream",
-        max_hops=3,
+    column_lineage_results = robust_lineage_retrieval(
+        test_client, source_urn=str(test_datasets["upstream"].urn), source_column="id"
     )
-
     assert len(column_lineage_results) == 3
     column_lineage_results = sorted(column_lineage_results, key=lambda x: x.hops)
     validate_lineage_results(
@@ -174,14 +204,12 @@ def test_column_level_lineage(
 def test_filtered_column_level_lineage(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):
-    filtered_column_lineage_results = test_client.lineage.get_lineage(
+    filtered_column_lineage_results = robust_lineage_retrieval(
+        test_client,
         source_urn=str(test_datasets["upstream"].urn),
         source_column="id",
-        direction="downstream",
-        max_hops=3,
         filter=F.and_(F.platform("mysql"), F.entity_type("dataset")),
     )
-
     assert len(filtered_column_lineage_results) == 1
     validate_lineage_results(
         filtered_column_lineage_results[0],
@@ -196,10 +224,10 @@ def test_column_level_lineage_from_schema_field(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):
     source_schema_field = SchemaFieldUrn(test_datasets["upstream"].urn, "id")
-    column_lineage_results = test_client.lineage.get_lineage(
-        source_urn=str(source_schema_field), direction="downstream", max_hops=3
-    )
 
+    column_lineage_results = robust_lineage_retrieval(
+        test_client, source_urn=str(source_schema_field), source_column=None
+    )
     assert len(column_lineage_results) == 3
     column_lineage_results = sorted(column_lineage_results, key=lambda x: x.hops)
     validate_lineage_results(
