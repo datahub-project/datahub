@@ -38,7 +38,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-- DataHub Actions: Upgraded to use Pydantic V2 exclusively. This improves performance and provides better type validation. The migration updates all model validation from `parse_obj()` to `model_validate()` and validators from `@validator` to `@field_validator`. This change is internal to DataHub Actions and should not affect end users.
+- The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
 
 ## 1.1.0
 
