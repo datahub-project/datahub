@@ -139,8 +139,11 @@ class DownstreamColumnRef(_ParserBaseModel):
             return v
         return SchemaFieldDataTypeClass.from_obj(v)
 
+    def __hash__(self) -> int:
+        return hash((self.table, self.column, self.native_column_type))
 
-class ColumnTransformation(_ParserBaseModel):
+
+class ColumnTransformation(_FrozenModel):
     is_direct_copy: bool
     column_logic: str
 
@@ -157,6 +160,9 @@ class ColumnLineageInfo(_ParserBaseModel):
     upstreams: List[ColumnRef]
 
     logic: Optional[ColumnTransformation] = pydantic.Field(default=None)
+
+    def __hash__(self) -> int:
+        return hash((self.downstream, tuple(self.upstreams), self.logic))
 
 
 class _JoinInfo(_ParserBaseModel):
