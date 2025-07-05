@@ -1,6 +1,5 @@
 import contextlib
 import contextvars
-import json
 import pathlib
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -95,15 +94,41 @@ def _clean_gql_response(response: Any) -> Any:
         banned_keys = {
             "__typename",
         }
-        return {
-            k: _clean_gql_response(v)
-            for k, v in response.items()
-            if v is not None and k not in banned_keys
-        }
+
+        cleaned_response = {}
+        for k, v in response.items():
+            if k in banned_keys or v is None or v == []:
+                continue
+            cleaned_v = _clean_gql_response(v)
+            if cleaned_v is not None and cleaned_v != {}:
+                cleaned_response[k] = cleaned_v
+
+        return cleaned_response
     elif isinstance(response, list):
         return [_clean_gql_response(item) for item in response]
     else:
         return response
+
+
+def _clean_get_entity_response(raw_response: dict) -> dict:
+    response = _clean_gql_response(raw_response)
+
+    if response and (schema_metadata := response.get("schemaMetadata")):
+        # Remove empty platformSchema to reduce response clutter
+        if platform_schema := schema_metadata.get("platformSchema"):
+            schema_value = platform_schema.get("schema")
+            if not schema_value or schema_value == "":
+                del schema_metadata["platformSchema"]
+
+        # Remove default field attributes (false values) to keep only meaningful data
+        if fields := schema_metadata.get("fields"):
+            for field in fields:
+                if field.get("recursive") is False:
+                    field.pop("recursive", None)
+                if field.get("isPartOfKey") is False:
+                    field.pop("isPartOfKey", None)
+
+    return response
 
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
@@ -125,7 +150,7 @@ def get_entity(urn: str) -> dict:
 
     _inject_urls_for_urns(client._graph, result, [""])
 
-    return _clean_gql_response(result)
+    return _clean_get_entity_response(result)
 
 
 @mcp.tool(
@@ -193,19 +218,18 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
 
     # Execute the GraphQL query
-    raw_result = _execute_graphql(
+    result = _execute_graphql(
         client._graph,
         query=queries_gql,
         variables=variables,
         operation_name="listQueries",
-    )
-    result = _clean_gql_response(raw_result["listQueries"])
+    )["listQueries"]
 
     for query in result["queries"]:
         if query.get("subjects"):
             query["subjects"] = _deduplicate_subjects(query["subjects"])
 
-    return result
+    return _clean_gql_response(result)
 
 
 def _deduplicate_subjects(subjects: list[dict]) -> list[str]:
@@ -311,40 +335,3 @@ def get_lineage(urn: str, upstream: bool, max_hops: int = 1) -> dict:
     lineage = lineage_api.get_lineage(asset_lineage_directive)
     _inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
     return lineage
-
-
-if __name__ == "__main__":
-    import sys
-
-    set_client(DataHubClient.from_env())
-
-    if len(sys.argv) > 1:
-        urn_or_query = sys.argv[1]
-    else:
-        urn_or_query = "*"
-        print("No query provided, will use '*' query")
-    urn: Optional[str] = None
-    if urn_or_query.startswith("urn:"):
-        urn = urn_or_query
-    else:
-        urn = None
-        query = urn_or_query
-    if urn is None:
-        search_data = search()
-        for entity in search_data["searchResults"]:
-            print(entity["entity"]["urn"])
-        urn = search_data["searchResults"][0]["entity"]["urn"]
-    assert urn is not None
-
-    def _divider() -> None:
-        print("\n" + "-" * 80 + "\n")
-
-    _divider()
-    print("Getting entity:", urn)
-    print(json.dumps(get_entity(urn), indent=2))
-    _divider()
-    print("Getting lineage:", urn)
-    print(json.dumps(get_lineage(urn, upstream=False, max_hops=3), indent=2))
-    _divider()
-    print("Getting queries", urn)
-    print(json.dumps(get_dataset_queries(urn), indent=2))

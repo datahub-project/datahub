@@ -8,9 +8,9 @@ fragment globalTagsFields on GlobalTags {
   tags {
     tag {
       urn
-      description
       properties {
         name
+        description
         __typename
       }
       __typename
@@ -179,7 +179,6 @@ fragment glossaryTerm on GlossaryTerm {
   properties {
     name
     description
-    definition
     termSource
     customProperties {
       key
@@ -317,7 +316,7 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on CorpGroup {
-    info {
+    properties {
       displayName
       __typename
     }
@@ -435,13 +434,6 @@ fragment nonConflictingPlatformFields on DataPlatform {
     datasetNameDelimiter
     __typename
   }
-  displayName
-  info {
-    type
-    displayName
-    datasetNameDelimiter
-    __typename
-  }
   __typename
 }
 
@@ -463,7 +455,6 @@ fragment domainEntitiesFields on Domain {
           field: "_entityType"
           negated: true
           values: ["DATA_PRODUCT", "DOMAIN"]
-          value: "DATA_PRODUCT"
         }
       ]
     }
@@ -475,7 +466,7 @@ fragment domainEntitiesFields on Domain {
     input: {
       start: 0
       count: 0
-      filters: [{ field: "_entityType", value: "DATA_PRODUCT" }]
+      filters: [{ field: "_entityType", values: ["DATA_PRODUCT"] }]
     }
   ) {
     total
@@ -517,7 +508,6 @@ fragment entityPreview on Entity {
   type
   ... on Dataset {
     name
-    origin
     platform {
       ...platformFields
     }
@@ -525,7 +515,6 @@ fragment entityPreview on Entity {
       name
       description
     }
-    platformNativeType
     properties {
       name
       description
@@ -537,11 +526,16 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
-    globalTags {
+    tags {
       ...globalTagsFields
     }
     glossaryTerms {
       ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
     }
     subTypes {
       typeNames
@@ -598,7 +592,7 @@ fragment entityPreview on Entity {
   }
   ... on CorpGroup {
     name
-    info {
+    properties {
       displayName
       description
     }
@@ -630,11 +624,16 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
-    globalTags {
+    tags {
       ...globalTagsFields
     }
     glossaryTerms {
       ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
     }
     editableProperties {
       description
@@ -674,11 +673,16 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
-    globalTags {
+    tags {
       ...globalTagsFields
     }
     glossaryTerms {
       ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
     }
     editableProperties {
       description
@@ -714,11 +718,16 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
-    globalTags {
+    tags {
       ...globalTagsFields
     }
     glossaryTerms {
       ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
     }
     editableProperties {
       description
@@ -751,11 +760,16 @@ fragment entityPreview on Entity {
       name
       description
     }
-    globalTags {
+    tags {
       ...globalTagsFields
     }
     glossaryTerms {
       ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
     }
     editableProperties {
       description
@@ -775,7 +789,6 @@ fragment entityPreview on Entity {
     }
   }
   ... on GlossaryTerm {
-    name
     hierarchicalName
     properties {
       name
@@ -816,6 +829,17 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
+    }
     platform {
       ...platformFields
     }
@@ -830,6 +854,17 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
+    }
     platform {
       ...platformFields
     }
@@ -843,6 +878,17 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
+    }
     deprecation {
       ...deprecationFields
     }
@@ -854,6 +900,17 @@ fragment entityPreview on Entity {
     ownership {
       ...ownershipFields
     }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
+    }
     platform {
       ...platformFields
     }
@@ -862,10 +919,14 @@ fragment entityPreview on Entity {
     }
   }
   ... on Tag {
-    name
-    description
     properties {
       name
+      description
+    }
+  }
+  ... on StructuredPropertyEntity {
+    definition {
+      displayName
       description
     }
   }
@@ -885,6 +946,13 @@ fragment entityPreview on Entity {
       ...displayPropertiesFields
     }
     ...domainEntitiesFields
+  }
+  ... on DataProduct {
+    urn
+    properties {
+      name
+      description
+    }
   }
   # ... on Container {
   #     ...entityContainer
@@ -931,32 +999,25 @@ fragment businessAttribute on BusinessAttributeAssociation {
         time
       }
       tags {
-        tags {
-          tag {
-            urn
-            name
-            properties {
-              name
-            }
-          }
-        }
+        ...globalTagsFields
       }
       glossaryTerms {
-        terms {
-          term {
-            urn
-            type
-            properties {
-              name
-            }
-          }
-        }
+        ...glossaryTerms
       }
     }
   }
 }
 
 fragment structuredPropertyFields on StructuredPropertyEntity {
+  urn
+  definition {
+    displayName
+    qualifiedName
+  }
+  __typename
+}
+
+fragment structuredPropertyDetailsFields on StructuredPropertyEntity {
   urn
   type
   definition {
@@ -967,18 +1028,12 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
     immutable
     valueType {
       urn
-      type
       info {
-        type
         displayName
       }
     }
     entityTypes {
       urn
-      type
-      info {
-        type
-      }
     }
     cardinality
     typeQualifier {
@@ -1034,7 +1089,6 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
   structuredProperty {
-    exists
     ...structuredPropertyFields
   }
   values {
@@ -1086,7 +1140,7 @@ fragment entitySchemaFieldFields on SchemaField {
   recursive
   isPartOfKey
   isPartitioningKey
-  globalTags {
+  tags {
     ...globalTagsFields
   }
   glossaryTerms {
@@ -1128,18 +1182,16 @@ fragment schemaMetadataFields on SchemaMetadata {
       urn
       name
       type
-      origin
       properties {
         description
       }
       platform {
         ...platformFields
       }
-      platformNativeType
       ownership {
         ...ownershipFields
       }
-      globalTags {
+      tags {
         ...globalTagsFields
       }
       glossaryTerms {
@@ -1157,7 +1209,7 @@ fragment datasetSchema on Dataset {
     editableSchemaFieldInfo {
       fieldPath
       description
-      globalTags {
+      tags {
         ...globalTagsFields
       }
       glossaryTerms {
@@ -1170,6 +1222,10 @@ fragment datasetSchema on Dataset {
 fragment entityDetails on Entity {
   ... on Dataset {
     ...datasetSchema
+  }
+  ... on StructuredPropertyEntity {
+    ...structuredPropertyFields
+    ...structuredPropertyDetailsFields
   }
 }
 
