@@ -1,10 +1,11 @@
 import json
 import logging
 import os
-import tempfile
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Union
 
+from google.auth import external_account
+from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
@@ -173,7 +174,6 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
-        self._temp_wif_file_path: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -182,70 +182,61 @@ class GCSSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def _setup_wif_credentials(self) -> None:
-        """Set up Workload Identity Federation credentials."""
+        """Set up Workload Identity Federation credentials using Google Auth library."""
+
+        # Parse the WIF configuration
+        wif_config_dict = None
+
         if self.config.gcp_wif_configuration:
-            # Use the provided file path directly
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-                self.config.gcp_wif_configuration
-            )
-            logger.info(
-                "Using Workload Identity Federation configuration from file: %s",
-                self.config.gcp_wif_configuration,
-            )
-        elif (
-            self.config.gcp_wif_configuration_json
-            or self.config.gcp_wif_configuration_json_string
-        ):
-            # Create a temporary file to hold the JSON content
+            # Read from file
             try:
-                with tempfile.NamedTemporaryFile(
-                    mode="w", delete=False, suffix=".json"
-                ) as temp_file:
-                    if self.config.gcp_wif_configuration_json:
-                        if isinstance(self.config.gcp_wif_configuration_json, dict):
-                            json.dump(
-                                self.config.gcp_wif_configuration_json,
-                                temp_file,
-                                indent=2,
-                            )
-                        else:
-                            # It's already a JSON string (validated in the validator)
-                            temp_file.write(self.config.gcp_wif_configuration_json)
-                    elif self.config.gcp_wif_configuration_json_string:
-                        # Write the JSON string directly (validated in the validator)
-                        temp_file.write(self.config.gcp_wif_configuration_json_string)
-
-                    temp_file.flush()
-                    self._temp_wif_file_path = temp_file.name
-                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-                        self._temp_wif_file_path
-                    )
-                    logger.info(
-                        "Created temporary Workload Identity Federation configuration file: %s",
-                        self._temp_wif_file_path,
-                    )
+                with open(self.config.gcp_wif_configuration, "r") as f:
+                    wif_config_dict = json.load(f)
+                logger.info(
+                    "Using Workload Identity Federation configuration from file: %s",
+                    self.config.gcp_wif_configuration,
+                )
             except Exception as e:
-                logger.error("Failed to create temporary WIF configuration file: %s", e)
                 raise ValueError(
-                    f"Failed to setup Workload Identity Federation credentials: {e}"
+                    f"Failed to read WIF configuration file {self.config.gcp_wif_configuration}: {e}"
                 ) from e
+        elif self.config.gcp_wif_configuration_json:
+            # Use the JSON content directly
+            if isinstance(self.config.gcp_wif_configuration_json, dict):
+                wif_config_dict = self.config.gcp_wif_configuration_json
+            else:
+                # It's a JSON string (validated in the validator)
+                wif_config_dict = json.loads(self.config.gcp_wif_configuration_json)
+            logger.info(
+                "Using Workload Identity Federation configuration from JSON content"
+            )
+        elif self.config.gcp_wif_configuration_json_string:
+            # Parse the JSON string (validated in the validator)
+            wif_config_dict = json.loads(self.config.gcp_wif_configuration_json_string)
+            logger.info(
+                "Using Workload Identity Federation configuration from JSON string"
+            )
 
-    def _cleanup_temp_files(self) -> None:
-        """Clean up any temporary files created for WIF configuration."""
-        if self._temp_wif_file_path and os.path.exists(self._temp_wif_file_path):
-            try:
-                os.unlink(self._temp_wif_file_path)
-                logger.debug(
-                    "Cleaned up temporary WIF configuration file: %s",
-                    self._temp_wif_file_path,
-                )
-                self._temp_wif_file_path = None
-            except Exception as e:
-                logger.warning(
-                    "Failed to clean up temporary WIF configuration file %s: %s",
-                    self._temp_wif_file_path,
-                    e,
-                )
+        if wif_config_dict is None:
+            raise ValueError("No valid WIF configuration provided")
+
+        # Create credentials using Google Auth library
+        try:
+            credentials = external_account.Credentials.from_info(wif_config_dict)
+            credentials.refresh(Request())
+
+            # Set the credentials in the environment for the GCS client libraries
+            # The Google Cloud client libraries will automatically use these credentials
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+                "workload_identity_federation"
+            )
+
+            logger.info("Successfully set up Workload Identity Federation credentials")
+
+        except Exception as e:
+            raise ValueError(
+                f"Failed to setup Workload Identity Federation credentials: {e}"
+            ) from e
 
     def create_equivalent_s3_config(self):
         s3_path_specs = self.create_equivalent_s3_path_specs()
@@ -356,19 +347,13 @@ class GCSSource(StatefulIngestionSourceBase):
         return self.s3_source.get_workunits_internal()
 
     def get_report(self):
-        # Clean up temporary files before returning the report
-        self._cleanup_temp_files()
         return self.report
 
     def close(self) -> None:
         """Clean up resources when the source is closed."""
-        self._cleanup_temp_files()
         super().close()
 
     def __del__(self):
         """Destructor to ensure cleanup even if close() is not called explicitly."""
-        try:
-            self._cleanup_temp_files()
-        except Exception:
-            # Ignore errors during destruction
-            pass
+        # No cleanup needed since we use Google Auth library directly
+        pass
