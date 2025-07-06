@@ -500,12 +500,11 @@ class TestStageTracking:
         config = TeradataConfig.parse_obj(_base_config())
 
         # Create source without mocking to test the actual stage tracking during init
-        with (
-            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
-            patch(
-                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
-            ) as mock_cache,
-        ):
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ), patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ) as mock_cache:
             TeradataSource(config, PipelineContext(run_id="test"))
 
             # Verify cache_tables_and_views was called during init (stage tracking happens there)
