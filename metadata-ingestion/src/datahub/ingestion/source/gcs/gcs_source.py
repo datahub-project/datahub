@@ -106,8 +106,6 @@ class GCSSource(StatefulIngestionSourceBase):
     def create_equivalent_s3_config(self):
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
-        # Build advanced config with signature_version
-        advanced_config = {"signature_version": self.config.signature_version}
 
         s3_config = DataLakeSourceConfig(
             path_specs=s3_path_specs,
@@ -116,7 +114,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_access_key_id=self.config.credential.hmac_access_id,
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
-                aws_advanced_config=advanced_config,
+                aws_signature_version=self.config.signature_version,
             ),
             env=self.config.env,
             max_rows=self.config.max_rows,

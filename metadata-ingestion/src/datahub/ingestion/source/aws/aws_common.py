@@ -311,6 +311,11 @@ class AwsConnectionConfig(ConfigModel):
         description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
     )
 
+    aws_signature_version: Optional[str] = Field(
+        default=None,
+        description="Signature version to use for authentication. Options: 'v4' (default) or 'v2'.",
+    )
+
     def allowed_cred_refresh(self) -> bool:
         if self._normalized_aws_roles():
             return True
@@ -416,6 +421,7 @@ class AwsConnectionConfig(ConfigModel):
                 "max_attempts": self.aws_retry_num,
                 "mode": self.aws_retry_mode,
             },
+            signature_version=self.aws_signature_version,
             **self.aws_advanced_config,
         )
 

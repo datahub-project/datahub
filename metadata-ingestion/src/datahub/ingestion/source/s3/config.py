@@ -112,6 +112,11 @@ class DataLakeSourceConfig(
         description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
     )
 
+    signature_version: str = Field(
+        default="v4",
+        description="Signature version to use for authentication. Options: 'v4' (default) or 'v2'.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
