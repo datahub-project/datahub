@@ -2,12 +2,10 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
-import { PreviewType } from '@app/entity/Entity';
+import ERModelSidebarPreviewCard from '@app/preview/ERModelSidebarPreviewCard';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { Domain, EntityType, GlobalTags, GlossaryTermAssociation, GlossaryTerms, TagAssociation } from '@types';
-
-import ERModelSidebarPreviewCard from '../ERModelSidebarPreviewCard';
 
 const mockTags: GlobalTags = {
     tags: [{ tag: { name: 'Tag1' } }, { tag: { name: 'Tag2' } }] as TagAssociation[],
