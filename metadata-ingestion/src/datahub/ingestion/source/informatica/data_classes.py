@@ -38,6 +38,7 @@ class SessionMappingEdge(BaseModel):
     to_inst_id: int
     to_session_id: Optional[int]
     to_mapping_id: Optional[int]
+    to_mapping_desc: Optional[str]
     to_mapping_name: Optional[str]
     from_instance: str
     from_task_type: int
@@ -49,6 +50,7 @@ class SessionMappingEdge(BaseModel):
 # 위젯 선후관계 모델
 class WidgetLineage(BaseModel):
     mapping_id: int
+    pre_from_instance_id: Optional[int]
     from_instance_id: Optional[int]
     from_widget_id: Optional[int]
     from_widget_name: Optional[str]
@@ -62,6 +64,8 @@ class WidgetLineage(BaseModel):
 # 소스 위젯 모델
 class SourceWidget(BaseModel):
     widget_id: int
+    db_description: Optional[str]
+    dbtype_name: Optional[str]
     db_name: Optional[str]
     source_name: Optional[str]
     description: Optional[str]
@@ -95,3 +99,14 @@ class Synonyms(BaseModel):
     synonym_name: str
     table_owner: str
     table_name: str
+
+class SourceField(BaseModel):
+    widget_id: int
+    src_id: int
+    col_name: str
+    col_desc: Optional[str]
+    dbtype: Optional[int]
+    datatype_name: Optional[str]
+    fld_no: int
+    nulltype: int
+    keytype: int

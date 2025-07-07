@@ -1,7 +1,7 @@
 SELECT DISTINCT SWI.WIDGET_ID,
                 CNX.OBJECT_NAME    AS CONNECTION_NAME,
                 CNX.CONNECT_STRING AS CONNECT_STRING,
-                coalesce(WA_SCHEMA.target_database_name, CNX.USER_NAME)      AS SCHEMA_NAME,
+                coalesce(SWA.attr_value, coalesce(WA_SCHEMA.target_database_name, CNX.USER_NAME))      AS SCHEMA_NAME,
                 TARG.TARGET_NAME,
                 TARG.TARGET_DESC   AS DESCRIPTION,
                 WA.ATTR_VALUE      AS TABLE_NAME,
@@ -9,8 +9,10 @@ SELECT DISTINCT SWI.WIDGET_ID,
                 PARM_VAR.PV_ID,
                 PARM_VAL.PV_VALUE  AS PV_TABLE_NAME
 FROM {metadata_schema}.OPB_SWIDGET_INST SWI
-          JOIN {metadata_schema}.OPB_WIDGET_ATTR WA
-            ON SWI.WIDGET_TYPE = WA.WIDGET_TYPE AND SWI.MAPPING_ID = WA.MAPPING_ID AND SWI.WIDGET_ID = WA.WIDGET_ID AND ATTR_ID = 19
+    LEFT OUTER JOIN {metadata_schema}.OPB_WIDGET_ATTR WA
+            ON SWI.WIDGET_TYPE = WA.WIDGET_TYPE AND SWI.MAPPING_ID = WA.MAPPING_ID AND SWI.WIDGET_ID = WA.WIDGET_ID AND WA.ATTR_ID = 19
+    LEFT OUTER JOIN (select attr_id, attr_value, session_id from {metadata_schema}.OPB_SWIDGET_ATTR) SWA
+            ON SWI.SESSION_ID = SWA.SESSION_ID and swa.attr_id = 3
     LEFT OUTER JOIN (SELECT widget_id , mapping_id ,WIDGET_TYPE,
         instance_id,
         CASE WHEN attr_value = '$$P_ODS_OWNER' AND attr_id IN (3,28) THEN 'DS_ADM'
