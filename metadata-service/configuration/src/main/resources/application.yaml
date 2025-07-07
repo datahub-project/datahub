@@ -747,3 +747,7 @@ icebergCatalog:
 
 lineageDatasetUrnMutator:
   platforms: iceberg
+  confidenceScore:
+      urnExists: 1
+      urnResolvedPlatformResource: 0.9
+      urnUnresolved: 0

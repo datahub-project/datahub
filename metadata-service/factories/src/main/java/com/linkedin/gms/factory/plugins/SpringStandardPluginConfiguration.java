@@ -391,9 +391,17 @@ public class SpringStandardPluginConfiguration {
       name = "metadataChangeProposal.validation.extensions.enabled",
       havingValue = "false")
   public MutationHook lineageDatasetUrnMutator(
-      @Value("${lineageDatasetUrnMutator.platforms}") List<String> platforms) {
+      @Value("${lineageDatasetUrnMutator.platforms}") List<String> platforms,
+      @Value("${lineageDatasetUrnMutator.confidenceScore.urnExists}") Float scoreUrnExists,
+      @Value("${lineageDatasetUrnMutator.confidenceScore.urnResolvedPlatformResource}")
+          Float scoreUrnResolvedPlatformResource,
+      @Value("${lineageDatasetUrnMutator.confidenceScore.urnUnresolved}")
+          Float scoreUrnUnresolved) {
     return new LineageDatasetUrnResolver()
         .setPlatforms(platforms)
+        .setScoreUrnExists(scoreUrnExists)
+        .setScoreUrnResolvedPlatformResource(scoreUrnResolvedPlatformResource)
+        .setScoreUrnUnresolved(scoreUrnUnresolved)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(LineageDatasetUrnResolver.class.getName())

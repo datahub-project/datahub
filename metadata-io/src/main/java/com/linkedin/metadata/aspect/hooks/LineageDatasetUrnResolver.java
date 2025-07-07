@@ -11,6 +11,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.*;
 import com.linkedin.entity.Aspect;
@@ -40,14 +41,17 @@ public class LineageDatasetUrnResolver extends MutationHook {
 
   private List<String> platforms;
 
+  private Float scoreUrnExists;
+  private Float scoreUrnResolvedPlatformResource;
+  private Float scoreUrnUnresolved;
+
   @SneakyThrows
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
       @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     List<Pair<ChangeMCP, Boolean>> result = new ArrayList<>();
 
-    for (Iterator<ChangeMCP> iter = changeMCPS.iterator(); iter.hasNext(); ) {
-      ChangeMCP mcp = iter.next();
+    for (ChangeMCP mcp : changeMCPS) {
       if (mcp.getAspectName().equals(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
         DataJobInputOutput dataJobInputOutput = mcp.getAspect(DataJobInputOutput.class);
         boolean inputsDatasetsModified =
@@ -75,12 +79,18 @@ public class LineageDatasetUrnResolver extends MutationHook {
       DatasetUrn urn = DatasetUrn.createFromUrn(edge.getDestinationUrn());
 
       if (shouldResolve(urn, retrieverContext)) {
-        Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-        if (resolvedUrn.isEmpty()) {
-          continue;
+        if (exists(urn, retrieverContext)) {
+          edge.setConfidenceScore(scoreUrnExists, SetMode.IGNORE_NULL);
+        } else {
+          Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
+          if (resolvedUrn.isEmpty()) {
+            edge.setConfidenceScore(scoreUrnUnresolved, SetMode.IGNORE_NULL);
+          } else {
+            edge.setDestinationUrn(resolvedUrn.get());
+            edge.setConfidenceScore(scoreUrnResolvedPlatformResource, SetMode.IGNORE_NULL);
+          }
+          modified = true;
         }
-        edge.setDestinationUrn(resolvedUrn.get());
-        modified = true;
       }
     }
     return modified;
@@ -135,15 +145,15 @@ public class LineageDatasetUrnResolver extends MutationHook {
           continue;
         }
         DatasetUrn urn = DatasetUrn.createFromString(fieldUrn.getEntityKey().getFirst());
-        if (shouldResolve(urn, retrieverContext)) {
+        if (shouldResolve(urn, retrieverContext) && !exists(urn, retrieverContext)) {
           Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-          if (resolvedUrn.isEmpty()) {
-            continue;
+          if (resolvedUrn.isPresent()) {
+            Urn updatedFieldUrn =
+                Urn.createFromTuple(
+                    "schemaField", resolvedUrn.get(), fieldUrn.getEntityKey().get(1));
+            iter.set(updatedFieldUrn);
+            modified = true;
           }
-          Urn updatedFieldUrn =
-              Urn.createFromTuple("schemaField", resolvedUrn.get(), fieldUrn.getEntityKey().get(1));
-          iter.set(updatedFieldUrn);
-          modified = true;
         }
       }
     } else {
@@ -154,13 +164,12 @@ public class LineageDatasetUrnResolver extends MutationHook {
           continue;
         }
         DatasetUrn urn = DatasetUrn.createFromUrn(datasetUrn);
-        if (shouldResolve(urn, retrieverContext)) {
+        if (shouldResolve(urn, retrieverContext) && !exists(urn, retrieverContext)) {
           Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-          if (resolvedUrn.isEmpty()) {
-            continue;
+          if (resolvedUrn.isPresent()) {
+            iter.set(resolvedUrn.get());
+            modified = true;
           }
-          iter.set(resolvedUrn.get());
-          modified = true;
         }
       }
     }
@@ -168,15 +177,10 @@ public class LineageDatasetUrnResolver extends MutationHook {
   }
 
   private boolean shouldResolve(DatasetUrn urn, RetrieverContext retrieverContext) {
-    if (!platforms.contains(urn.getPlatformEntity().getPlatformNameEntity())) {
-      return false;
-    }
-    Map<Urn, Boolean> existsMap = retrieverContext.getAspectRetriever().entityExists(Set.of(urn));
-    return !existsMap.get(urn);
+    return platforms.contains(urn.getPlatformEntity().getPlatformNameEntity());
   }
 
-  private static boolean exists(String urnStr, RetrieverContext retrieverContext) {
-    Urn urn = UrnUtils.getUrn(urnStr);
+  private static boolean exists(Urn urn, RetrieverContext retrieverContext) {
     Map<Urn, Boolean> existsMap = retrieverContext.getAspectRetriever().entityExists(Set.of(urn));
     return existsMap.get(urn);
   }
@@ -186,7 +190,7 @@ public class LineageDatasetUrnResolver extends MutationHook {
         String.format(
             "urn:li:platformResource:%s.%s",
             urn.getPlatformEntity().getPlatformNameEntity(), urn.getDatasetNameEntity());
-    if (!exists(platformResourceUrn, retrieverContext)) {
+    if (!exists(UrnUtils.getUrn(platformResourceUrn), retrieverContext)) {
       return Optional.empty();
     }
 
