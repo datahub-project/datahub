@@ -663,6 +663,58 @@ class TestAthenaPropertiesExtractorIntegration:
             assert day_transform.column.name == "ts"
             assert day_transform.column.type == "TIMESTAMP"
 
+    def test_partition_function_extraction_edge_cases_with_different_quote(self):
+        """Test edge cases in partition function extraction with various formats."""
+        sql = """
+              CREATE TABLE test_partitions (
+                                               ts timestamp,
+                                               id bigint,
+                                               data string
+              )
+                  PARTITIONED BY (
+          day(`ts`),
+          bucket(5, `id`),
+          truncate(100, `data`)
+        ) \
+              """
+
+        result = AthenaPropertiesExtractor.get_table_properties(sql)
+
+        partition_info = result.partition_info
+        transforms = partition_info.transforms
+
+        # Should have 3 transforms
+        assert len(transforms) == 3
+
+        # Verify each transform type exists
+        transform_types = {t.type for t in transforms}
+        assert "day" in transform_types
+        assert "bucket" in transform_types
+        assert "truncate" in transform_types
+
+        # Test bucket transform parameters
+        bucket_transforms = [t for t in transforms if t.type == "bucket"]
+        if bucket_transforms:
+            bucket_transform = bucket_transforms[0]
+            assert bucket_transform.bucket_count == 5
+            assert bucket_transform.column.name == "id"
+            assert bucket_transform.column.type == "BIGINT"
+
+        # Test truncate transform parameters
+        truncate_transforms = [t for t in transforms if t.type == "truncate"]
+        if truncate_transforms:
+            truncate_transform = truncate_transforms[0]
+            assert truncate_transform.length == 100
+            assert truncate_transform.column.name == "data"
+            assert truncate_transform.column.type == "TEXT"
+
+        # Test day transform
+        day_transforms = [t for t in transforms if t.type == "day"]
+        if day_transforms:
+            day_transform = day_transforms[0]
+            assert day_transform.column.name == "ts"
+            assert day_transform.column.type == "TIMESTAMP"
+
     def test_complex_real_world_example_with_non_escaped_column_name_and_column_comment(
         self,
     ):
