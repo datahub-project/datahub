@@ -132,8 +132,6 @@ class ReportAttribute(BaseModel):
 class ExamplesReport(Report, Closeable):
     # We are adding this to make querying easier for fine-grained lineage
     _fine_grained_lineage_special_case_name = "fineGrainedLineages"
-    _urns_seen: Set[str] = field(default_factory=set)
-    entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
@@ -171,6 +169,39 @@ class ExamplesReport(Report, Closeable):
                 return True
         return False
 
+    def _update_file_based_dict(
+        self,
+        urn: str,
+        entityType: str,
+        aspectName: str,
+        mcp: Union[MetadataChangeProposalClass | MetadataChangeProposalWrapper],
+    ) -> None:
+        has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
+
+        sub_type = "unknown"
+        if isinstance(mcp.aspect, SubTypesClass):
+            sub_type = mcp.aspect.typeNames[0]
+
+        assert self._file_based_dict is not None
+        if urn in self._file_based_dict:
+            if sub_type != "unknown":
+                self._file_based_dict[urn].subType = sub_type
+            self._file_based_dict[urn].aspects.add(aspectName)
+            if has_fine_grained_lineage:
+                self._file_based_dict[urn].aspects.add(
+                    self._fine_grained_lineage_special_case_name
+                )
+            self._file_based_dict.mark_dirty(urn)
+        else:
+            self._file_based_dict[urn] = SourceReportSubtypes(
+                urn=urn,
+                entity_type=entityType,
+                subType=sub_type,
+                aspects={aspectName}
+                if not has_fine_grained_lineage
+                else {aspectName, self._fine_grained_lineage_special_case_name},
+            )
+
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
         urn = wu.get_urn()
 
@@ -183,38 +214,10 @@ class ExamplesReport(Report, Closeable):
             entityType = mcp.entityType
             aspectName = mcp.aspectName
 
-            if urn not in self._urns_seen:
-                self._urns_seen.add(urn)
-                self.entities[entityType].append(urn)
-
             if aspectName is None:
                 continue
 
-            has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
-
-            sub_type = "unknown"
-            if isinstance(mcp.aspect, SubTypesClass):
-                sub_type = mcp.aspect.typeNames[0]
-
-            assert self._file_based_dict is not None
-            if urn in self._file_based_dict:
-                if sub_type != "unknown":
-                    self._file_based_dict[urn].subType = sub_type
-                self._file_based_dict[urn].aspects.add(aspectName)
-                if has_fine_grained_lineage:
-                    self._file_based_dict[urn].aspects.add(
-                        self._fine_grained_lineage_special_case_name
-                    )
-                self._file_based_dict.mark_dirty(urn)
-            else:
-                self._file_based_dict[urn] = SourceReportSubtypes(
-                    urn=urn,
-                    entity_type=entityType,
-                    subType=sub_type,
-                    aspects={aspectName}
-                    if not has_fine_grained_lineage
-                    else {aspectName, self._fine_grained_lineage_special_case_name},
-                )
+            self._update_file_based_dict(urn, entityType, aspectName, mcp)
 
     def compute_stats(self) -> None:
         if self._file_based_dict is None:
