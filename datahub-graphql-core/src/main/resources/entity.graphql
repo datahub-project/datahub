@@ -600,6 +600,20 @@ type Mutation {
   batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
   """
+  Add structured properties to multiple Entities
+  """
+  batchAddStructuredProperties(
+    input: BatchAddStructuredPropertiesInput!
+  ): Boolean
+
+  """
+  Remove structured properties from multiple Entities
+  """
+  batchRemoveStructuredProperties(
+    input: BatchRemoveStructuredPropertiesInput!
+  ): Boolean
+
+  """
   Add a link, or institutional memory, for a particular asset
   """
   addLink(input: AddLinkInput!): Boolean
@@ -9243,6 +9257,36 @@ input BatchAddOwnersInput {
 
   """
   The target assets to attach the owners to
+  """
+  resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when adding structured properties to a batch of assets
+"""
+input BatchAddStructuredPropertiesInput {
+  """
+  The structured properties to add with their values
+  """
+  structuredProperties: [StructuredPropertyInputParams!]!
+
+  """
+  The target assets to attach the structured properties to
+  """
+  resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing structured properties from a batch of assets
+"""
+input BatchRemoveStructuredPropertiesInput {
+  """
+  The structured property URNs to remove
+  """
+  structuredPropertyUrns: [String!]!
+
+  """
+  The target assets to remove the structured properties from
   """
   resources: [ResourceRefInput]!
 }
