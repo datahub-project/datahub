@@ -1,4 +1,4 @@
-import { CorpUser, IngestionSourcePrivileges } from '@types';
+import { CorpUser } from '@types';
 
 export interface ExecutionRequestRecord {
     urn: string;
@@ -14,7 +14,6 @@ export interface ExecutionRequestRecord {
     status?: string | null;
     showRollback: boolean;
     cliIngestion: boolean;
-    privileges?: IngestionSourcePrivileges | null;
 }
 
 export interface ExecutionCancelInfo {

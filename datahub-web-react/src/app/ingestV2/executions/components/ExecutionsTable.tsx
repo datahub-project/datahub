@@ -60,7 +60,6 @@ export default function ExecutionsTable({
         status: getIngestionSourceStatus(execution.result),
         showRollback: execution.source?.latestSuccessfulExecution?.urn === execution.urn,
         cliIngestion: execution.input.executorId === CLI_EXECUTOR_ID,
-        privileges: execution.source?.privileges,
     }));
 
     const handleConfirmRollback = useCallback(() => {

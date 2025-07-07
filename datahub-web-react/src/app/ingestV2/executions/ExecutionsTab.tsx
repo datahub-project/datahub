@@ -58,6 +58,7 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    selectedTab?: TabType | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
@@ -65,6 +66,7 @@ export const ExecutionsTab = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
+    selectedTab,
     setSelectedTab,
 }: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());

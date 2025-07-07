@@ -944,6 +944,7 @@ export type Event =
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
+    | ShowStandardHomepageEvent
     | ShowV2ThemeEvent
     | RevertV2ThemeEvent
     | SsoEvent
@@ -979,6 +980,7 @@ export type Event =
     | ApplyStructuredPropertyEvent
     | UpdateStructuredPropertyOnAssetEvent
     | RemoveStructuredPropertyEvent
+    | ClickDocRequestCTA
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
