@@ -39,6 +39,7 @@ class StoredProcExecutionLineage:
 class StoredProcLineageReport:
     num_stored_proc_calls: int = 0
     num_related_queries: int = 0
+    num_related_queries_without_proc_call: int = 0
 
     # Incremented at generation/build time.
     num_stored_proc_lineage_entries: int = 0
@@ -47,6 +48,16 @@ class StoredProcLineageReport:
 
 
 class StoredProcLineageTracker(Closeable):
+    """
+    Tracks table-level lineage for Snowflake stored procedures.
+
+    Stored procedures in Snowflake trigger multiple SQL queries during execution.
+    Snowflake assigns each stored procedure call a unique query_id and uses this as the
+    root_query_id for all subsequent queries executed within that procedure. This allows
+    us to trace which queries belong to a specific stored procedure execution and build
+    table-level lineage by aggregating inputs/outputs from all related queries.
+    """
+
     def __init__(self, platform: str, shared_connection: Optional[Any] = None):
         self.platform = platform
         self.report = StoredProcLineageReport()
@@ -77,10 +88,11 @@ class StoredProcLineageTracker(Closeable):
             "snowflake_root_query_id"
         )
 
-        if (
-            snowflake_root_query_id
-            and snowflake_root_query_id in self._stored_proc_execution_lineage
-        ):
+        if snowflake_root_query_id:
+            if snowflake_root_query_id not in self._stored_proc_execution_lineage:
+                self.report.num_related_queries_without_proc_call += 1
+                return False
+
             stored_proc_execution = self._stored_proc_execution_lineage.for_mutation(
                 snowflake_root_query_id
             )
