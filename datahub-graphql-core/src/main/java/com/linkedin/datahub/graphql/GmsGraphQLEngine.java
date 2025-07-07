@@ -139,6 +139,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -334,6 +335,7 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
@@ -411,6 +413,7 @@ public class GmsGraphQLEngine {
   private final EntityVersioningService entityVersioningService;
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
+  private final PageModuleService pageModuleService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -541,6 +544,7 @@ public class GmsGraphQLEngine {
     this.dataProductService = args.dataProductService;
     this.applicationService = args.applicationService;
     this.pageTemplateService = args.pageTemplateService;
+    this.pageModuleService = args.pageModuleService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
@@ -1369,6 +1373,7 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
               .dataFetcher(
                   "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
+              .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "updateDocPropagationSettings",
                   new UpdateDocPropagationSettingsResolver(this.settingsService))
