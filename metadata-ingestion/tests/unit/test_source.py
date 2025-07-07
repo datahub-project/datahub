@@ -137,6 +137,12 @@ def test_lineage_in_aspects_by_subtypes():
             "status": 1,
         },
     }
+    assert source.source_report.samples == {
+        "lineage": [_urn_2],
+        "usage": [],
+        "profiling": [],
+        "all_3": [],
+    }
 
 
 def test_discretize_dict_values():

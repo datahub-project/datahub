@@ -1,9 +1,8 @@
 import json
 import logging
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
-
-from datahub.utilities.urns.urn import guess_entity_type
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -46,139 +45,36 @@ def _load_lineage_data() -> Dict:
         ) from e
 
 
-def get_lineage_fields(entity_type: str, aspect_name: str) -> List[Dict]:
+def _get_fields(entity_type: str, aspect_name: str) -> List[Dict]:
     """
     This is experimental internal API subject to breaking changes without prior notice.
-
-    Get lineage fields for a specific entity type and aspect.
-
-    Args:
-        entity_type: The entity type (e.g., 'dataset', 'dataJob')
-        aspect_name: The aspect name (e.g., 'upstreamLineage', 'dataJobInputOutput')
-
-    Returns:
-        List of lineage field dictionaries, each containing:
-        - name: field name
-        - path: dot-notation path to the field
-        - isLineage: boolean indicating if it's lineage
-        - relationship: relationship information
-
-    Raises:
-        FileNotFoundError: If lineage.json doesn't exist
-        json.JSONDecodeError: If lineage.json is malformed
     """
-    lineage_data = _load_lineage_data()
-
-    entity_data = lineage_data.get("entities", {}).get(entity_type, {})
-    aspect_data = entity_data.get(aspect_name, {})
-
-    return aspect_data.get("fields", [])
-
-
-def is_lineage_field(urn: str, aspect_name: str, field_path: str) -> bool:
-    """
-    This is experimental internal API subject to breaking changes without prior notice.
-
-    Check if a specific field path is lineage-related.
-
-    Args:
-        urn: The entity URN (e.g., 'urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.test_table,PROD)')
-        aspect_name: The aspect name (e.g., 'upstreamLineage', 'dataJobInputOutput')
-        field_path: The dot-notation path to the field (e.g., 'upstreams.dataset')
-
-    Returns:
-        True if the field is lineage-related, False otherwise
-
-    Raises:
-        FileNotFoundError: If lineage.json doesn't exist
-        json.JSONDecodeError: If lineage.json is malformed
-        AssertionError: If URN doesn't start with 'urn:li:'
-    """
-    entity_type = guess_entity_type(urn)
-    lineage_fields = get_lineage_fields(entity_type, aspect_name)
-
-    for field in lineage_fields:
-        if field.get("path") == field_path:
-            return field.get("isLineage", False)
-
-    return False
-
-
-def has_lineage(urn: str, aspect: Any) -> bool:
-    """
-    This is experimental internal API subject to breaking changes without prior notice.
-
-    Check if an aspect has any lineage fields.
-
-    Args:
-        urn: The entity URN (e.g., 'urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.test_table,PROD)')
-        aspect: The aspect object
-
-    Returns:
-        True if the aspect has lineage fields, False otherwise
-
-    Raises:
-        FileNotFoundError: If lineage.json doesn't exist
-        json.JSONDecodeError: If lineage.json is malformed
-        AssertionError: If URN doesn't start with 'urn:li:'
-    """
-    entity_type = guess_entity_type(urn)
-    aspect_class = getattr(aspect, "__class__", None)
-    aspect_name = (
-        aspect_class.__name__ if aspect_class is not None else str(type(aspect))
+    return (
+        _load_lineage_data()
+        .get("entities", {})
+        .get(entity_type, {})
+        .get(aspect_name, {})
+        .get("fields", [])
     )
 
-    lineage_fields = get_lineage_fields(entity_type, aspect_name)
-    return len(lineage_fields) > 0
 
-
-def has_lineage_aspect(entity_type: str, aspect_name: str) -> bool:
+def _get_lineage_fields(entity_type: str, aspect_name: str) -> List[Dict]:
     """
     This is experimental internal API subject to breaking changes without prior notice.
-
-    Check if an aspect has any lineage fields.
-
-    Args:
-        entity_type: The entity type (e.g., 'dataset', 'dataJob')
-        aspect_name: The aspect name (e.g., 'upstreamLineage', 'dataJobInputOutput')
-
-    Returns:
-        True if the aspect has lineage fields, False otherwise
-
-    Raises:
-        FileNotFoundError: If lineage.json doesn't exist
-        json.JSONDecodeError: If lineage.json is malformed
     """
-    lineage_fields = get_lineage_fields(entity_type, aspect_name)
-    return len(lineage_fields) > 0
+    return [
+        field
+        for field in _get_fields(entity_type, aspect_name)
+        if field.get("isLineage", False)
+    ]
 
 
-def get_all_lineage_aspects(entity_type: str) -> Set[str]:
+@lru_cache(maxsize=128)
+def is_lineage_aspect(entity_type: str, aspect_name: str) -> bool:
     """
     This is experimental internal API subject to breaking changes without prior notice.
-
-    Get all aspects that have lineage fields for a given entity type.
-
-    Args:
-        entity_type: The entity type (e.g., 'dataset', 'dataJob')
-
-    Returns:
-        Set of aspect names that have lineage fields
-
-    Raises:
-        FileNotFoundError: If lineage.json doesn't exist
-        json.JSONDecodeError: If lineage.json is malformed
     """
-    lineage_data = _load_lineage_data()
-
-    entity_data = lineage_data.get("entities", {}).get(entity_type, {})
-    lineage_aspects = set()
-
-    for aspect_name, aspect_data in entity_data.items():
-        if aspect_data.get("fields"):
-            lineage_aspects.add(aspect_name)
-
-    return lineage_aspects
+    return len(_get_lineage_fields(entity_type, aspect_name)) > 0
 
 
 def clear_cache() -> None:
