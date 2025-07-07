@@ -1,4 +1,4 @@
-import { Loader, borders, colors, radius, spacing } from '@components';
+import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -34,10 +34,10 @@ const FloatingRightHeaderSection = styled.div`
     height: 100%;
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ $hasViewAll: boolean }>`
     margin: 16px;
     overflow-y: auto;
-    height: 222px;
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '210px' : '222px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -45,11 +45,18 @@ const LoaderContainer = styled.div`
     height: 100%;
 `;
 
+const ViewAllButton = styled(Button)`
+    margin-left: auto;
+    margin-right: 16px;
+    margin: 0 16px 0 auto;
+`;
+
 interface Props extends ModuleProps {
     loading?: boolean;
+    onClickViewAll?: () => void;
 }
 
-export default function LargeModule({ children, module, loading }: React.PropsWithChildren<Props>) {
+export default function LargeModule({ children, module, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
     return (
         <ModuleContainer $height="316px">
@@ -61,7 +68,7 @@ export default function LargeModule({ children, module, loading }: React.PropsWi
                     <ModuleMenu />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
-            <Content>
+            <Content $hasViewAll={!!onClickViewAll}>
                 {loading ? (
                     <LoaderContainer>
                         <Loader />
@@ -70,6 +77,11 @@ export default function LargeModule({ children, module, loading }: React.PropsWi
                     children
                 )}
             </Content>
+            {onClickViewAll && (
+                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} dataTestId="view-all">
+                    View all
+                </ViewAllButton>
+            )}
         </ModuleContainer>
     );
 }

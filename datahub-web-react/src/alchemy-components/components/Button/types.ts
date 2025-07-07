@@ -10,6 +10,7 @@ export enum ButtonVariantValues {
     outline = 'outline',
     text = 'text',
     secondary = 'secondary',
+    link = 'link',
 }
 export type ButtonVariant = keyof typeof ButtonVariantValues;
 
@@ -22,6 +23,7 @@ export interface ButtonPropsDefaults {
     isLoading: boolean;
     isDisabled: boolean;
     isActive: boolean;
+    dataTestId?: string;
 }
 
 export interface ButtonProps
