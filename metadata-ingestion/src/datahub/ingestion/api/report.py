@@ -6,19 +6,24 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional, Set, cast, runtime_checkable
+from typing import Any, Dict, Optional, Set, Union, cast, runtime_checkable
 
 import humanfriendly
 import pydantic
 from pydantic import BaseModel
 from typing_extensions import Literal, Protocol
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    MetadataChangeProposalClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
 
@@ -125,6 +130,8 @@ class ReportAttribute(BaseModel):
 
 @dataclass
 class ExamplesReport(Report, Closeable):
+    # We are adding this to make querying easier for fine-grained lineage
+    _fine_grained_lineage_special_case_name = "fineGrainedLineages"
     _urns_seen: Set[str] = field(default_factory=set)
     entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
     aspects: Dict[str, Dict[str, int]] = field(
@@ -135,9 +142,7 @@ class ExamplesReport(Report, Closeable):
             lambda: defaultdict(lambda: defaultdict(int))
         )
     )
-    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
-    )
+    urn_samples: Dict[str, list[str]] = field(default_factory=dict)
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     def __post_init__(self) -> None:
@@ -157,6 +162,15 @@ class ExamplesReport(Report, Closeable):
             self._file_based_dict.close()
             self._file_based_dict = None
 
+    def _has_fine_grained_lineage(
+        self, mcp: Union[MetadataChangeProposalClass | MetadataChangeProposalWrapper]
+    ) -> bool:
+        if isinstance(mcp.aspect, UpstreamLineageClass):
+            upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+            if upstream_lineage.fineGrainedLineages:
+                return True
+        return False
+
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
         urn = wu.get_urn()
 
@@ -175,30 +189,31 @@ class ExamplesReport(Report, Closeable):
 
             if aspectName is None:
                 continue
-            self.aspects[entityType][aspectName] += 1
-            self.aspect_urn_samples[entityType][aspectName].append(urn)
+
+            has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
+
             sub_type = "unknown"
-            if isinstance(mcp.aspect, UpstreamLineageClass):
-                upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                if upstream_lineage.fineGrainedLineages:
-                    self.aspect_urn_samples[entityType]["fineGrainedLineages"].append(
-                        urn
-                    )
-                    self.aspects[entityType]["fineGrainedLineages"] += 1
-            elif isinstance(mcp.aspect, SubTypesClass):
+            if isinstance(mcp.aspect, SubTypesClass):
                 sub_type = mcp.aspect.typeNames[0]
+
             assert self._file_based_dict is not None
             if urn in self._file_based_dict:
                 if sub_type != "unknown":
                     self._file_based_dict[urn].subType = sub_type
                 self._file_based_dict[urn].aspects.add(aspectName)
+                if has_fine_grained_lineage:
+                    self._file_based_dict[urn].aspects.add(
+                        self._fine_grained_lineage_special_case_name
+                    )
                 self._file_based_dict.mark_dirty(urn)
             else:
                 self._file_based_dict[urn] = SourceReportSubtypes(
                     urn=urn,
                     entity_type=entityType,
                     subType=sub_type,
-                    aspects={aspectName},
+                    aspects={aspectName}
+                    if not has_fine_grained_lineage
+                    else {aspectName, self._fine_grained_lineage_special_case_name},
                 )
 
     def compute_stats(self) -> None:
@@ -223,9 +238,12 @@ class ExamplesReport(Report, Closeable):
             for aspect in aspects:
                 entity_subtype_aspect_counts[entity_type][sub_type][aspect] += count
 
+        self.aspects.clear()
         self.aspects_by_subtypes.clear()
         for entity_type, subtype_counts in entity_subtype_aspect_counts.items():
             for sub_type, aspect_counts in subtype_counts.items():
+                for aspect, count in aspect_counts.items():
+                    self.aspects[entity_type][aspect] += count
                 self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
 
 
