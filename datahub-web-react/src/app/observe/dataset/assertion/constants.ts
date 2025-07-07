@@ -1,4 +1,4 @@
-import { AssertionType } from '@types';
+import { AssertionSourceType, AssertionType } from '@types';
 
 export type AssertionResultTypeOptions = 'Failing' | 'Passing' | 'Error';
 
@@ -61,6 +61,21 @@ export const ASSERTION_TYPE_OPTIONS = [
     {
         value: AssertionType.Custom,
         name: 'Custom',
+    },
+];
+
+export const ASSERTION_SOURCES_OPTIONS = [
+    {
+        value: AssertionSourceType.Native,
+        name: 'Traditional (Manually Defined)',
+    },
+    {
+        value: AssertionSourceType.Inferred,
+        name: 'Smart (AI Anomaly Detection)',
+    },
+    {
+        value: AssertionSourceType.External,
+        name: 'External (3rd Party)',
     },
 ];
 

@@ -8,6 +8,7 @@ import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineL
 import { AssertionsByAssertionSummaryTable } from '@app/observe/dataset/assertion/AssertionsByAssertionSummaryTable';
 import {
     ASSERTION_RESULT_TYPE_OPTIONS_TO_RUN_SUMMARY_FILTER_FIELD,
+    ASSERTION_SOURCES_OPTIONS,
     ASSERTION_TYPE_OPTIONS,
     AssertionResultTypeOptions,
     LAST_ASSERTION_RUN_AT_SORT_FIELD,
@@ -22,6 +23,7 @@ import {
     ASSERTEE_OWNERS_FILTER_NAME,
     ASSERTEE_PLATFORM_FILTER_NAME,
     ASSERTEE_TAGS_FILTER_NAME,
+    ASSERTION_SOURCE_FILTER_NAME,
     ASSERTION_TYPE_FILTER_NAME,
     TAGS_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
@@ -134,6 +136,9 @@ export const AssertionsByAssertionSummary = () => {
     const [assertionTypes, setAssertionTypes] = useState<string[]>(
         ASSERTION_TYPE_OPTIONS.map((option) => option.value),
     );
+    const [assertionSources, setAssertionSources] = useState<string[]>(
+        ASSERTION_SOURCES_OPTIONS.map((option) => option.value),
+    );
     const [assertionTags, setAssertionTags] = useState<string[]>([]);
 
     // Asset Filters
@@ -168,6 +173,13 @@ export const AssertionsByAssertionSummary = () => {
         });
 
         filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionTypes });
+
+        if (assertionSources.length > 0 && assertionSources.length !== ASSERTION_SOURCES_OPTIONS.length) {
+            filters.push({
+                field: ASSERTION_SOURCE_FILTER_NAME,
+                values: assertionSources,
+            });
+        }
 
         if (assertionTags.length > 0) {
             filters.push({ field: TAGS_FILTER_NAME, values: assertionTags });
@@ -376,6 +388,37 @@ export const AssertionsByAssertionSummary = () => {
                         selectLabelProps={{
                             variant: 'labeled',
                             label: 'Type',
+                        }}
+                        showClear={false}
+                    />
+
+                    {/* ************************* Assertion Sources ************************* */}
+                    <SimpleSelect
+                        width="fit-content"
+                        options={ASSERTION_SOURCES_OPTIONS.map((option) => ({
+                            value: option.value,
+                            label: option.name,
+                        }))}
+                        values={assertionSources}
+                        onUpdate={(values) => {
+                            if (values.length !== 0) {
+                                setAssertionSources(values);
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assertionSource',
+                                    content: {
+                                        filterValues: values,
+                                    },
+                                });
+                            }
+                        }}
+                        placeholder="Source"
+                        isMultiSelect
+                        selectLabelProps={{
+                            variant: 'labeled',
+                            label: 'Source',
                         }}
                         showClear={false}
                     />
