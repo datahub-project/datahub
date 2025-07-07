@@ -1237,7 +1237,7 @@ class TableauSiteSource:
         This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
         However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
 
-        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
+        To address this, the function explicitly checks the deny regex to ensure that project C's assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
         """
 
         # Either project_pattern or project_path_pattern is set in a recipe
@@ -2434,12 +2434,66 @@ class TableauSiteSource:
         #   >> to >
         #   << to <
         #
-        return (
+        cleaned_query = (
             re.sub(r"\<\[?[Pp]arameters\]?\.(\[[^\]]+\]|[^\>]+)\>", "1", query)
             .replace("<<", "<")
             .replace(">>", ">")
             .replace("\n\n", "\n")
         )
+
+        # Automatically quote identifiers that contain special characters
+        cleaned_query = TableauSiteSource._quote_identifiers_with_special_chars(
+            cleaned_query
+        )
+
+        return cleaned_query
+
+    @staticmethod
+    def _quote_identifiers_with_special_chars(query: str) -> str:
+        """
+        Automatically quote identifiers in SQL queries that contain special characters like dashes.
+        This helps the SQL parser handle identifiers that would otherwise cause parsing errors.
+
+        Examples:
+        - jwn-nap-dataplex-prod-emue.prd_nap_jwn_metrics_usr_vws.jwn_demand_metric_vw
+        - `jwn-nap-dataplex-prod-emue`.`prd_nap_jwn_metrics_usr_vws`.`jwn_demand_metric_vw`
+        """
+        if not query:
+            return query
+
+        # Pattern to match fully qualified table names (database.schema.table or schema.table)
+        pattern1 = r"\b([a-zA-Z0-9_\-]+)\.([a-zA-Z0-9_\-]+)\.([a-zA-Z0-9_\-]+)\b"
+
+        # Pattern for schema.table names
+        pattern2 = r"\b([a-zA-Z0-9_\-]+)\.([a-zA-Z0-9_\-]+)\b"
+
+        def quote_identifier_if_needed(identifier: str) -> str:
+            """Quote an identifier if it contains special characters like dashes."""
+            if "-" in identifier:
+                # Already quoted, don't double-quote
+                if identifier.startswith("`") and identifier.endswith("`"):
+                    return identifier
+                return f"`{identifier}`"
+            return identifier
+
+        def replace_fully_qualified_name(match) -> str:
+            database, schema, table = match.groups()
+            quoted_database = quote_identifier_if_needed(database)
+            quoted_schema = quote_identifier_if_needed(schema)
+            quoted_table = quote_identifier_if_needed(table)
+            return f"{quoted_database}.{quoted_schema}.{quoted_table}"
+
+        def replace_schema_table_name(match) -> str:
+            schema, table = match.groups()
+            quoted_schema = quote_identifier_if_needed(schema)
+            quoted_table = quote_identifier_if_needed(table)
+            return f"{quoted_schema}.{quoted_table}"
+
+        # Apply the replacements
+        result = re.sub(pattern1, replace_fully_qualified_name, query)
+        result = re.sub(pattern2, replace_schema_table_name, result)
+
+        return result
 
     def parse_custom_sql(
         self,
