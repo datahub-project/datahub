@@ -1,4 +1,9 @@
+import logging
+from typing import Any, Dict
+
 from datahub.utilities.str_enum import StrEnum
+
+logger = logging.getLogger(__name__)
 
 
 class DatasetSubTypes(StrEnum):
@@ -76,6 +81,9 @@ class JobContainerSubTypes(StrEnum):
 
 
 class BIAssetSubTypes(StrEnum):
+    DASHBOARD = "Dashboard"
+    CHART = "Chart"
+
     # Generic SubTypes
     REPORT = "Report"
 
@@ -118,3 +126,36 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE = "Pipeline Job"
     VERTEX_PIPELINE_TASK = "Pipeline Task"
     VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
+
+
+def create_source_capability_modifier_enum():
+    all_values: Dict[str, Any] = {}
+    source_enums = [
+        DatasetSubTypes,
+        DatasetContainerSubTypes,
+        BIContainerSubTypes,
+        FlowContainerSubTypes,
+        JobContainerSubTypes,
+        BIAssetSubTypes,
+        MLAssetSubTypes,
+    ]
+
+    for enum_class in source_enums:
+        for member in enum_class:  # type: ignore[var-annotated]
+            if member.name in all_values:
+                logger.error(
+                    f"Warning: {member.name} already exists with value {all_values[member.name]}, skipping {member.value}"
+                )
+                continue
+            all_values[member.name] = member.value
+
+    enum_code = "class SourceCapabilityModifier(StrEnum):\n"
+    for name, value in all_values.items():
+        enum_code += f'    {name} = "{value}"\n'
+
+    exec(enum_code, globals())
+    return globals()["SourceCapabilityModifier"]
+
+
+# This will have all values from the enums above
+SourceCapabilityModifier = create_source_capability_modifier_enum()
