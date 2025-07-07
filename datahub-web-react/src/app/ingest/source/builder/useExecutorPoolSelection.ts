@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { DEFAULT_EXECUTOR_ID } from '@app/ingestV2/source/builder/types';
 import { useAppConfig } from '@app/useAppConfig';
 
 import {
@@ -33,7 +34,10 @@ export function useExecutorPoolSelection({ searchQuery, currentExecutorId, isEdi
 
     const pools = (data?.listRemoteExecutorPools?.remoteExecutorPools || []) as RemoteExecutorPool[];
     const total = data?.listRemoteExecutorPools?.total || 0;
-    const defaultPoolId = defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId || pools[0]?.executorPoolId;
+    const defaultPoolId =
+        defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId ||
+        pools.find((pool) => pool.executorPoolId === DEFAULT_EXECUTOR_ID)?.executorPoolId ||
+        pools[0]?.executorPoolId;
 
     useEffect(() => {
         // Only set default when:
