@@ -1,13 +1,19 @@
 package com.linkedin.datahub.graphql.types.ermodelrelationship.mappers;
 
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.ermodelrelation.ERModelRelationshipCardinality;
 import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.key.ERModelRelationshipKey;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -67,7 +73,13 @@ public class ERModelRelationMapperTest {
   public void testMapProperties() throws URISyntaxException {
     ERModelRelationshipProperties inputProperties = new ERModelRelationshipProperties();
     inputProperties.setName("Relationship Name");
-    inputProperties.setCardinality(ERModelRelationshipCardinality.ONE_TO_ONE);
+    inputProperties.setCardinality(ERModelRelationshipCardinality.ONE_ONE);
+    inputProperties.setSource(Urn.createFromTuple("dataset", "sourceDataset"));
+    inputProperties.setDestination(Urn.createFromTuple("dataset", "destinationDataset"));
+    inputProperties.setCreated(
+        new com.linkedin.common.AuditStamp()
+            .setActor(Urn.createFromTuple("corpuser", "testActor"))
+            .setTime(System.currentTimeMillis()));
 
     final Map<String, EnvelopedAspect> propertiesAspect = new HashMap<>();
     propertiesAspect.put(
@@ -82,8 +94,11 @@ public class ERModelRelationMapperTest {
     final ERModelRelationship actual = ERModelRelationMapper.map(null, response);
 
     Assert.assertEquals(actual.getProperties().getName(), "Relationship Name");
+    Assert.assertEquals(actual.getProperties().getCardinality().name(), "ONE_ONE");
     Assert.assertEquals(
-        actual.getProperties().getCardinality(), ERModelRelationshipCardinality.ONE_TO_ONE);
+        actual.getProperties().getSource().getUrn(), "urn:li:dataset:sourceDataset");
+    Assert.assertEquals(
+        actual.getProperties().getDestination().getUrn(), "urn:li:dataset:destinationDataset");
   }
 
   @Test
