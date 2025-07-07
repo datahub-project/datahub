@@ -138,10 +138,7 @@ def test_lineage_in_aspects_by_subtypes():
         },
     }
     assert source.source_report.samples == {
-        "lineage": [_urn_2],
-        "usage": [],
-        "profiling": [],
-        "all_3": [],
+        "lineage": {"Table": [_urn_2]},
     }
 
 

@@ -139,7 +139,9 @@ class ExamplesReport(Report, Closeable):
             lambda: defaultdict(lambda: defaultdict(int))
         )
     )
-    samples: Dict[str, List[str]] = field(default_factory=dict)
+    samples: Dict[str, Dict[str, List[str]]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(list))
+    )
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     # We are adding this to make querying easier for fine-grained lineage
@@ -258,24 +260,24 @@ class ExamplesReport(Report, Closeable):
                     _aspects_seen.add(aspect)
                 self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
 
-        self.samples = {"lineage": [], "usage": [], "profiling": [], "all_3": []}
-        query = f"""
-        SELECT urn
-        FROM urn_aspects
-        where aspects like '%datasetProfile%'
-        limit {self._samples_to_add}
-        """
-        for row in self._file_based_dict.sql_query(query):
-            self.samples["profiling"].append(row["urn"])
+        self.samples.clear()
+        # query = f"""
+        # SELECT urn
+        # FROM urn_aspects
+        # where aspects like '%datasetProfile%'
+        # limit {self._samples_to_add}
+        # """
+        # for row in self._file_based_dict.sql_query(query):
+        #     self.samples["profiling"].append(row["urn"])
 
-        query = f"""
-        SELECT urn
-        FROM urn_aspects
-        where aspects like '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
-        limit {self._samples_to_add}
-        """
-        for row in self._file_based_dict.sql_query(query):
-            self.samples["usage"].append(row["urn"])
+        # query = f"""
+        # SELECT urn
+        # FROM urn_aspects
+        # where aspects like '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
+        # limit {self._samples_to_add}
+        # """
+        # for row in self._file_based_dict.sql_query(query):
+        #     self.samples["usage"].append(row["urn"])
 
         if self._lineage_aspects_seen:
             lineage_like_conditions = []
@@ -283,28 +285,41 @@ class ExamplesReport(Report, Closeable):
                 lineage_like_conditions.append(f"aspects LIKE '%\"{aspect}\"%'")
 
             where_clause = " OR ".join(lineage_like_conditions)
-            query = f"""
-            SELECT urn
+
+            subtype_query = f"""
+            SELECT DISTINCT subTypes
             FROM urn_aspects 
             WHERE {where_clause}
-            limit {self._samples_to_add}
             """
 
-            for row in self._file_based_dict.sql_query(query):
-                self.samples["lineage"].append(row["urn"])
+            subtypes = set()
+            for row in self._file_based_dict.sql_query(subtype_query):
+                sub_type = row["subTypes"] or "unknown"
+                subtypes.add(sub_type)
 
-            lineage_where_clause = " OR ".join(lineage_like_conditions)
-            query = f"""
-            SELECT urn
-            FROM urn_aspects 
-            WHERE ({lineage_where_clause})
-            AND aspects LIKE '%datasetProfile%'
-            AND aspects LIKE '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
-            limit {self._samples_to_add}
-            """
+            for sub_type in subtypes:
+                query = f"""
+                SELECT urn
+                FROM urn_aspects 
+                WHERE {where_clause} AND subTypes = ?
+                limit {self._samples_to_add}
+                """
 
-            for row in self._file_based_dict.sql_query(query):
-                self.samples["all_3"].append(row["urn"])
+                for row in self._file_based_dict.sql_query(query, (sub_type,)):
+                    self.samples["lineage"][sub_type].append(row["urn"])
+
+            # lineage_where_clause = " OR ".join(lineage_like_conditions)
+            # query = f"""
+            # SELECT urn
+            # FROM urn_aspects
+            # WHERE ({lineage_where_clause})
+            # AND aspects LIKE '%datasetProfile%'
+            # AND aspects LIKE '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
+            # limit {self._samples_to_add}
+            # """
+
+            # for row in self._file_based_dict.sql_query(query):
+            #     self.samples["all_3"].append(row["urn"])
 
 
 class EntityFilterReport(ReportAttribute):
