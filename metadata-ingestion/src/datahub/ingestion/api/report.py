@@ -167,7 +167,7 @@ class ExamplesReport(Report, Closeable):
             self._file_based_dict = None
 
     def _has_fine_grained_lineage(
-        self, mcp: Union[MetadataChangeProposalClass | MetadataChangeProposalWrapper]
+        self, mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]
     ) -> bool:
         if isinstance(mcp.aspect, UpstreamLineageClass):
             upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
@@ -180,7 +180,7 @@ class ExamplesReport(Report, Closeable):
         urn: str,
         entityType: str,
         aspectName: str,
-        mcp: Union[MetadataChangeProposalClass | MetadataChangeProposalWrapper],
+        mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
