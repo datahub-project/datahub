@@ -77,7 +77,8 @@
         "MANAGE_DATA_PRODUCTS",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -253,7 +254,8 @@
         "MANAGE_DATA_PRODUCTS",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",

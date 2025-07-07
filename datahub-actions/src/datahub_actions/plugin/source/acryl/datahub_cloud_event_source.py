@@ -88,7 +88,7 @@ class DataHubEventSource(EventSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
-        config = DataHubEventsSourceConfig.parse_obj(config_dict)
+        config = DataHubEventsSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def events(self) -> Iterable[EventEnvelope]:

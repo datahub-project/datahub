@@ -92,7 +92,6 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-
     log.debug(
         String.format(
             "Adding Edge source: %s, destination: %s, type: %s",
@@ -111,48 +110,48 @@ public class Neo4jGraphService implements GraphService {
     // direct-outgoing-downstream/indirect-incoming-upstream relationships
     String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
-    final String createOrFindSourceNode =
-        String.format("MERGE (source:%s {urn: '%s'})", sourceType, sourceUrn);
-    final String createOrFindDestinationNode =
-        String.format("MERGE (destination:%s {urn: '%s'})", destinationType, destinationUrn);
-    final String createSourceToDestinationRelationShip =
-        String.format("MERGE (source)-[:%s]->(destination)", edge.getRelationshipType());
-    String createReverseRelationShip =
-        String.format("MERGE (source)-[r:%s]->(destination)", reverseRelationshipType);
+    // Build parameterized query instead of string concatenation
+    StringBuilder queryBuilder = new StringBuilder();
+    queryBuilder.append("MERGE (source:").append(sourceType).append(" {urn: $sourceUrn}) ");
+    queryBuilder.append("MERGE (destination:").append(destinationType).append(" {urn: $destUrn}) ");
+    queryBuilder
+        .append("MERGE (source)-[:")
+        .append(edge.getRelationshipType())
+        .append("]->(destination) ");
 
     if (isSourceDestReversed(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
       startUrn = destinationUrn;
-      createReverseRelationShip =
-          String.format("MERGE (destination)-[r:%s]->(source)", reverseRelationshipType);
+      queryBuilder
+          .append("MERGE (destination)-[r:")
+          .append(reverseRelationshipType)
+          .append("]->(source) ");
+    } else {
+      queryBuilder
+          .append("MERGE (source)-[r:")
+          .append(reverseRelationshipType)
+          .append("]->(destination) ");
     }
 
-    // Add/Update relationship properties
-    String setCreatedOnTemplate;
-    String setcreatedActorTemplate;
-    String setupdatedOnTemplate;
-    String setupdatedActorTemplate;
-    String setPropertyTemplate;
-    final StringJoiner propertiesTemplateJoiner = new StringJoiner(", ");
+    // Add SET clause for properties
+    List<String> propertySetters = new ArrayList<>();
+
     if (edge.getCreatedOn() != null) {
-      setCreatedOnTemplate = String.format("r.createdOn = %s", edge.getCreatedOn());
-      propertiesTemplateJoiner.add(setCreatedOnTemplate);
+      propertySetters.add("r.createdOn = $createdOn");
     }
     if (edge.getCreatedActor() != null) {
-      setcreatedActorTemplate = String.format("r.createdActor = '%s'", edge.getCreatedActor());
-      propertiesTemplateJoiner.add(setcreatedActorTemplate);
+      propertySetters.add("r.createdActor = $createdActor");
     }
     if (edge.getUpdatedOn() != null) {
-      setupdatedOnTemplate = String.format("r.updatedOn = %s", edge.getUpdatedOn());
-      propertiesTemplateJoiner.add(setupdatedOnTemplate);
+      propertySetters.add("r.updatedOn = $updatedOn");
     }
     if (edge.getUpdatedActor() != null) {
-      setupdatedActorTemplate = String.format("r.updatedActor = '%s'", edge.getUpdatedActor());
-      propertiesTemplateJoiner.add(setupdatedActorTemplate);
+      propertySetters.add("r.updatedActor = $updatedActor");
     }
+
+    // Add custom properties
     if (edge.getProperties() != null) {
       for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
-        // Make sure extra keys in properties are not preserved
         final Set<String> preservedKeySet =
             Set.of("createdOn", "createdActor", "updatedOn", "updatedActor", "startUrn", "endUrn");
         if (preservedKeySet.contains(entry.getKey())) {
@@ -162,8 +161,7 @@ public class Neo4jGraphService implements GraphService {
                   entry.getKey()));
         }
         if (entry.getValue() instanceof String) {
-          setPropertyTemplate = String.format("r.%s = '%s'", entry.getKey(), entry.getValue());
-          propertiesTemplateJoiner.add(setPropertyTemplate);
+          propertySetters.add("r." + entry.getKey() + " = $prop_" + entry.getKey());
         } else {
           throw new UnsupportedOperationException(
               String.format(
@@ -172,26 +170,48 @@ public class Neo4jGraphService implements GraphService {
         }
       }
     }
-    final String setStartEndUrnTemplate =
-        String.format("r.startUrn = '%s', r.endUrn = '%s'", startUrn, endUrn);
-    propertiesTemplateJoiner.add(setStartEndUrnTemplate);
 
-    StringBuilder finalStatement = new StringBuilder();
-    finalStatement
-        .append(createOrFindSourceNode)
-        .append(" ")
-        .append(createOrFindDestinationNode)
-        .append(" ")
-        .append(createSourceToDestinationRelationShip)
-        .append(" ")
-        .append(createReverseRelationShip)
-        .append(" ");
-    if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
-      finalStatement.append("SET ").append(propertiesTemplateJoiner);
+    // Add startUrn and endUrn properties
+    propertySetters.add("r.startUrn = $startUrn");
+    propertySetters.add("r.endUrn = $endUrn");
+
+    // Add SET clause if there are properties to set
+    if (!propertySetters.isEmpty()) {
+      queryBuilder.append("SET ").append(String.join(", ", propertySetters));
     }
-    final List<Statement> statements = new ArrayList<>();
-    statements.add(buildStatement(finalStatement.toString(), new HashMap<>()));
-    executeStatements(statements);
+
+    // Build parameters map
+    Map<String, Object> params = new HashMap<>();
+    params.put("sourceUrn", sourceUrn);
+    params.put("destUrn", destinationUrn);
+    params.put("startUrn", startUrn);
+    params.put("endUrn", endUrn);
+
+    if (edge.getCreatedOn() != null) {
+      params.put("createdOn", edge.getCreatedOn());
+    }
+    if (edge.getCreatedActor() != null) {
+      params.put("createdActor", edge.getCreatedActor());
+    }
+    if (edge.getUpdatedOn() != null) {
+      params.put("updatedOn", edge.getUpdatedOn());
+    }
+    if (edge.getUpdatedActor() != null) {
+      params.put("updatedActor", edge.getUpdatedActor());
+    }
+
+    // Add custom properties to parameters
+    if (edge.getProperties() != null) {
+      for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        if (entry.getValue() instanceof String) {
+          params.put("prop_" + entry.getKey(), entry.getValue());
+        }
+      }
+    }
+
+    // Execute the query
+    final Statement statement = buildStatement(queryBuilder.toString(), params);
+    executeStatements(Collections.singletonList(statement));
   }
 
   @Override
@@ -211,10 +231,10 @@ public class Neo4jGraphService implements GraphService {
     final String sourceUrn = edge.getSource().toString();
     final String destinationUrn = edge.getDestination().toString();
 
-    String endUrn = destinationUrn;
     String startUrn = sourceUrn;
-    String endType = destinationType;
     String startType = sourceType;
+    String endUrn = destinationUrn;
+    String endType = destinationType;
     String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
     if (isSourceDestReversed(sourceType, edge.getRelationshipType())) {
@@ -226,28 +246,33 @@ public class Neo4jGraphService implements GraphService {
 
     final List<Statement> statements = new ArrayList<>();
 
-    // DELETE relationship
+    // DELETE relationship - using parameterized query for property values
     final String mergeRelationshipTemplate =
-        "MATCH (source:%s {urn: '%s'})-[r:%s]->(destination:%s {urn: '%s'}) DELETE r";
+        "MATCH (source:%s {urn: $sourceUrn})-[r:%s]->(destination:%s {urn: $destUrn}) DELETE r";
+
+    // Format the query template with node labels and relationship type
     final String statement =
         String.format(
-            mergeRelationshipTemplate,
-            sourceType,
-            sourceUrn,
-            edge.getRelationshipType(),
-            destinationType,
-            destinationUrn);
-    final String statementR =
-        String.format(
-            mergeRelationshipTemplate,
-            startType,
-            startUrn,
-            reverseRelationshipType,
-            endType,
-            endUrn);
+            mergeRelationshipTemplate, sourceType, edge.getRelationshipType(), destinationType);
 
-    statements.add(buildStatement(statement, new HashMap<>()));
-    statements.add(buildStatement(statementR, new HashMap<>()));
+    // Parameters for the first statement - only for property values
+    Map<String, Object> params = new HashMap<>();
+    params.put("sourceUrn", sourceUrn);
+    params.put("destUrn", destinationUrn);
+
+    statements.add(buildStatement(statement, params));
+
+    // Format the query template for reverse relationship
+    final String statementR =
+        String.format(mergeRelationshipTemplate, startType, reverseRelationshipType, endType);
+
+    // Parameters for the reverse relationship statement - only for property values
+    Map<String, Object> paramsR = new HashMap<>();
+    paramsR.put("sourceUrn", startUrn);
+    paramsR.put("destUrn", endUrn);
+
+    statements.add(buildStatement(statementR, paramsR));
+
     executeStatements(statements);
   }
 
@@ -1046,5 +1071,10 @@ public class Neo4jGraphService implements GraphService {
         .numResults(totalCount)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  @Override
+  public List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples) {
+    return List.of();
   }
 }

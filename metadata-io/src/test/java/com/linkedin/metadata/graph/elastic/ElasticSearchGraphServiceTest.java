@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.GraphService.EdgeTuple;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -62,7 +65,7 @@ public class ElasticSearchGraphServiceTest {
     mockESBulkProcessor = mock(ESBulkProcessor.class);
     mockWriteDAO = mock(ESGraphWriteDAO.class);
     mockReadDAO = mock(ESGraphQueryDAO.class);
-    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
+
     test =
         new ElasticSearchGraphService(
             new LineageRegistry(entityRegistry),
@@ -77,6 +80,7 @@ public class ElasticSearchGraphServiceTest {
   @BeforeMethod
   public void beforeMethod() {
     reset(mockESBulkProcessor, mockWriteDAO, mockReadDAO);
+    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
   }
 
   @Test
@@ -235,6 +239,113 @@ public class ElasticSearchGraphServiceTest {
     assertEquals(result.getCount(), 0);
     assertEquals(result.getTotal(), 0);
     assertTrue(result.getEntities().isEmpty());
+  }
+
+  @Test
+  public void testRaw() {
+    // Create test edge tuples
+    List<EdgeTuple> edgeTuples =
+        Arrays.asList(
+            new EdgeTuple("urn:li:dataset:1", "urn:li:dataset:2", "Produces"),
+            new EdgeTuple("urn:li:dataset:3", "urn:li:dataset:4", "Consumes"));
+
+    // Create mock search response
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+
+    TotalHits totalHits = new TotalHits(2L, TotalHits.Relation.EQUAL_TO);
+    when(mockHits.getTotalHits()).thenReturn(totalHits);
+
+    // Create search hits
+    SearchHit[] searchHits = new SearchHit[2];
+    searchHits[0] = createMockSearchHit("urn:li:dataset:1", "urn:li:dataset:2", "Produces", null);
+    searchHits[1] =
+        createMockSearchHit(
+            "urn:li:dataset:4", "urn:li:dataset:3", "Consumes", "urn:li:dataset:via");
+    when(mockHits.getHits()).thenReturn(searchHits);
+
+    // Mock the executeSearch method
+    when(mockReadDAO.executeSearch(any(SearchRequest.class))).thenReturn(mockResponse);
+
+    // Execute the method
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    List<Map<String, Object>> results = test.raw(opContext, edgeTuples);
+
+    // Verify the search request was made
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockReadDAO).executeSearch(requestCaptor.capture());
+
+    // Verify results
+    assertEquals(results.size(), 2);
+
+    // Verify first result
+    Map<String, Object> firstResult = results.get(0);
+    Map<String, Object> source = (Map<String, Object>) firstResult.get("source");
+    Map<String, Object> destination = (Map<String, Object>) firstResult.get("destination");
+    assertEquals(source.get("urn"), "urn:li:dataset:1");
+    assertEquals(destination.get("urn"), "urn:li:dataset:2");
+    assertEquals(firstResult.get("relationshipType"), "Produces");
+
+    // Verify second result
+    Map<String, Object> secondResult = results.get(1);
+    source = (Map<String, Object>) secondResult.get("source");
+    destination = (Map<String, Object>) secondResult.get("destination");
+    assertEquals(source.get("urn"), "urn:li:dataset:4");
+    assertEquals(destination.get("urn"), "urn:li:dataset:3");
+    assertEquals(secondResult.get("relationshipType"), "Consumes");
+    assertEquals(secondResult.get("via"), "urn:li:dataset:via");
+  }
+
+  @Test
+  public void testRawWithNullInput() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+    // Test with null input
+    List<Map<String, Object>> results = test.raw(opContext, null);
+    assertTrue(results.isEmpty());
+  }
+
+  @Test
+  public void testRawWithEmptyInput() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+    // Test with empty list
+    List<Map<String, Object>> results = test.raw(opContext, Collections.emptyList());
+    assertTrue(results.isEmpty());
+  }
+
+  @Test
+  public void testRawWithInvalidEdgeTuples() {
+    // Create edge tuples with null values
+    List<EdgeTuple> edgeTuples =
+        Arrays.asList(
+            new EdgeTuple(null, "urn:li:dataset:2", "Produces"),
+            new EdgeTuple("urn:li:dataset:1", null, "Consumes"),
+            new EdgeTuple("urn:li:dataset:1", "urn:li:dataset:2", null),
+            new EdgeTuple("urn:li:dataset:3", "urn:li:dataset:4", "ValidRel"));
+
+    // Mock response for the valid tuple only
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+
+    TotalHits totalHits = new TotalHits(1L, TotalHits.Relation.EQUAL_TO);
+    when(mockHits.getTotalHits()).thenReturn(totalHits);
+
+    SearchHit[] searchHits = new SearchHit[1];
+    searchHits[0] = createMockSearchHit("urn:li:dataset:3", "urn:li:dataset:4", "ValidRel", null);
+    when(mockHits.getHits()).thenReturn(searchHits);
+
+    when(mockReadDAO.executeSearch(any(SearchRequest.class))).thenReturn(mockResponse);
+
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    List<Map<String, Object>> results = test.raw(opContext, edgeTuples);
+
+    // Should only return results for the valid tuple
+    assertEquals(results.size(), 1);
+    Map<String, Object> result = results.get(0);
+    assertEquals(((Map<String, Object>) result.get("source")).get("urn"), "urn:li:dataset:3");
   }
 
   // Helper method to create mock search hits

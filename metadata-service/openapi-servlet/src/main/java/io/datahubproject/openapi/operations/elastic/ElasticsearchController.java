@@ -13,7 +13,6 @@ import com.deblock.jsondiff.matcher.StrictPrimitivePartialMatcher;
 import com.deblock.jsondiff.viewer.PatchDiffViewer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -32,16 +31,12 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -179,53 +174,6 @@ public class ElasticsearchController {
                         .put("sizeMb", timeseriesIndexSizeResult.getSizeInMb()))
             .collect(Collectors.toList()));
     return ResponseEntity.ok(j.toString());
-  }
-
-  @PostMapping(path = "/entity/raw", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(
-      description =
-          "Retrieves raw Elasticsearch documents for the provided URNs. Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.",
-      responses = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Successfully retrieved raw documents",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
-        @ApiResponse(
-            responseCode = "403",
-            description = "Caller not authorized to access raw documents"),
-        @ApiResponse(responseCode = "400", description = "Invalid URN format provided")
-      })
-  public ResponseEntity<Map<Urn, Map<String, Object>>> getEntityRaw(
-      HttpServletRequest request,
-      @RequestBody
-          @Nonnull
-          @Schema(
-              description = "Set of URN strings to fetch raw documents for",
-              example = "[\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)\"]")
-          Set<String> urnStrs) {
-
-    Set<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
-
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        systemOperationContext.asSession(
-            RequestContext.builder()
-                .buildOpenapi(
-                    actorUrnStr,
-                    request,
-                    "getRawEntity",
-                    urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizerChain,
-            authentication);
-
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      log.error("{} is not authorized to get raw ES documents", actorUrnStr);
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
-
-    return ResponseEntity.ok(searchService.raw(opContext, urns));
   }
 
   @GetMapping(path = "/explainSearchQuery", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -42,7 +42,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
@@ -71,7 +71,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
