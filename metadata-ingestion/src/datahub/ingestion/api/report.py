@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional, Set, Union, cast, runtime_checkable
+from typing import Any, Dict, List, Optional, Set, Union, cast, runtime_checkable
 
 import humanfriendly
 import pydantic
@@ -140,7 +140,7 @@ class ExamplesReport(Report, Closeable):
             lambda: defaultdict(lambda: defaultdict(int))
         )
     )
-    urn_samples: Dict[str, list[str]] = field(default_factory=dict)
+    urn_samples: Dict[str, List[str]] = field(default_factory=dict)
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     def __post_init__(self) -> None:
