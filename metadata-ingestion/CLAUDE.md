@@ -51,8 +51,16 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Formatting**: Uses ruff, 88 character line length
 - **Imports**: Sorted with ruff.lint.isort, no relative imports
 - **Types**: Always use type annotations, prefer Protocol for interfaces
+  - Avoid `Any` type - use specific types (`Dict[str, int]`, `TypedDict`, or typevars)
+  - Use `isinstance` checks instead of `hasattr`
+  - Prefer `assert isinstance(...)` over `cast`
+- **Data Structures**: Use dataclasses/pydantic for internal data representation
+  - Return dataclasses instead of tuples from methods
+  - Centralize utility functions to avoid code duplication
 - **Naming**: Descriptive names, match source system terminology in configs
 - **Error Handling**: Validators throw only ValueError/TypeError/AssertionError
+  - Add robust error handling with layers of protection for known failure points
+- **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`
 - **Documentation**: All configs need descriptions
 - **Dependencies**: Avoid version pinning, use ranges with comments
 - **Architecture**: Avoid tall inheritance hierarchies, prefer mixins

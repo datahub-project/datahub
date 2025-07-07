@@ -76,6 +76,10 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 
 - **Java**: Use Spotless formatting, Spring Boot patterns, TestNG/JUnit Jupiter for tests
 - **Python**: Use ruff for linting/formatting, pytest for testing, pydantic for configs
+  - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`)
+  - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
+  - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
+  - **Error Handling**: Robust error handling with layers of protection for known failure points
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
 ### Testing Strategy
