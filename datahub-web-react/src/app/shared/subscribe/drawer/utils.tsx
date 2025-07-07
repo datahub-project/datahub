@@ -320,6 +320,13 @@ export const getTreeDataForEntity = (entityType: string, maybeContext?: NodeRend
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
+        case EntityType.Chart:
+        case EntityType.Dashboard:
+        case EntityType.DataFlow:
+        case EntityType.DataJob:
+        case EntityType.Mlfeature:
+        case EntityType.Mlmodel:
+            return [deprecationNode, incidentsNode, ownershipChangeNode, glossaryTermChangeNode, tagChangeNode];
         default:
             return [deprecationNode, ownershipChangeNode, glossaryTermChangeNode, tagChangeNode];
     }
