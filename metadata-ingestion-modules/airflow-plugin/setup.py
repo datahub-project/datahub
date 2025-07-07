@@ -106,15 +106,6 @@ integration_test_requirements = {
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
 }
-per_version_test_requirements = {
-    "test-airflow25": {
-        "pendulum<3.0",
-        "Flask-Session<0.6.0",
-        "connexion<3.0",
-        "marshmallow<3.24.0",
-        "apache-airflow-providers-amazon==7.3.0",
-    },
-}
 
 
 entry_points = {
@@ -169,9 +160,5 @@ setuptools.setup(
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
-        **{
-            plugin: list(dependencies)
-            for plugin, dependencies in per_version_test_requirements.items()
-        },
     },
 )
