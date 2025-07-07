@@ -522,8 +522,8 @@ class AthenaSource(SQLAlchemySource):
             try:
                 partitions = self._get_partitions_create_table(schema, table)
             except Exception as e:
-                logger.debug(
-                    f"Failed to get partitions from create table statement for {schema}.{table}. {schema}.{table}: {e}. Falling back to SQLAlchemy.",
+                logger.warning(
+                    f"Failed to get partitions from create table statement for {schema}.{table} because of {e}. Falling back to SQLAlchemy.",
                     exc_info=True,
                 )
 
