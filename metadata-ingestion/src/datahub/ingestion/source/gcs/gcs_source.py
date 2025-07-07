@@ -106,7 +106,6 @@ class GCSSource(StatefulIngestionSourceBase):
     def create_equivalent_s3_config(self):
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
-
         s3_config = DataLakeSourceConfig(
             path_specs=s3_path_specs,
             aws_config=AwsConnectionConfig(
