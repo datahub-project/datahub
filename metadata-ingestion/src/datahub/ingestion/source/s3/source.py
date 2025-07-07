@@ -161,6 +161,15 @@ class Folder:
 
 
 @dataclasses.dataclass
+class FolderInfo:
+    objects: List[Any]
+    total_size: int
+    min_time: datetime
+    max_time: datetime
+    latest_obj: Any
+
+
+@dataclasses.dataclass
 class BrowsePath:
     file: str
     timestamp: datetime
@@ -948,9 +957,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         # Process objects in a memory-efficient streaming fashion
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally
-        folder_data: Dict[
-            str, Dict[str, Any]
-        ] = {}  # dirname -> {"objects": [obj], "total_size": int}
+        folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
         for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
@@ -963,29 +970,29 @@ class S3Source(StatefulIngestionSourceBase):
 
             # Initialize folder data if we haven't seen this directory before
             if dirname not in folder_data:
-                folder_data[dirname] = {
-                    "objects": [],
-                    "total_size": 0,
-                    "min_time": obj.last_modified,
-                    "max_time": obj.last_modified,
-                    "latest_obj": obj,
-                }
+                folder_data[dirname] = FolderInfo(
+                    objects=[],
+                    total_size=0,
+                    min_time=obj.last_modified,
+                    max_time=obj.last_modified,
+                    latest_obj=obj,
+                )
 
             # Update folder statistics incrementally
             folder_info = folder_data[dirname]
-            folder_info["objects"].append(obj)
-            folder_info["total_size"] += obj.size
+            folder_info.objects.append(obj)
+            folder_info.total_size += obj.size
 
             # Track min/max times and latest object
-            if obj.last_modified < folder_info["min_time"]:
-                folder_info["min_time"] = obj.last_modified
-            if obj.last_modified > folder_info["max_time"]:
-                folder_info["max_time"] = obj.last_modified
-                folder_info["latest_obj"] = obj
+            if obj.last_modified < folder_info.min_time:
+                folder_info.min_time = obj.last_modified
+            if obj.last_modified > folder_info.max_time:
+                folder_info.max_time = obj.last_modified
+                folder_info.latest_obj = obj
 
         # Yield folders after processing all objects
         for _dirname, folder_info in folder_data.items():
-            latest_obj = folder_info["latest_obj"]
+            latest_obj = folder_info.latest_obj
             max_file_s3_path = self.create_s3_path(
                 latest_obj.bucket_name, latest_obj.key
             )
@@ -996,10 +1003,10 @@ class S3Source(StatefulIngestionSourceBase):
             yield Folder(
                 partition_id=partition_id,
                 is_partition=bool(partition_id),
-                creation_time=folder_info["min_time"],
-                modification_time=folder_info["max_time"],
+                creation_time=folder_info.min_time,
+                modification_time=folder_info.max_time,
                 sample_file=max_file_s3_path,
-                size=folder_info["total_size"],
+                size=folder_info.total_size,
             )
 
     def create_s3_path(self, bucket_name: str, key: str) -> str:

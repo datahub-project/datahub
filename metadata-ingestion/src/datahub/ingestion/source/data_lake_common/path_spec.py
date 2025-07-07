@@ -150,12 +150,6 @@ class PathSpec(ConfigModel):
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
-    print_debug: bool = Field(
-        hidden_from_docs=True,
-        default=False,
-        description="Print debug information to the logs. This is useful for debugging the path spec and understanding how it works. Set to True to enable debug logging. It can be verbose",
-    )
-
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -172,9 +166,6 @@ class PathSpec(ConfigModel):
         return False
 
     def allowed(self, path: str, ignore_ext: bool = False) -> bool:
-        if self.print_debug:
-            logger.debug(f"Checking file to inclusion: {path}")
-
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return False
 
@@ -183,9 +174,6 @@ class PathSpec(ConfigModel):
         ):
             return False
 
-        if self.print_debug:
-            logger.debug(f"{path} matched include ")
-
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
@@ -193,15 +181,9 @@ class PathSpec(ConfigModel):
                 ):
                     return False
 
-        if self.print_debug:
-            logger.debug(f"{path} is not excluded")
-
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
             return False
-
-        if self.print_debug:
-            logger.debug(f"{path} is passed table name check")
 
         ext = os.path.splitext(path)[1].strip(".")
 
@@ -211,9 +193,6 @@ class PathSpec(ConfigModel):
             ):
                 return False
 
-        if self.print_debug:
-            logger.debug(f"{path} had selected extension {ext}")
-            logger.debug(f"{path} allowed for dataset creation")
         return True
 
     def dir_allowed(self, path: str) -> bool:
@@ -235,13 +214,8 @@ class PathSpec(ConfigModel):
         for _ in range(slash_to_remove_from_glob):
             glob_include = glob_include.rsplit("/", 1)[0]
 
-        if self.print_debug:
-            logger.debug(f"Checking dir to inclusion: {path}")
-
         if not pathlib.PurePath(path).globmatch(glob_include, flags=pathlib.GLOBSTAR):
             return False
-        if self.print_debug:
-            logger.debug(f"{path} matched include ")
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path.rstrip("/")).globmatch(
@@ -373,11 +347,7 @@ class PathSpec(ConfigModel):
     @cached_property
     def compiled_include(self):
         parsable_include = PathSpec.get_parsable_include(self.include)
-        if self.print_debug:
-            logger.debug(f"parsable_include: {parsable_include}")
         compiled_include = parse.compile(parsable_include)
-        if self.print_debug:
-            logger.debug(f"Setting compiled_include: {compiled_include}")
         return compiled_include
 
     @cached_property
@@ -385,12 +355,8 @@ class PathSpec(ConfigModel):
         parsable_folder_include = PathSpec.get_parsable_include(self.include).rsplit(
             "/", 1
         )[0]
-        if self.print_debug:
-            logger.debug(f"parsable_folder_include: {parsable_folder_include}")
         compiled_folder_include = parse.compile(parsable_folder_include)
 
-        if self.print_debug:
-            logger.debug(f"Setting compiled_folder_include: {compiled_folder_include}")
         return compiled_folder_include
 
     @cached_property
@@ -398,7 +364,8 @@ class PathSpec(ConfigModel):
         # Regular expression to find all substrings enclosed in {}
         pattern = r"\{(.*?)\}"
         # Find all matches
-        matches = re.findall(pattern, self.include.split("{table}/")[1])
+        split_parts = self.include.split("{table}/")
+        matches = re.findall(pattern, split_parts[1]) if len(split_parts) > 1 else []
         return matches
 
     def get_partition_from_path(self, path: str) -> Optional[List[Tuple[str, str]]]:
@@ -585,7 +552,7 @@ class PathSpec(ConfigModel):
                         f"{{{template_key}}}", var[key]
                     )
             else:
-                partition_format.replace(f"{{{var_key}}}", var)
+                partition_format = partition_format.replace(f"{{{var_key}}}", var)
         return datetime.datetime.strptime(partition_format, datetime_format).replace(
             tzinfo=datetime.timezone.utc
         )
