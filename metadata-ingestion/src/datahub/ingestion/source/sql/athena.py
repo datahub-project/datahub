@@ -29,7 +29,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -321,9 +324,18 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
-@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
-@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Supported for S3 tables",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Supported for S3 tables",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
