@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-03T17:09:17.375811+00:00",
+  "generated_at": "2025-07-07T09:06:40.727786+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -3344,7 +3344,10 @@
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "View",
+            "Projections"
+          ],
           "supported": true
         },
         {

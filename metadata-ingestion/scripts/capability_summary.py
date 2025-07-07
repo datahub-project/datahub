@@ -30,7 +30,10 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         class_or_exception = source_registry._ensure_not_lazy(plugin_name)
         if isinstance(class_or_exception, Exception):
             # Log the specific error but don't re-raise it
-            logger.exception(f"Plugin {plugin_name} failed to load", exc_info=True)
+            logger.error(
+                f"Plugin {plugin_name} failed to load: {class_or_exception}",
+                exc_info=True,
+            )
             return None
         source_type = source_registry.get(plugin_name)
         logger.debug(f"Source class is {source_type}")
@@ -71,10 +74,8 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
 
         return plugin
 
-    except Exception:
-        logger.exception(
-            f"Failed to load capabilities for {plugin_name}", exc_info=True
-        )
+    except Exception as e:
+        logger.exception(f"Failed to load capabilities for {plugin_name}: {e}")
         return None
 
 
