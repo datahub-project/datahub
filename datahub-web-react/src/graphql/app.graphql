@@ -134,35 +134,7 @@ query getDocPropagationSettings {
 query getHomePageSettings {
     globalHomePageSettings {
         defaultTemplate {
-            urn
-            type
-            properties {
-                rows {
-                    modules {
-                        urn
-                    }
-                }
-                surface {
-                    surfaceType
-                }
-                visibility {
-                    scope
-                }
-                created {
-                    time
-                    actor {
-                        urn
-                        type
-                    }
-                }
-                lastModified {
-                    time
-                    actor {
-                        urn
-                        type
-                    }
-                }
-            }
+            ...pageTemplateFields
         }
     }
 }

@@ -3,10 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import ModuleContainer from '@app/homepageV2/module/components/ModuleContainer';
-import ModuleDescription from '@app/homepageV2/module/components/ModuleDescription';
 import ModuleMenu from '@app/homepageV2/module/components/ModuleMenu';
 import ModuleName from '@app/homepageV2/module/components/ModuleName';
-import PublicModuleBadge from '@app/homepageV2/module/components/PublicModuleBadge';
 import { ModuleProps } from '@app/homepageV2/module/types';
 
 const ModuleHeader = styled.div`
@@ -51,20 +49,15 @@ interface Props extends ModuleProps {
     loading?: boolean;
 }
 
-export default function LargeModule({
-    children,
-    name,
-    description,
-    visibility,
-    loading,
-}: React.PropsWithChildren<Props>) {
+export default function LargeModule({ children, module, loading }: React.PropsWithChildren<Props>) {
+    const { name } = module.properties;
     return (
         <ModuleContainer $height="316px">
             <ModuleHeader>
                 <ModuleName text={name} />
-                <ModuleDescription text={description} />
+                {/* TODO: implement description for modules CH-548 */}
+                {/* <ModuleDescription text={description} /> */}
                 <FloatingRightHeaderSection>
-                    <PublicModuleBadge isPublic={visibility === 'global'} />
                     <ModuleMenu />
                 </FloatingRightHeaderSection>
             </ModuleHeader>

@@ -1,36 +1,24 @@
 import React from 'react';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
-import Module from '@app/homepageV2/module/Module';
-import { ModuleProps } from '@app/homepageV2/module/types';
+import { useUserContext } from '@app/context/useUserContext';
 import { ContentContainer, ContentWrapper, StyledVectorBackground } from '@app/homepageV2/styledComponents';
-
-const SAMPLE_MODULES: ModuleProps[] = [
-    {
-        name: 'Your Assets',
-        description: 'These are assets you are the owner',
-        type: 'yourAssets',
-        visibility: 'personal',
-    },
-    {
-        name: 'Sample large module',
-        description: 'Description of the sample module',
-        type: 'sampleLarge',
-        visibility: 'global',
-    },
-];
+import TemplateRow from '@app/homepageV2/templateRow/TemplateRow';
 
 const HomePageContent = () => {
-    // TODO: use the default template from global settings OR the one from user settings. prefer user settings
     const { settings } = useGlobalSettings();
+    const { user } = useUserContext();
+
+    const template = user?.settings?.homePage?.pageTemplate || settings.globalHomePageSettings?.defaultTemplate;
 
     return (
         <ContentWrapper>
             <StyledVectorBackground />
             <ContentContainer>
-                {SAMPLE_MODULES.map((sampleModule) => (
-                    <Module {...sampleModule} key={sampleModule.name} />
-                ))}
+                {template?.properties.rows.map((row, i) => {
+                    const key = `templateRow-${i}`;
+                    return <TemplateRow key={key} row={row} />;
+                })}
             </ContentContainer>
         </ContentWrapper>
     );

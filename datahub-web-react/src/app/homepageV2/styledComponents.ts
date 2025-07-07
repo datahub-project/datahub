@@ -35,6 +35,9 @@ export const ContentContainer = styled.div`
     background-color: ${colors.white};
     height: 100%;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 `;
 
 export const StyledVectorBackground = styled(VectorBackground)`

@@ -767,6 +767,7 @@ public class GmsGraphQLEngine {
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
+    configurePageTemplateRowResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -3504,5 +3505,20 @@ public class GmsGraphQLEngine {
                           ? homePageSettings.getDefaultTemplate().getUrn()
                           : null;
                     })));
+  }
+
+  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "DataHubPageTemplateRow",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "modules",
+                new LoadableTypeBatchResolver<>(
+                    dataHubPageModuleType,
+                    (env) ->
+                        ((DataHubPageTemplateRow) env.getSource())
+                            .getModules().stream()
+                                .map(DataHubPageModule::getUrn)
+                                .collect(Collectors.toList()))));
   }
 }
