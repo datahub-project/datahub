@@ -1,18 +1,17 @@
-import { ButtonProps, ColorPicker, Input, Modal, Text } from '@components';
-import { Select, message } from 'antd';
+import { ColorPicker, Input, Modal } from '@components';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { OwnerLabel } from '@src/app/shared/OwnerLabel';
+import { ModalButton } from '@components/components/Modal/Modal';
+
+import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import {
     useBatchAddOwnersMutation,
     useSetTagColorMutation,
     useUpdateDescriptionMutation,
 } from '@src/graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
-import { useGetSearchResultsLazyQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { EntityType, OwnerEntityType } from '@src/types.generated';
 
@@ -20,55 +19,11 @@ const FormSection = styled.div`
     margin-bottom: 16px;
 `;
 
-const OwnersSection = styled.div`
-    margin-bottom: 16px;
-`;
-
-const OwnersHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-`;
-
-const OwnersContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-`;
-
-const SelectInput = styled(Select)`
-    width: 100%;
-
-    .ant-select-selection-item {
-        display: flex;
-        align-items: center;
-        border-radius: 16px;
-        margin: 2px;
-        height: 32px;
-        padding-left: 4px;
-        border: none;
-    }
-
-    .ant-select-selection-item-remove {
-        margin-left: 8px;
-        margin-right: 8px;
-        color: rgba(0, 0, 0, 0.45);
-    }
-`;
-
 interface Props {
     tagUrn: string;
     onClose: () => void;
     onSave?: () => void;
     isModalOpen?: boolean;
-}
-
-// Define a compatible interface for modal buttons
-interface ModalButton extends ButtonProps {
-    text: string;
-    onClick: () => void;
 }
 
 // Interface for pending owner
@@ -103,28 +58,11 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     // Owners state
     const [owners, setOwners] = useState<any[]>([]);
     const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
-    const [inputValue, setInputValue] = useState('');
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
 
-    // Search queries for owners - fetchPolicy set to 'no-cache' to avoid stale data issues
-    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetSearchResultsLazyQuery({
-        fetchPolicy: 'no-cache',
-    });
-    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetSearchResultsLazyQuery({
-        fetchPolicy: 'no-cache',
-    });
-
-    // Lazy load ownership types to improve initial loading time
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-        skip: !isModalOpen, // Only fetch when modal is open
-    });
-
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
+    const onChangeOwners = (newOwners: PendingOwner[]) => {
+        setPendingOwners(newOwners);
+    };
 
     // When data loads, set the initial values
     useEffect(() => {
@@ -171,89 +109,6 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         setDescription(originalDescription);
         setPendingOwners([]);
         setSelectedOwnerUrns([]);
-    };
-
-    // Combine search results
-    const userSearchResults = userSearchData?.search?.searchResults?.map((result) => result.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((result) => result.entity) || [];
-    const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-
-    // Search handlers with debounce to reduce API calls
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        if (!text || text.trim().length < 2) return;
-
-        searchQuery({
-            variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
-            },
-        });
-    };
-
-    // Debounced search handler
-    const handleOwnerSearch = (text: string) => {
-        setInputValue(text.trim());
-        setIsSearching(true);
-
-        if (text && text.trim().length > 1) {
-            handleSearch(EntityType.CorpUser, text.trim(), userSearch);
-            handleSearch(EntityType.CorpGroup, text.trim(), groupSearch);
-        }
-    };
-
-    // Renders a search result in the select dropdown
-    const renderSearchResult = (entityItem: any) => {
-        const avatarUrl =
-            entityItem.type === EntityType.CorpUser ? entityItem.editableProperties?.pictureLink : undefined;
-        const displayName = entityRegistry.getDisplayName(entityItem.type, entityItem);
-
-        return (
-            <Select.Option
-                key={entityItem.urn}
-                value={entityItem.urn}
-                label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entityItem.type} />}
-            >
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entityItem.type} />
-            </Select.Option>
-        );
-    };
-
-    // Handle select change - now stores owners as pending until save
-    const handleSelectChange = (values: any) => {
-        const newValues = values as string[];
-        setSelectedOwnerUrns(newValues);
-
-        // Find new owner URNs that weren't previously selected
-        const newOwnerUrns = newValues.filter((urn) => !pendingOwners.some((owner) => owner.ownerUrn === urn));
-
-        if (newOwnerUrns.length > 0 && defaultOwnerType) {
-            const newPendingOwners = newOwnerUrns.map((urn) => {
-                const foundEntity = combinedSearchResults.find((e) => e.urn === urn);
-                const ownerEntityType =
-                    foundEntity && foundEntity.type === EntityType.CorpGroup
-                        ? OwnerEntityType.CorpGroup
-                        : OwnerEntityType.CorpUser;
-
-                return {
-                    ownerUrn: urn,
-                    ownerEntityType,
-                    ownershipTypeUrn: defaultOwnerType,
-                };
-            });
-
-            setPendingOwners([...pendingOwners, ...newPendingOwners]);
-        }
-
-        // Handle removed owners
-        if (newValues.length < selectedOwnerUrns.length) {
-            const removedUrns = selectedOwnerUrns.filter((urn) => !newValues.includes(urn));
-            const updatedPendingOwners = pendingOwners.filter((owner) => !removedUrns.includes(owner.ownerUrn));
-            setPendingOwners(updatedPendingOwners);
-        }
     };
 
     // Save everything together
@@ -380,6 +235,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             variant: 'filled',
             onClick: handleSave,
             disabled: !hasChanges(),
+            buttonDataTestId: 'update-tag-button',
         },
     ];
 
@@ -391,19 +247,16 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     // Dynamic modal title
     const modalTitle = tagDisplayName ? `Edit Tag: ${tagDisplayName}` : 'Edit Tag';
 
-    // Loading state for the select
-    const isSelectLoading = isSearching && (userSearchLoading || groupSearchLoading);
-
-    // Simplified conditional content for notFoundContent
-    let notFoundContent: React.ReactNode = null;
-    if (isSelectLoading) {
-        notFoundContent = 'Loading...';
-    } else if (inputValue && combinedSearchResults.length === 0) {
-        notFoundContent = 'No results found';
-    }
-
     return (
-        <Modal title={modalTitle} onCancel={onClose} buttons={buttons} open={isModalOpen} centered width={400}>
+        <Modal
+            title={modalTitle}
+            onCancel={onClose}
+            buttons={buttons}
+            open={isModalOpen}
+            centered
+            width={400}
+            dataTestId="edit-tag-modal"
+        >
             <div>
                 <FormSection>
                     <Input
@@ -412,6 +265,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                         setValue={handleDescriptionChange}
                         placeholder="Tag description"
                         type="textarea"
+                        data-testid="tag-description-field"
                     />
                 </FormSection>
 
@@ -419,42 +273,14 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                     <ColorPicker initialColor={colorValue} onChange={handleColorChange} label="Color" />
                 </FormSection>
 
-                <OwnersSection>
-                    <OwnersHeader>
-                        <Text>Owners</Text>
-                    </OwnersHeader>
-                    <FormSection>
-                        <SelectInput
-                            mode="multiple"
-                            placeholder="Search for users or groups"
-                            showSearch
-                            filterOption={false}
-                            onSearch={handleOwnerSearch}
-                            onChange={handleSelectChange}
-                            value={selectedOwnerUrns}
-                            loading={isSelectLoading}
-                            notFoundContent={notFoundContent}
-                            optionLabelProp="label"
-                        >
-                            {combinedSearchResults.map((entity) => renderSearchResult(entity))}
-                        </SelectInput>
-                    </FormSection>
-                    <OwnersContainer>
-                        {owners && owners.length > 0 ? (
-                            owners.map((ownerItem) => (
-                                <ExpandedOwner
-                                    key={ownerItem.owner?.urn}
-                                    entityUrn={tagUrn}
-                                    owner={ownerItem}
-                                    hidePopOver
-                                    refetch={refetch}
-                                />
-                            ))
-                        ) : (
-                            <div>No owners assigned</div>
-                        )}
-                    </OwnersContainer>
-                </OwnersSection>
+                <OwnersSection
+                    selectedOwnerUrns={selectedOwnerUrns}
+                    setSelectedOwnerUrns={setSelectedOwnerUrns}
+                    existingOwners={owners}
+                    onChange={onChangeOwners}
+                    sourceRefetch={refetch}
+                    isEditForm
+                />
             </div>
         </Modal>
     );

@@ -132,6 +132,12 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_column_errors: int = 0
     sql_parser_successes: int = 0
 
+    # Details on where column info comes from.
+    nodes_with_catalog_columns: int = 0
+    nodes_with_inferred_columns: int = 0
+    nodes_with_graph_columns: int = 0
+    nodes_with_no_columns: int = 0
+
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
         default_factory=LossyList
@@ -349,7 +355,7 @@ class DBTCommonConfig(
     # override default value to True.
     incremental_lineage: bool = Field(
         default=True,
-        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run. This would also require enabling 'incremental_lineage' in the counterpart warehouse ingestion (_e.g._ BigQuery, Redshift, etc).",
     )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
@@ -619,14 +625,8 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
-        """
-        Update the column list if they are not already set.
-        """
-
-        if self.columns:
-            # If we already have columns, don't overwrite them.
-            return
+    def set_columns(self, schema_fields: List[SchemaField]) -> None:
+        """Update the column list."""
 
         self.columns = [
             DBTColumn(
@@ -823,7 +823,9 @@ def get_column_type(
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1248,9 +1250,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn, self._to_schema_info(inferred_schema_fields)
                 )
 
-            # Save the inferred schema fields into the dbt node.
-            if inferred_schema_fields:
-                node.columns_setdefault(inferred_schema_fields)
+            # When updating the node's columns, our order of preference is:
+            # 1. Schema from the dbt catalog
+            # 2. Inferred schema
+            # 3. Schema fetched from the graph
+            if node.columns:
+                self.report.nodes_with_catalog_columns += 1
+                pass  # we already have columns from the dbt catalog
+            elif inferred_schema_fields:
+                logger.debug(
+                    f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_inferred_columns += 1
+                node.set_columns(inferred_schema_fields)
+            elif schema_fields:
+                logger.debug(
+                    f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_graph_columns += 1
+                node.set_columns(schema_fields)
+            else:
+                logger.debug(f"No columns found for {node.dbt_name}")
+                self.report.nodes_with_no_columns += 1
 
     def _parse_cll(
         self,

@@ -42,7 +42,7 @@ public interface SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable SearchFlags searchFlags);
 
@@ -59,7 +59,7 @@ public interface SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count) {
+      @Nullable Integer count) {
     SortCriterion urnSort = new SortCriterion();
     urnSort.setField("urn");
     urnSort.setOrder(SortOrder.ASCENDING);
@@ -76,7 +76,7 @@ public interface SearchRetriever {
         @Nonnull List<String> entities,
         @Nullable Filter filters,
         @Nullable String scrollId,
-        int count,
+        @Nullable Integer count,
         List<SortCriterion> sortCriteria,
         @Nullable SearchFlags searchFlags) {
       ScrollResult empty = new ScrollResult();

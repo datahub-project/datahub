@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
+import { Button, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 
 const ShowMoreWrapper = styled.div`
     align-items: start;
+    justify-content: center;
     display: flex;
     flex-direction: column;
 `;
@@ -22,11 +23,6 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
         display: flex;
         align-items: center;
         gap: 4px;
-        ${ShowMoreWrapper}{
-            flex-direction: row;
-            align-items: center;
-            gap: 4px;
-        }
     `}
 `;
 
@@ -92,11 +88,14 @@ const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSPro
     }
 `;
 
+const MoreIndicator = styled.span`
+    break-word: normal;
+`;
+
 export type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;
-    isShowMoreEnabled?: boolean;
     customStyle?: React.CSSProperties;
     scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
@@ -107,7 +106,6 @@ export default function CompactMarkdownViewer({
     content,
     lineLimit = 4,
     fixedLineHeight = false,
-    isShowMoreEnabled = false,
     customStyle = {},
     scrollableY = true,
     handleShowMore,
@@ -115,15 +113,6 @@ export default function CompactMarkdownViewer({
 }: Props) {
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
-
-    useEffect(() => {
-        if (isShowMoreEnabled) {
-            setIsShowingMore(isShowMoreEnabled);
-        }
-        return () => {
-            setIsShowingMore(false);
-        };
-    }, [isShowMoreEnabled]);
 
     const measuredRef = useCallback((node: HTMLDivElement | null) => {
         if (node !== null) {
@@ -146,13 +135,18 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-            {hideShowMore && <>...</>}
+            {hideShowMore && isTruncated && (
+                <Tooltip title={content}>
+                    <MoreIndicator>...</MoreIndicator>
+                </Tooltip>
+            )}
 
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
                         <CustomButton
                             variant="text"
+                            size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
                             onClick={(e) => {
                                 if (handleShowMore) {
                                     handleShowMore();

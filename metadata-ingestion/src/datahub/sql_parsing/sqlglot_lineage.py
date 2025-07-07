@@ -5,7 +5,18 @@ import functools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import pydantic.dataclasses
 import sqlglot
@@ -54,7 +65,6 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
-from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.ordered_set import OrderedSet
 
 assert SQLGLOT_PATCHED
@@ -151,14 +161,16 @@ class ColumnLineageInfo(_ParserBaseModel):
 
 class _JoinInfo(_ParserBaseModel):
     join_type: str
-    tables: List[_TableName]
+    left_tables: List[_TableName]
+    right_tables: List[_TableName]
     on_clause: Optional[str]
     columns_involved: List[_ColumnRef]
 
 
 class JoinInfo(_ParserBaseModel):
     join_type: str
-    tables: List[Urn]
+    left_tables: List[Urn]
+    right_tables: List[Urn]
     on_clause: Optional[str]
     columns_involved: List[ColumnRef]
 
@@ -218,13 +230,19 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
+def _extract_table_names(
+    iterable: Iterable[sqlglot.exp.Table],
+) -> OrderedSet[_TableName]:
+    return OrderedSet(_TableName.from_sqlglot_table(table) for table in iterable)
+
+
 def _table_level_lineage(
     statement: sqlglot.Expression, dialect: sqlglot.Dialect
-) -> Tuple[Set[_TableName], Set[_TableName]]:
+) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
     # Generate table-level lineage.
     modified = (
-        {
-            _TableName.from_sqlglot_table(expr.this)
+        _extract_table_names(
+            expr.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
@@ -236,36 +254,36 @@ def _table_level_lineage(
             # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
             # the `this` on the INSERT part isn't a table.
             if isinstance(expr.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            _TableName.from_sqlglot_table(expr.this.this)
+            expr.this.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
             )
             if isinstance(expr.this, sqlglot.exp.Schema)
             and isinstance(expr.this.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
-            _TableName.from_sqlglot_table(expr.this)
+            expr.this
             for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
             if isinstance(expr.this, sqlglot.exp.Table)
             and expr.this.this
             and expr.this.name
-        }
+        )
     )
 
     tables = (
-        {
-            _TableName.from_sqlglot_table(table)
+        _extract_table_names(
+            table
             for table in statement.find_all(sqlglot.exp.Table)
             if not isinstance(table.parent, sqlglot.exp.Drop)
-        }
+        )
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -768,6 +786,30 @@ def _get_column_transformation(
         )
 
 
+def _get_join_side_tables(
+    target: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> OrderedSet[_TableName]:
+    target_alias_or_name = target.alias_or_name
+    if (source := scope.sources.get(target_alias_or_name)) and isinstance(
+        source, sqlglot.exp.Table
+    ):
+        # If the source is a Scope, we need to do some resolution work.
+        return OrderedSet([_TableName.from_sqlglot_table(source)])
+
+    column = sqlglot.exp.Column(
+        this=sqlglot.exp.Star(),
+        table=sqlglot.exp.Identifier(this=target.alias_or_name),
+    )
+    columns_used = _get_raw_col_upstreams_for_expression(
+        select=column,
+        dialect=dialect,
+        scope=scope,
+    )
+    return OrderedSet(col.table for col in columns_used)
+
+
 def _get_raw_col_upstreams_for_expression(
     select: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -803,36 +845,80 @@ def _list_joins(
 
     joins: List[_JoinInfo] = []
 
+    scope: sqlglot.optimizer.Scope
     for scope in root_scope.traverse():
         join: sqlglot.exp.Join
         for join in scope.find_all(sqlglot.exp.Join):
+            left_side_tables: OrderedSet[_TableName] = OrderedSet()
+            from_clause: sqlglot.exp.From
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                left_side_tables.update(
+                    _get_join_side_tables(
+                        target=from_clause.this,
+                        dialect=dialect,
+                        scope=scope,
+                    )
+                )
+
+            right_side_tables: OrderedSet[_TableName] = OrderedSet()
+            if join_target := join.this:
+                right_side_tables = _get_join_side_tables(
+                    target=join_target,
+                    dialect=dialect,
+                    scope=scope,
+                )
+
+            # We don't need to check for `using` here because it's normalized to `on`
+            # by the sqlglot optimizer.
             on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
-            if not on_clause:
-                # We don't need to check for `using` here because it's normalized to `on`
-                # by the sqlglot optimizer.
-                logger.debug(
-                    "Skipping join without ON clause: %s",
-                    join.sql(dialect=dialect),
+            if on_clause:
+                joined_columns = _get_raw_col_upstreams_for_expression(
+                    select=on_clause, dialect=dialect, scope=scope
                 )
-                # TODO: This skips joins that don't have ON clauses, like cross joins, lateral joins, etc.
-                continue
 
-            joined_columns = _get_raw_col_upstreams_for_expression(
-                select=on_clause, dialect=dialect, scope=scope
-            )
+                unique_tables = OrderedSet(col.table for col in joined_columns)
+                if not unique_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve the tables from the join condition: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
 
-            unique_tables = deduplicate_list(col.table for col in joined_columns)
-            if not unique_tables:
-                logger.debug(
-                    "Skipping join because we couldn't resolve the tables: %s",
-                    join.sql(dialect=dialect),
-                )
-                continue
+                # When we have an `on` clause, we only want to include tables whose columns are
+                # involved in the join condition. Without this, a statement like this:
+                #   WITH cte_alias AS (select t1.id, t1.user_id, t2.other_col from t1 join t2 on t1.id = t2.id)
+                #   SELECT * FROM users
+                #   JOIN cte_alias ON users.id = cte_alias.user_id
+                # would incorrectly include t2 as part of the left side tables.
+                left_side_tables = OrderedSet(left_side_tables & unique_tables)
+                right_side_tables = OrderedSet(right_side_tables & unique_tables)
+            else:
+                # Some joins (cross join, lateral join, etc.) don't have an ON clause.
+                # In those cases, we have some best-effort logic at least extract the
+                # tables involved.
+                joined_columns = OrderedSet()
+
+                if not left_side_tables and not right_side_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve any tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
+                elif len(left_side_tables | right_side_tables) == 1:
+                    # When we don't have an ON clause, we're more strict about the
+                    # minimum number of tables we need to resolve to avoid false positives.
+                    # On the off chance someone is doing a self-cross-join, we'll miss it.
+                    logger.debug(
+                        "Skipping join because we couldn't resolve enough tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
 
             joins.append(
                 _JoinInfo(
                     join_type=_get_join_type(join),
-                    tables=list(unique_tables),
+                    left_tables=list(left_side_tables),
+                    right_tables=list(right_side_tables),
                     on_clause=on_clause.sql(dialect=dialect) if on_clause else None,
                     columns_involved=list(sorted(joined_columns)),
                 )
@@ -842,28 +928,45 @@ def _list_joins(
 
 
 def _get_join_type(join: sqlglot.exp.Join) -> str:
-    # Will return "LEFT JOIN", "RIGHT OUTER JOIN", etc.
-    # This is not really comprehensive - there's a couple other edge
-    # cases (e.g. STRAIGHT_JOIN, anti-join) that we don't handle.
+    """Returns the type of join as a string.
 
+    Args:
+        join: A sqlglot Join expression.
+
+    Returns:
+        Stringified join type e.g. "LEFT JOIN", "RIGHT OUTER JOIN", "LATERAL JOIN", etc.
+    """
+    # This logic was derived from the sqlglot join_sql method.
+    # https://github.com/tobymao/sqlglot/blob/07bf71bae5d2a5c381104a86bb52c06809c21174/sqlglot/generator.py#L2248
+
+    # Special case for lateral joins
+    if isinstance(join.this, sqlglot.exp.Lateral):
+        if join.this.args.get("cross_apply") is not None:
+            return "CROSS APPLY"
+        return "LATERAL JOIN"
+
+    # Special case for STRAIGHT_JOIN (MySQL)
+    if join.args.get("kind") == "STRAIGHT":
+        return "STRAIGHT_JOIN"
+
+    # <method> <global> <side> <kind> JOIN
+    #  - method = "HASH", "MERGE"
+    #  - global = "GLOBAL"
+    #  - side = "LEFT", "RIGHT"
+    #  - kind = "INNER", "OUTER", "SEMI", "ANTI"
     components = []
-
-    # Add method if present (e.g. "HASH", "MERGE")
     if method := join.args.get("method"):
         components.append(method)
-
-    # Add side if present (e.g. "LEFT", "RIGHT")
+    if join.args.get("global"):
+        components.append("GLOBAL")
     if side := join.args.get("side"):
+        # For SEMI/ANTI joins, side is optional
         components.append(side)
-
-    # Add kind if present (e.g. "INNER", "OUTER", "SEMI", "ANTI")
     if kind := join.args.get("kind"):
         components.append(kind)
 
-    # Join the components and append "JOIN"
-    if not components:
-        return "JOIN"
-    return f"{' '.join(components)} JOIN"
+    components.append("JOIN")
+    return " ".join(components)
 
 
 def _extract_select_from_create(
@@ -1061,7 +1164,12 @@ def _translate_internal_joins(
         joins.append(
             JoinInfo(
                 join_type=raw_join.join_type,
-                tables=[table_name_urn_mapping[table] for table in raw_join.tables],
+                left_tables=[
+                    table_name_urn_mapping[table] for table in raw_join.left_tables
+                ],
+                right_tables=[
+                    table_name_urn_mapping[table] for table in raw_join.right_tables
+                ],
                 on_clause=raw_join.on_clause,
                 columns_involved=[
                     ColumnRef(
@@ -1378,6 +1486,28 @@ def _sqlglot_lineage_nocache(
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
+    except BaseException as e:
+        # Check if this is a PanicException from SQLGlot's Rust tokenizer
+        # We use runtime type checking instead of isinstance() because pyo3_runtime
+        # is only available when sqlglot[rs] is installed and may not be importable
+        # at module load time, but the exception can still be raised at runtime
+        if (
+            e.__class__.__name__ == "PanicException"
+            and e.__class__.__module__ == "pyo3_runtime"
+        ):
+            # Handle pyo3_runtime.PanicException from SQLGlot's Rust tokenizer.
+            # pyo3_runtime.PanicException inherits from BaseException (like SystemExit or
+            # KeyboardInterrupt) rather than Exception, so it bypasses normal exception handling.
+            # Avoid catching BaseException, as it includes KeyboardInterrupt
+            # and would prevent Ctrl+C from working.
+            wrapped_exception = Exception(
+                f"pyo3_runtime.PanicException during SQL parsing: {e}"
+            )
+            wrapped_exception.__cause__ = e
+            return SqlParsingResult.make_from_error(wrapped_exception)
+        else:
+            # Re-raise other BaseException types (SystemExit, KeyboardInterrupt, etc.)
+            raise
 
 
 _sqlglot_lineage_cached = functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)(

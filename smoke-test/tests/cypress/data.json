@@ -2744,5 +2744,40 @@
         ]
       }
     }
+  },
+  {
+    "entityType": "application",
+    "entityUrn": "urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51",
+    "changeType": "UPSERT",
+    "aspectName": "applicationProperties",
+    "aspect": {
+      "json": {
+        "name": "Cypress Accounts Application",
+        "description": "Application for banking accounts for tables, dashboards, APIs, and streaming endpoints."
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1711490515885,
+      "runId": "accounts-application-ingestion",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "applications",
+    "aspect": {
+      "json": {
+        "applications": [
+          "urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51"
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1711491453928,
+      "runId": "accounts-application-ingestion",
+      "lastRunId": "no-run-id-provided"
+    }
   }
 ]

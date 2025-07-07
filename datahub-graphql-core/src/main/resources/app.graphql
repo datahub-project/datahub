@@ -22,6 +22,11 @@ extend type Query {
   Fetch the global settings related to the docs propagation feature.
   """
   docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
 }
 
 extend type Mutation {
@@ -357,6 +362,21 @@ type VisualConfig {
   Configuration for custom theme-ing
   """
   theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
 }
 
 """
@@ -692,6 +712,21 @@ type FeatureFlagsConfig {
   If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
   """
   showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
+  If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
 }
 
 """
@@ -758,4 +793,14 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
 }
