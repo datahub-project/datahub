@@ -38,28 +38,29 @@ import play.mvc.Security;
 import utils.ConfigUtil;
 
 public class Application extends Controller {
-  private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
-  private final Config config;
-  private final Environment environment;
+
+  private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
+  private final Config _config;
+  private final Environment _environment;
   private final HttpClient httpClient =
       HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
 
   @Inject
   public Application(Environment environment, @Nonnull Config config) {
-    this.config = config;
-    this.environment = environment;
+    _config = config;
+    _environment = environment;
   }
 
   /** Serves the build output index.html for any given path */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
-      InputStream indexHtml = environment.resourceAsStream("public/index.html");
+      InputStream indexHtml = _environment.resourceAsStream("public/index.html");
       return ok(indexHtml).withHeader("Cache-Control", "no-cache").as("text/html");
     } catch (Exception e) {
-      logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
+      _logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
       return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
     }
   }
@@ -83,17 +84,17 @@ public class Application extends Controller {
 
     final String metadataServiceHost =
         ConfigUtil.getString(
-            config,
+            _config,
             ConfigUtil.METADATA_SERVICE_HOST_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
     final int metadataServicePort =
         ConfigUtil.getInt(
-            config,
+            _config,
             ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
     final boolean metadataServiceUseSsl =
         ConfigUtil.getBoolean(
-            config,
+            _config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
 
@@ -120,6 +121,7 @@ public class Application extends Controller {
           Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
+
     // Copy headers except restricted and a few special ones
     headers.entrySet().stream()
         .filter(
@@ -150,8 +152,8 @@ public class Application extends Controller {
         .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
         .thenApply(
             apiResponse -> {
-              boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
-              int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
+              boolean verboseGraphQLLogging = _config.getBoolean("graphql.verbose.logging");
+              int verboseGraphQLLongQueryMillis = _config.getInt("graphql.verbose.slowQueryMillis");
               Instant finish = Instant.now();
               long timeElapsed = Duration.between(start, finish).toMillis();
               if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
@@ -173,11 +175,7 @@ public class Application extends Controller {
               HttpEntity body =
                   new HttpEntity.Strict(
                       ByteString.fromArray(apiResponse.body()),
-                      Optional.ofNullable(
-                          apiResponse
-                              .headers()
-                              .firstValue(Http.HeaderNames.CONTENT_TYPE)
-                              .orElse(null)));
+                      apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
               return new Result(header, body);
             });
   }
@@ -197,24 +195,24 @@ public class Application extends Controller {
   public Result appConfig() {
     final ObjectNode config = Json.newObject();
     config.put("application", "datahub-frontend");
-    config.put("appVersion", this.config.getString("app.version"));
-    config.put("isInternal", this.config.getBoolean("linkedin.internal"));
-    config.put("shouldShowDatasetLineage", this.config.getBoolean("linkedin.show.dataset.lineage"));
+    config.put("appVersion", _config.getString("app.version"));
+    config.put("isInternal", _config.getBoolean("linkedin.internal"));
+    config.put("shouldShowDatasetLineage", _config.getBoolean("linkedin.show.dataset.lineage"));
     config.put(
         "suggestionConfidenceThreshold",
-        Integer.valueOf(this.config.getString("linkedin.suggestion.confidence.threshold")));
+        Integer.valueOf(_config.getString("linkedin.suggestion.confidence.threshold")));
     config.set("wikiLinks", wikiLinks());
     config.set("tracking", trackingInfo());
-    config.put("isStagingBanner", this.config.getBoolean("ui.show.staging.banner"));
-    config.put("isLiveDataWarning", this.config.getBoolean("ui.show.live.data.banner"));
-    config.put("showChangeManagement", this.config.getBoolean("ui.show.CM.banner"));
-    config.put("showPeople", this.config.getBoolean("ui.show.people"));
-    config.put("changeManagementLink", this.config.getString("ui.show.CM.link"));
-    config.put("isStaleSearch", this.config.getBoolean("ui.show.stale.search"));
-    config.put("showAdvancedSearch", this.config.getBoolean("ui.show.advanced.search"));
-    config.put("useNewBrowseDataset", this.config.getBoolean("ui.new.browse.dataset"));
-    config.put("showLineageGraph", this.config.getBoolean("ui.show.lineage.graph"));
-    config.put("showInstitutionalMemory", this.config.getBoolean("ui.show.institutional.memory"));
+    config.put("isStagingBanner", _config.getBoolean("ui.show.staging.banner"));
+    config.put("isLiveDataWarning", _config.getBoolean("ui.show.live.data.banner"));
+    config.put("showChangeManagement", _config.getBoolean("ui.show.CM.banner"));
+    config.put("showPeople", _config.getBoolean("ui.show.people"));
+    config.put("changeManagementLink", _config.getString("ui.show.CM.link"));
+    config.put("isStaleSearch", _config.getBoolean("ui.show.stale.search"));
+    config.put("showAdvancedSearch", _config.getBoolean("ui.show.advanced.search"));
+    config.put("useNewBrowseDataset", _config.getBoolean("ui.new.browse.dataset"));
+    config.put("showLineageGraph", _config.getBoolean("ui.show.lineage.graph"));
+    config.put("showInstitutionalMemory", _config.getBoolean("ui.show.institutional.memory"));
     config.set("userEntityProps", userEntityProps());
 
     final ObjectNode response = Json.newObject();
@@ -227,8 +225,8 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode userEntityProps() {
     final ObjectNode props = Json.newObject();
-    props.put("aviUrlPrimary", config.getString("linkedin.links.avi.urlPrimary"));
-    props.put("aviUrlFallback", config.getString("linkedin.links.avi.urlFallback"));
+    props.put("aviUrlPrimary", _config.getString("linkedin.links.avi.urlPrimary"));
+    props.put("aviUrlFallback", _config.getString("linkedin.links.avi.urlFallback"));
     return props;
   }
 
@@ -238,19 +236,19 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode wikiLinks() {
     final ObjectNode wikiLinks = Json.newObject();
-    wikiLinks.put("appHelp", config.getString("links.wiki.appHelp"));
-    wikiLinks.put("gdprPii", config.getString("links.wiki.gdprPii"));
-    wikiLinks.put("tmsSchema", config.getString("links.wiki.tmsSchema"));
-    wikiLinks.put("gdprTaxonomy", config.getString("links.wiki.gdprTaxonomy"));
-    wikiLinks.put("staleSearchIndex", config.getString("links.wiki.staleSearchIndex"));
-    wikiLinks.put("dht", config.getString("links.wiki.dht"));
-    wikiLinks.put("purgePolicies", config.getString("links.wiki.purgePolicies"));
-    wikiLinks.put("jitAcl", config.getString("links.wiki.jitAcl"));
-    wikiLinks.put("metadataCustomRegex", config.getString("links.wiki.metadataCustomRegex"));
-    wikiLinks.put("exportPolicy", config.getString("links.wiki.exportPolicy"));
-    wikiLinks.put("metadataHealth", config.getString("links.wiki.metadataHealth"));
-    wikiLinks.put("purgeKey", config.getString("links.wiki.purgeKey"));
-    wikiLinks.put("datasetDecommission", config.getString("links.wiki.datasetDecommission"));
+    wikiLinks.put("appHelp", _config.getString("links.wiki.appHelp"));
+    wikiLinks.put("gdprPii", _config.getString("links.wiki.gdprPii"));
+    wikiLinks.put("tmsSchema", _config.getString("links.wiki.tmsSchema"));
+    wikiLinks.put("gdprTaxonomy", _config.getString("links.wiki.gdprTaxonomy"));
+    wikiLinks.put("staleSearchIndex", _config.getString("links.wiki.staleSearchIndex"));
+    wikiLinks.put("dht", _config.getString("links.wiki.dht"));
+    wikiLinks.put("purgePolicies", _config.getString("links.wiki.purgePolicies"));
+    wikiLinks.put("jitAcl", _config.getString("links.wiki.jitAcl"));
+    wikiLinks.put("metadataCustomRegex", _config.getString("links.wiki.metadataCustomRegex"));
+    wikiLinks.put("exportPolicy", _config.getString("links.wiki.exportPolicy"));
+    wikiLinks.put("metadataHealth", _config.getString("links.wiki.metadataHealth"));
+    wikiLinks.put("purgeKey", _config.getString("links.wiki.purgeKey"));
+    wikiLinks.put("datasetDecommission", _config.getString("links.wiki.datasetDecommission"));
     return wikiLinks;
   }
 
@@ -260,8 +258,8 @@ public class Application extends Controller {
   @Nonnull
   private ObjectNode trackingInfo() {
     final ObjectNode piwik = Json.newObject();
-    piwik.put("piwikSiteId", Integer.valueOf(config.getString("tracking.piwik.siteid")));
-    piwik.put("piwikUrl", config.getString("tracking.piwik.url"));
+    piwik.put("piwikSiteId", Integer.valueOf(_config.getString("tracking.piwik.siteid")));
+    piwik.put("piwikUrl", _config.getString("tracking.piwik.url"));
 
     final ObjectNode trackers = Json.newObject();
     trackers.set("piwik", piwik);
@@ -324,10 +322,10 @@ public class Application extends Controller {
         jsonBody.append(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode));
       }
     } catch (Exception e) {
-      logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
+      _logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
     }
     String jsonBodyStr = jsonBody.toString();
-    logger.info(
+    _logger.info(
         "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
         resolvedUri,
         request.queryString(),
