@@ -27,6 +27,8 @@ If you have configured permissions correctly the `Generate new token` should be 
 
 If you see `Token based authentication is currently disabled. Contact your DataHub administrator to enable this feature.` then you must enable authentication in the metadata service (step 1 of the prerequisites).
 
+If you wish to disable the **'Never'** option in the **'Expires in'** dropdown, provide the `ALLOW_NO_EXPIRY_TOKENS=false` variable to the `datahub-gms` container or change the `authentication.tokenNoExpiry` to "false"
+
 :::
 
 ## Creating Personal Access Tokens
