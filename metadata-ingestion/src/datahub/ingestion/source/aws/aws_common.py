@@ -312,7 +312,7 @@ class AwsConnectionConfig(ConfigModel):
     )
 
     aws_signature_version: Optional[str] = Field(
-        default=None,
+        default="v4",
         description="Signature version to use for authentication. Options: 'v4' (default) or 'v2'.",
     )
 
