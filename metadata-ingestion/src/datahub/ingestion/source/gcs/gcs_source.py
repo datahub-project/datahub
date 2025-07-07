@@ -59,6 +59,11 @@ class GCSSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    signature_version: str = Field(
+        default="v4",
+        description="Signature version to use for authentication. Options: 'v4' (default) or 'v2'.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("path_specs", always=True)
@@ -101,6 +106,9 @@ class GCSSource(StatefulIngestionSourceBase):
     def create_equivalent_s3_config(self):
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
+        # Build advanced config with signature_version
+        advanced_config = {"signature_version": self.config.signature_version}
+
         s3_config = DataLakeSourceConfig(
             path_specs=s3_path_specs,
             aws_config=AwsConnectionConfig(
@@ -108,6 +116,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_access_key_id=self.config.credential.hmac_access_id,
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
+                aws_advanced_config=advanced_config,
             ),
             env=self.config.env,
             max_rows=self.config.max_rows,
