@@ -52,6 +52,12 @@ def mock_graph_client() -> DataHubGraph:
                     nativeDataType="DATE",
                     description="Creation timestamp",
                 ),
+                models.SchemaFieldClass(
+                    fieldPath="[version=2.0].[type=string].address",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR",
+                    description=None,
+                ),
             ],
         ),
         "datasetProperties": models.DatasetPropertiesClass(
@@ -251,7 +257,8 @@ def mock_bedrock_responses() -> List[str]:
     {
         "id": "Primary key for the table",
         "name": "Name of the entity",
-        "created_at": "Creation timestamp"
+        "created_at": "Creation timestamp",
+        "address": "Address field"
     }
     """,
     ]
@@ -283,6 +290,7 @@ def test_generate_entity_descriptions_for_urn(
             "id": "Primary key for the table",
             "name": "Name of the entity",
             "created_at": "Creation timestamp",
+            "[version=2.0].[type=string].address": "Address field",
         }
 
         # Verify that call_bedrock_llm was called with the correct parameters
@@ -303,7 +311,7 @@ def test_generate_entity_descriptions_for_urn(
 </table_info>
 
 <column_info>
-{'id': {'column_name': 'id', 'metadata': {'description': 'Primary key for the table', 'nativeDataType': 'VARCHAR', 'isPartOfKey': True}, 'descriptions': 'Primary key for the table', 'upstream_lineages': [{'lineage': [{'upstream_column_name': 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)', 'upstream_column_description': 'Source ID', 'upstream_column_native_type': 'VARCHAR'}], 'transform_operation': 'COPY'}], 'sample_values': ['1', '2', '3']}, 'name': {'column_name': 'name', 'metadata': {'description': 'Name of the entity', 'nativeDataType': 'VARCHAR'}, 'descriptions': 'Name of the entity', 'upstream_lineages': [], 'sample_values': ['John', 'Jane', 'Bob']}, 'created_at': {'column_name': 'created_at', 'metadata': {'description': 'Creation timestamp', 'nativeDataType': 'DATE'}, 'descriptions': 'Creation timestamp', 'upstream_lineages': []}}
+{'id': {'column_name': 'id', 'metadata': {'nativeDataType': 'VARCHAR', 'isPartOfKey': True}, 'description': 'Primary key for the table', 'upstream_lineages': [{'lineage': [{'upstream_column_name': 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)', 'upstream_column_description': 'Source ID', 'upstream_column_native_type': 'VARCHAR'}], 'transform_operation': 'COPY'}], 'sample_values': ['1', '2', '3']}, 'name': {'column_name': 'name', 'metadata': {'nativeDataType': 'VARCHAR'}, 'description': 'Name of the entity', 'sample_values': ['John', 'Jane', 'Bob']}, 'created_at': {'column_name': 'created_at', 'metadata': {'nativeDataType': 'DATE'}, 'description': 'Creation timestamp'}, 'address': {'column_name': 'address', 'metadata': {'nativeDataType': 'VARCHAR'}}}
 </column_info>
 
 Generate the description as follows:
@@ -340,7 +348,7 @@ Ensure that the markdown is properly formatted."""
 </table_info>
 
 <column_info>
-{\'id\': {\'column_name\': \'id\', \'metadata\': {\'description\': \'Primary key for the table\', \'nativeDataType\': \'VARCHAR\', \'isPartOfKey\': True}, \'descriptions\': \'Primary key for the table\', \'upstream_lineages\': [{\'lineage\': [{\'upstream_column_name\': \'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)\', \'upstream_column_description\': \'Source ID\', \'upstream_column_native_type\': \'VARCHAR\'}], \'transform_operation\': \'COPY\'}], \'sample_values\': [\'1\', \'2\', \'3\']}, \'name\': {\'column_name\': \'name\', \'metadata\': {\'description\': \'Name of the entity\', \'nativeDataType\': \'VARCHAR\'}, \'descriptions\': \'Name of the entity\', \'upstream_lineages\': [], \'sample_values\': [\'John\', \'Jane\', \'Bob\']}, \'created_at\': {\'column_name\': \'created_at\', \'metadata\': {\'description\': \'Creation timestamp\', \'nativeDataType\': \'DATE\'}, \'descriptions\': \'Creation timestamp\', \'upstream_lineages\': []}}
+{\'id\': {\'column_name\': \'id\', \'metadata\': {\'nativeDataType\': \'VARCHAR\', \'isPartOfKey\': True}, \'description\': \'Primary key for the table\', \'upstream_lineages\': [{\'lineage\': [{\'upstream_column_name\': \'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)\', \'upstream_column_description\': \'Source ID\', \'upstream_column_native_type\': \'VARCHAR\'}], \'transform_operation\': \'COPY\'}], \'sample_values\': [\'1\', \'2\', \'3\']}, \'name\': {\'column_name\': \'name\', \'metadata\': {\'nativeDataType\': \'VARCHAR\'}, \'description\': \'Name of the entity\', \'sample_values\': [\'John\', \'Jane\', \'Bob\']}, \'created_at\': {\'column_name\': \'created_at\', \'metadata\': {\'nativeDataType\': \'DATE\'}, \'description\': \'Creation timestamp\'}, \'address\': {\'column_name\': \'address\', \'metadata\': {\'nativeDataType\': \'VARCHAR\'}}}
 </column_info>
 
 <table_description>
@@ -353,8 +361,8 @@ Generate the description as follows:
 
   For each column, create a concise description of one or two sentences. Prefer elliptical sentences that are direct and to the point. If available, include details about how the column was generated or calculated.
 
-Generate descriptions for only the following 3 columns:
-["id", "name", "created_at"]
+Generate descriptions for only the following 4 columns:
+["id", "name", "created_at", "address"]
 
 
 When writing the descriptions:
@@ -386,9 +394,9 @@ def check_graph_to_info_class_mapping(result: EntityDescriptionResult) -> None:
         result.extracted_entity_info.table_description
         == "An edited description for the test table"
     )
-    assert len(result.extracted_entity_info.column_names) == 3
-    assert len(result.extracted_entity_info.column_descriptions) == 3
-    assert len(result.extracted_entity_info.column_upstream_lineages) == 3
+    assert len(result.extracted_entity_info.column_names) == 4
+    assert len(result.extracted_entity_info.column_descriptions) == 4
+    assert len(result.extracted_entity_info.column_upstream_lineages) == 4
 
     assert len(result.extracted_entity_info.table_tags) == 1
     assert len(result.extracted_entity_info.table_glossary_terms) == 1

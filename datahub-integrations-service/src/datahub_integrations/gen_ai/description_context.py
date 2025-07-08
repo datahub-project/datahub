@@ -12,25 +12,16 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
-    get_bedrock_model_env_variable,
-)
-
-DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
-    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
-)
-
-_MAX_UPSTREAM_TABLES = 5
-_MAX_DOWNSTREAM_TABLES = 8
+_MAX_UPSTREAM_TABLES = 10
+_MAX_DOWNSTREAM_TABLES = 10
 _MAX_UPSTREAM_FIELDS_PER_COLUMN = 5
 
 # New constants for content truncation
-_MAX_GLOSSARY_TERM_DEFINITION_LENGTH = 2000
-_MAX_TABLE_DESCRIPTION_LENGTH = 2000
-_MAX_COLUMN_DESCRIPTION_LENGTH = 1000
+_MAX_GLOSSARY_TERM_DEFINITION_LENGTH = 1500
+_MAX_TABLE_DESCRIPTION_LENGTH = 1500
+_MAX_COLUMN_DESCRIPTION_LENGTH = 500
 _MAX_TAG_DESCRIPTION_LENGTH = 500
-_MAX_DOMAIN_DESCRIPTION_LENGTH = 800
+_MAX_DOMAIN_DESCRIPTION_LENGTH = 500
 
 
 class DescriptionParsingError(Exception):
@@ -38,7 +29,6 @@ class DescriptionParsingError(Exception):
 
 
 class SchemaFieldMetadata(BaseModel):
-    description: Optional[str] = None
     created: Optional[Any] = None
     nativeDataType: Optional[str] = None
     isPartOfKey: Optional[bool] = None
@@ -141,7 +131,7 @@ class EntityDescriptionResult:
 class ColumnMetadataInfo(BaseModel):
     column_name: Optional[str] = None
     metadata: Optional[SchemaFieldMetadata] = None
-    descriptions: Optional[str] = None
+    description: Optional[str] = None
     upstream_lineages: Optional[List[UpstreamLineageInfo]] = None
     sample_values: Optional[List[str]] = None
     tags: Optional[List[TagInfo]] = None
@@ -232,14 +222,7 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInf
 def make_schema_field_metadata(
     schema_field: models.SchemaFieldClass,
 ) -> SchemaFieldMetadata:
-    description = schema_field.description
-    if description:
-        description = sanitize_and_truncate_description(
-            description, _MAX_COLUMN_DESCRIPTION_LENGTH
-        )
-
     field_metadata = SchemaFieldMetadata(
-        description=description,
         created=schema_field.created,
         nativeDataType=schema_field.nativeDataType,
         isPartOfKey=schema_field.isPartOfKey if schema_field.isPartOfKey else None,
@@ -410,7 +393,10 @@ def get_upstream_finegrained_lineage_info(
                 if len(upstreams_with_metadata) != 0:
                     column_upstream = UpstreamLineageInfo(
                         lineage=upstreams_with_metadata,
-                        transform_operation=lineage.transformOperation,
+                        transform_operation=lineage.transformOperation
+                        if lineage.transformOperation
+                        and lineage.transformOperation != "NONE"
+                        else None,
                     )
                 else:
                     # We do not consider upstreams without metadata to avoid shell entities
@@ -449,8 +435,10 @@ def get_sample_values(
         else:
             for field in field_profiles:
                 if field.sampleValues is not None:
+                    # TODO: A floating point sample value such as '0.011627906976744186' takes 10 tokens.
+                    # Alternative of truncating to 3 decimal places: '0.011' takes 5 tokens
                     sample_values[f"urn:li:schemaField:({urn},{field.fieldPath})"] = (
-                        field.sampleValues
+                        list(dict.fromkeys(field.sampleValues))
                     )
     return sample_values if sample_values else None
 
@@ -627,15 +615,14 @@ def extract_metadata_for_urn(
         )
 
     column_names: Dict[str, str] = {}
-    # TODO: This also contains the schema field description, which is redundant.
     column_metadata: Dict[str, SchemaFieldMetadata] = {}
+    column_descriptions: Dict[str, Optional[str]] = {}
     for field in entity["schemaMetadata"].fields:
         field_urn = make_schema_field_urn(urn, field.fieldPath)
         field_metadata = make_schema_field_metadata(field)
         column_metadata[field_urn] = field_metadata
         column_names[field_urn] = field.fieldPath
 
-    column_descriptions = {}
     for field in entity["schemaMetadata"].fields:
         field_urn = make_schema_field_urn(urn, field.fieldPath)
         description = field.description
@@ -768,32 +755,38 @@ def transform_table_info_for_llm(
 ) -> Tuple[TableInfo, Dict[str, ColumnMetadataInfo]]:
     column_urns = extracted_table_info.column_names.keys()
     column_info: Dict[str, ColumnMetadataInfo] = {}
+
+    # NOTE: Presence of clause "or None" with list type values is deliberate,
+    # to exclude such keys when serializing using model_dump
     for column in column_urns:
         column_name = SchemaFieldUrn.from_string(column).field_path
         column_info[column_name] = ColumnMetadataInfo(
             column_name=column_name,
             metadata=extracted_table_info.column_metadata.get(column),
-            descriptions=extracted_table_info.column_descriptions.get(column),
-            upstream_lineages=extracted_table_info.column_upstream_lineages.get(column),
+            description=extracted_table_info.column_descriptions.get(column),
+            upstream_lineages=extracted_table_info.column_upstream_lineages.get(column)
+            or None,
             sample_values=(
                 extracted_table_info.column_sample_values.get(column)
                 if extracted_table_info.column_sample_values
                 else None
             ),
-            tags=extracted_table_info.column_tags.get(column),
-            glossary_terms=extracted_table_info.column_glossary_terms.get(column),
+            tags=extracted_table_info.column_tags.get(column) or None,
+            glossary_terms=extracted_table_info.column_glossary_terms.get(column)
+            or None,
         )
     # Create a properly typed TableInfo
     table_info = TableInfo(
-        tags=extracted_table_info.table_tags,
-        glossary_terms=extracted_table_info.table_glossary_terms,
+        tags=extracted_table_info.table_tags or None,
+        glossary_terms=extracted_table_info.table_glossary_terms or None,
         view_properties=extracted_table_info.table_view_properties,
         name=extracted_table_info.table_name,
         description=extracted_table_info.table_description,
-        domains_info=extracted_table_info.table_domains_info,
-        owners_info=extracted_table_info.table_owners_info,
-        upstream_lineage_info=extracted_table_info.table_upstream_lineage_info,
-        downstream_lineage_info=extracted_table_info.table_downstream_lineage_info,
+        domains_info=extracted_table_info.table_domains_info or None,
+        owners_info=extracted_table_info.table_owners_info or None,
+        upstream_lineage_info=extracted_table_info.table_upstream_lineage_info or None,
+        downstream_lineage_info=extracted_table_info.table_downstream_lineage_info
+        or None,
     )
     return table_info, column_info
 

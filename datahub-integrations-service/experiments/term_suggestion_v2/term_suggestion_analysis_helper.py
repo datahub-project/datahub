@@ -549,7 +549,7 @@ def convert_parsed_response_to_readable_csv(
             if column in columns_info_dict[table].keys():
                 table_urns.append(table)
                 column_descriptions.append(
-                    columns_info_dict[table][column].get("descriptions", "")
+                    columns_info_dict[table][column].get("description", "")
                 )
                 column_datatypes.append(
                     columns_info_dict[table][column]

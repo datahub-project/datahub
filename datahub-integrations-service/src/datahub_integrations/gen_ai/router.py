@@ -1,6 +1,6 @@
 import functools
 from datetime import timedelta
-from typing import Annotated, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 import fastapi
 import pydantic
@@ -64,7 +64,7 @@ class SuggestedDescription(pydantic.BaseModel):
         description="The suggested description of the entity."
     )
 
-    column_descriptions: dict[str, str] = pydantic.Field(
+    column_descriptions: Dict[str, str] = pydantic.Field(
         description="The suggested descriptions of the columns."
     )
 
@@ -131,7 +131,7 @@ def suggest_description(
 
             return SuggestedDescription(
                 entity_description=result.table_description or "",
-                column_descriptions=result.column_descriptions,
+                column_descriptions=result.column_descriptions or {},
             )
 
     else:

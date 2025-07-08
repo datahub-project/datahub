@@ -86,7 +86,10 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
     # even if called from multiple threads.
     # Increase the read and connect timeouts, since Bedrock can be slow.
     config = botocore.config.Config(
-        read_timeout=300, connect_timeout=60, retries={"max_attempts": _MAX_ATTEMPTS}
+        read_timeout=300,
+        connect_timeout=60,
+        max_pool_connections=100,
+        retries={"max_attempts": _MAX_ATTEMPTS},
     )
 
     if "BEDROCK_AWS_ROLE" in os.environ:

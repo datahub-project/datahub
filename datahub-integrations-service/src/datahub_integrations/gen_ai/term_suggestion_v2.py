@@ -58,7 +58,7 @@ _PROMPT_PATH = pathlib.Path(__file__).parent / "term_suggestion_prompt.txt"
 _TABLE_INFO_FOR_PROMPT = ["name", "description"]
 _COLUMN_INFO_FOR_PROMPT = [
     "column_name",
-    "descriptions",
+    "description",
     "sample_values",
     "datatype",
 ]

@@ -263,8 +263,10 @@ def execute_notebook_save_as_html(
         param_options.append("-p")
         param_options.append(k)
         param_options.append(v)
+
+    # Get the virtual environment Python executable
+    venv_path = os.path.join(os.path.dirname(__file__), "..", "..")
     papermill_command = [
-        # Execute the notebook with Papermill and then convert the result to HTML
         "papermill",
         str(notebook_path),
         str(executed_notebook_path),
@@ -280,7 +282,7 @@ def execute_notebook_save_as_html(
         "--output",
         str(executed_notebook_path_html),
     ]
-    subprocess.run(papermill_command, check=True)
-    subprocess.run(jupyter_command, check=True)
+    subprocess.run(papermill_command, check=True, cwd=venv_path)
+    subprocess.run(jupyter_command, check=True, cwd=venv_path)
     print(f"Executed notebook saved to: {executed_notebook_path_html}")
     return executed_notebook_path_html

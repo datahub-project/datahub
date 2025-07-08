@@ -11,7 +11,9 @@ import asyncer
 import mlflow
 import more_itertools
 import tenacity
+from anyio import to_thread
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from loguru import logger
 
 from datahub_integrations.chat.linkify import datahub_linkify
@@ -34,13 +36,12 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 
-_MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 1000))
-_MAX_COLUMNS_PER_BATCH = int(
-    os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS_PER_BATCH", 50)
+_MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 3000))
+MAX_COLUMNS_PER_BATCH = int(
+    os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS_PER_BATCH", 30)
 )
-
-# TODO: adaptive batching for schema field v2 paths OR preprocessing them to covert to v1 paths
-# TODO: Add retry on parsing failure of the output - less likely to happen with v3 - need to track
+ANYIO_THREAD_COUNT = 100
+LARGE_TABLE_THRESHOLD = 1000
 
 
 def split_columns_into_batch(columns: List[str], batch_size: int) -> List[List[str]]:
@@ -71,6 +72,8 @@ You are tasked with generating concise description for a DataHub table and its c
 {table_info}
 </table_info>
 
+"""
+PROMPT_COLUMNS_CONTEXT = """\
 <column_info>
 {column_info}
 </column_info>
@@ -144,6 +147,91 @@ CURRENT_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
 )
 
 
+class FieldPathProcessor:
+    """Handles conversion between v1 and v2 field paths for column metadata."""
+
+    def __init__(self, column_infos: Dict[str, ColumnMetadataInfo]):
+        self.original_column_infos = column_infos
+        self.v1_column_infos: Dict[str, ColumnMetadataInfo] = {}
+        self.v1_to_v2_mapping: Dict[str, str] = {}
+        self.conversion_successful = False
+
+    def _convert_to_v1(self) -> bool:
+        """
+        Convert v2 field paths to v1 field paths.
+
+        Returns:
+            True if conversion was successful, False otherwise
+        """
+        try:
+            for v2_field_path, column_info in self.original_column_infos.items():
+                v1_field_path = get_simple_field_path_from_v2_field_path(v2_field_path)
+
+                # Check for collisions
+                if v1_field_path in self.v1_to_v2_mapping:
+                    logger.warning(
+                        f"Multiple v2 field paths map to same v1 path '{v1_field_path}': "
+                        f"'{self.v1_to_v2_mapping[v1_field_path]}' and '{v2_field_path}'. "
+                        f"Using original v2 paths."
+                    )
+                    return False
+
+                self.v1_to_v2_mapping[v1_field_path] = v2_field_path
+                self.v1_column_infos[v1_field_path] = column_info.model_copy(
+                    update={"column_name": v1_field_path}
+                )
+
+            self.conversion_successful = True
+            return True
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to convert v2 field paths to v1: {e}. Using original v2 paths."
+            )
+            return False
+
+    def simplify(self) -> Dict[str, ColumnMetadataInfo]:
+        """
+        Attempt to convert v2 field paths to v1 and return the appropriate column infos.
+
+        Returns:
+            Column infos with v1 field paths if conversion successful, otherwise original v2 paths
+        """
+        self._convert_to_v1()
+        return (
+            self.v1_column_infos
+            if self.conversion_successful
+            else self.original_column_infos
+        )
+
+    def restore_v2_paths(self, column_descriptions: Dict[str, str]) -> Dict[str, str]:
+        """
+        Convert v1 field paths back to v2 field paths in column descriptions.
+
+        Args:
+            column_descriptions: Dictionary with field paths as keys and descriptions as values
+
+        Returns:
+            Dictionary with v2 field paths as keys if conversion was successful, otherwise unchanged
+        """
+        if not self.conversion_successful:
+            return column_descriptions
+
+        v2_column_descriptions = {}
+        for v1_field_path, description in column_descriptions.items():
+            v2_field_path = self.v1_to_v2_mapping.get(v1_field_path)
+            if v2_field_path is not None:
+                v2_column_descriptions[v2_field_path] = description
+            else:
+                # This shouldn't happen if conversion was successful
+                logger.warning(
+                    f"No v2 mapping found for v1 field path: {v1_field_path}"
+                )
+                v2_column_descriptions[v1_field_path] = description
+
+        return v2_column_descriptions
+
+
 def generate_entity_descriptions_for_urn(
     graph_client: DataHubGraph, urn: str
 ) -> EntityDescriptionResult:
@@ -165,21 +253,31 @@ def generate_entity_descriptions_for_urn_eval_v3(
     extracted_entity_info: ExtractedTableInfo,
 ) -> EntityDescriptionResult:
     table_info, column_infos = transform_table_info_for_llm(extracted_entity_info)
+
     if len(column_infos) > _MAX_COLUMNS:
         raise TooManyColumnsError(
             f"Too many columns ({len(column_infos)}) for urn: {urn}. "
             f"Select a table with less than {_MAX_COLUMNS} columns."
         )
+
+    # Handle field path conversion
+    processor = FieldPathProcessor(column_infos)
+    simplified_column_infos = processor.simplify()
+
     table_description = None
     failure_reason = None
     column_descriptions = None
 
     try:
-        table_description = generate_table_description(table_info, column_infos)
+        table_description = generate_table_description(
+            table_info, simplified_column_infos
+        )
         if table_description is not None:
             column_descriptions, failure_reason_columns = (
                 generate_all_columns_description(
-                    table_info, column_infos, table_description
+                    table_info,
+                    simplified_column_infos,
+                    table_description,
                 )
             )
 
@@ -189,6 +287,10 @@ def generate_entity_descriptions_for_urn_eval_v3(
     except Exception as e:
         logger.error(f"Error generating entity descriptions for urn: {urn}. Error: {e}")
         failure_reason = str(e)
+
+    # Convert back to v2 field paths if needed
+    if column_descriptions is not None:
+        column_descriptions = processor.restore_v2_paths(column_descriptions)
 
     return EntityDescriptionResult(
         table_description=table_description,
@@ -226,8 +328,16 @@ def generate_table_description(
 ) -> Optional[str]:
     formatted_common_context = PROMPT_COMMON_CONTEXT.format(
         table_info=table_info.model_dump(exclude_none=True),
+    )
+    formatted_columns_context = PROMPT_COLUMNS_CONTEXT.format(
         column_info={
-            col: column_info.model_dump(exclude_none=True)
+            col: column_info.model_dump(
+                exclude_none=True,
+                # pass only column name and description for large tables
+                include={"column_name", "description"}
+                if len(column_infos) > LARGE_TABLE_THRESHOLD
+                else None,
+            )
             for col, column_info in column_infos.items()
         },
     )
@@ -236,6 +346,10 @@ def generate_table_description(
         prompt=[
             BedrockPromptMessage(
                 text=formatted_common_context,
+                cache=True,
+            ),
+            BedrockPromptMessage(
+                text=formatted_columns_context,
                 cache=True,
             ),
             BedrockPromptMessage(
@@ -262,28 +376,23 @@ async def generate_column_descriptions(
 ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     batch_failure_reason = None
     all_column_names = list(column_infos.keys())
-    column_splits = split_columns_into_batch(all_column_names, _MAX_COLUMNS_PER_BATCH)
+    column_splits = split_columns_into_batch(all_column_names, MAX_COLUMNS_PER_BATCH)
     # NOTE: We can do further experimentation here.
     # We can pass previous batch's descriptions to the next batch to improve the quality of the descriptions.
+    to_thread.current_default_thread_limiter().total_tokens = ANYIO_THREAD_COUNT
 
     generated_batch_column_descriptions: List[
         asyncer.SoonValue[Tuple[Optional[str], Dict[str, str]]]
     ] = []
     async with asyncer.create_task_group() as task_group:
-        for columns_batch in column_splits:
-            column_batch_instructions = COLUMN_BATCH_INSTRUCTIONS.format(
-                num_columns=len(columns_batch),
-                columns=json.dumps(columns_batch),
-            )
-
+        for i in range(len(column_splits)):
             generated_batch_column_descriptions.append(
-                task_group.soonify(
-                    asyncer.asyncify(generate_column_batch_descriptions)
-                )(
+                task_group.soonify(generate_column_batch_descriptions)(
                     table_info,
                     column_infos,
                     generated_table_description,
-                    column_batch_instructions,
+                    column_splits[i],
+                    i,
                 )
             )
 
@@ -302,6 +411,17 @@ async def generate_column_descriptions(
     )
 
 
+def _return_last_value(
+    retry_state: tenacity.RetryCallState,
+) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    """return the result of the last call attempt"""
+    return (
+        retry_state.outcome.result()
+        if retry_state.outcome is not None
+        else (None, None)
+    )
+
+
 @mlflow.trace(name="generate_column_batch_descriptions", span_type="function")
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
@@ -309,30 +429,45 @@ async def generate_column_descriptions(
     before_sleep=lambda retry_state: logger.info(
         f"Retry column batch description generation attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
     ),
+    retry_error_callback=_return_last_value,
 )
-def generate_column_batch_descriptions(
+async def generate_column_batch_descriptions(
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     generated_table_description: str,
-    column_batch_instructions: str,
+    columns_batch: List[str],
+    i: int,
 ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    logger.debug(f"Starting batch {i} description generation")
     formatted_common_context = PROMPT_COMMON_CONTEXT.format(
         table_info=table_info.model_dump(exclude_none=True),
+    )
+    formatted_columns_context = PROMPT_COLUMNS_CONTEXT.format(
         column_info={
             col: column_info.model_dump(exclude_none=True)
             for col, column_info in column_infos.items()
+            # pass only columns in current batch for large tables
+            if len(column_infos) <= LARGE_TABLE_THRESHOLD or col in columns_batch
         },
+    )
+    column_batch_instructions = COLUMN_BATCH_INSTRUCTIONS.format(
+        num_columns=len(columns_batch),
+        columns=json.dumps(columns_batch),
     )
     formatted_column_prompt = COLUMN_DESC_PROMPT.format(
         table_description=generated_table_description,
         column_batch_instructions=column_batch_instructions,
     )
     try:
-        column_descriptions_raw = call_bedrock_llm(
+        logger.debug(f"Calling LLM for batch {i}")
+        column_descriptions_raw = await asyncer.asyncify(call_bedrock_llm)(
             prompt=[
                 BedrockPromptMessage(
                     text=formatted_common_context,
                     cache=True,
+                ),
+                BedrockPromptMessage(
+                    text=formatted_columns_context,
                 ),
                 BedrockPromptMessage(
                     text=formatted_column_prompt,
@@ -342,15 +477,23 @@ def generate_column_batch_descriptions(
             max_tokens=4096,
             model=CURRENT_MODEL,
         )
+        logger.debug(f"Finished LLM call for batch {i}")
 
         batch_column_descriptions, batch_failure_reason = parse_columns_llm_output(
             column_descriptions_raw
         )
+        if batch_column_descriptions is not None:
+            missing_columns = set(columns_batch) - set(batch_column_descriptions.keys())
+            if missing_columns:
+                logger.warning(
+                    f"{len(missing_columns)} columns missing descriptions in batch {i} for urn {table_info.name}"
+                )
     except Exception as e:
         # As we do not wish to fail entire description generation for single column batch
         # we do not raise error here, instead retry for batch_column_descriptions is None
         logger.error(f"Error generating column descriptions for batch: {e}")
         batch_failure_reason = str(e)
         batch_column_descriptions = None
+    logger.debug(f"Finished batch {i} description generation")
 
     return batch_failure_reason, batch_column_descriptions

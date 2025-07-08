@@ -41,6 +41,7 @@ from datahub_integrations.gen_ai.description_context import (
     TableInfo,
     transform_table_info_for_llm,
 )
+from datahub_integrations.gen_ai.description_v3 import LARGE_TABLE_THRESHOLD
 
 assert AI_EXPERIMENTATION_INITIALIZED
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
@@ -251,7 +252,15 @@ Table Level Guidelines:
             table_description=table_description,
             table_info=json.dumps(table_info.model_dump(exclude_none=True), indent=4),
             column_infos=json.dumps(
-                {k: v.model_dump(exclude_none=True) for k, v in column_infos.items()},
+                {
+                    k: v.model_dump(
+                        exclude_none=True,
+                        include={"column_name", "description"}
+                        if len(column_infos) > LARGE_TABLE_THRESHOLD
+                        else None,
+                    )
+                    for k, v in column_infos.items()
+                },
                 indent=4,
             ),
             table_level_guidelines=table_level_guidelines,
@@ -427,6 +436,7 @@ def make_custom_metric(metric_name: str) -> MetricValue:
 # TODO: consider non-llm metrics for this computation
 metric_overall_score = make_overall_score_metric()
 
+# TODO: Relog other column level metrics to get full picture at one place
 ai_metrics = [
     *[make_custom_metric(metric.name) for metric in METRICS_CONFIG],
     metric_overall_score,

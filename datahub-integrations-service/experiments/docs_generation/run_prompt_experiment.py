@@ -22,7 +22,9 @@ import datahub_integrations.gen_ai as gen_ai_module
 from datahub_integrations.chat.linkify import urn_regex
 from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
 from datahub_integrations.gen_ai.description_v3 import (
+    ANYIO_THREAD_COUNT,
     CURRENT_MODEL,
+    MAX_COLUMNS_PER_BATCH,
     EntityDescriptionResult,
     ExtractedTableInfo,
     generate_entity_descriptions_for_urn_eval_v3,
@@ -44,7 +46,6 @@ def generate_entity_descriptions_for_urn_eval_wrapper(
     mlflow.update_current_trace(
         tags={"urn": data["urn"], "deployment": data["deployment"]}
     )
-    # mlflow_prompt = mlflow.load_prompt("prompts:/docs-generation-prompt/1").template
 
     return generate_entity_descriptions_for_urn_eval_v3(
         urn=data["urn"],
@@ -361,6 +362,9 @@ has_valid_links_metric = mlflow.metrics.make_metric(
 
 
 def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) -> None:
+    logger.info(f"Running experiment with {len(files)} files")
+    if not run_description:
+        run_description = input("Enter run description: ")
     with (
         mlflow.start_run(description=run_description),
         tempfile.TemporaryDirectory() as tempdir,
@@ -373,7 +377,14 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
             process_files, raise_sync_error=False
         )(files)
         log_artifacts(artifact_temp_path, table_descriptions, column_descriptions)
-        mlflow.log_params({"model": CURRENT_MODEL})
+        mlflow.log_params(
+            {
+                "model": CURRENT_MODEL,
+                "parallel_files": BATCH_SIZE,
+                "max_columns_per_batch": MAX_COLUMNS_PER_BATCH,
+                "anyio_thread_count": ANYIO_THREAD_COUNT,
+            }
+        )
 
         # This adds eval_results_table.json artifact to the run
         # Do not remove this, it is used for ai evaluation and human annotations
@@ -411,11 +422,12 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
 
         # Log generation time metrics
         log_generation_time_metrics(table_descriptions_df)
+        current_dir = pathlib.Path().resolve()
         active_run = mlflow.active_run()
         assert active_run is not None
         try:
             html_path = execute_notebook_save_as_html(
-                pathlib.Path("analyze_experiment_run.ipynb"),
+                current_dir / "analyze_experiment_run.ipynb",
                 pathlib.Path(tempdir),
                 {"RUN_NAME": active_run.info.run_name},
             )
@@ -445,6 +457,9 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
     tables_with_all_columns_described = sum(
         table_columns["total"] == table_columns["with_description"]
     )
+    tables_with_95_percent_columns_described = sum(
+        table_columns["with_description"] >= table_columns["total"] * 0.95
+    )
     total_tables = len(table_columns)
 
     # Create metrics dictionary
@@ -453,6 +468,11 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
         "has_column_description/total_columns": total_columns,
         "has_column_description/pass_percentage": (
             100 * tables_with_all_columns_described / total_tables
+            if total_tables > 0
+            else 0.0
+        ),
+        "has_column_description_95_percent/pass_percentage": (
+            100 * tables_with_95_percent_columns_described / total_tables
             if total_tables > 0
             else 0.0
         ),
@@ -468,9 +488,17 @@ def run_prompt_experiment(run_description: Optional[str] = None) -> None:
     EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
     mlflow.set_experiment(EXPERIMENT_NAME)
     mlflow.bedrock.autolog()
+    mlflow.config.enable_async_logging()
     eval_data_path = current_dir / "eval_data"
-    eval_files = list(eval_data_path.glob("*.json"))
+    eval_files = []
 
+    for file in list(eval_data_path.glob("*.json")):
+        with open(file, "r") as f:
+            data = json.load(f)
+            # if len(data["extracted_entity_info"]["column_names"]) <= LARGE_TABLE_THRESHOLD:
+            #    continue
+            eval_files.append(file)
+            logger.info(f"Added file: {file} for urn {data['urn']}")
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt
     # or any other inputs for prompt engineering experiments
 
