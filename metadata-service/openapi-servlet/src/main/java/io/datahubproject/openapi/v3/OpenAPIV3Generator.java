@@ -185,6 +185,11 @@ public class OpenAPIV3Generator {
     addExtraParameters(
         configurationProvider.getSearchService().getLimit().getResults(), components);
 
+    // ----- Generic-entity parameter ------------------------------------------
+    Set<String> unionAspectNames = filteredAspectSpec.keySet(); // all aspects
+    components.addParameters(
+        ENTITIES + ASPECTS + MODEL_VERSION, buildGenericAspectsParameter(unionAspectNames));
+
     // Path
     final Paths paths = new Paths();
 
@@ -204,6 +209,11 @@ public class OpenAPIV3Generator {
               String.format(PATH_PREFIX + "/entity/%s/{urn}", e.getName().toLowerCase()),
               buildSingleEntityPath(e));
         });
+
+    // ----------  Generic Entity paths  --------------------------------------
+    paths.addPathItem(PATH_PREFIX + "/entity", buildListGenericEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/batchGet", buildBatchGetGenericEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/{urn}", buildSingleGenericEntityPath());
 
     // --> Aspect Paths
     definedEntitySpecs.forEach(
@@ -681,6 +691,312 @@ public class OpenAPIV3Generator {
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     return result;
+  }
+
+  /* =============================================================== */
+  /*  /openapi/v3/entity      (GET | POST | PATCH)                  */
+  /* =============================================================== */
+  private static PathItem buildListGenericEntitiesPath() {
+    String aspectParamRef =
+        String.format("#/components/parameters/%s", ENTITIES + ASPECTS + MODEL_VERSION);
+
+    /* ---------- POST (create) ----------------------------------- */
+    Content createBodyContent =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        newSchema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                newSchema()
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + ENTITIES
+                                            + ENTITY_REQUEST_SUFFIX))));
+    ApiResponse post200 =
+        new ApiResponse()
+            .description("Created entities")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        newSchema()
+                                            .$ref(
+                                                "#/components/schemas/"
+                                                    + ENTITIES
+                                                    + ENTITY_RESPONSE_SUFFIX)))));
+    ApiResponse post202 =
+        new ApiResponse()
+            .description("Async batch creation submitted")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    Operation postOp =
+        new Operation()
+            .summary("Create Generic Entities.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(true)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false))))
+            .requestBody(
+                new RequestBody()
+                    .required(true)
+                    .description("Generic entity upsert.")
+                    .content(createBodyContent))
+            .responses(
+                new ApiResponses().addApiResponse("200", post200).addApiResponse("202", post202));
+
+    /* ---------- PATCH ------------------------------------------- */
+    Content patchBodyContent =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        newSchema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                newSchema()
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + ENTITIES
+                                            + ENTITY_REQUEST_PATCH_SUFFIX))));
+    ApiResponse patch200 =
+        new ApiResponse()
+            .description("Patched entities")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        newSchema()
+                                            .$ref(
+                                                "#/components/schemas/"
+                                                    + ENTITIES
+                                                    + ENTITY_RESPONSE_SUFFIX)))));
+    ApiResponse patch202 =
+        new ApiResponse()
+            .description("Async batch patch submitted")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    Operation patchOp =
+        new Operation()
+            .summary("Patch Generic Entities.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(true)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false))))
+            .requestBody(
+                new RequestBody()
+                    .required(true)
+                    .description("Generic entity patch.")
+                    .content(patchBodyContent))
+            .responses(
+                new ApiResponses().addApiResponse("200", patch200).addApiResponse("202", patch202));
+
+    return new PathItem().post(postOp).patch(patchOp);
+  }
+
+  /* =============================================================== */
+  /*  /openapi/v3/entity/batchGet   (POST)                          */
+  /* =============================================================== */
+  private static PathItem buildBatchGetGenericEntitiesPath() {
+    Content body =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        newSchema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                newSchema()
+                                    .$ref(
+                                        "#/components/schemas/BatchGet"
+                                            + ENTITIES
+                                            + ENTITY_REQUEST_SUFFIX))));
+    ApiResponse ok =
+        new ApiResponse()
+            .description("Batch result")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        newSchema()
+                                            .$ref(
+                                                "#/components/schemas/"
+                                                    + ENTITIES
+                                                    + ENTITY_RESPONSE_SUFFIX)))));
+    Operation op =
+        new Operation()
+            .summary("Batch Get Generic Entities.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false))))
+            .requestBody(new RequestBody().required(true).content(body))
+            .responses(new ApiResponses().addApiResponse("200", ok));
+    return new PathItem().post(op);
+  }
+
+  /* =============================================================== */
+  /*  /openapi/v3/entity/{urn}  (GET | HEAD | DELETE)               */
+  /* =============================================================== */
+  private static PathItem buildSingleGenericEntityPath() {
+    String aspectParamRef =
+        String.format("#/components/parameters/%s", ENTITIES + ASPECTS + MODEL_VERSION);
+
+    /* ---------- GET --------------------------------------------- */
+    ApiResponse ok =
+        new ApiResponse()
+            .description("Success")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + ENTITIES
+                                            + ENTITY_RESPONSE_SUFFIX))));
+    Operation getOp =
+        new Operation()
+            .summary("Get Generic Entity.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .required(true)
+                        .description("Entity URN")
+                        .schema(newSchema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter().$ref(aspectParamRef)))
+            .responses(new ApiResponses().addApiResponse("200", ok));
+
+    /* ---------- HEAD -------------------------------------------- */
+    ApiResponse head204 =
+        new ApiResponse()
+            .description("Entity exists.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    ApiResponse head404 =
+        new ApiResponse()
+            .description("Entity not found.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    Operation headOp =
+        new Operation()
+            .summary("Generic Entity existence.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .required(true)
+                        .schema(newSchema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("Include soft-deleted items.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false))))
+            .responses(
+                new ApiResponses().addApiResponse("204", head204).addApiResponse("404", head404));
+
+    /* ---------- DELETE ------------------------------------------ */
+    ApiResponse delOk =
+        new ApiResponse()
+            .description("Entity deleted.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    Operation delOp =
+        new Operation()
+            .summary("Delete Generic Entity.")
+            .tags(List.of("Generic Entities"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .required(true)
+                        .schema(newSchema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("clear")
+                        .description("Delete all aspects, preserve key aspect.")
+                        .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter().$ref(aspectParamRef)))
+            .responses(new ApiResponses().addApiResponse("200", delOk));
+
+    return new PathItem()
+        .parameters(
+            List.of(
+                new Parameter()
+                    .in(NAME_PATH)
+                    .name("urn")
+                    .required(true)
+                    .schema(newSchema().type(TYPE_STRING))))
+        .get(getOp)
+        .head(headOp)
+        .delete(delOp);
+  }
+
+  private static Parameter buildGenericAspectsParameter(Set<String> aspectNames) {
+    Schema schema =
+        newSchema()
+            .type(TYPE_ARRAY)
+            .items(
+                newSchema()
+                    .type(TYPE_STRING)
+                    ._enum(aspectNames.stream().sorted().toList())
+                    ._default(null));
+    return new Parameter()
+        .in(NAME_QUERY)
+        .name("aspects")
+        .explode(true)
+        .description("Aspects to include.")
+        .required(false)
+        .schema(schema);
   }
 
   private static void addExtraParameters(

@@ -647,6 +647,44 @@ public class OpenAPIV3GeneratorTest {
         "datasetProperties patch schemas should reference AspectPatchProperty for aspect properties");
   }
 
+  @Test
+  public void testGenericEntityEndpointsExist() {
+    Map<String, PathItem> paths = openAPI.getPaths();
+
+    /* ---------- collection ­/openapi/v3/entity ------------------ */
+    assertTrue(paths.containsKey("/openapi/v3/entity"), "collection path must exist");
+    PathItem collection = paths.get("/openapi/v3/entity");
+    assertNotNull(collection.getPost(), "POST (create/upsert) must exist");
+    assertNotNull(collection.getPatch(), "PATCH (batch patch) must exist");
+
+    /* ---------- batchGet ­/openapi/v3/entity/batchGet ----------- */
+    assertTrue(paths.containsKey("/openapi/v3/entity/batchGet"), "batchGet path must exist");
+    assertNotNull(
+        paths.get("/openapi/v3/entity/batchGet").getPost(), "batchGet must be a POST operation");
+
+    /* ---------- single ­/openapi/v3/entity/{urn} ---------------- */
+    assertTrue(paths.containsKey("/openapi/v3/entity/{urn}"), "single-entity path must exist");
+    PathItem byUrn = paths.get("/openapi/v3/entity/{urn}");
+    assertNotNull(byUrn.getGet(), "GET by URN must exist");
+    assertNotNull(byUrn.getHead(), "HEAD by URN must exist");
+    assertNotNull(byUrn.getDelete(), "DELETE by URN must exist");
+
+    /* ---------- component wiring (quick sanity check) ----------- */
+    //  POST request body on collection must reference EntitiesEntityRequest_v3
+    Schema<?> postSchema =
+        collection.getPost().getRequestBody().getContent().get("application/json").getSchema();
+    assertTrue(
+        Json.pretty(postSchema).contains("EntitiesEntityRequest_v3"),
+        "POST body should use EntitiesEntityRequest_v3 schema");
+
+    //  PATCH request body on collection must reference EntitiesEntityRequestPatch_v3
+    Schema<?> patchSchema =
+        collection.getPatch().getRequestBody().getContent().get("application/json").getSchema();
+    assertTrue(
+        Json.pretty(patchSchema).contains("EntitiesEntityRequestPatch_v3"),
+        "PATCH body should use EntitiesEntityRequestPatch_v3 schema");
+  }
+
   private JsonSchema loadOpenAPI31Schema(JsonSchemaFactory schemaFactory) throws Exception {
     URL schemaUrl = new URL("https://spec.openapis.org/oas/3.1/schema/2022-10-07");
     return schemaFactory.getSchema(schemaUrl.openStream());
