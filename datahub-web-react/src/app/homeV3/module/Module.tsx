@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 
-import SampleLargeModule from '@app/homepageV2/module/modules/SampleLargeModule';
-import YourAssetsModule from '@app/homepageV2/module/modules/YourAssetsModule';
-import { ModuleProps } from '@app/homepageV2/module/types';
+import { ModuleProps } from '@app/homeV3/module/types';
+import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
+import YourAssetsModule from '@app/homeV3/modules/YourAssetsModule';
 
 export default function Module(props: ModuleProps) {
     const Component = useMemo(() => {

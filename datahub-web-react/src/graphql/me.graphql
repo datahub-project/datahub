@@ -35,6 +35,12 @@ query getMe {
                         urn
                     }
                 }
+                homePage {
+                    pageTemplate {
+                        urn
+                    }
+                    dismissedAnnouncementUrns
+                }
             }
         }
         platformPrivileges {
