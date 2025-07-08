@@ -8,7 +8,7 @@ from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DataHubGraph
 
 if TYPE_CHECKING:
-    from datahub.ingestion.run.pipeline import PipelineConfig
+    from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig
 
 T = TypeVar("T")
 
@@ -60,6 +60,7 @@ class PipelineContext:
         self.dry_run_mode = dry_run
         self.preview_mode = preview_mode
         self.checkpointers: Dict[str, Committable] = {}
+        self._pipeline: Optional["Pipeline"] = None
 
         self._set_dataset_urn_to_lower_if_needed()
 
@@ -93,3 +94,21 @@ class PipelineContext:
                 "To provide one, either use the datahub-rest sink or set the top-level datahub_api config in the recipe."
             )
         return self.graph
+
+    def _set_pipeline(self, pipeline: "Pipeline") -> None:
+        """Internal method to set the pipeline reference. Called by Pipeline during initialization."""
+        self._pipeline = pipeline
+
+    def report_progress(self) -> None:
+        """Report progress during long-running operations. Sources can call this method
+        to print progress reports even when no workunits are being yielded."""
+        if self._pipeline is not None:
+            try:
+                if self._pipeline._time_to_print() and not self._pipeline.no_progress:
+                    self._pipeline.pretty_print_summary(currently_running=True)
+            except Exception as e:
+                # Don't let progress reporting errors crash the pipeline
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to report progress: {e}")

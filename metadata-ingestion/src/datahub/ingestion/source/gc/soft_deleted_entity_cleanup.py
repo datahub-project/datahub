@@ -148,7 +148,6 @@ class SoftDeletedEntitiesCleanup:
         self.dry_run = dry_run
         self.start_time = time.time()
         self._report_lock: Lock = Lock()
-        self.last_print_time = 0.0
 
     def _increment_retained_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -218,19 +217,12 @@ class SoftDeletedEntitiesCleanup:
                 self._increment_retained_count()
                 self._increment_retained_by_type(urn.entity_type)
 
-    def _print_report(self) -> None:
-        time_taken = round(time.time() - self.last_print_time, 1)
-        # Print report every 2 minutes
-        if time_taken > 120:
-            self.last_print_time = time.time()
-            logger.info(f"\n{self.report.as_string()}")
-
     def _process_futures(self, futures: Dict[Future, Urn]) -> Dict[Future, Urn]:
         done, not_done = wait(futures, return_when=FIRST_COMPLETED)
         futures = {future: urn for future, urn in futures.items() if future in not_done}
 
         for future in done:
-            self._print_report()
+            self.ctx.report_progress()
             if future.exception():
                 self.report.failure(
                     title="Failed to delete entity",

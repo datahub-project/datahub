@@ -960,6 +960,7 @@ class S3Source(StatefulIngestionSourceBase):
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
         for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+            self.ctx.report_progress()
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             if not _is_allowed_path(path_spec, s3_path):
@@ -1133,6 +1134,7 @@ class S3Source(StatefulIngestionSourceBase):
 
             # STEP 3: Process each resolved prefix to find table folders
             for resolved_prefix in resolved_prefixes:
+                self.ctx.report_progress()
                 logger.info(f"Processing resolved prefix: {resolved_prefix}")
 
                 # Get all folders that could be tables under this resolved prefix
@@ -1148,6 +1150,7 @@ class S3Source(StatefulIngestionSourceBase):
 
                 # STEP 4: Process each table folder to create a table-level dataset
                 for table_folder in table_folders:
+                    self.ctx.report_progress()
                     # Create the full S3 path for this table
                     table_s3_path = self.create_s3_path(
                         bucket_name, table_folder.rstrip("/")
@@ -1246,6 +1249,7 @@ class S3Source(StatefulIngestionSourceBase):
                         # Process the selected partitions
                         all_folders = []
                         for partition_folder in dirs_to_process:
+                            self.ctx.report_progress()
                             # Ensure we have a clean folder path
                             clean_folder = partition_folder.rstrip("/")
 
@@ -1336,6 +1340,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         # Iterate through all objects in the bucket matching the prefix
         for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+            self.ctx.report_progress()
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             # Get content type if configured

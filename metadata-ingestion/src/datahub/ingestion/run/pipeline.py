@@ -190,6 +190,8 @@ class Pipeline:
                     preview_mode=preview_mode,
                     pipeline_config=self.config,
                 )
+                # Set the pipeline reference in context for progress reporting
+                self.ctx._set_pipeline(self)
 
             if self.config.sink is None:
                 logger.info(
