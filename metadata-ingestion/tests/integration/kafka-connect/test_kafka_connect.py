@@ -301,7 +301,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     )
     assert r.status_code == 201  # Created
 
-    # Creating Postgresql source
+    # Creating Postgresql source (JDBC connector)
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
@@ -318,6 +318,55 @@ def loaded_kafka_connect(kafka_connect_runner):
             }
         }""",
     )
+    assert r.status_code == 201  # Created
+
+    # Creating Debezium PostgreSQL source connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "debezium-postgres-connector",
+            "config": {
+                "name": "debezium-postgres-connector",
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.hostname": "test_postgres",
+                "database.port": "5432",
+                "database.user": "postgres",
+                "database.password": "datahub",
+                "database.dbname": "postgres",
+                "database.server.name": "postgres.debezium.server",
+                "table.include.list": "public.member",
+                "plugin.name": "pgoutput",
+                "slot.name": "debezium_slot"
+            }
+        }""",
+    )
+    assert r.status_code == 201  # Created
+
+    # Creating Debezium SQL Server source connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "debezium-sqlserver-connector",
+            "config": {
+                "name": "debezium-sqlserver-connector",
+                "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+                "database.hostname": "test_sqlserver",
+                "database.port": "1433",
+                "database.user": "sa",
+                "database.password": "Password123!",
+                "database.names": "TestDB",
+                "database.server.name": "sqlserver.debezium.server",
+                "table.include.list": "dbo.test_table",
+                "database.history.kafka.bootstrap.servers": "test_broker:9092",
+                "database.history.kafka.topic": "dbhistory.sqlserver"
+            }
+        }""",
+    )
+    if r.status_code != 201:
+        print(f"SQL Server connector creation failed: {r.status_code}")
+        print(f"Response: {r.text}")
     assert r.status_code == 201  # Created
 
     # Creating Generic source
@@ -755,6 +804,46 @@ def test_kafka_connect_bigquery_sink_ingest(
         pytestconfig,
         output_path=tmp_path / "kafka_connect_mces.json",
         golden_path=test_resources_dir / "kafka_connect_bigquery_sink_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_debezium_postgres(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_debezium_postgres_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_debezium_postgres_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_debezium_sqlserver(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_debezium_sqlserver_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_debezium_sqlserver_mces_golden.json",
         ignore_paths=[],
     )
 
