@@ -101,7 +101,7 @@ public class EbeanEntityServiceTest
 
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -147,7 +147,8 @@ public class EbeanEntityServiceTest
 
     // Create database and spy on aspectDao
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
-    EbeanAspectDao aspectDao = spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault));
+    EbeanAspectDao aspectDao =
+        spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
 
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
