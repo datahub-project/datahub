@@ -51,7 +51,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.ingestion_stage import PROFILING
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -89,6 +93,7 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 class DremioSource(StatefulIngestionSourceBase):
     """
     This plugin integrates with Dremio to extract and ingest metadata into DataHub.
@@ -126,6 +131,13 @@ class DremioSource(StatefulIngestionSourceBase):
         self.default_db = "dremio"
         self.config = config
         self.report = DremioSourceReport()
+
+        # Set time window for query lineage extraction
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
+        )
+
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         # Initialize API operations
@@ -154,6 +166,7 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_operations=True,
             usage_config=self.config.usage,
         )
+        self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
         self.profiler = DremioProfiler(config, self.report, dremio_api)
@@ -190,84 +203,85 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.source_map = self._build_source_map()
 
-        # Process Containers
-        containers = self.dremio_catalog.get_containers()
-        for container in containers:
-            try:
-                yield from self.process_container(container)
-                logger.info(
-                    f"Dremio container {container.container_name} emitted successfully"
-                )
-            except Exception as exc:
-                self.report.num_containers_failed += 1  # Increment failed containers
-                self.report.report_failure(
-                    message="Failed to process Dremio container",
-                    context=f"{'.'.join(container.path)}.{container.container_name}",
-                    exc=exc,
-                )
+        with self.report.new_stage(METADATA_EXTRACTION):
+            # Process Containers
+            containers = self.dremio_catalog.get_containers()
+            for container in containers:
+                try:
+                    yield from self.process_container(container)
+                    logger.info(
+                        f"Dremio container {container.container_name} emitted successfully"
+                    )
+                except Exception as exc:
+                    self.report.num_containers_failed += 1
+                    self.report.report_failure(
+                        message="Failed to process Dremio container",
+                        context=f"{'.'.join(container.path)}.{container.container_name}",
+                        exc=exc,
+                    )
 
-        # Process Datasets
-        datasets = self.dremio_catalog.get_datasets()
+            # Process Datasets
+            datasets = self.dremio_catalog.get_datasets()
 
-        for dataset_info in datasets:
-            try:
-                yield from self.process_dataset(dataset_info)
-                logger.info(
-                    f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
-                )
-            except Exception as exc:
-                self.report.num_datasets_failed += 1  # Increment failed datasets
-                self.report.report_failure(
-                    message="Failed to process Dremio dataset",
-                    context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
-                    exc=exc,
-                )
+            for dataset_info in datasets:
+                try:
+                    yield from self.process_dataset(dataset_info)
+                    logger.info(
+                        f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
+                    )
+                except Exception as exc:
+                    self.report.num_datasets_failed += 1  # Increment failed datasets
+                    self.report.report_failure(
+                        message="Failed to process Dremio dataset",
+                        context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                        exc=exc,
+                    )
 
-        # Optionally Process Query Lineage
-        if self.config.include_query_lineage:
-            self.get_query_lineage_workunits()
+            # Process Glossary Terms
+            glossary_terms = self.dremio_catalog.get_glossary_terms()
 
-        # Process Glossary Terms
-        glossary_terms = self.dremio_catalog.get_glossary_terms()
+            for glossary_term in glossary_terms:
+                try:
+                    yield from self.process_glossary_term(glossary_term)
+                except Exception as exc:
+                    self.report.report_failure(
+                        message="Failed to process Glossary terms",
+                        context=f"{glossary_term.glossary_term}",
+                        exc=exc,
+                    )
 
-        for glossary_term in glossary_terms:
-            try:
-                yield from self.process_glossary_term(glossary_term)
-            except Exception as exc:
-                self.report.report_failure(
-                    message="Failed to process Glossary terms",
-                    context=f"{glossary_term.glossary_term}",
-                    exc=exc,
-                )
+            # Optionally Process Query Lineage
+            if self.config.include_query_lineage:
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    self.get_query_lineage_workunits()
 
-        # Generate workunit for aggregated SQL parsing results
-        for mcp in self.sql_parsing_aggregator.gen_metadata():
-            self.report.report_workunit(mcp.as_workunit())
-            yield mcp.as_workunit()
+            # Generate workunit for aggregated SQL parsing results
+            for mcp in self.sql_parsing_aggregator.gen_metadata():
+                yield mcp.as_workunit()
 
-        # Profiling
-        if self.config.is_profiling_enabled():
-            with ThreadPoolExecutor(
-                max_workers=self.config.profiling.max_workers
-            ) as executor:
-                future_to_dataset = {
-                    executor.submit(self.generate_profiles, dataset): dataset
-                    for dataset in datasets
-                }
+            # Profiling
+            if self.config.is_profiling_enabled():
+                with self.report.new_stage(PROFILING), ThreadPoolExecutor(
+                    max_workers=self.config.profiling.max_workers
+                ) as executor:
+                    future_to_dataset = {
+                        executor.submit(self.generate_profiles, dataset): dataset
+                        for dataset in datasets
+                    }
 
-                for future in as_completed(future_to_dataset):
-                    dataset_info = future_to_dataset[future]
-                    try:
-                        yield from future.result()
-                    except Exception as exc:
-                        self.report.profiling_skipped_other[
-                            dataset_info.resource_name
-                        ] += 1
-                        self.report.report_failure(
-                            message="Failed to profile dataset",
-                            context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
-                            exc=exc,
-                        )
+                    for future in as_completed(future_to_dataset):
+                        dataset_info = future_to_dataset[future]
+                        try:
+                            yield from future.result()
+                        except Exception as exc:
+                            self.report.profiling_skipped_other[
+                                dataset_info.resource_name
+                            ] += 1
+                            self.report.report_failure(
+                                message="Failed to profile dataset",
+                                context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                                exc=exc,
+                            )
 
     def process_container(
         self, container_info: DremioContainer
@@ -388,8 +402,7 @@ class DremioSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        with self.report.new_stage(f"{dataset_info.resource_name}: {PROFILING}"):
-            yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]

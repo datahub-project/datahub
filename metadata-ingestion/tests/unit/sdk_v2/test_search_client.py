@@ -387,5 +387,6 @@ def test_get_urns() -> None:
                 ],
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
+                "skipCache": False,
             },
         )

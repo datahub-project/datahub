@@ -45,7 +45,7 @@ buildscript {
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
-  ext.testContainersVersion = '1.17.4'
+  ext.testContainersVersion = '1.21.1'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.21'
@@ -57,7 +57,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.18'
   ext.hadoop3Version = '3.3.6'
-  ext.kafkaVersion = '7.9.1'
+  ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
@@ -140,8 +140,8 @@ project.ext.externalDependency = [
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
-    'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
-    'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
+    'datastaxOssCore': 'org.apache.cassandra:java-driver-core:4.19.0',
+    'datastaxOssQueryBuilder': 'org.apache.cassandra:java-driver-query-builder:4.19.0',
     'dgraph4j' : 'io.dgraph:dgraph4j:24.1.1',
     'dgraphNetty': 'io.grpc:grpc-netty:1.71.0',
     'dgraphShadedNetty': 'io.grpc:grpc-netty-shaded:1.71.0',
@@ -156,7 +156,7 @@ project.ext.externalDependency = [
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:21.5',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
-    'gson': 'com.google.code.gson:gson:2.8.9',
+    'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
     'guava': 'com.google.guava:guava:32.1.3-jre',
@@ -258,7 +258,7 @@ project.ext.externalDependency = [
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
-    'reflections': 'org.reflections:reflections:0.9.9',
+    'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
@@ -269,7 +269,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -286,7 +286,7 @@ project.ext.externalDependency = [
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
-    'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.26',
+    'swaggerParser': 'io.swagger.parser.v3:swagger-parser:2.1.27',
     'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
@@ -295,7 +295,7 @@ project.ext.externalDependency = [
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
-    'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
+    'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.1.3',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.4',
@@ -397,6 +397,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
     exclude group: "javax.mail", module: "mail"
     exclude group: 'org.glassfish', module: 'javax.json'
+    exclude group: 'org.glassfish', module: 'jakarta.json'
+    
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'

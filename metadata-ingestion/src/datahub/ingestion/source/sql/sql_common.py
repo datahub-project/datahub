@@ -56,6 +56,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -303,6 +304,20 @@ class ProfileMetadata:
     SourceCapability.DOMAINS,
     "Enabled by default",
     supported=True,
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for views via `include_view_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default to get lineage for views via `include_view_column_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
+)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""

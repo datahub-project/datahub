@@ -80,6 +80,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -867,10 +868,14 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @capability(
     SourceCapability.USAGE_STATS,
     "Dashboard/Chart view counts, enabled using extract_usage_stats config",
+    subtype_modifier=[
+        SourceCapabilityModifier.DASHBOARD,
+        SourceCapabilityModifier.CHART,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on.",
+    "Enabled by default via stateful ingestion.",
 )
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
@@ -879,6 +884,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 

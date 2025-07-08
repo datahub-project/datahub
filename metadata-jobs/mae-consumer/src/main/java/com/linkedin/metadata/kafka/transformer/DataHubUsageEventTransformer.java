@@ -77,21 +77,25 @@ public class DataHubUsageEventTransformer {
     // Timestamp is required
     long timestampMillis;
     if (usageEvent.get(TIMESTAMP).isNumber()) {
+      // Handle numeric timestamp (epoch milliseconds)
       timestampMillis = usageEvent.get(TIMESTAMP).asLong();
     } else if (usageEvent.get(TIMESTAMP).isTextual()) {
+      // Handle ISO date string
       try {
         String isoDate = usageEvent.get(TIMESTAMP).asText();
         java.time.Instant instant = java.time.Instant.parse(isoDate);
         timestampMillis = instant.toEpochMilli();
       } catch (Exception e) {
-        log.warn("Failed to parse ISO date string: {}", usageEvent.get(TIMESTAMP));
+        log.warn(
+            "Failed to parse ISO date string: {}. Defaulting to current system time",
+            usageEvent.get(TIMESTAMP));
         timestampMillis = Instant.now().toEpochMilli();
       }
     } else {
       log.warn(
           "Invalid timestamp format - expected number or ISO date string but got: {}",
           usageEvent.get(TIMESTAMP));
-      timestampMillis = Instant.now().toEpochMilli();
+      return Optional.empty();
     }
 
     log.debug("Raw timestamp value from event: {}", timestampMillis);
@@ -108,11 +112,11 @@ public class DataHubUsageEventTransformer {
     }
 
     try {
-      return Optional.of(
-          new TransformedDocument(
-              getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
+      String serializedDoc = OBJECT_MAPPER.writeValueAsString(eventDocument);
+      log.debug("Final serialized document: {}", serializedDoc);
+      return Optional.of(new TransformedDocument(getId(eventDocument), serializedDoc));
     } catch (JsonProcessingException e) {
-      log.info("Failed to package document: {}", eventDocument);
+      log.error("Failed to package document: {}", eventDocument);
       return Optional.empty();
     }
   }

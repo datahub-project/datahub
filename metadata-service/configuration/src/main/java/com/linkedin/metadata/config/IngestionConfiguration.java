@@ -6,8 +6,10 @@ import lombok.Data;
 @Data
 public class IngestionConfiguration {
   /** Whether managed ingestion is enabled */
-  public boolean enabled;
+  private boolean enabled;
 
   /** The default CLI version to use in managed ingestion */
-  public String defaultCliVersion;
+  private String defaultCliVersion;
+
+  private Integer batchRefreshCount;
 }

@@ -44,6 +44,11 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
 )
+from datahub.ingestion.source.snowflake.stored_proc_lineage import (
+    StoredProcCall,
+    StoredProcLineageReport,
+    StoredProcLineageTracker,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -63,7 +68,10 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedList,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -124,7 +132,10 @@ class SnowflakeQueriesExtractorReport(Report):
     users_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
     num_stream_queries_observed: int = 0
@@ -243,6 +254,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
+        if self.config.local_temp_path is None:
+            self._exit_stack.callback(lambda: audit_log_file.unlink(missing_ok=True))
+
+        shared_connection = self._exit_stack.enter_context(
+            ConnectionWrapper(audit_log_file)
+        )
         queries: FileBackedList[
             Union[
                 KnownLineageMapping,
@@ -250,44 +267,54 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 TableRename,
                 TableSwap,
                 ObservedQuery,
+                StoredProcCall,
             ]
-        ]
-        if use_cached_audit_log:
-            logger.info("Using cached audit log")
-            shared_connection = ConnectionWrapper(audit_log_file)
-            queries = FileBackedList(shared_connection)
-        else:
-            audit_log_file.unlink(missing_ok=True)
+        ] = self._exit_stack.enter_context(FileBackedList(shared_connection))
 
-            shared_connection = ConnectionWrapper(audit_log_file)
-            queries = FileBackedList(shared_connection)
-            entry: Union[
-                KnownLineageMapping,
-                PreparsedQuery,
-                TableRename,
-                TableSwap,
-                ObservedQuery,
-            ]
+        if use_cached_audit_log:
+            logger.info(f"Using cached audit log at {audit_log_file}")
+        else:
+            logger.info(f"Fetching audit log into {audit_log_file}")
 
             with self.report.copy_history_fetch_timer:
-                for entry in self.fetch_copy_history():
-                    queries.append(entry)
+                for copy_entry in self.fetch_copy_history():
+                    queries.append(copy_entry)
 
             with self.report.query_log_fetch_timer:
                 for entry in self.fetch_query_log(users):
                     queries.append(entry)
 
+        stored_proc_tracker: StoredProcLineageTracker = self._exit_stack.enter_context(
+            StoredProcLineageTracker(
+                platform=self.identifiers.platform,
+                shared_connection=shared_connection,
+            )
+        )
+        self.report.stored_proc_lineage = stored_proc_tracker.report
+
         with self.report.audit_log_load_timer:
             for i, query in enumerate(queries):
                 if i % 1000 == 0:
                     logger.info(f"Added {i} query log entries to SQL aggregator")
-                self.aggregator.add(query)
 
-        yield from auto_workunit(self.aggregator.gen_metadata())
-        if not use_cached_audit_log:
-            queries.close()
-            shared_connection.close()
-            audit_log_file.unlink(missing_ok=True)
+                if isinstance(query, StoredProcCall):
+                    stored_proc_tracker.add_stored_proc_call(query)
+                    continue
+
+                if not (
+                    isinstance(query, PreparsedQuery)
+                    and stored_proc_tracker.add_related_query(query)
+                ):
+                    # Only add to aggregator if it's not part of a stored procedure.
+                    self.aggregator.add(query)
+
+            # Generate and add stored procedure lineage entries.
+            for lineage_entry in stored_proc_tracker.build_merged_lineage_entries():
+                # TODO: Make this the lowest priority lineage - so that it doesn't override other lineage entries.
+                self.aggregator.add(lineage_entry)
+
+        with self.report.aggregator_generate_timer:
+            yield from auto_workunit(self.aggregator.gen_metadata())
 
     def fetch_users(self) -> UsersMapping:
         users: UsersMapping = dict()
@@ -344,7 +371,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self, users: UsersMapping
-    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
+    ) -> Iterable[
+        Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery, StoredProcCall]
+    ]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -384,7 +413,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
+    ) -> Optional[
+        Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery, StoredProcCall]
+    ]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -403,8 +434,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         # TODO need to map snowflake query types to ours
         query_text: str = res["query_text"]
+        snowflake_query_type: str = res["query_type"]
         query_type: QueryType = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
-            res["query_type"], QueryType.UNKNOWN
+            snowflake_query_type, QueryType.UNKNOWN
         )
 
         direct_objects_accessed = res["direct_objects_accessed"]
@@ -421,7 +453,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     res["session_id"],
                     timestamp,
                     object_modified_by_ddl,
-                    res["query_type"],
+                    snowflake_query_type,
                 )
             if known_ddl_entry:
                 return known_ddl_entry
@@ -436,6 +468,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 res["user_name"], users.get(res["user_name"])
             )
         )
+        extra_info = {
+            "snowflake_query_id": res["query_id"],
+            "snowflake_root_query_id": res["root_query_id"],
+            "snowflake_query_type": res["query_type"],
+            "snowflake_role_name": res["role_name"],
+            "query_duration": res["query_duration"],
+            "rows_inserted": res["rows_inserted"],
+            "rows_updated": res["rows_updated"],
+            "rows_deleted": res["rows_deleted"],
+        }
 
         # There are a couple cases when we'd want to prefer our own SQL parsing
         # over Snowflake's metadata.
@@ -470,6 +512,18 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 query_hash=get_query_fingerprint(
                     query_text, self.identifiers.platform, fast=True
                 ),
+                extra_info=extra_info,
+            )
+
+        if snowflake_query_type == "CALL" and res["root_query_id"] is None:
+            return StoredProcCall(
+                # This is the top-level query ID that other entries will reference.
+                snowflake_root_query_id=res["query_id"],
+                query_text=query_text,
+                timestamp=timestamp,
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
             )
 
         upstreams = []
@@ -556,6 +610,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             timestamp=timestamp,
             session_id=res["session_id"],
             query_type=query_type,
+            extra_info=extra_info,
         )
         return entry
 
@@ -652,6 +707,7 @@ class SnowflakeQueriesSource(Source):
     def close(self) -> None:
         self.connection.close()
         self.queries_extractor.close()
+        super().close()
 
 
 # Make sure we don't try to generate too much info for a single query.
@@ -667,7 +723,7 @@ def _build_enriched_query_log_query(
     start_time_millis = int(start_time.timestamp() * 1000)
     end_time_millis = int(end_time.timestamp() * 1000)
 
-    users_filter = ""
+    users_filter = "TRUE"
     if deny_usernames:
         user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
         users_filter = f"user_name NOT IN ({user_not_in})"
@@ -694,10 +750,10 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.query_history
     WHERE
-        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
-        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
+        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
         AND execution_status = 'SUCCESS'
-        AND {users_filter or "TRUE"}
+        AND {users_filter}
 )
 , deduplicated_queries as (
     SELECT
@@ -715,6 +771,7 @@ fingerprinted_queries as (
 , raw_access_history AS (
     SELECT
         query_id,
+        root_query_id,
         query_start_time,
         user_name,
         direct_objects_accessed,
@@ -723,9 +780,9 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.access_history
     WHERE
-        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        AND {users_filter or "TRUE"}
+        query_start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
+        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
+        AND {users_filter}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
@@ -734,6 +791,7 @@ fingerprinted_queries as (
     -- TODO: Add table filter clause.
     SELECT
         query_id,
+        root_query_id,
         query_start_time,
         ARRAY_SLICE(
             FILTER(direct_objects_accessed, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}),
@@ -764,6 +822,7 @@ fingerprinted_queries as (
         q.rows_deleted AS "ROWS_DELETED",
         q.user_name AS "USER_NAME",
         q.role_name AS "ROLE_NAME",
+        a.root_query_id,
         a.direct_objects_accessed,
         a.objects_modified,
         a.object_modified_by_ddl

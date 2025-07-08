@@ -1,14 +1,16 @@
-import { colors } from '@components';
 import React from 'react';
+import { useTheme } from 'styled-components';
+
+import { getColor } from '@components/theme/utils';
 
 import { EntitySubtitleProps } from '@app/searchV2/autoCompleteV2/components/subtitle/types';
-import { SUBTITLE_COLOR, SUBTITLE_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
 import { getContextPath } from '@src/app/entityV2/shared/containers/profile/header/getContextPath';
 import ContextPath from '@src/app/previewV2/ContextPath';
 import useContentTruncation from '@src/app/shared/useContentTruncation';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
-export default function DefaultEntitySubtitle({ entity }: EntitySubtitleProps) {
+export default function DefaultEntitySubtitle({ entity, color, colorLevel }: EntitySubtitleProps) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const genericEntityProperties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const parentEntities = getContextPath(genericEntityProperties);
@@ -24,7 +26,7 @@ export default function DefaultEntitySubtitle({ entity }: EntitySubtitleProps) {
             parentEntities={parentEntities}
             contentRef={contentRef}
             isContentTruncated={isContentTruncated}
-            color={colors[SUBTITLE_COLOR][SUBTITLE_COLOR_LEVEL]}
+            color={getColor(color, colorLevel, theme)}
         />
     );
 }

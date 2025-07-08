@@ -272,7 +272,7 @@ def get_filter_name(filter_obj):
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
@@ -1087,7 +1087,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        dataset_url = f"{self.config.display_uri}{dataset_response.get('result', {}).get('url', '')}"
+        dataset_url = f"{self.config.display_uri}/explore/?datasource_type=table&datasource_id={dataset.id}"
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dataset_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")

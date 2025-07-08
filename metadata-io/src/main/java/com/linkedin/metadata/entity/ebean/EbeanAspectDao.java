@@ -303,14 +303,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     int position = 0;
 
+    List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
+        batchGetSelectString(keyList, keysCount, position, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
+          batchGetSelectString(keyList, keysCount, position, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 
@@ -964,6 +965,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @param urns urns for batch
    * @return separated batches
    */
+  // TODO: Remove? No usages of private method
   private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
       AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
     Map<Urn, List<MCPItem>> itemsByUrn =
@@ -977,7 +979,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .filter(entry -> !urns.contains(entry.getKey()))
                     .flatMap(entry -> entry.getValue().stream())
                     .collect(Collectors.toList()))
-            .build();
+            .build(null);
 
     List<AspectsBatch> nonEmptyBatches =
         urns.stream()
@@ -986,7 +988,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     AspectsBatchImpl.builder()
                         .retrieverContext(retrieverContext)
                         .items(itemsByUrn.get(urn))
-                        .build())
+                        .build(null))
             .filter(b -> !b.getItems().isEmpty())
             .collect(Collectors.toList());
 

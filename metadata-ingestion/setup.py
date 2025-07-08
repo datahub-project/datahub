@@ -807,6 +807,7 @@ entry_points = {
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
+        "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",

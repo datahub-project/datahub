@@ -43,10 +43,10 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -411,7 +411,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       int from,
-      int size) {
+      @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -421,7 +421,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         .setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
         .setNumEntities(totalCount);
   }
 
@@ -431,9 +431,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
@@ -542,11 +543,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   @Nonnull
   private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
-    try {
-      return Urn.createFromString(hit.getSourceAsMap().get("urn").toString());
-    } catch (URISyntaxException e) {
-      throw new RuntimeException("Invalid urn in search document " + e);
-    }
+    return UrnExtractionUtils.extractUrnFromSearchHit(hit);
   }
 
   /**

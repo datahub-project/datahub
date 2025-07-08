@@ -58,6 +58,7 @@ from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -140,6 +141,7 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
@@ -263,7 +265,7 @@ class PreparsedQuery:
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
-    # Use this to store addtitional key-value information about query for debugging
+    # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
@@ -948,6 +950,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                extra_info=parsed.extra_info,
                 origin=parsed.origin,
             )
         )
@@ -1491,9 +1494,9 @@ class SqlParsingAggregator(Closeable):
             return
 
         # If a query doesn't involve any allowed tables, skip it.
-        if downstream_urn is None and not any(
-            self.is_allowed_table(urn) for urn in query.upstreams
-        ):
+        if (
+            downstream_urn is None or not self.is_allowed_table(downstream_urn)
+        ) and not any(self.is_allowed_table(urn) for urn in query.upstreams):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
@@ -1706,7 +1709,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         merged_query_text = ";\n\n".join(
-            [q.formatted_query_string for q in ordered_queries]
+            deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
         resolved_query = dataclasses.replace(
