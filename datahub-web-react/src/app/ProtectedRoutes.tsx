@@ -36,7 +36,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     const isThemeV2 = useIsThemeV2();
     const { config } = useAppConfig();
-    const showHomepageRedesign = !config.featureFlags.showHomePageRedesign;
+    const showHomepageRedesign = config.featureFlags.showHomePageRedesign;
 
     let FinalHomePage;
 
