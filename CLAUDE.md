@@ -17,8 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Python code.
 ./gradlew :metadata-ingestion:testQuick     # Fast Python unit tests
-./gradlew :metadata-ingestion:testQuick     # Fast Python unit tests
 ./gradlew :metadata-ingestion:lint          # Python linting (ruff, mypy)
+./gradlew :metadata-ingestion:lintFix       # Python linting auto-fix (ruff only)
 ```
 
 **Development setup:**
