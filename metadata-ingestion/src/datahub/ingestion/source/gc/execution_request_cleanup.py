@@ -185,6 +185,7 @@ class DatahubExecutionRequestCleanup:
         running_guard_timeout = now_ms - 30 * 24 * 3600 * 1000
 
         for entry in self._scroll_execution_requests():
+            assert self.ctx is not None
             self.ctx.report_progress()
             self.report.ergc_records_read += 1
             key = entry.ingestion_source

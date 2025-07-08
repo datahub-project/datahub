@@ -325,7 +325,7 @@ class SoftDeletedEntitiesCleanup:
                     self.report.num_soft_deleted_entity_invalid_urn += 1
                     continue
 
-                self._print_report()
+                self.ctx.report_progress()
                 while len(futures) >= self.config.futures_max_at_time:
                     futures = self._process_futures(futures)
                 if self._deletion_limit_reached() or self._times_up():
@@ -337,5 +337,5 @@ class SoftDeletedEntitiesCleanup:
 
             logger.info(f"Waiting for {len(futures)} futures to complete")
             while len(futures) > 0:
-                self._print_report()
+                self.ctx.report_progress()
                 futures = self._process_futures(futures)
