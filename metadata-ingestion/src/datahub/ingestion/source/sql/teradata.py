@@ -2,7 +2,7 @@ import logging
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from threading import Lock
@@ -15,11 +15,11 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Union,
 )
 
 # This import verifies that the dependencies are available.
 import teradatasqlalchemy.types as custom_types
-from pydantic import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
@@ -41,7 +41,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source_helpers import auto_lowercase_urns
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_common import register_custom_type
@@ -58,7 +57,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -66,6 +64,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.utilities.groupby import groupby_unsorted
+from datahub.utilities.stats_collections import TopKDict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -158,6 +157,7 @@ class TeradataTable:
 def get_schema_columns(
     self: Any, connection: Connection, dbc_columns: str, schema: str
 ) -> Dict[str, List[Any]]:
+    start_time = time.time()
     columns: Dict[str, List[Any]] = {}
     columns_query = f"select * from dbc.{dbc_columns} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) order by TableName, ColumnId"
     rows = connection.execute(text(columns_query), {"schema": schema}).fetchall()
@@ -167,6 +167,19 @@ def get_schema_columns(
             columns[row_mapping.TableName] = []
 
         columns[row_mapping.TableName].append(row_mapping)
+
+    end_time = time.time()
+    extraction_time = end_time - start_time
+    logger.info(
+        f"Column extraction for schema '{schema}' completed in {extraction_time:.2f} seconds"
+    )
+
+    # Update report if available
+    if hasattr(self, "report"):
+        self.report.column_extraction_duration_seconds = (
+            getattr(self.report, "column_extraction_duration_seconds", 0.0)
+            + extraction_time
+        )
 
     return columns
 
@@ -425,11 +438,24 @@ def optimized_get_view_definition(
 
 @dataclass
 class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport):
-    num_queries_parsed: int = 0
-    num_view_ddl_parsed: int = 0
-    num_table_parse_failures: int = 0
+    # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
+    view_extraction_total_time_seconds: float = 0.0
+    view_extraction_average_time_seconds: float = 0.0
+    slowest_view_processing_time_seconds: float = 0.0
+    slowest_view_name: str = ""
+
+    # Connection pool performance metrics (actively used)
+    connection_pool_wait_time_seconds: float = 0.0
+    connection_pool_max_wait_time_seconds: float = 0.0
+
+    # Database-level metrics similar to BigQuery's approach (actively used)
+    num_database_tables_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
+    num_database_views_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
+
+    # Global metadata extraction timing (single query for all databases)
+    metadata_extraction_total_sec: float = 0.0
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -499,42 +525,18 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         "The historical table existence is checked automatically and gracefully falls back to current data only if not available.",
     )
 
-    view_processing_workers: int = Field(
-        default=1,
-        description="Number of worker threads to use for parallel view processing. "
-        "Multi-threading is currently EXPERIMENTAL and may cause stability issues. "
-        "Set to 1 (default) for stable single-threaded processing. "
-        "Higher values can improve performance but may increase database load and cause crashes.",
+    use_server_side_cursors: bool = Field(
+        default=True,
+        description="Enable server-side cursors for large result sets using SQLAlchemy's stream_results. "
+        "This reduces memory usage by streaming results from the database server. "
+        "Automatically falls back to client-side batching if server-side cursors are not supported.",
     )
 
-    view_batch_size: int = Field(
-        default=50,
-        description="Number of views to process in each batch when using multi-threading. "
-        "Only used when view_processing_workers > 1. "
-        "Smaller batches are recommended for view processing due to the overhead of help commands.",
+    max_workers: int = Field(
+        default=10,
+        description="Maximum number of worker threads to use for parallel processing. "
+        "Controls the level of concurrency for operations like view processing.",
     )
-
-    enable_experimental_threading: bool = Field(
-        default=False,
-        description="Enable multi-threading features for view processing. "
-        "View processing may still have stability issues due to help command execution. "
-        "Required when view_processing_workers > 1. Lineage processing now uses "
-        "SqlParsingAggregator which has built-in optimizations.",
-    )
-
-    @root_validator
-    def validate_threading_config(cls, values: dict) -> dict:
-        """Validate that multi-threading configuration is consistent."""
-        view_workers = values.get("view_processing_workers", 1)
-        experimental_threading = values.get("enable_experimental_threading", False)
-
-        if view_workers > 1 and not experimental_threading:
-            raise ValueError(
-                f"view_processing_workers is set to {view_workers} but enable_experimental_threading is False. "
-                "Multi-threaded view processing requires enable_experimental_threading=True. "
-                "Either set enable_experimental_threading=True or reduce view_processing_workers to 1."
-            )
-        return values
 
 
 @platform_name("Teradata")
@@ -707,6 +709,8 @@ ORDER by DataBaseName, TableName;
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
     _tables_cache_lock = Lock()  # Protect shared cache from concurrent access
+    _pooled_engine: Optional[Engine] = None  # Reusable pooled engine
+    _pooled_engine_lock = Lock()  # Protect engine creation
 
     def __init__(self, config: TeradataConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "teradata")
@@ -714,6 +718,7 @@ ORDER by DataBaseName, TableName;
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
         self._report_lock = Lock()  # Thread safety for report counters
+        self._failed_views: Set[str] = set()  # Track failed view processing
 
         self.schema_resolver = self._init_schema_resolver()
 
@@ -737,6 +742,7 @@ ORDER by DataBaseName, TableName;
             else None,
             eager_graph_load=False,
         )
+        self.report.sql_aggregator = self.aggregator.report
 
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
@@ -871,6 +877,8 @@ ORDER by DataBaseName, TableName;
 
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
+
+        # Get list of databases first
         with engine.connect() as conn:
             inspector = inspect(conn)
             if self.config.database and self.config.database != "":
@@ -879,13 +887,14 @@ ORDER by DataBaseName, TableName;
                 databases = self.config.databases
             else:
                 databases = inspector.get_schema_names()
-            for db in databases:
-                if self.config.database_pattern.allowed(db):
-                    # url = self.config.get_sql_alchemy_url(current_db=db)
-                    # with create_engine(url, **self.config.options).connect() as conn:
-                    #    inspector = inspect(conn)
-                    inspector._datahub_database = db
-                    yield inspector
+
+        # Create separate connections for each database to avoid connection lifecycle issues
+        for db in databases:
+            if self.config.database_pattern.allowed(db):
+                with engine.connect() as conn:
+                    db_inspector = inspect(conn)
+                    db_inspector._datahub_database = db
+                    yield db_inspector
 
     def get_db_name(self, inspector: Inspector) -> str:
         if hasattr(inspector, "_datahub_database"):
@@ -942,206 +951,350 @@ ORDER by DataBaseName, TableName;
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[MetadataWorkUnit]:
+        start_time = time.time()
+
+        # Get view names from cache
         view_names = [
             i.name
             for i in filter(
                 lambda t: t.object_type == "View", self._tables_cache.get(schema, [])
             )
         ]
+        actual_view_count = len(view_names)
 
-        setattr(  # noqa: B010
-            inspector,
-            "get_view_names",
-            lambda schema: view_names,
-        )
-
-        # Check if we should use multi-threading for view processing
-        # Only use multi-threading when explicitly enabled and help commands are needed (not using QVCI)
-        if (
-            self.config.view_processing_workers > 1
-            and self.config.enable_experimental_threading
-            and not self.config.use_qvci
-            and len(view_names) > 1
-        ):
-            with self.report.new_stage("Multi-threaded view processing"):
-                logger.warning(
-                    "Using EXPERIMENTAL multi-threaded view processing. "
-                    "This may cause crashes and is not recommended for production."
-                )
-                yield from self._loop_views_multi_threaded(
-                    inspector, schema, sql_config, view_names
-                )
-        else:
-            with self.report.new_stage("Single-threaded view processing"):
-                if (
-                    self.config.view_processing_workers > 1
-                    and not self.config.enable_experimental_threading
-                ):
-                    logger.info(
-                        "Multi-threaded view processing requested but experimental threading not enabled. "
-                        "Using single-threaded processing. Set enable_experimental_threading=true to enable."
-                    )
-                for work_unit in super().loop_views(inspector, schema, sql_config):
-                    # Count processed views in single-threaded mode
-                    with self._report_lock:
-                        self.report.num_views_processed += 1
-                    if self.report.num_views_processed % 10 == 0:
-                        logger.info(
-                            f"Processed {self.report.num_views_processed} views"
-                        )
-                    yield work_unit
-
-    def _loop_views_multi_threaded(
-        self,
-        inspector: Inspector,
-        schema: str,
-        sql_config: SQLCommonConfig,
-        view_names: List[str],
-    ) -> Iterable[MetadataWorkUnit]:
-        """Multi-threaded view processing to parallelize help command execution."""
-        logger.info(
-            f"Using {self.config.view_processing_workers} worker threads for view processing"
-        )
-
-        total_views = len(view_names)
-        logger.info(
-            f"Processing {total_views} views in schema '{schema}' with multi-threading"
-        )
-
-        if not view_names:
+        if actual_view_count == 0:
+            end_time = time.time()
+            processing_time = end_time - start_time
+            logger.info(
+                f"View processing for schema '{schema}' completed in {processing_time:.2f} seconds (0 views, 0 work units)"
+            )
             return
 
-        # Group views into batches
-        batch_size = self.config.view_batch_size
-        view_batches = [
-            view_names[i : i + batch_size]
-            for i in range(0, len(view_names), batch_size)
-        ]
+        # Use custom threading implementation with connection pooling
+        work_unit_count = 0
+
+        for work_unit in self._loop_views_with_connection_pool(
+            view_names, schema, sql_config
+        ):
+            work_unit_count += 1
+            yield work_unit
+
+        end_time = time.time()
+        processing_time = end_time - start_time
 
         logger.info(
-            f"Processing {len(view_batches)} view batches with {self.config.view_processing_workers} workers"
+            f"View processing for schema '{schema}' completed in {processing_time:.2f} seconds ({actual_view_count} views, {work_unit_count} work units)"
         )
 
-        def process_view_batch(
-            batch_info: Tuple[int, List[str]],
-        ) -> Tuple[int, List[MetadataWorkUnit]]:
-            """Process a batch of views with improved thread safety."""
-            batch_idx, view_batch = batch_info
-            work_units = []
+        # Update report timing metrics
+        if hasattr(self, "report"):
+            self.report.view_extraction_total_time_seconds += processing_time
+            self.report.num_views_processed += actual_view_count
 
-            # Create a new engine connection for this thread
-            thread_engine = self.get_metadata_engine()
+            # Track slowest view processing at view level (will be updated by individual view processing)
+            # Note: slowest_view_name now tracks individual views, not schemas
 
-            try:
-                with thread_engine.connect() as connection:
-                    # Create a thread-local inspector
-                    thread_inspector = inspect(connection)
-                    thread_inspector._datahub_database = getattr(  # type: ignore[attr-defined]
-                        inspector, "_datahub_database", None
-                    )
+            # Calculate average processing time per view
+            if self.report.num_views_processed > 0:
+                self.report.view_extraction_average_time_seconds = (
+                    self.report.view_extraction_total_time_seconds
+                    / self.report.num_views_processed
+                )
 
-                    # Set view names for this batch
-                    setattr(  # noqa: B010
-                        thread_inspector,
-                        "get_view_names",
-                        lambda schema: view_batch,
-                    )
+    def _loop_views_with_connection_pool(
+        self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
+    ) -> Iterable[Union[MetadataWorkUnit, Any]]:
+        """
+        Process views using individual database connections per thread for true parallelization.
 
-                    for view_name in view_batch:
-                        try:
-                            # Process single view using parent method logic
-                            # Note: _process_view requires dataset_name as first parameter
-                            dataset_name = self.get_identifier(
-                                schema=schema,
-                                entity=view_name,
-                                inspector=thread_inspector,
-                            )
-                            for work_unit in self._process_view(
-                                dataset_name,
-                                thread_inspector,
-                                schema,
-                                view_name,
-                                sql_config,
-                            ):
-                                work_units.append(work_unit)
+        Each thread gets its own connection from a QueuePool, enabling true concurrent processing.
+        """
+        if self.config.max_workers == 1:
+            # Single-threaded processing - no need for complexity
+            yield from self._process_views_single_threaded(
+                view_names, schema, sql_config
+            )
+            return
 
-                            # Thread-safe counter update
-                            with self._report_lock:
-                                if hasattr(self.report, "num_views_processed"):
-                                    self.report.num_views_processed += 1
-                                    current_count = self.report.num_views_processed
-                                else:
-                                    # Initialize counter if it doesn't exist
-                                    self.report.num_views_processed = 1
-                                    current_count = 1
+        logger.info(
+            f"Processing {len(view_names)} views with {self.config.max_workers} worker threads"
+        )
 
-                            if current_count % 10 == 0:
-                                logger.info(f"Processed {current_count} views")
+        # Get or create reusable pooled engine
+        engine = self._get_or_create_pooled_engine()
 
-                        except Exception as e:
-                            logger.error(
-                                f"Error processing view {view_name} in batch {batch_idx}: {e}"
-                            )
-                            with self._report_lock:
-                                if hasattr(self.report, "num_view_processing_failures"):
-                                    self.report.num_view_processing_failures += 1
-                                else:
-                                    self.report.num_view_processing_failures = 1
-                            continue
+        try:
+            # Thread-safe result collection
+            report_lock = Lock()
 
-            except Exception as e:
-                logger.error(f"Error in view batch {batch_idx} processing: {e}")
-            finally:
-                # Ensure engine is properly disposed
-                thread_engine.dispose()
+            def process_single_view(
+                view_name: str,
+            ) -> List[Union[MetadataWorkUnit, Any]]:
+                """Process a single view with its own database connection."""
+                results: List[Union[MetadataWorkUnit, Any]] = []
 
-            return batch_idx, work_units
+                # Detailed timing measurements for bottleneck analysis
+                timings = {
+                    "connection_acquire": 0.0,
+                    "view_processing": 0.0,
+                    "work_unit_generation": 0.0,
+                    "total": 0.0,
+                }
 
-        # Process batches in parallel using ThreadPoolExecutor
-        with ThreadPoolExecutor(
-            max_workers=self.config.view_processing_workers
-        ) as executor:
-            # Submit all batches to the thread pool with batch index
-            future_to_batch = {
-                executor.submit(process_view_batch, (i, batch)): i
-                for i, batch in enumerate(view_batches)
-            }
-
-            # Collect results as they complete
-            completed_batches = {}
-            for future in as_completed(future_to_batch):
-                original_batch_idx = future_to_batch[future]
+                total_start = time.time()
                 try:
-                    batch_idx, work_units = future.result()
-                    completed_batches[batch_idx] = work_units
-                    logger.debug(
-                        f"Completed view batch {batch_idx + 1}/{len(view_batches)} with {len(work_units)} work units"
-                    )
+                    # Measure connection acquisition time
+                    conn_start = time.time()
+                    with engine.connect() as conn:
+                        timings["connection_acquire"] = time.time() - conn_start
+
+                        # Update connection pool metrics
+                        with report_lock:
+                            pool_wait_time = timings["connection_acquire"]
+                            self.report.connection_pool_wait_time_seconds += (
+                                pool_wait_time
+                            )
+                            if (
+                                pool_wait_time
+                                > self.report.connection_pool_max_wait_time_seconds
+                            ):
+                                self.report.connection_pool_max_wait_time_seconds = (
+                                    pool_wait_time
+                                )
+
+                        # Measure view processing setup
+                        processing_start = time.time()
+                        thread_inspector = inspect(conn)
+                        # Inherit database information for Teradata two-tier architecture
+                        thread_inspector._datahub_database = schema  # type: ignore
+
+                        dataset_name = self.get_identifier(
+                            schema=schema, entity=view_name, inspector=thread_inspector
+                        )
+
+                        # Thread-safe reporting
+                        with report_lock:
+                            self.report.report_entity_scanned(
+                                dataset_name, ent_type="view"
+                            )
+
+                        if not sql_config.view_pattern.allowed(dataset_name):
+                            with report_lock:
+                                self.report.report_dropped(dataset_name)
+                            return results
+
+                        timings["view_processing"] = time.time() - processing_start
+
+                        # Measure work unit generation
+                        wu_start = time.time()
+                        for work_unit in self._process_view(
+                            dataset_name=dataset_name,
+                            inspector=thread_inspector,
+                            schema=schema,
+                            view=view_name,
+                            sql_config=sql_config,
+                        ):
+                            results.append(work_unit)
+                        timings["work_unit_generation"] = time.time() - wu_start
+
+                    # Track individual view timing
+                    timings["total"] = time.time() - total_start
+
+                    with report_lock:
+                        if (
+                            timings["total"]
+                            > self.report.slowest_view_processing_time_seconds
+                        ):
+                            self.report.slowest_view_processing_time_seconds = timings[
+                                "total"
+                            ]
+                            self.report.slowest_view_name = f"{schema}.{view_name}"
 
                 except Exception as e:
-                    logger.error(
-                        f"Error processing view batch {original_batch_idx}: {e}"
+                    with report_lock:
+                        self._failed_views.add(f"{schema}.{view_name}")
+                        self.report.num_view_processing_failures += 1
+                        # Log full exception details for debugging
+                        import traceback
+
+                        full_traceback = traceback.format_exc()
+                        logger.error(
+                            f"Failed to process view {schema}.{view_name}: {str(e)}"
+                        )
+                        logger.error(f"Full traceback: {full_traceback}")
+                        self.report.warning(
+                            f"Error processing view {schema}.{view_name}",
+                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
+                            exc=e,
+                        )
+
+                return results
+
+            # Use ThreadPoolExecutor for concurrent processing
+            with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+                # Submit all view processing tasks
+                future_to_view = {
+                    executor.submit(process_single_view, view_name): view_name
+                    for view_name in view_names
+                }
+
+                # Process completed tasks as they finish
+                for future in as_completed(future_to_view):
+                    view_name = future_to_view[future]
+                    try:
+                        results = future.result()
+                        # Yield all results from this view
+                        for result in results:
+                            yield result
+                    except Exception as e:
+                        with report_lock:
+                            self.report.warning(
+                                "Error in thread processing view",
+                                context=f"{schema}.{view_name}",
+                                exc=e,
+                            )
+
+        finally:
+            # Don't dispose the reusable engine here - it will be cleaned up in close()
+            pass
+
+    def _process_views_single_threaded(
+        self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
+    ) -> Iterable[Union[MetadataWorkUnit, Any]]:
+        """Process views sequentially with a single connection."""
+        engine = self.get_metadata_engine()
+
+        try:
+            with engine.connect() as conn:
+                inspector = inspect(conn)
+
+                for view_name in view_names:
+                    view_start_time = time.time()
+                    try:
+                        dataset_name = self.get_identifier(
+                            schema=schema, entity=view_name, inspector=inspector
+                        )
+
+                        self.report.report_entity_scanned(dataset_name, ent_type="view")
+
+                        if not sql_config.view_pattern.allowed(dataset_name):
+                            self.report.report_dropped(dataset_name)
+                            continue
+
+                        # Process the view and yield results
+                        for work_unit in self._process_view(
+                            dataset_name=dataset_name,
+                            inspector=inspector,
+                            schema=schema,
+                            view=view_name,
+                            sql_config=sql_config,
+                        ):
+                            yield work_unit
+
+                        # Track individual view timing
+                        view_end_time = time.time()
+                        view_processing_time = view_end_time - view_start_time
+
+                        if (
+                            view_processing_time
+                            > self.report.slowest_view_processing_time_seconds
+                        ):
+                            self.report.slowest_view_processing_time_seconds = (
+                                view_processing_time
+                            )
+                            self.report.slowest_view_name = f"{schema}.{view_name}"
+
+                    except Exception as e:
+                        self._failed_views.add(f"{schema}.{view_name}")
+                        # Log full exception details for debugging
+                        import traceback
+
+                        full_traceback = traceback.format_exc()
+                        logger.error(
+                            f"Failed to process view {schema}.{view_name}: {str(e)}"
+                        )
+                        logger.error(f"Full traceback: {full_traceback}")
+                        self.report.warning(
+                            f"Error processing view {schema}.{view_name}",
+                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
+                            exc=e,
+                        )
+
+        finally:
+            engine.dispose()
+
+    def _get_or_create_pooled_engine(self) -> Engine:
+        """Get or create a reusable SQLAlchemy engine with QueuePool for concurrent connections."""
+        with self._pooled_engine_lock:
+            if self._pooled_engine is None:
+                url = self.config.get_sql_alchemy_url()
+
+                # Optimal connection pool sizing to match max_workers exactly
+                # Teradata driver can be sensitive to high connection counts, so cap at reasonable limit
+                max_safe_connections = (
+                    13  # Conservative limit: 8 base + 5 overflow for Teradata stability
+                )
+
+                # Adjust max_workers to match available connection pool capacity
+                effective_max_workers = min(
+                    self.config.max_workers, max_safe_connections
+                )
+
+                # Set pool size to match effective workers for optimal performance
+                base_connections = min(
+                    effective_max_workers, 8
+                )  # Reasonable base connections
+                max_overflow = (
+                    effective_max_workers - base_connections
+                )  # Remaining as overflow
+
+                # Log adjustment if max_workers was reduced
+                if effective_max_workers < self.config.max_workers:
+                    logger.warning(
+                        f"Reduced max_workers from {self.config.max_workers} to {effective_max_workers} to match Teradata connection pool capacity"
                     )
-                    with self._report_lock:
-                        if hasattr(self.report, "num_view_processing_failures"):
-                            self.report.num_view_processing_failures += 1
-                        else:
-                            self.report.num_view_processing_failures = 1
-                    completed_batches[
-                        original_batch_idx
-                    ] = []  # Empty result for failed batch
 
-            # Yield results in original order to maintain consistency
-            for i in range(len(view_batches)):
-                if i in completed_batches:
-                    for work_unit in completed_batches[i]:
-                        yield work_unit
+                # Update the config to reflect the effective value used
+                self.config.max_workers = effective_max_workers
 
-        logger.info(f"Completed multi-threaded view processing of {total_views} views")
+                pool_options = {
+                    **self.config.options,
+                    "poolclass": QueuePool,
+                    "pool_size": base_connections,
+                    "max_overflow": max_overflow,
+                    "pool_pre_ping": True,  # Validate connections
+                    "pool_recycle": 1800,  # Recycle connections after 30 mins (more frequent)
+                    "pool_timeout": 60,  # Longer timeout for connection acquisition
+                    "pool_reset_on_return": "rollback",  # Explicit rollback on connection return
+                }
+
+                # Add Teradata-specific connection options for stability
+                if "connect_args" not in pool_options:
+                    pool_options["connect_args"] = {}
+
+                # Teradata-specific connection arguments for better stability
+                pool_options["connect_args"].update(
+                    {
+                        "connect_timeout": "30000",  # Connection timeout in ms (30 seconds)
+                        "request_timeout": "120000",  # Request timeout in ms (2 minutes)
+                    }
+                )
+
+                self._pooled_engine = create_engine(url, **pool_options)
+                logger.info(
+                    f"Created optimized Teradata connection pool: {base_connections} base + {max_overflow} overflow = {base_connections + max_overflow} max connections (matching {effective_max_workers} workers)"
+                )
+
+            return self._pooled_engine
 
     def cache_tables_and_views(self) -> None:
         engine = self.get_metadata_engine()
         try:
+            start_time = time.time()
+            database_counts: Dict[str, Dict[str, int]] = defaultdict(
+                lambda: {"tables": 0, "views": 0}
+            )
+
             for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
                 table = TeradataTable(
                     database=entry.DataBaseName.strip(),
@@ -1159,65 +1312,28 @@ ORDER by DataBaseName, TableName;
                         else None
                     ),
                 )
+
+                # Count objects per database for metrics
+                if table.object_type == "View":
+                    database_counts[table.database]["views"] += 1
+                else:
+                    database_counts[table.database]["tables"] += 1
+
                 with self._tables_cache_lock:
                     if table.database not in self._tables_cache:
                         self._tables_cache[table.database] = []
                     self._tables_cache[table.database].append(table)
+
+            # Update database-level metrics
+            extraction_time = time.time() - start_time
+            self.report.metadata_extraction_total_sec = extraction_time
+
+            for database, counts in database_counts.items():
+                self.report.num_database_tables_to_scan[database] = counts["tables"]
+                self.report.num_database_views_to_scan[database] = counts["views"]
+
         finally:
             engine.dispose()
-
-    def get_audit_log_mcps(self, urns: Set[str]) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract lineage metadata from audit logs using SqlParsingAggregator.
-        """
-        logger.info("Using SqlParsingAggregator for enhanced lineage processing")
-        yield from self._get_audit_log_mcps_with_aggregator(urns)
-
-    def _get_audit_log_mcps_with_aggregator(
-        self, urns: Set[str]
-    ) -> Iterable[MetadataWorkUnit]:
-        """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
-        logger.info(
-            "Fetching queries from Teradata audit logs for SqlParsingAggregator"
-        )
-
-        # Step 1: Stream query entries from database with memory-efficient processing
-        with self.report.new_stage("Query data processing"):
-            queries_processed = 0
-            entries_processed = False
-
-            for entry in self._fetch_lineage_entries_chunked():
-                entries_processed = True
-                observed_query = self._convert_entry_to_observed_query(entry)
-                self.aggregator.add(observed_query)
-
-                queries_processed += 1
-                if queries_processed % 1000 == 0:
-                    logger.info(f"Processed {queries_processed} queries to aggregator")
-
-            if not entries_processed:
-                logger.info("No lineage entries found")
-                return
-
-            logger.info(
-                f"Completed adding {queries_processed} queries to SqlParsingAggregator"
-            )
-
-        # Step 2: Generate work units from aggregator
-        with self.report.new_stage("SqlParsingAggregator metadata generation"):
-            logger.info("Generating metadata work units from SqlParsingAggregator")
-            work_unit_count = 0
-            for mcp in self.aggregator.gen_metadata():
-                work_unit_count += 1
-                if work_unit_count % 100 == 0:
-                    logger.info(
-                        f"Generated {work_unit_count} work units from aggregator"
-                    )
-                yield mcp.as_workunit()
-
-            logger.info(
-                f"Completed SqlParsingAggregator processing: {work_unit_count} work units generated"
-            )
 
     def _convert_entry_to_observed_query(self, entry: Any) -> ObservedQuery:
         """Convert database query entry to ObservedQuery for SqlParsingAggregator."""
@@ -1247,11 +1363,15 @@ ORDER by DataBaseName, TableName;
         fetch_engine = self.get_metadata_engine()
         try:
             with fetch_engine.connect() as conn:
-                logger.info("Executing lineage query with server-side cursor...")
+                cursor_type = (
+                    "server-side"
+                    if self.config.use_server_side_cursors
+                    else "client-side"
+                )
+                logger.info(f"Executing lineage query with {cursor_type} cursor...")
 
-                # Use server-side cursor for streaming large result sets
-                # This avoids loading all data into memory at once
-                result = conn.execute(text(base_query))
+                # Use helper method to try server-side cursor with fallback
+                result = self._execute_with_cursor_fallback(conn, base_query)
 
                 # Stream results in batches to avoid memory issues
                 batch_size = 5000
@@ -1359,38 +1479,138 @@ ORDER by DataBaseName, TableName;
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(url, **self.config.options)
 
+    def _execute_with_cursor_fallback(
+        self, connection: Connection, query: str, params: Optional[Dict] = None
+    ) -> Any:
+        """
+        Execute query with server-side cursor if enabled and supported, otherwise fall back to regular execution.
+
+        Args:
+            connection: Database connection
+            query: SQL query to execute
+            params: Query parameters
+
+        Returns:
+            Query result object
+        """
+        if self.config.use_server_side_cursors:
+            try:
+                # Try server-side cursor first
+                if params:
+                    result = connection.execution_options(stream_results=True).execute(
+                        text(query), params
+                    )
+                else:
+                    result = connection.execution_options(stream_results=True).execute(
+                        text(query)
+                    )
+
+                logger.debug(
+                    "Successfully using server-side cursor for query execution"
+                )
+                return result
+
+            except Exception as e:
+                logger.warning(
+                    f"Server-side cursor failed, falling back to client-side execution: {e}"
+                )
+                # Fall through to regular execution
+
+        # Regular execution (client-side)
+        if params:
+            return connection.execute(text(query), params)
+        else:
+            return connection.execute(text(query))
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Starting Teradata metadata extraction")
 
         # Add all schemas to the schema resolver
         # Sql parser operates on lowercase urns so we need to lowercase the urns
         with self.report.new_stage("Schema metadata extraction"):
-            schema_wu_count = 0
-            for wu in auto_lowercase_urns(super().get_workunits_internal()):
-                urn = wu.get_urn()
-                schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-                if schema_metadata:
-                    self.schema_resolver.add_schema_metadata(urn, schema_metadata)
-                schema_wu_count += 1
-                if schema_wu_count % 100 == 0:
-                    logger.info(f"Processed {schema_wu_count} schema work units")
-                yield wu
-            logger.info(
-                f"Completed schema metadata extraction: {schema_wu_count} work units"
-            )
+            yield from super().get_workunits_internal()
+            logger.info("Completed schema metadata extraction")
 
-        urns = self.schema_resolver.get_urns()
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
-            with self.report.new_stage("Audit log extraction"):
-                logger.info(f"Starting lineage extraction for {len(urns)} URNs")
-                yield from self.get_audit_log_mcps(urns=urns)
+        with self.report.new_stage("Audit log extraction"):
+            yield from self._get_audit_log_mcps_with_aggregator()
 
         # SqlParsingAggregator handles its own work unit generation internally
         logger.info("Lineage processing completed by SqlParsingAggregator")
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Override base class to skip aggregator gen_metadata() call.
+
+        Teradata handles aggregator processing after adding audit log queries,
+        so we skip the base class call to prevent duplicate processing.
+        """
+        # Return empty iterator - Teradata will handle aggregator processing
+        # after adding audit log queries in _get_audit_log_mcps_with_aggregator()
+        return iter([])
+
+    def _get_audit_log_mcps_with_aggregator(self) -> Iterable[MetadataWorkUnit]:
+        """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
+        logger.info(
+            "Fetching queries from Teradata audit logs for SqlParsingAggregator"
+        )
+
+        if self.config.include_table_lineage or self.config.include_usage_statistics:
+            # Step 1: Stream query entries from database with memory-efficient processing
+            with self.report.new_stage("Fecthing lineage entries from Audit Logs"):
+                queries_processed = 0
+                entries_processed = False
+
+                for entry in self._fetch_lineage_entries_chunked():
+                    entries_processed = True
+                    observed_query = self._convert_entry_to_observed_query(entry)
+                    self.aggregator.add(observed_query)
+
+                    queries_processed += 1
+                    if queries_processed % 10000 == 0:
+                        logger.info(
+                            f"Processed {queries_processed} queries to aggregator"
+                        )
+
+                if not entries_processed:
+                    logger.info("No lineage entries found")
+                    return
+
+                logger.info(
+                    f"Completed adding {queries_processed} queries to SqlParsingAggregator"
+                )
+
+        # Step 2: Generate work units from aggregator
+        with self.report.new_stage("SqlParsingAggregator metadata generation"):
+            logger.info("Generating metadata work units from SqlParsingAggregator")
+            work_unit_count = 0
+            for mcp in self.aggregator.gen_metadata():
+                work_unit_count += 1
+                if work_unit_count % 10000 == 0:
+                    logger.info(
+                        f"Generated {work_unit_count} work units from aggregator"
+                    )
+                yield mcp.as_workunit()
+
+            logger.info(
+                f"Completed SqlParsingAggregator processing: {work_unit_count} work units generated"
+            )
 
     def close(self) -> None:
         """Clean up resources when source is closed."""
         if hasattr(self, "aggregator"):
             logger.info("Closing SqlParsingAggregator")
             self.aggregator.close()
+
+        # Clean up pooled engine
+        with self._pooled_engine_lock:
+            if self._pooled_engine is not None:
+                logger.info("Disposing pooled engine")
+                self._pooled_engine.dispose()
+                self._pooled_engine = None
+
+        # Report failed views summary
+        if self._failed_views:
+            logger.warning(
+                f"Failed to process {len(self._failed_views)} views: {', '.join(sorted(self._failed_views))}"
+            )
+
         super().close()

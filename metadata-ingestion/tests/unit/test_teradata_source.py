@@ -41,38 +41,29 @@ class TestTeradataConfig:
         assert config.include_usage_statistics is True
         assert config.include_queries is True
 
-    def test_threading_validation_valid(self):
-        """Test valid threading configuration passes validation."""
+    def test_max_workers_validation_valid(self):
+        """Test valid max_workers configuration passes validation."""
         config_dict = {
             **_base_config(),
-            "view_processing_workers": 4,
-            "enable_experimental_threading": True,
+            "max_workers": 8,
         }
         config = TeradataConfig.parse_obj(config_dict)
-        assert config.view_processing_workers == 4
-        assert config.enable_experimental_threading is True
+        assert config.max_workers == 8
 
-    def test_threading_validation_invalid(self):
-        """Test invalid threading configuration fails validation."""
+    def test_max_workers_default(self):
+        """Test max_workers defaults to 10."""
+        config_dict = _base_config()
+        config = TeradataConfig.parse_obj(config_dict)
+        assert config.max_workers == 10
+
+    def test_max_workers_custom_value(self):
+        """Test custom max_workers value is accepted."""
         config_dict = {
             **_base_config(),
-            "view_processing_workers": 4,
-            "enable_experimental_threading": False,
-        }
-
-        with pytest.raises(ValueError, match="enable_experimental_threading is False"):
-            TeradataConfig.parse_obj(config_dict)
-
-    def test_threading_validation_single_worker_allowed(self):
-        """Test single worker doesn't require experimental threading."""
-        config_dict = {
-            **_base_config(),
-            "view_processing_workers": 1,
-            "enable_experimental_threading": False,
+            "max_workers": 5,
         }
         config = TeradataConfig.parse_obj(config_dict)
-        assert config.view_processing_workers == 1
-        assert config.enable_experimental_threading is False
+        assert config.max_workers == 5
 
     def test_include_queries_default(self):
         """Test include_queries defaults to True."""
@@ -414,7 +405,7 @@ class TestMemoryEfficiency:
                 mock_aggregator.gen_metadata.return_value = []
 
                 # Process entries
-                list(source._get_audit_log_mcps_with_aggregator(set()))
+                list(source._get_audit_log_mcps_with_aggregator())
 
                 # Verify aggregator.add was called for each entry (streaming)
                 assert mock_aggregator.add.call_count == 5
@@ -538,7 +529,7 @@ class TestStageTracking:
                 ):
                     mock_aggregator.gen_metadata.return_value = []
 
-                    list(source._get_audit_log_mcps_with_aggregator(set()))
+                    list(source._get_audit_log_mcps_with_aggregator())
 
                     # Should have called new_stage for query processing and metadata generation
                     # The actual implementation uses new_stage for "Fetching queries" and "Generating metadata"
@@ -568,7 +559,7 @@ class TestErrorHandling:
                 source, "_fetch_lineage_entries_chunked", return_value=[]
             ):
                 mock_aggregator.gen_metadata.return_value = []
-                result = list(source._get_audit_log_mcps_with_aggregator(set()))
+                result = list(source._get_audit_log_mcps_with_aggregator())
                 assert result == []
 
     def test_malformed_query_entry(self):
