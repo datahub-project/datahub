@@ -202,6 +202,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
@@ -771,6 +772,8 @@ public class GmsGraphQLEngine {
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
+    configureGlobalHomePageSettingsResolvers(builder);
+    configurePageTemplateRowResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1088,7 +1091,10 @@ public class GmsGraphQLEngine {
                     "listBusinessAttributes", new ListBusinessAttributesResolver(this.entityClient))
                 .dataFetcher(
                     "docPropagationSettings",
-                    new DocPropagationSettingsResolver(this.settingsService)));
+                    new DocPropagationSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "globalHomePageSettings",
+                    new GlobalHomePageSettingsResolver(this.settingsService)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -3497,5 +3503,36 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
+  }
+
+  private void configureGlobalHomePageSettingsResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "GlobalHomePageSettings",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "defaultTemplate",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) -> {
+                      final GlobalHomePageSettings homePageSettings = env.getSource();
+                      return homePageSettings.getDefaultTemplate() != null
+                          ? homePageSettings.getDefaultTemplate().getUrn()
+                          : null;
+                    })));
+  }
+
+  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "DataHubPageTemplateRow",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "modules",
+                new LoadableTypeBatchResolver<>(
+                    dataHubPageModuleType,
+                    (env) ->
+                        ((DataHubPageTemplateRow) env.getSource())
+                            .getModules().stream()
+                                .map(DataHubPageModule::getUrn)
+                                .collect(Collectors.toList()))));
   }
 }
