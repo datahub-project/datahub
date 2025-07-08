@@ -16,7 +16,7 @@ record GlobalSettingsInfo {
   /**
    * Settings related to the Views Feature
    */
-   views: optional GlobalViewsSettings
+  views: optional GlobalViewsSettings
 
   /**
    * Settings related to the documentation propagation feature
@@ -30,4 +30,9 @@ record GlobalSettingsInfo {
    * Global settings related to the home page for an instance
    */
    homePage: optional GlobalHomePageSettings
+
+  /**
+   * Settings related to applications. If not enabled, applications won't show up in navigation
+   */
+   applications: optional ApplicationsSettings
 }

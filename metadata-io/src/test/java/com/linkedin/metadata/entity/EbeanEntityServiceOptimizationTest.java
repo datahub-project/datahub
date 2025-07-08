@@ -66,7 +66,7 @@ public class EbeanEntityServiceOptimizationTest {
   public void setupTest() {
     Database server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
-    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =

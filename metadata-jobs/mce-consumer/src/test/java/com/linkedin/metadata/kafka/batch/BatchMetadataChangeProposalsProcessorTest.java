@@ -15,7 +15,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataset.DatasetProperties;
@@ -67,7 +66,9 @@ public class BatchMetadataChangeProposalsProcessorTest {
   private SystemEntityClient entityClient;
   private BatchMetadataChangeProposalsProcessor processor;
   private final OperationContext opContext =
-      TestOperationContexts.systemContextNoSearchAuthorization();
+      TestOperationContexts.Builder.builder()
+          .systemTelemetryContextSupplier(() -> null) // mocked
+          .buildSystemContext();
 
   @Mock private EntityService<?> mockEntityService;
 
@@ -111,7 +112,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   private AutoCloseable mocks;
   private MockedStatic<Span> spanMock;
-  private MockedStatic<MetricUtils> metricUtilsMock;
+  @Mock private MetricUtils metricUtilsMock;
   private MockedStatic<EventUtils> eventUtilsMock;
 
   @BeforeMethod
@@ -131,7 +132,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockRollbackService,
             mockKafkaProducer,
             new EntityClientCacheConfig(),
-            EntityClientConfig.builder().build());
+            EntityClientConfig.builder().build(),
+            metricUtilsMock);
 
     // Setup the processor
     processor =
@@ -161,20 +163,24 @@ public class BatchMetadataChangeProposalsProcessorTest {
     spanMock = mockStatic(Span.class);
     spanMock.when(Span::current).thenReturn(mockSpan);
 
-    metricUtilsMock = mockStatic(MetricUtils.class);
-    MetricRegistry mockMetricRegistry = mock(MetricRegistry.class);
-    when(mockMetricRegistry.histogram(any(String.class))).thenReturn(mockHistogram);
-    metricUtilsMock.when(MetricUtils::get).thenReturn(mockMetricRegistry);
-    metricUtilsMock
-        .when(() -> MetricUtils.name(eq(BatchMetadataChangeProposalsProcessor.class), any()))
-        .thenReturn("metricName");
+    MockedStatic<MetricUtils> metricUtilsMock = mockStatic(MetricUtils.class);
 
-    eventUtilsMock = mockStatic(EventUtils.class);
+    try {
+      metricUtilsMock
+          .when(() -> MetricUtils.name(eq(BatchMetadataChangeProposalsProcessor.class), any()))
+          .thenReturn("metricName");
 
-    // Setup consumer record mocks
-    setupConsumerRecordMock(mockConsumerRecord1, mockRecord1, "test-key-1", 0, 0L);
-    setupConsumerRecordMock(mockConsumerRecord2, mockRecord2, "test-key-2", 0, 1L);
-    setupConsumerRecordMock(mockConsumerRecord3, mockRecord3, "test-key-3", 0, 2L);
+      eventUtilsMock = mockStatic(EventUtils.class);
+
+      // Setup consumer record mocks
+      setupConsumerRecordMock(mockConsumerRecord1, mockRecord1, "test-key-1", 0, 0L);
+      setupConsumerRecordMock(mockConsumerRecord2, mockRecord2, "test-key-2", 0, 1L);
+      setupConsumerRecordMock(mockConsumerRecord3, mockRecord3, "test-key-3", 0, 2L);
+    } finally {
+      if (metricUtilsMock != null) {
+        metricUtilsMock.close();
+      }
+    }
   }
 
   private void setupConsumerRecordMock(
@@ -198,11 +204,6 @@ public class BatchMetadataChangeProposalsProcessorTest {
     if (spanMock != null) {
       spanMock.close();
       spanMock = null;
-    }
-
-    if (metricUtilsMock != null) {
-      metricUtilsMock.close();
-      metricUtilsMock = null;
     }
 
     if (eventUtilsMock != null) {

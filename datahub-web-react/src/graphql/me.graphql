@@ -39,6 +39,7 @@ query getMe {
                     pageTemplate {
                         ...pageTemplateFields
                     }
+                    dismissedAnnouncementUrns
                 }
             }
         }
@@ -66,6 +67,8 @@ query getMe {
             manageBusinessAttributes
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageApplications
+            manageFeatures
         }
     }
 }

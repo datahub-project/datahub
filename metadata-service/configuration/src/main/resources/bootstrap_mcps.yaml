@@ -43,6 +43,18 @@ bootstrap:
       async: false
       mcps_location: "bootstrap_mcps/roles.yaml"
 
+    - name: page-modules
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/page-modules.yaml"
+
+    - name: page-templates
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/page-templates.yaml"
+
     # Ingestion Recipes
     - name: ingestion-datahub-gc
       version: v5
