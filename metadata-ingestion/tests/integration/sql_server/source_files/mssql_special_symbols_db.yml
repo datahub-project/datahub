@@ -8,7 +8,7 @@ source:
     host_port: localhost:21433
     quote_schemas: true
     use_odbc: true
-    odbc_connect: 'DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,21433;DATABASE=DB_WITH@SPEC_SYMB;UID=sa;PWD=test!Password;TrustServerCertificate=yes'
+    sqlalchemy_uri: 'mssql+pyodbc:///?odbc_connect=DRIVER%3D%7BODBC+Driver+18+for+SQL+Server%7D%3BSERVER%3Dlocalhost%2C21433%3BDATABASE%3DDB_WITH%40SPEC_SYMB%3BUID%3Dsa%3BPWD%3Dtest%21Password%3BTrustServerCertificate%3Dyes'
 
 sink:
   type: file

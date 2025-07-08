@@ -7,7 +7,6 @@ import pydantic
 import sqlalchemy.dialects.mssql
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine import URL
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
@@ -136,15 +135,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
-    odbc_connect: Optional[str] = Field(
-        default=None,
-        description="PyODBC connection string in pyodbc format https://docs.sqlalchemy.org/en/20/dialects/mssql.html#pass-through-exact-pyodbc-string"
-        " Requires `use_odbc` to be enabled.",
-    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
-        if values["use_odbc"] and "driver" not in v:
+        if values["use_odbc"] and not values["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError("uri_args must contain a 'driver' option")
         elif not values["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
@@ -161,17 +155,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
             self.scheme = "mssql+pyodbc"
 
-            if self.odbc_connect:
-                connection_url = URL.create(
-                    self.scheme,
-                    query={"odbc_connect": urllib.parse.quote_plus(self.odbc_connect)},
-                )
-
-                logger.debug(
-                    msg=f"odbc_connect is used for connection: {connection_url}"
-                )
-                return str(connection_url)
-
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
             self.username,
@@ -181,7 +164,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+            uri = (
+                f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+                if self.uri_args
+                else uri
+            )
         return uri
 
     @property
