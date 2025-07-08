@@ -360,7 +360,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "https://demo.datahub.com/",
+              to: "https://demo.datahubproject.io/",
             },
             {
               label: "Roadmap",

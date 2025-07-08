@@ -55,7 +55,7 @@ export const dataJobEntity = (): DataJob => {
                 name: flowId,
                 description,
                 project: null,
-                externalUrl: 'https://airflow.demo.datahub.com/tree?dag_id=datahub_analytics_refresh',
+                externalUrl: 'https://airflow.demo.datahubproject.io/tree?dag_id=datahub_analytics_refresh',
                 customProperties: [
                     {
                         key: 'end_date',
