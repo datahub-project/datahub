@@ -196,7 +196,8 @@ public class SearchLineageFixtureConfiguration {
                 lineageRegistry,
                 indexConvention,
                 TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG),
+                TEST_ES_SEARCH_CONFIG,
+                null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());
@@ -276,6 +277,7 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        EntityClientConfig.builder().batchGetV2Size(1).build());
+        EntityClientConfig.builder().batchGetV2Size(1).build(),
+        null);
   }
 }

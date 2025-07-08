@@ -199,6 +199,7 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
@@ -306,6 +307,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
@@ -335,6 +337,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
@@ -472,9 +475,8 @@ public class GmsGraphQLEngine {
   private final PageTemplateType dataHubPageTemplateType;
   private final PageModuleType dataHubPageModuleType;
 
-  private final int graphQLQueryComplexityLimit;
-  private final int graphQLQueryDepthLimit;
-  private final boolean graphQLQueryIntrospectionEnabled;
+  private final GraphQLConfiguration graphQLConfiguration;
+  private final MetricUtils metricUtils;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -603,9 +605,8 @@ public class GmsGraphQLEngine {
     this.executionRequestType = new ExecutionRequestType(entityClient);
     this.dataHubPageTemplateType = new PageTemplateType(entityClient);
     this.dataHubPageModuleType = new PageModuleType(entityClient);
-    this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
-    this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
-    this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
+    this.graphQLConfiguration = args.graphQLConfiguration;
+    this.metricUtils = args.metricUtils;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -839,9 +840,8 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
-        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
-        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled)
+        .setGraphQLConfiguration(graphQLConfiguration)
+        .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
     return builder;
   }
@@ -955,7 +955,8 @@ public class GmsGraphQLEngine {
                         this.searchBarConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
-                        this.chromeExtensionConfiguration))
+                        this.chromeExtensionConfiguration,
+                        this.settingsService))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
@@ -1360,7 +1361,10 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
-                  new UpdateDocPropagationSettingsResolver(this.settingsService));
+                  new UpdateDocPropagationSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateApplicationsSettings",
+                  new UpdateApplicationsSettingsResolver(this.settingsService));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
