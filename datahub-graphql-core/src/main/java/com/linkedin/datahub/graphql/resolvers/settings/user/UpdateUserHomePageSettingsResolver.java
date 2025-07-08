@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.settings.user;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.UpdateUserHomePageSettingsInput;
@@ -14,6 +14,7 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -91,18 +92,23 @@ public class UpdateUserHomePageSettingsResolver implements DataFetcher<Completab
 
     // Append to the list of existing dismissed announcements
     if (input.getNewDismissedAnnouncements() != null) {
-      List<String> dismissedAnnouncements =
+      List<Urn> dismissedAnnouncements =
           settings.hasDismissedAnnouncements()
               ? new ArrayList<>(settings.getDismissedAnnouncements())
               : new ArrayList<>();
 
       for (String announcement : input.getNewDismissedAnnouncements()) {
-        if (!dismissedAnnouncements.contains(announcement)) {
-          dismissedAnnouncements.add(announcement);
+        try {
+          Urn urn = Urn.createFromString(announcement);
+          if (!dismissedAnnouncements.contains(urn)) {
+            dismissedAnnouncements.add(urn);
+          }
+        } catch (URISyntaxException e) {
+          log.error("Invalid URN: ", announcement, e.getMessage());
+          throw new RuntimeException(e);
         }
       }
-
-      settings.setDismissedAnnouncements(new StringArray(dismissedAnnouncements));
+      settings.setDismissedAnnouncements(new UrnArray(dismissedAnnouncements));
     }
   }
 }

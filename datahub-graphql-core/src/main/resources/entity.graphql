@@ -4248,7 +4248,7 @@ type CorpUserHomePageSettings {
   """
   List of urns of the announcements dismissed by the User.
   """
-  dismissedAnnouncements: [String]
+  dismissedAnnouncementUrns: [String]
 }
 
 """

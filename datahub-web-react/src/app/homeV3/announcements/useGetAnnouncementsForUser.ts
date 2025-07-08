@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
 
@@ -7,10 +9,11 @@ import { FilterOperator, Post, PostContentType, PostType } from '@types';
 
 export const useGetAnnouncementsForUser = () => {
     const { user } = useUserContext();
-    const { time: lastViewedAnnouncementsTime } = useGetLastViewedAnnouncementTime();
+    const { time: lastViewedAnnouncementsTime, loading: lastViewedTimeLoading } = useGetLastViewedAnnouncementTime();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
+    const [newDismissedUrns, setNewDismissedUrns] = useState<string[]>([]);
 
-    const dismissedUrns = (user?.settings?.homePage?.dismissedAnnouncements || []).filter((urn): urn is string =>
+    const dismissedUrns = (user?.settings?.homePage?.dismissedAnnouncementUrns || []).filter((urn): urn is string =>
         Boolean(urn),
     );
 
@@ -52,37 +55,28 @@ export const useGetAnnouncementsForUser = () => {
         variables: {
             input: inputs,
         },
-        fetchPolicy: 'cache-first',
-        skip: !user,
+        skip: !user || lastViewedTimeLoading,
     });
 
-    const announcements: Post[] =
+    const announcementsData: Post[] =
         postsData?.listPosts?.posts
             .filter((post) => post.postType === PostType.HomePageAnnouncement)
             .filter((post) => post.content.contentType === PostContentType.Text)
             .map((post) => post as Post) || [];
 
     const onDismissAnnouncement = (urn: string) => {
-        const updatedDismissedUrns = [...dismissedUrns, urn];
+        setNewDismissedUrns((prev) => [...prev, urn]);
 
-        const updatedFilters = getUserPostsFilters().map((filter) => ({
-            ...filter,
-            and: filter.and.map((facet) =>
-                facet.field === 'urn' ? { ...facet, values: updatedDismissedUrns } : facet,
-            ),
-        }));
         updateUserHomePageSettings({
             variables: {
                 input: {
                     newDismissedAnnouncements: [urn],
                 },
             },
-        }).then(() => {
-            setTimeout(() => {
-                refetch({ input: { ...inputs, orFilters: updatedFilters } });
-            }, 2000);
         });
     };
+
+    const announcements = announcementsData.filter((announcement) => !newDismissedUrns.includes(announcement.urn));
 
     return { announcements, loading, error, refetch, onDismissAnnouncement };
 };

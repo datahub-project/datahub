@@ -33,7 +33,8 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.structured.StructuredProperties;
-import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -174,8 +175,11 @@ public class CorpUserMapper {
     }
 
     if (homePageSettings.hasDismissedAnnouncements()) {
-      result.setDismissedAnnouncements(
-          new ArrayList<>(homePageSettings.getDismissedAnnouncements()));
+      List<String> dismissedUrnStrings =
+          homePageSettings.getDismissedAnnouncements().stream()
+              .map(Urn::toString)
+              .collect(Collectors.toList());
+      result.setDismissedAnnouncementUrns(dismissedUrnStrings);
     }
 
     return result;

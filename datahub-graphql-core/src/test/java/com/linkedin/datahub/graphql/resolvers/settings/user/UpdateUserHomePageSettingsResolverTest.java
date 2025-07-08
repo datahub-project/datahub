@@ -4,9 +4,9 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateUserHomePageSettingsInput;
 import com.linkedin.identity.CorpUserAppearanceSettings;
@@ -31,9 +31,10 @@ public class UpdateUserHomePageSettingsResolverTest {
       new UpdateUserHomePageSettingsInput();
 
   static {
-    TEST_INPUT.setNewDismissedAnnouncements(Arrays.asList("a1", "a2"));
+    TEST_INPUT.setNewDismissedAnnouncements(Arrays.asList("urn:li:post:a1", "urn:li:post:a2"));
     TEST_INPUT_WITH_TEMPLATE.setPageTemplate("urn:li:pageTemplate:homepage");
-    TEST_INPUT_WITH_TEMPLATE.setNewDismissedAnnouncements(Collections.singletonList("a3"));
+    TEST_INPUT_WITH_TEMPLATE.setNewDismissedAnnouncements(
+        Collections.singletonList("urn:li:post:a3"));
   }
 
   @Test
@@ -54,7 +55,11 @@ public class UpdateUserHomePageSettingsResolverTest {
             .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false))
             .setHomePage(
                 new CorpUserHomePageSettings()
-                    .setDismissedAnnouncements(new StringArray(Arrays.asList("a1", "a2"))));
+                    .setDismissedAnnouncements(
+                        new UrnArray(
+                            Arrays.asList(
+                                Urn.createFromString("urn:li:post:a1"),
+                                Urn.createFromString("urn:li:post:a2")))));
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(any(), Mockito.eq(TEST_USER_URN), Mockito.eq(expectedSettings));
@@ -64,7 +69,8 @@ public class UpdateUserHomePageSettingsResolverTest {
   public void testUpdateSettingsWithExistingSettingsAndAnnouncements() throws Exception {
     CorpUserHomePageSettings existingHomePage =
         new CorpUserHomePageSettings()
-            .setDismissedAnnouncements(new StringArray(Collections.singletonList("a1")));
+            .setDismissedAnnouncements(
+                new UrnArray(Collections.singletonList(Urn.createFromString("urn:li:post:a1"))));
     CorpUserSettings existingSettings =
         new CorpUserSettings()
             .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true))
@@ -86,7 +92,11 @@ public class UpdateUserHomePageSettingsResolverTest {
             .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(true))
             .setHomePage(
                 new CorpUserHomePageSettings()
-                    .setDismissedAnnouncements(new StringArray(Arrays.asList("a1", "a2"))));
+                    .setDismissedAnnouncements(
+                        new UrnArray(
+                            Arrays.asList(
+                                Urn.createFromString("urn:li:post:a1"),
+                                Urn.createFromString("urn:li:post:a2")))));
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(any(), Mockito.eq(TEST_USER_URN), Mockito.eq(expectedSettings));
@@ -111,7 +121,9 @@ public class UpdateUserHomePageSettingsResolverTest {
             .setHomePage(
                 new CorpUserHomePageSettings()
                     .setPageTemplate(UrnUtils.getUrn("urn:li:pageTemplate:homepage"))
-                    .setDismissedAnnouncements(new StringArray(Collections.singletonList("a3"))));
+                    .setDismissedAnnouncements(
+                        new UrnArray(
+                            Collections.singletonList(Urn.createFromString("urn:li:post:a3")))));
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateCorpUserSettings(any(), Mockito.eq(TEST_USER_URN), Mockito.eq(expectedSettings));

@@ -14,5 +14,5 @@ record CorpUserHomePageSettings {
    /**
    * The list of announcement urns that have been dismissed by the user
    */
-  dismissedAnnouncements: optional array [string]
+  dismissedAnnouncements: optional array [Urn]
 }

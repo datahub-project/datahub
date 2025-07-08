@@ -39,7 +39,7 @@ query getMe {
                     pageTemplate {
                         urn
                     }
-                    dismissedAnnouncements
+                    dismissedAnnouncementUrns
                 }
             }
         }
