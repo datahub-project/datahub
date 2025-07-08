@@ -61,7 +61,7 @@ export default function ViewTypeSelectV1({ publicViews, privateViews, onTypeSele
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
-        <Wrapper>
+        <Wrapper data-testid="views-type-select">
             <div className="select-container">
                 <div className="select-view-icon">
                     <div
