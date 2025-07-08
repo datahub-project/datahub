@@ -14,14 +14,12 @@ from typing import (
     runtime_checkable,
 )
 
-import pydantic
 from cached_property import cached_property
-from pydantic import BaseModel, Extra, ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.utilities.dedup_list import deduplicate_list
 
 REDACT_KEYS = {
@@ -97,35 +95,22 @@ class ConfigModel(BaseModel):
             for key in remove_fields:
                 del schema["properties"][key]
 
-        # This is purely to suppress pydantic's warnings, since this class is used everywhere.
-        if PYDANTIC_VERSION_2:
-            extra = "forbid"
-            ignored_types = (cached_property,)
-            json_schema_extra = _schema_extra
-        else:
-            extra = Extra.forbid
-            underscore_attrs_are_private = True
-            keep_untouched = (
-                cached_property,
-            )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
-            schema_extra = _schema_extra
+        extra = "forbid"
+        ignored_types = (cached_property,)
+        json_schema_extra = _schema_extra
 
     @classmethod
     def parse_obj_allow_extras(cls, obj: Any) -> Self:
-        if PYDANTIC_VERSION_2:
-            try:
-                with unittest.mock.patch.dict(
-                    cls.model_config,  # type: ignore
-                    {"extra": "allow"},
-                    clear=False,
-                ):
-                    cls.model_rebuild(force=True)  # type: ignore
-                    return cls.parse_obj(obj)
-            finally:
+        try:
+            with unittest.mock.patch.dict(
+                cls.model_config,  # type: ignore
+                {"extra": "allow"},
+                clear=False,
+            ):
                 cls.model_rebuild(force=True)  # type: ignore
-        else:
-            with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
                 return cls.parse_obj(obj)
+        finally:
+            cls.model_rebuild(force=True)  # type: ignore
 
 
 class PermissiveConfigModel(ConfigModel):
@@ -135,10 +120,7 @@ class PermissiveConfigModel(ConfigModel):
     # It is usually used for argument bags that are passed through to third-party libraries.
 
     class Config:
-        if PYDANTIC_VERSION_2:  # noqa: SIM108
-            extra = "allow"
-        else:
-            extra = Extra.allow
+        extra = "allow"
 
 
 class TransformerSemantics(ConfigEnum):
