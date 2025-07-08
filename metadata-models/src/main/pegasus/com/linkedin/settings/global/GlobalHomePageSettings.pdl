@@ -1,0 +1,13 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Global settings related to the home page for an instance
+ */
+record GlobalHomePageSettings {
+  /**
+   * The urn that will be rendered in the UI by default for all users
+   */
+  defaultTemplate: Urn
+}

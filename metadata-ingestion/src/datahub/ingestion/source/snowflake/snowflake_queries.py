@@ -44,6 +44,11 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
 )
+from datahub.ingestion.source.snowflake.stored_proc_lineage import (
+    StoredProcCall,
+    StoredProcLineageReport,
+    StoredProcLineageTracker,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -130,6 +135,7 @@ class SnowflakeQueriesExtractorReport(Report):
     aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
     num_stream_queries_observed: int = 0
@@ -261,6 +267,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 TableRename,
                 TableSwap,
                 ObservedQuery,
+                StoredProcCall,
             ]
         ] = self._exit_stack.enter_context(FileBackedList(shared_connection))
 
@@ -277,12 +284,34 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 for entry in self.fetch_query_log(users):
                     queries.append(entry)
 
+        stored_proc_tracker: StoredProcLineageTracker = self._exit_stack.enter_context(
+            StoredProcLineageTracker(
+                platform=self.identifiers.platform,
+                shared_connection=shared_connection,
+            )
+        )
+        self.report.stored_proc_lineage = stored_proc_tracker.report
+
         with self.report.audit_log_load_timer:
             for i, query in enumerate(queries):
                 if i % 1000 == 0:
                     logger.info(f"Added {i} query log entries to SQL aggregator")
 
-                self.aggregator.add(query)
+                if isinstance(query, StoredProcCall):
+                    stored_proc_tracker.add_stored_proc_call(query)
+                    continue
+
+                if not (
+                    isinstance(query, PreparsedQuery)
+                    and stored_proc_tracker.add_related_query(query)
+                ):
+                    # Only add to aggregator if it's not part of a stored procedure.
+                    self.aggregator.add(query)
+
+            # Generate and add stored procedure lineage entries.
+            for lineage_entry in stored_proc_tracker.build_merged_lineage_entries():
+                # TODO: Make this the lowest priority lineage - so that it doesn't override other lineage entries.
+                self.aggregator.add(lineage_entry)
 
         with self.report.aggregator_generate_timer:
             yield from auto_workunit(self.aggregator.gen_metadata())
@@ -342,7 +371,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def fetch_query_log(
         self, users: UsersMapping
-    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery]]:
+    ) -> Iterable[
+        Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery, StoredProcCall]
+    ]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -382,7 +413,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
+    ) -> Optional[
+        Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery, StoredProcCall]
+    ]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -480,6 +513,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     query_text, self.identifiers.platform, fast=True
                 ),
                 extra_info=extra_info,
+            )
+
+        if snowflake_query_type == "CALL" and res["root_query_id"] is None:
+            return StoredProcCall(
+                # This is the top-level query ID that other entries will reference.
+                snowflake_root_query_id=res["query_id"],
+                query_text=query_text,
+                timestamp=timestamp,
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
             )
 
         upstreams = []
@@ -663,6 +707,7 @@ class SnowflakeQueriesSource(Source):
     def close(self) -> None:
         self.connection.close()
         self.queries_extractor.close()
+        super().close()
 
 
 # Make sure we don't try to generate too much info for a single query.
