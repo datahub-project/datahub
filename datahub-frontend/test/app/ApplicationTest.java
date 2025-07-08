@@ -315,6 +315,9 @@ public class ApplicationTest extends WithBrowser {
     testHappyPathOidc();
     int requestCount = gmsServer.getRequestCount();
 
+    // Prepare the mock backend to respond with HTTP 200 and an empty JSON body
+    // when the proxy forwards the /api/v2/graphql/ request.
+    gmsServer.enqueue(new MockResponse().setResponseCode(200).setBody("{}"));
     browser.goTo("/api/v2/graphql/");
     assertEquals(++requestCount, gmsServer.getRequestCount());
   }
