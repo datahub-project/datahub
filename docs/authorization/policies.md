@@ -404,5 +404,7 @@ mutation {
 We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!
 
 [^3]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^1]: DataHub Cloud only
+
 [^2]: Deprecated feature
