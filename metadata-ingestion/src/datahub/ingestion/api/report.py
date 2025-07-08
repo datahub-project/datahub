@@ -228,7 +228,10 @@ class ExamplesReport(Report, Closeable):
         self._collect_samples_by_subtype(where_clause, sample_key)
 
     def _collect_samples_with_all_conditions(self, sample_key: str) -> None:
-        """Helper method to collect samples for entities that have lineage, profiling, and usage aspects."""
+        """
+        Collect samples for entities that have lineage, profiling, and usage aspects.
+        These specific 3 cases are added here as these URNs will be shown in the UI. Subject to change in future.
+        """
         if not self._lineage_aspects_seen:
             return
         assert self._file_based_dict is not None
