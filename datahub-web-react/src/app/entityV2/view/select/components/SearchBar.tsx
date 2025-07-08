@@ -16,11 +16,11 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
 
     ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
 
+    ${props => props.$isShowNavBarRedesign && props.$minWidth && `min-width: ${props.$minWidth};`}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         ${props.$fullWidth && 'width: 100%;'}
-        ${props.$minWidth && `min-width: ${props.$minWidth};`}
         height: 40px;
         border: 1px solid;
         border-color: ${colors.gray[100]};
