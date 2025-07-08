@@ -112,6 +112,7 @@ public class ESIndexBuilderTest {
     when(buildIndicesConfig.getRetentionUnit()).thenReturn(ChronoUnit.DAYS.name());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
     when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    when(buildIndicesConfig.isZoneAwarenessEnabled()).thenReturn(false);
 
     indexBuilder =
         new ESIndexBuilder(
