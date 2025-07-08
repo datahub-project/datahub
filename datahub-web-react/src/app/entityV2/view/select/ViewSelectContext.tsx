@@ -178,7 +178,6 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
 
     const updateOpenState = useCallback(
         (newIsOpen: boolean) => {
-            console.log('>>> updateOpenState', newIsOpen);
             if (isOpen === undefined) setIsInternalOpen(newIsOpen);
             onOpenChange?.(newIsOpen);
         },
