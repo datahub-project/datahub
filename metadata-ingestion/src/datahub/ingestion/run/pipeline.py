@@ -167,7 +167,6 @@ class Pipeline:
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
         self.no_progress = no_progress
-        self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
@@ -387,15 +386,20 @@ class Pipeline:
         )
 
     def _time_to_print(self) -> bool:
-        self.num_intermediate_workunits += 1
         current_time = int(time.time())
         # TODO: Replace with ProgressTimer.
         if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
-            self.num_intermediate_workunits = 0
             self.last_time_printed = current_time
             return True
         return False
+
+    def _report_progress(self) -> None:
+        try:
+            if self._time_to_print() and not self.no_progress:
+                self.pretty_print_summary(currently_running=True)
+        except Exception as e:
+            logger.warning(f"Failed to print summary {e}")
 
     def run(self) -> None:
         with self.exit_stack, self.inner_exit_stack:
@@ -429,11 +433,7 @@ class Pipeline:
                     self.source.get_workunits(),
                     self.preview_workunits if self.preview_mode else None,
                 ):
-                    try:
-                        if self._time_to_print() and not self.no_progress:
-                            self.pretty_print_summary(currently_running=True)
-                    except Exception as e:
-                        logger.warning(f"Failed to print summary {e}")
+                    self._report_progress()
 
                     if not self.dry_run:
                         self.sink.handle_work_unit_start(wu)
