@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -76,6 +77,11 @@ public class SearchTestUtils {
                       });
                 }
               })
+          .buildIndices(new BuildIndicesConfiguration() {
+            {
+              setZoneAwarenessEnabled(false);
+            }
+          })
           .build();
 
   public static SystemMetadataServiceConfig TEST_SYSTEM_METADATA_SERVICE_CONFIG =
