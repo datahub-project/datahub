@@ -185,7 +185,7 @@ class ExamplesReport(Report, Closeable):
         FROM urn_aspects 
         WHERE {where_clause}
         """
-
+        assert self._file_based_dict is not None
         subtypes = set()
         for row in self._file_based_dict.sql_query(subtype_query):
             sub_type = row["subTypes"] or "unknown"
@@ -231,6 +231,7 @@ class ExamplesReport(Report, Closeable):
         """Helper method to collect samples for entities that have lineage, profiling, and usage aspects."""
         if not self._lineage_aspects_seen:
             return
+        assert self._file_based_dict is not None
 
         # Build lineage conditions using the same logic as _collect_samples_by_lineage_aspects
         lineage_conditions = []
