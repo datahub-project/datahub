@@ -48,7 +48,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
     }, [publicViews, privateViews]);
 
     return (
-        <Wrapper $bordered={bordered}>
+        <Wrapper $bordered={bordered} data-testid="views-type-select">
             <Tooltip placement="bottom" showArrow title="All">
                 <IconWrapper onClick={() => onTypeSelect('all')} $active={selectedOption === 'all'}>
                     <Icon
