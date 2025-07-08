@@ -40,12 +40,11 @@ import utils.ConfigUtil;
 public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
-          Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
+      Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
   private final Config config;
   private final Environment environment;
-  private final HttpClient httpClient = HttpClient.newBuilder()
-          .version(HttpClient.Version.HTTP_1_1)
-          .build();
+  private final HttpClient httpClient =
+      HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
 
   @Inject
   public Application(Environment environment, @Nonnull Config config) {
@@ -80,58 +79,65 @@ public class Application extends Controller {
     final String resolvedUri = mapPath(request.uri());
 
     final String metadataServiceHost =
-            ConfigUtil.getString(
-                    config,
-                    ConfigUtil.METADATA_SERVICE_HOST_CONFIG_PATH,
-                    ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
+        ConfigUtil.getString(
+            config,
+            ConfigUtil.METADATA_SERVICE_HOST_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
     final int metadataServicePort =
-            ConfigUtil.getInt(
-                    config,
-                    ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
-                    ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+        ConfigUtil.getInt(
+            config,
+            ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
     final boolean metadataServiceUseSsl =
-            ConfigUtil.getBoolean(
-                    config,
-                    ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
-                    ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
+        ConfigUtil.getBoolean(
+            config,
+            ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
 
     final String protocol = metadataServiceUseSsl ? "https" : "http";
     final String targetUrl =
-            String.format("%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
+        String.format(
+            "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
 
     HttpRequest.Builder httpRequestBuilder =
-            HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
+        HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
 
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
     Map<String, List<String>> headers = request.getHeaders().toMap();
     if (headers.containsKey(Http.HeaderNames.HOST)
-            && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
+        && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
       headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
     }
     if (!headers.containsKey(Http.HeaderNames.X_FORWARDED_PROTO)) {
       final String schema =
-              Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
+          Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
     headers.entrySet().stream()
-            .filter(entry ->
-                    !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
-                            && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(entry.getKey())
-                            && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
-                            && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
-            .forEach(entry -> entry.getValue().forEach(v -> httpRequestBuilder.header(entry.getKey(), v)));
+        .filter(
+            entry ->
+                !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
+                    && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
+                        entry.getKey())
+                    && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
+                    && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
+        .forEach(
+            entry -> entry.getValue().forEach(v -> httpRequestBuilder.header(entry.getKey(), v)));
     if (!authorizationHeaderValue.isEmpty()) {
       httpRequestBuilder.header(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue);
     }
     httpRequestBuilder.header(
-            AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
-    request.contentType().ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
+        AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
+    request
+        .contentType()
+        .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
 
     Instant start = Instant.now();
 
     return httpClient
-            .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
-            .thenApply(apiResponse -> {
+        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        .thenApply(
+            apiResponse -> {
               boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
               int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
               Instant finish = Instant.now();
@@ -140,22 +146,25 @@ public class Application extends Controller {
                 logSlowQuery(request, resolvedUri, timeElapsed);
               }
               final ResponseHeader header =
-                      new ResponseHeader(
-                              apiResponse.statusCode(),
-                              apiResponse.headers().map().entrySet().stream()
-                                      .filter(entry ->
-                                              !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
-                                      .filter(entry ->
-                                              !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
-                                      .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
-                                      .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+                  new ResponseHeader(
+                      apiResponse.statusCode(),
+                      apiResponse.headers().map().entrySet().stream()
+                          .filter(
+                              entry ->
+                                  !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
+                          .filter(
+                              entry ->
+                                  !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+                          .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
+                          .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
               final HttpEntity body =
-                      new HttpEntity.Strict(
-                              ByteString.fromArray(apiResponse.body()),
-                              apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
+                  new HttpEntity.Strict(
+                      ByteString.fromArray(apiResponse.body()),
+                      apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
               return new Result(header, body);
             })
-            .exceptionally(ex -> {
+        .exceptionally(
+            ex -> {
               // Snap out of it on any error or timeout
               Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
               if (cause instanceof java.net.http.HttpTimeoutException) {
@@ -185,8 +194,8 @@ public class Application extends Controller {
     config.put("isInternal", this.config.getBoolean("linkedin.internal"));
     config.put("shouldShowDatasetLineage", this.config.getBoolean("linkedin.show.dataset.lineage"));
     config.put(
-            "suggestionConfidenceThreshold",
-            Integer.valueOf(this.config.getString("linkedin.suggestion.confidence.threshold")));
+        "suggestionConfidenceThreshold",
+        Integer.valueOf(this.config.getString("linkedin.suggestion.confidence.threshold")));
     config.set("wikiLinks", wikiLinks());
     config.set("tracking", trackingInfo());
     config.put("isStagingBanner", this.config.getBoolean("ui.show.staging.banner"));
@@ -295,11 +304,11 @@ public class Application extends Controller {
     }
     String jsonBodyStr = jsonBody.toString();
     logger.info(
-            "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
-            resolvedUri,
-            request.queryString(),
-            actorValue,
-            jsonBodyStr,
-            duration);
+        "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
+        resolvedUri,
+        request.queryString(),
+        actorValue,
+        jsonBodyStr,
+        duration);
   }
 }
