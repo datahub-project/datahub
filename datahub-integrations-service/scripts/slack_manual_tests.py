@@ -5,7 +5,7 @@ import typer
 from loguru import logger
 
 from datahub_integrations.slack.config import SlackConnection
-from datahub_integrations.slack.constants import ACRYL_SLACK_ICON_URL
+from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
 from datahub_integrations.slack.slack import get_slack_app, get_slack_link_preview
 
 app = typer.Typer(help="Slack manual testing utilities")
@@ -36,7 +36,7 @@ def send_message(
     app.client.chat_postMessage(
         channel=channel,
         text=message,
-        icon_url=ACRYL_SLACK_ICON_URL,
+        icon_url=DATAHUB_SLACK_ICON_URL,
         mrkdwn=True,
     )
     logger.info(f"Message sent to channel {channel}")

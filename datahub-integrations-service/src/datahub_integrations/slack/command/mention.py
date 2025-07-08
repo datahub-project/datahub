@@ -21,7 +21,7 @@ from datahub_integrations.slack.command.mention_helpers import (
 )
 from datahub_integrations.slack.config import slack_config
 from datahub_integrations.slack.constants import (
-    ACRYL_SLACK_ICON_URL,
+    DATAHUB_SLACK_ICON_URL,
     MESSAGE_LENGTH_HARD_LIMIT,
 )
 from datahub_integrations.slack.utils.string import truncate
@@ -97,7 +97,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             thread_ts=event.thread_ts,  # Reply in the thread
             text=text,
             blocks=blocks,
-            icon_url=ACRYL_SLACK_ICON_URL,
+            icon_url=DATAHUB_SLACK_ICON_URL,
             mrkdwn=True,
         )["ts"]
 
@@ -114,7 +114,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                         ts=response_ts,
                         blocks=blocks,
                         text=text,
-                        icon_url=ACRYL_SLACK_ICON_URL,
+                        icon_url=DATAHUB_SLACK_ICON_URL,
                         mrkdwn=True,
                     )
             except Exception as e:
@@ -141,7 +141,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 ts=response_ts,
                 blocks=blocks,
                 text=message,  # fallback text used by Slack for notifications
-                icon_url=ACRYL_SLACK_ICON_URL,
+                icon_url=DATAHUB_SLACK_ICON_URL,
             )
 
         track_saas_event(
@@ -165,7 +165,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 channel=channel_id,
                 ts=response_ts,
                 text=":x: Encountered an internal error",
-                icon_url=ACRYL_SLACK_ICON_URL,
+                icon_url=DATAHUB_SLACK_ICON_URL,
                 mrkdwn=True,
             )
         track_saas_event(
@@ -366,7 +366,7 @@ def handle_followup_question(
         channel=channel_id,
         thread_ts=thread_ts,
         text=f"<@{user_id}> asked: *{question}* 🤔",
-        icon_url=ACRYL_SLACK_ICON_URL,
+        icon_url=DATAHUB_SLACK_ICON_URL,
         mrkdwn=True,
     )["ts"]
 
@@ -433,7 +433,7 @@ def handle_feedback(
             channel=channel_id,
             thread_ts=payload.thread_ts,
             text="What was missing or incorrect in my response? I'd like to help you better! 🤔",
-            icon_url=ACRYL_SLACK_ICON_URL,
+            icon_url=DATAHUB_SLACK_ICON_URL,
             mrkdwn=True,
         )
     elif payload.feedback == "positive":

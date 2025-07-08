@@ -46,8 +46,8 @@ from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 from datahub_integrations.slack.constants import (
-    ACRYL_SLACK_ICON_URL,
     DATAHUB_SLACK_AT_MENTION_ENABLED,
+    DATAHUB_SLACK_ICON_URL,
 )
 from datahub_integrations.slack.context import (
     IncidentContext,
@@ -256,7 +256,7 @@ def oauth_callback(
     app.client.chat_postMessage(
         channel=authed_user["id"],
         text="DataHub has been connected to Slack!",
-        icon_url=ACRYL_SLACK_ICON_URL,
+        icon_url=DATAHUB_SLACK_ICON_URL,
     )
 
     return RedirectResponse(url="/settings/integrations/slack")
@@ -345,7 +345,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         logger.info(message)
         say(
             f"Hey <@{message['user']}>, DataHub is available in this channel!",
-            icon_url=ACRYL_SLACK_ICON_URL,
+            icon_url=DATAHUB_SLACK_ICON_URL,
         )
 
     @app.event("message")
@@ -363,7 +363,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         if not DATAHUB_SLACK_AT_MENTION_ENABLED:
             say(
                 text="The @datahub mention is currently disabled. Please use /datahub commands instead.",
-                icon_url=ACRYL_SLACK_ICON_URL,
+                icon_url=DATAHUB_SLACK_ICON_URL,
                 thread_ts=thread_ts or message_ts,  # Reply in the thread
             )
             return
@@ -770,7 +770,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         ack()
         say(
             f"Hey <@{event['user']}>! DataHub shortcut commands are coming soon!",
-            icon_url=ACRYL_SLACK_ICON_URL,
+            icon_url=DATAHUB_SLACK_ICON_URL,
         )
 
     return app
