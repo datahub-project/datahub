@@ -7,7 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-const StyledTabs = styled(AntTabs)<{ $removePaddingLeft?: boolean; $hideTabsHeader: boolean }>`
+const StyledTabs = styled(AntTabs)<{ $addPaddingLeft?: boolean; $hideTabsHeader: boolean }>`
     flex: 1;
     overflow: hidden;
 
@@ -17,15 +17,15 @@ const StyledTabs = styled(AntTabs)<{ $removePaddingLeft?: boolean; $hideTabsHead
         color: ${colors.gray[600]};
     }
 
-    ${({ $removePaddingLeft }) =>
-        $removePaddingLeft
+    ${({ $addPaddingLeft }) =>
+        $addPaddingLeft
             ? `
-            .ant-tabs-tab + .ant-tabs-tab {
+            .ant-tabs-tab {
                 margin-left: 16px;
             }
             `
             : `
-            .ant-tabs-tab {
+            .ant-tabs-tab + .ant-tabs-tab {
                 margin-left: 16px;
             }
         `}
@@ -98,7 +98,7 @@ export interface Props {
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
     getCurrentUrl?: () => string;
-    removePaddingLeft?: boolean;
+    addPaddingLeft?: boolean;
     hideTabsHeader?: boolean;
 }
 
@@ -110,7 +110,7 @@ export function Tabs({
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
-    removePaddingLeft,
+    addPaddingLeft,
     hideTabsHeader,
 }: Props) {
     const { TabPane } = AntTabs;
@@ -155,7 +155,7 @@ export function Tabs({
         <StyledTabs
             activeKey={selectedTab}
             onChange={handleTabClick}
-            $removePaddingLeft={removePaddingLeft}
+            $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
         >
             {tabs.map((tab) => {

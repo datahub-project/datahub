@@ -58,6 +58,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
             selectedTab={selectedTab?.name}
             tabs={finalTabs}
             hideTabsHeader={isTabFullsize}
+            addPaddingLeft
         />
     );
 };
