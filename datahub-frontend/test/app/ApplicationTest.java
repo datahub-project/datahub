@@ -1,24 +1,26 @@
 package app;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static play.mvc.Http.Status.NOT_FOUND;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import controllers.Application;
 import controllers.routes;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
 import java.text.ParseException;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -33,19 +35,16 @@ import okhttp3.mockwebserver.MockWebServer;
 import org.awaitility.Awaitility;
 import org.awaitility.Durations;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import play.Application;
 import play.Environment;
 import play.Mode;
 import play.inject.guice.GuiceApplicationBuilder;
+import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
@@ -65,8 +64,52 @@ public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
 
+  // For unit tests on controller methods
+  private Application unitApp;
+
+  @BeforeEach
+  public void unitSetup() {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("app.version", "1.0.0");
+    configMap.put("linkedin.internal", true);
+    configMap.put("linkedin.show.dataset.lineage", true);
+    configMap.put("linkedin.suggestion.confidence.threshold", "5");
+    configMap.put("ui.show.staging.banner", false);
+    configMap.put("ui.show.live.data.banner", false);
+    configMap.put("ui.show.CM.banner", true);
+    configMap.put("ui.show.people", true);
+    configMap.put("ui.show.CM.link", "http://change.management");
+    configMap.put("ui.show.stale.search", false);
+    configMap.put("ui.show.advanced.search", true);
+    configMap.put("ui.new.browse.dataset", false);
+    configMap.put("ui.show.lineage.graph", true);
+    configMap.put("ui.show.institutional.memory", false);
+    configMap.put("linkedin.links.avi.urlPrimary", "http://primary.avi");
+    configMap.put("linkedin.links.avi.urlFallback", "http://fallback.avi");
+    configMap.put("links.wiki.appHelp", "http://help");
+    configMap.put("links.wiki.gdprPii", "http://gdprpii");
+    configMap.put("links.wiki.tmsSchema", "http://tmsschema");
+    configMap.put("links.wiki.gdprTaxonomy", "http://gdprtaxonomy");
+    configMap.put("links.wiki.staleSearchIndex", "http://stale");
+    configMap.put("links.wiki.dht", "http://dht");
+    configMap.put("links.wiki.purgePolicies", "http://purgepolicies");
+    configMap.put("links.wiki.jitAcl", "http://jitacl");
+    configMap.put("links.wiki.metadataCustomRegex", "http://customregex");
+    configMap.put("links.wiki.exportPolicy", "http://exportpolicy");
+    configMap.put("links.wiki.metadataHealth", "http://metadatahealth");
+    configMap.put("links.wiki.purgeKey", "http://purgekey");
+    configMap.put("links.wiki.datasetDecommission", "http://datasetdecommission");
+    configMap.put("tracking.piwik.siteid", "123");
+    configMap.put("tracking.piwik.url", "http://piwik");
+    Config config = ConfigFactory.parseMap(configMap);
+    Environment env = Environment.simple();
+    unitApp = new Application(env, config);
+  }
+
+  // --- Play/Browser/Integration Test Section ---
+
   @Override
-  protected Application provideApplication() {
+  protected play.Application provideApplication() {
     return new GuiceApplicationBuilder()
         .configure("metadataService.port", String.valueOf(gmsServerPort()))
         .configure("auth.baseUrl", "http://localhost:" + providePort())
@@ -97,11 +140,8 @@ public class ApplicationTest extends WithBrowser {
   private MockOAuth2Server oauthServer;
   private Thread oauthServerThread;
   private CompletableFuture<Void> oauthServerStarted;
-
   private MockWebServer gmsServer;
-
   private String wellKnownUrl;
-
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
 
@@ -109,9 +149,9 @@ public class ApplicationTest extends WithBrowser {
   public void init() throws IOException {
     // Start Mock GMS
     gmsServer = new MockWebServer();
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    gmsServer.enqueue(new MockResponse().setResponseCode(404));
+    gmsServer.enqueue(new MockResponse().setResponseCode(404));
+    gmsServer.enqueue(new MockResponse().setResponseCode(404));
     gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
@@ -143,7 +183,7 @@ public class ApplicationTest extends WithBrowser {
       logger.info("Shutdown MockOAuth2Server thread");
       oauthServerThread.interrupt();
       try {
-        oauthServerThread.join(2000); // Wait up to 2 seconds for thread to finish
+        oauthServerThread.join(2000);
       } catch (InterruptedException e) {
         logger.warn("Shutdown MockOAuth2Server thread failed to join.");
       }
@@ -151,7 +191,6 @@ public class ApplicationTest extends WithBrowser {
   }
 
   private void startMockOauthServer() {
-    // Configure HEAD responses
     Route[] routes =
         new Route[] {
           new Route() {
@@ -181,13 +220,10 @@ public class ApplicationTest extends WithBrowser {
         };
     oauthServer = new MockOAuth2Server(routes);
     oauthServerStarted = new CompletableFuture<>();
-
-    // Create and start server in separate thread
     oauthServerThread =
         new Thread(
             () -> {
               try {
-                // Configure mock responses
                 oauthServer.enqueueCallback(
                     new DefaultOAuth2TokenCallback(
                         ISSUER_ID,
@@ -198,12 +234,8 @@ public class ApplicationTest extends WithBrowser {
                             "email", "testUser@myCompany.com",
                             "groups", "myGroup"),
                         600));
-
                 oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
-
                 oauthServerStarted.complete(null);
-
-                // Keep thread alive until server is stopped
                 while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
                   try {
                     Thread.sleep(1000);
@@ -216,11 +248,8 @@ public class ApplicationTest extends WithBrowser {
                 oauthServerStarted.completeExceptionally(e);
               }
             });
-
-    oauthServerThread.setDaemon(true); // Ensure thread doesn't prevent JVM shutdown
+    oauthServerThread.setDaemon(true);
     oauthServerThread.start();
-
-    // Wait for server to start with timeout
     oauthServerStarted
         .orTimeout(10, TimeUnit.SECONDS)
         .whenComplete(
@@ -233,19 +262,13 @@ public class ApplicationTest extends WithBrowser {
                 throw new RuntimeException("MockOAuth2Server failed to start", throwable);
               }
             });
-
-    // Discovery url to authorization server metadata
     wellKnownUrl = oauthServer.wellKnownUrl(ISSUER_ID).toString();
-
-    // Wait for server to return configuration
-    // Validate mock server returns data
     try {
       URL url = new URL(wellKnownUrl);
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       conn.setRequestMethod("GET");
       int responseCode = conn.getResponseCode();
       logger.info("Well-known endpoint response code: {}", responseCode);
-
       if (responseCode != 200) {
         throw new RuntimeException(
             "MockOAuth2Server not accessible. Response code: " + responseCode);
@@ -259,7 +282,6 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testHealth() {
     Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
-
     Result result = route(app, request);
     assertEquals(OK, result.status());
   }
@@ -267,7 +289,6 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testIndex() {
     Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
-
     Result result = route(app, request);
     assertEquals(OK, result.status());
   }
@@ -290,10 +311,8 @@ public class ApplicationTest extends WithBrowser {
   public void testHappyPathOidc() throws ParseException {
     browser.goTo("/authenticate");
     assertEquals("", browser.url());
-
     Cookie actorCookie = browser.getCookie("actor");
     assertEquals(TEST_USER, actorCookie.getValue());
-
     Cookie sessionCookie = browser.getCookie("PLAY_SESSION");
     String jwtStr = sessionCookie.getValue();
     JWT jwt = JWTParser.parse(jwtStr);
@@ -301,8 +320,6 @@ public class ApplicationTest extends WithBrowser {
     Map<String, String> data = (Map<String, String>) claims.getClaim("data");
     assertEquals(TEST_TOKEN, data.get("token"));
     assertEquals(TEST_USER, data.get("actor"));
-    // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
-    // the time before this executes
     assertTrue(
         claims
                 .getExpirationTime()
@@ -323,28 +340,94 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
+  public void testAPI_backendConnectionError() throws ParseException, IOException {
+    testHappyPathOidc();
+    int requestCount = gmsServer.getRequestCount();
+    gmsServer.shutdown();
+    browser.goTo("/api/v2/graphql/");
+    assertEquals(requestCount, gmsServer.getRequestCount());
+    // Optionally: assert browser shows connection error
+    // assertTrue(browser.getPageSource().contains("Proxy connection failed"));
+  }
+
+  @Test
   public void testOidcRedirectToRequestedUrl() {
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
     assertEquals("container/urn:li:container:DATABASE", browser.url());
   }
 
-  /**
-   * The Redirect Uri parameter is used to store a previous relative location within the app to be
-   * able to take a user back to their expected page. Redirecting to other domains should be
-   * blocked.
-   */
   @Test
   public void testInvalidRedirectUrl() {
     browser.goTo("/authenticate?redirect_uri=https%3A%2F%2Fwww.google.com");
     assertEquals("", browser.url());
-
     browser.goTo("/authenticate?redirect_uri=file%3A%2F%2FmyFile");
     assertEquals("", browser.url());
-
     browser.goTo("/authenticate?redirect_uri=ftp%3A%2F%2FsomeFtp");
     assertEquals("", browser.url());
-
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
     assertEquals("", browser.url());
+  }
+
+  // ---------- UNIT TESTS FOR CONTROLLER METHODS ----------
+
+  @Test
+  public void testAppConfigUnit() {
+    Result result = unitApp.appConfig();
+    assertEquals(OK, result.status(), "Should return HTTP 200 OK");
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"application\":\"datahub-frontend\""));
+    assertTrue(content.contains("\"appVersion\":\"1.0.0\""));
+    assertTrue(content.contains("\"isInternal\":true"));
+    assertTrue(content.contains("\"shouldShowDatasetLineage\":true"));
+    assertTrue(content.contains("\"userEntityProps\""));
+    assertTrue(content.contains("\"wikiLinks\""));
+    assertTrue(content.contains("\"tracking\""));
+  }
+
+  @Test
+  public void testUserEntityPropsDirect() throws Exception {
+    Method m = Application.class.getDeclaredMethod("userEntityProps");
+    m.setAccessible(true);
+    ObjectNode props = (ObjectNode) m.invoke(unitApp);
+    assertEquals("http://primary.avi", props.get("aviUrlPrimary").asText());
+    assertEquals("http://fallback.avi", props.get("aviUrlFallback").asText());
+  }
+
+  @Test
+  public void testWikiLinksDirect() throws Exception {
+    Method m = Application.class.getDeclaredMethod("wikiLinks");
+    m.setAccessible(true);
+    ObjectNode links = (ObjectNode) m.invoke(unitApp);
+    assertEquals("http://help", links.get("appHelp").asText());
+    assertEquals("http://gdprpii", links.get("gdprPii").asText());
+    assertEquals("http://datasetdecommission", links.get("datasetDecommission").asText());
+  }
+
+  @Test
+  public void testTrackingInfoDirect() throws Exception {
+    Method m = Application.class.getDeclaredMethod("trackingInfo");
+    m.setAccessible(true);
+    ObjectNode tracking = (ObjectNode) m.invoke(unitApp);
+    assertTrue(tracking.has("trackers"), "trackers field should exist");
+    assertTrue(tracking.has("isEnabled"), "isEnabled field should exist");
+    assertTrue(tracking.get("isEnabled").asBoolean(), "isEnabled should be true");
+    ObjectNode trackers = (ObjectNode) tracking.get("trackers");
+    ObjectNode piwik = (ObjectNode) trackers.get("piwik");
+    assertEquals(123, piwik.get("piwikSiteId").asInt());
+    assertEquals("http://piwik", piwik.get("piwikUrl").asText());
+  }
+
+  @Test
+  public void testLogSlowQueryNoException() throws Exception {
+    Http.Request request =
+        Helpers.fakeRequest()
+            .bodyJson(Json.parse("{\"query\":\"select * from test\", \"other\":\"value\"}"))
+            .build();
+    Method m =
+        Application.class.getDeclaredMethod(
+            "logSlowQuery", Http.Request.class, String.class, float.class);
+    m.setAccessible(true);
+    m.invoke(unitApp, request, "/api/test", 1234f);
+    // No exception expected
   }
 }
