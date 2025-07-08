@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import ViewSelectContextProvider from '@app/entityV2/view/select/ViewSelectContext';
+import ViewsExternalDropdown from '@app/entityV2/view/select/ViewsExternalDropdown';
 import { SearchBarProps } from '@app/searchV2/SearchBar';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
@@ -31,8 +33,15 @@ const StyledAutocomplete = styled(AutoComplete)`
     width: 100%;
 `;
 
+const StyledViewsExternalDropdown = styled(ViewsExternalDropdown)`
+    // FYI: compensate wrapper's size of the search bar
+    margin: -8px 8px 0 8px;
+    padding-right: 16px;
+`;
+
 interface SearchBarV2Props extends SearchBarProps {
     width?: string;
+    viewsInPopover?: boolean;
 }
 
 /**
@@ -47,6 +56,7 @@ export const SearchBarV2 = ({
     fixAutoComplete,
     showCommandK = false,
     viewsEnabled = false,
+    viewsInPopover = true,
     combineSiblings = false,
     onFocus,
     onBlur,
@@ -61,6 +71,7 @@ export const SearchBarV2 = ({
 
     const [searchQuery, setSearchQuery] = useState<string>(initialQuery || '');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isViewsDropdownOpened, setIsViewsDropdownOpened] = useState(false);
     const filtersFromQueryParams = useFiltersMapFromQueryParams();
     const { appliedFilters, hasAppliedFilters, flatAppliedFilters, clear, updateFieldFilters } =
         useAppliedFilters(filtersFromQueryParams);
@@ -147,72 +158,81 @@ export const SearchBarV2 = ({
     if (isLoading) return <Skeleton />;
 
     return (
-        <Wrapper id={id} className={SEARCH_BAR_CLASS_NAME}>
-            <StyledAutocomplete
-                dataTestId="search-bar"
-                defaultActiveFirstOption={false}
-                options={options}
-                filterOption={false}
-                dropdownRender={(menu) => (
-                    <SearchBarDropdown
-                        menu={menu}
-                        query={searchQuery}
-                        filters={appliedFilters}
-                        updateFilters={updateFieldFilters}
-                        facets={facets}
-                        isSearching={isSearching}
-                    />
-                )}
-                notFoundContent={
-                    <AutocompletePlaceholder
-                        hasAppliedFilters={hasAppliedFilters}
-                        hasSelectedView={hasSelectedView}
-                        isSearching={isSearching}
-                        onClearFilters={onClearFiltersAndSelectedViewHandler}
-                    />
-                }
-                dropdownMatchSelectWidth
-                onSelect={onSelectHandler}
-                defaultValue={initialQuery || undefined}
-                value={searchQuery}
-                onChange={onChangeHandler}
-                dropdownAlign={
-                    isShowNavBarRedesign ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR : AUTOCOMPLETE_DROPDOWN_ALIGN
-                }
-                onClear={onClearHandler}
-                dropdownStyle={{
-                    maxHeight: 1000,
-                    overflowY: 'visible',
-                    position: (fixAutoComplete && 'fixed') || 'relative',
-                    backgroundColor: colors.gray[1500],
-                    boxShadow: BOX_SHADOW,
-                    ...(isShowNavBarRedesign
-                        ? {
-                              padding: spacing.xsm,
-                              borderRadius: `${radius.none} ${radius.none} ${radius.lg} ${radius.lg}`,
-                          }
-                        : {}),
-                }}
-                onDropdownVisibleChange={onDropdownVisibilityChangeHandler}
-                open={isDropdownVisible}
-                dropdownContentHeight={480}
-                clickOutsideWidth={width === '100%' ? '100%' : undefined}
-            >
-                <SearchBarInput
-                    placeholder={placeholderText}
-                    onSearch={onSearchHandler}
-                    value={searchQuery}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                    onViewsClick={onViewsClickHandler}
-                    onClear={clearQueryAndFilters}
-                    ref={searchInputRef}
-                    showCommandK={showCommandK}
-                    isDropdownOpened={isDropdownVisible}
-                    viewsEnabled={viewsEnabled}
-                    width={width}
-                />
-            </StyledAutocomplete>
-        </Wrapper>
+        <ViewSelectContextProvider isOpen={isViewsDropdownOpened} onOpenChange={setIsViewsDropdownOpened}>
+            <Wrapper id={id} className={SEARCH_BAR_CLASS_NAME}>
+                <StyledViewsExternalDropdown disabled={viewsInPopover}>
+                    <StyledAutocomplete
+                        dataTestId="search-bar"
+                        defaultActiveFirstOption={false}
+                        options={options}
+                        filterOption={false}
+                        dropdownRender={(menu) => (
+                            <SearchBarDropdown
+                                menu={menu}
+                                query={searchQuery}
+                                filters={appliedFilters}
+                                updateFilters={updateFieldFilters}
+                                facets={facets}
+                                isSearching={isSearching}
+                            />
+                        )}
+                        notFoundContent={
+                            <AutocompletePlaceholder
+                                hasAppliedFilters={hasAppliedFilters}
+                                hasSelectedView={hasSelectedView}
+                                isSearching={isSearching}
+                                onClearFilters={onClearFiltersAndSelectedViewHandler}
+                            />
+                        }
+                        dropdownMatchSelectWidth
+                        onSelect={onSelectHandler}
+                        defaultValue={initialQuery || undefined}
+                        value={searchQuery}
+                        onChange={onChangeHandler}
+                        dropdownAlign={
+                            isShowNavBarRedesign
+                                ? AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR
+                                : AUTOCOMPLETE_DROPDOWN_ALIGN
+                        }
+                        onClear={onClearHandler}
+                        dropdownStyle={{
+                            maxHeight: 1000,
+                            overflowY: 'visible',
+                            position: (fixAutoComplete && 'fixed') || 'relative',
+                            backgroundColor: colors.gray[1500],
+                            boxShadow: BOX_SHADOW,
+                            ...(isShowNavBarRedesign
+                                ? {
+                                      padding: spacing.xsm,
+                                      borderRadius: `${radius.none} ${radius.none} ${radius.lg} ${radius.lg}`,
+                                  }
+                                : {}),
+                        }}
+                        onDropdownVisibleChange={onDropdownVisibilityChangeHandler}
+                        open={isDropdownVisible}
+                        dropdownContentHeight={480}
+                        clickOutsideWidth={width === '100%' ? '100%' : undefined}
+                    >
+                        <SearchBarInput
+                            placeholder={placeholderText}
+                            onSearch={onSearchHandler}
+                            value={searchQuery}
+                            onFocus={onFocus}
+                            onBlur={onBlur}
+                            onViewsClick={onViewsClickHandler}
+                            onClear={clearQueryAndFilters}
+                            ref={searchInputRef}
+                            showCommandK={showCommandK}
+                            isDropdownOpened={isDropdownVisible}
+                            viewsEnabled={viewsEnabled}
+                            viewsWithPopover={viewsInPopover}
+                            isViewsSelectOpened={isViewsDropdownOpened}
+                            setIsViewsSelectOpened={setIsViewsDropdownOpened}
+                            width={width}
+                        />
+                    </StyledAutocomplete>
+                </StyledViewsExternalDropdown>
+            </Wrapper>
+        </ViewSelectContextProvider>
     );
 };
