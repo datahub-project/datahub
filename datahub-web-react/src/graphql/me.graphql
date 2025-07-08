@@ -35,6 +35,12 @@ query getMe {
                         urn
                     }
                 }
+                homePage {
+                    pageTemplate {
+                        urn
+                    }
+                    dismissedAnnouncementUrns
+                }
             }
         }
         platformPrivileges {
@@ -61,6 +67,8 @@ query getMe {
             manageBusinessAttributes
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageApplications
+            manageFeatures
         }
     }
 }
