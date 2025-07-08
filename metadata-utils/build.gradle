@@ -53,6 +53,9 @@ dependencies {
     implementation(externalDependency.javaxMail) {
       because("previous versions are vulnerable")
     }
+    implementation(externalDependency.zookeeper) {
+      because("CVE-2023-44981")
+    }
   }
   implementation externalDependency.logbackClassic
 
