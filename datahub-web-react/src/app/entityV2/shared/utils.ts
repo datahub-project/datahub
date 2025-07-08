@@ -10,6 +10,7 @@ import {
     ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
+    DataPlatform,
     DataProduct,
     Dataset,
     DatasetProfile,
@@ -89,15 +90,13 @@ export const singularizeCollectionName = (collectionName: string): string => {
     return collectionName;
 };
 
-export function getPlatformName(entityData: GenericEntityProperties | null) {
-    const platformNames = entityData?.siblingPlatforms?.map(
-        (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-    );
-    return (
-        platformNames?.[0] ||
-        entityData?.platform?.properties?.displayName ||
-        capitalizeFirstLetterOnly(entityData?.platform?.name)
-    );
+export function getPlatformNameFromEntityData(entityData: GenericEntityProperties | null) {
+    const platformNames = entityData?.siblingPlatforms?.map((platform) => getPlatformName(platform));
+    return platformNames?.[0] || getPlatformName(entityData?.platform);
+}
+
+export function getPlatformName(platform: DataPlatform | undefined | null) {
+    return platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name);
 }
 
 export function getExternalUrlDisplayName(entity: GenericEntityProperties | null) {

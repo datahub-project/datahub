@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Tuple
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -352,7 +352,7 @@ def test_get_folder_info_ignores_disallowed_path(
     assert f"File {expected_called_s3_uri} not allowed and skipping" in caplog.text, (
         "Dropped file should be logged"
     )
-    assert s3_source.get_report().filtered == [expected_called_s3_uri], (
+    assert list(s3_source.get_report().filtered) == [expected_called_s3_uri], (
         "Dropped file should be in the report.filtered"
     )
     assert res == [], "Dropped file should not be in the result"
@@ -433,3 +433,191 @@ def test_s3_region_in_external_url():
     assert "https://eu-west-1.console.aws.amazon.com" in external_url
     assert "production-bucket" in external_url
     assert "folder" in external_url
+
+
+class TestResolveTemplatedFolders:
+    """Test suite for the resolve_templated_folders method."""
+
+    def test_resolve_templated_folders_no_wildcard(self):
+        """Test that paths without wildcards are returned as-is."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/files/"
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        assert result == ["data/files/"]
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_single_wildcard(self, mock_list_folders):
+        """Test resolution of a single wildcard in the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        mock_list_folders.return_value = ["data/2023/", "data/2024/"]
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        mock_list_folders.assert_called_once_with(
+            bucket_name, "data/", s3_source.source_config.aws_config
+        )
+        expected = ["data/2023/files/", "data/2024/files/"]
+        assert result == expected
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_nested_wildcards(self, mock_list_folders):
+        """Test resolution of nested wildcards in the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/year=*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/year=*/files/"
+
+        # Mock the recursive calls
+        def mock_list_folders_side_effect(bucket, prefix, aws_config):
+            if prefix == "data/":
+                return ["data/logs/", "data/metrics/"]
+            elif prefix == "data/logs/year=":
+                return ["data/logs/year=2023/", "data/logs/year=2024/"]
+            elif prefix == "data/metrics/year=":
+                return ["data/metrics/year=2023/", "data/metrics/year=2024/"]
+            return []
+
+        mock_list_folders.side_effect = mock_list_folders_side_effect
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        expected = [
+            "data/logs/year=2023/files/",
+            "data/logs/year=2024/files/",
+            "data/metrics/year=2023/files/",
+            "data/metrics/year=2024/files/",
+        ]
+        assert result == expected
+        assert mock_list_folders.call_count == 3
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_empty_folders(self, mock_list_folders):
+        """Test handling when list_folders returns empty results."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        mock_list_folders.return_value = []
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        mock_list_folders.assert_called_once_with(
+            bucket_name, "data/", s3_source.source_config.aws_config
+        )
+        assert result == []
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_path_normalization(self, mock_list_folders):
+        """Test that path normalization handles slashes correctly."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        # Mock folders with various slash patterns
+        mock_list_folders.return_value = ["data/folder1", "data/folder2/"]
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        expected = ["data/folder1/files/", "data/folder2/files/"]
+        assert result == expected
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_remaining_pattern_with_leading_slash(
+        self, mock_list_folders
+    ):
+        """Test handling when remaining pattern starts with a slash."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/subdir/"
+
+        mock_list_folders.return_value = ["data/2023/", "data/2024/"]
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        expected = ["data/2023/subdir/", "data/2024/subdir/"]
+        assert result == expected
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_complex_nested_pattern(self, mock_list_folders):
+        """Test complex nested pattern with multiple wildcards."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/logs/*/region=*/day=*/*.json")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "logs/*/region=*/day=*/"
+
+        # Mock the nested folder structure
+        def mock_list_folders_side_effect(bucket, prefix, aws_config):
+            if prefix == "logs/":
+                return ["logs/app1/", "logs/app2/"]
+            elif prefix == "logs/app1/region=":
+                return ["logs/app1/region=us-east-1/", "logs/app1/region=eu-west-1/"]
+            elif prefix == "logs/app2/region=":
+                return ["logs/app2/region=us-east-1/"]
+            elif prefix == "logs/app1/region=us-east-1/day=":
+                return ["logs/app1/region=us-east-1/day=2024-01-01/"]
+            elif prefix == "logs/app1/region=eu-west-1/day=":
+                return ["logs/app1/region=eu-west-1/day=2024-01-01/"]
+            elif prefix == "logs/app2/region=us-east-1/day=":
+                return ["logs/app2/region=us-east-1/day=2024-01-01/"]
+            return []
+
+        mock_list_folders.side_effect = mock_list_folders_side_effect
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        expected = [
+            "logs/app1/region=us-east-1/day=2024-01-01/",
+            "logs/app1/region=eu-west-1/day=2024-01-01/",
+            "logs/app2/region=us-east-1/day=2024-01-01/",
+        ]
+        assert result == expected
+
+    @patch("datahub.ingestion.source.s3.source.list_folders")
+    def test_resolve_templated_folders_wildcard_at_end(self, mock_list_folders):
+        """Test wildcard at the end of the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*"
+
+        mock_list_folders.return_value = ["data/folder1/", "data/folder2/"]
+
+        # act
+        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+
+        # assert
+        expected = ["data/folder1/", "data/folder2/"]
+        assert result == expected
