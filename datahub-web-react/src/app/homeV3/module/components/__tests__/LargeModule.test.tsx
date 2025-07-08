@@ -39,7 +39,7 @@ vi.mock('@app/homeV3/module/components/ModuleName', () => ({
 
 vi.mock('@components', () => ({
     Button: ({ children, onClick, ...props }: any) => (
-        <button type="button" data-testid="view-all-button" onClick={onClick} {...props}>
+        <button type="button" onClick={onClick} {...props}>
             {children}
         </button>
     ),
@@ -92,7 +92,7 @@ describe('LargeModule', () => {
         const mockOnClickViewAll = vi.fn();
         render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} />);
 
-        const viewAllButton = screen.getByTestId('view-all-button');
+        const viewAllButton = screen.getByTestId('view-all');
         expect(viewAllButton).toBeInTheDocument();
         expect(viewAllButton).toHaveTextContent('View all');
     });
@@ -100,14 +100,14 @@ describe('LargeModule', () => {
     it('should not render view all button when onClickViewAll is not provided', () => {
         render(<LargeModule {...defaultProps} />);
 
-        expect(screen.queryByTestId('view-all-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('view-all')).not.toBeInTheDocument();
     });
 
     it('should call onClickViewAll when view all button is clicked', () => {
         const mockOnClickViewAll = vi.fn();
         render(<LargeModule {...defaultProps} onClickViewAll={mockOnClickViewAll} />);
 
-        const viewAllButton = screen.getByTestId('view-all-button');
+        const viewAllButton = screen.getByTestId('view-all');
         viewAllButton.click();
 
         expect(mockOnClickViewAll).toHaveBeenCalledTimes(1);

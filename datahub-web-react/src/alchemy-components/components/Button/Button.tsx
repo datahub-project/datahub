@@ -27,7 +27,6 @@ export const Button = ({
     isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
-    dataTestId,
     ...props
 }: ButtonProps) => {
     const styleProps = {
@@ -51,7 +50,7 @@ export const Button = ({
 
     // Prefer `icon.size` over `size` for icon size
     return (
-        <ButtonBase {...styleProps} {...props} data-testid={dataTestId}>
+        <ButtonBase {...styleProps} {...props}>
             {icon && iconPosition === 'left' && <Icon size={size} {...icon} />}
             {!isCircle && children}
             {icon && iconPosition === 'right' && <Icon size={size} {...icon} />}

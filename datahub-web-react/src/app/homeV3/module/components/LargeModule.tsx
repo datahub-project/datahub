@@ -78,7 +78,7 @@ export default function LargeModule({ children, module, loading, onClickViewAll 
                 )}
             </Content>
             {onClickViewAll && (
-                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} dataTestId="view-all">
+                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} data-testid="view-all">
                     View all
                 </ViewAllButton>
             )}

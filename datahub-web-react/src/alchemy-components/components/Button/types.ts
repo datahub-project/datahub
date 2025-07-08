@@ -23,7 +23,6 @@ export interface ButtonPropsDefaults {
     isLoading: boolean;
     isDisabled: boolean;
     isActive: boolean;
-    dataTestId?: string;
 }
 
 export interface ButtonProps
