@@ -73,8 +73,7 @@ public class PageTemplateService {
       properties.setCreated(nowAuditStamp);
     }
 
-    // ensure that all modules referenced in rows exist
-    validatePageTemplateRows(opContext, rows);
+    checkModulesExistInRows(opContext, rows);
 
     properties.setRows(new DataHubPageTemplateRowArray(rows));
 
@@ -134,7 +133,7 @@ public class PageTemplateService {
     }
   }
 
-  private void validatePageTemplateRows(
+  private void checkModulesExistInRows(
       @Nonnull OperationContext opContext, @Nonnull final List<DataHubPageTemplateRow> rows) {
     rows.forEach(
         row -> {
@@ -144,9 +143,7 @@ public class PageTemplateService {
                     try {
                       if (!entityClient.exists(opContext, module)) {
                         throw new RuntimeException(
-                            String.format(
-                                "Failed to add page template rows as module with urn %s does not exist",
-                                module));
+                            String.format("Module with urn %s does not exist", module));
                       }
                     } catch (Exception e) {
                       throw new RuntimeException("Failed validating template rows", e);
