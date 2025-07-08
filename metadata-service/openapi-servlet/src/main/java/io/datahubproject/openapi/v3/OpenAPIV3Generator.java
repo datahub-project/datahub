@@ -165,6 +165,9 @@ public class OpenAPIV3Generator {
               "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
               buildEntityBatchGetRequestSchema(e, aspectNames));
           components.addSchemas(
+              "BatchGet" + ENTITIES + ENTITY_REQUEST_SUFFIX,
+              buildEntitiesBatchGetRequestSchema(filteredAspectSpec, aspectNames));
+          components.addSchemas(
               entityName + ENTITY_REQUEST_PATCH_SUFFIX,
               buildEntityPatchSchema(e, aspectNames, true));
         });
@@ -697,9 +700,6 @@ public class OpenAPIV3Generator {
   /*  /openapi/v3/entity      (GET | POST | PATCH)                  */
   /* =============================================================== */
   private static PathItem buildListGenericEntitiesPath() {
-    String aspectParamRef =
-        String.format("#/components/parameters/%s", ENTITIES + ASPECTS + MODEL_VERSION);
-
     /* ---------- POST (create) ----------------------------------- */
     Content createBodyContent =
         new Content()
@@ -1421,6 +1421,29 @@ public class OpenAPIV3Generator {
     return newSchema()
         .type(TYPE_OBJECT)
         .description(toUpperFirst(entity.getName()) + " object.")
+        .required(List.of(PROPERTY_URN))
+        .properties(properties);
+  }
+
+  /** Same structure as buildEntityBatchGetRequestSchema but covers the union of all aspects. */
+  private static Schema buildEntitiesBatchGetRequestSchema(
+      Map<String, AspectSpec> aspectSpecs, Set<String> aspectNames) {
+
+    Map<String, Schema> properties =
+        aspectSpecs.entrySet().stream()
+            .filter(e -> aspectNames.contains(e.getKey()))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> newSchema().$ref("#/components/schemas/BatchGetRequestBody"),
+                    (a, b) -> a, // merge func (won’t actually happen)
+                    LinkedHashMap::new));
+
+    properties.put(PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for entity"));
+
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description(ENTITIES + " object.")
         .required(List.of(PROPERTY_URN))
         .properties(properties);
   }
