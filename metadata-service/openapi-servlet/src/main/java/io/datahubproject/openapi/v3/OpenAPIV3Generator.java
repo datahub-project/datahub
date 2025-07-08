@@ -174,6 +174,9 @@ public class OpenAPIV3Generator {
 
     components.addSchemas(
         "SortOrder", newSchema().type(TYPE_STRING)._enum(List.of("ASCENDING", "DESCENDING")));
+    components.addSchemas(
+        ENTITIES + ENTITY_REQUEST_PATCH_SUFFIX,
+        buildEntitiesPatchRequestSchema(definedEntitySpecs));
 
     // Parameters
 
@@ -1355,6 +1358,30 @@ public class OpenAPIV3Generator {
             Map.of(
                 "entities", entitiesSchema,
                 "aspects", aspectsSchema));
+  }
+
+  private static Schema buildEntitiesPatchRequestSchema(List<EntitySpec> entitySpecs) {
+    Map<String, Schema> props = new LinkedHashMap<>();
+
+    entitySpecs.forEach(
+        e ->
+            props.put(
+                e.getName(), // property name (lower-case entity name)
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        newSchema()
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    toUpperFirst(e.getName()), // <Entity>
+                                    ENTITY_REQUEST_PATCH_SUFFIX)))));
+
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Mixed-entity patch request body.")
+        .additionalProperties(false)
+        .properties(props);
   }
 
   /**
