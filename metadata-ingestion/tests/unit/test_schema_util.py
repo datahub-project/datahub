@@ -375,6 +375,8 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
         "[version=2.0].[type=union].[type=Person].[type=string].firstname",
         "[version=2.0].[type=union].[type=Person].[type=string].lastname",
         "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].streetAddress",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -1027,7 +1029,7 @@ def test_avro_schema_array_reference_to_record_type_elsewhere():
 """
     fields = avro_schema_to_mce_fields(schema)
 
-    # Expected behavior (what should happen after fix) - array reference should include child fields
+    # Expected behavior (after fix) - array reference should include child fields
     expected_field_paths = [
         "[version=2.0].[type=union]",
         "[version=2.0].[type=union].[type=Address].[type=string].street",
@@ -1039,10 +1041,9 @@ def test_avro_schema_array_reference_to_record_type_elsewhere():
         "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
         "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].zipCode",
         "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses",
-        # Missing: child fields for addresses array
-        # "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
-        # "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
-        # "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
     ]
 
     assert_field_paths_match(fields, expected_field_paths)
