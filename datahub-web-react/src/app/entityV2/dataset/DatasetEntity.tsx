@@ -17,6 +17,7 @@ import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { GOVERNANCE_TAB_NAME, QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
@@ -70,9 +71,6 @@ import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
 
 import GovernMenuIcon from '@images/governMenuIcon.svg?react';
-
-export const GOVERNANCE_TAB_NAME = 'Governance';
-export const QUALITY_TAB_NAME = 'Quality';
 
 const SUBTYPES = {
     VIEW: 'view',

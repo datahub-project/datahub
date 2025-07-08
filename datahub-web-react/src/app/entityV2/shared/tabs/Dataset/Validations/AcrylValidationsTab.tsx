@@ -4,7 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { QUALITY_TAB_NAME } from '@app/entityV2/dataset/DatasetEntity';
+import { QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
 import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';

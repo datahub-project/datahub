@@ -9,7 +9,7 @@ import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { TestResults } from '@app/entity/shared/tabs/Dataset/Governance/TestResults';
 import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
-import { GOVERNANCE_TAB_NAME } from '@app/entityV2/dataset/DatasetEntity';
+import { GOVERNANCE_TAB_NAME } from '@app/entityV2/dataset/constants';
 
 const TabTitle = styled.span`
     margin-left: 4px;
