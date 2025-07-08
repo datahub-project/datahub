@@ -676,12 +676,9 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
         # Set up _get_urns to return our sample URNs
         # and mock _process_futures to simulate completion
-        # and mock _print_report to avoid timing issues
         with patch.object(
             self.cleanup, "_get_urns", return_value=self.sample_urns
-        ), patch.object(
-            self.cleanup, "_process_futures", return_value={}
-        ), patch.object(self.cleanup, "_print_report"):
+        ), patch.object(self.cleanup, "_process_futures", return_value={}):
             # Run cleanup
             self.cleanup.cleanup_soft_deleted_entities()
 
@@ -716,15 +713,12 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
         # Set up _get_urns to return mixed URNs
         # and mock _process_futures to simulate completion
-        # and mock _print_report to avoid timing issues
         # and mock logger to capture log messages
         with patch.object(
             self.cleanup, "_get_urns", return_value=mixed_urns
         ), patch.object(
             self.cleanup, "_process_futures", return_value={}
-        ), patch.object(self.cleanup, "_print_report"), self.assertLogs(
-            level="ERROR"
-        ) as log_context:
+        ), self.assertLogs(level="ERROR") as log_context:
             # Run cleanup
             self.cleanup.cleanup_soft_deleted_entities()
 
@@ -763,14 +757,13 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
         # Set up _get_urns to return sample URNs
         # and mock _process_futures with our side effect function
-        # and mock _print_report to avoid timing issues
         with patch.object(
             self.cleanup, "_get_urns", return_value=self.sample_urns
         ), patch.object(
             self.cleanup,
             "_process_futures",
             side_effect=process_futures_side_effect,
-        ), patch.object(self.cleanup, "_print_report"):
+        ):
             # Run cleanup
             self.cleanup.cleanup_soft_deleted_entities()
 
@@ -793,12 +786,9 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
             # Set up _get_urns to return sample URNs
             # and mock _process_futures to simulate completion
-            # and mock _print_report to avoid timing issues
             with patch.object(
                 self.cleanup, "_get_urns", return_value=self.sample_urns
-            ), patch.object(
-                self.cleanup, "_process_futures", return_value={}
-            ), patch.object(self.cleanup, "_print_report"):
+            ), patch.object(self.cleanup, "_process_futures", return_value={}):
                 # Run cleanup
                 self.cleanup.cleanup_soft_deleted_entities()
 
@@ -819,12 +809,9 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
             # Set up _get_urns to return sample URNs
             # and mock _process_futures to simulate completion
-            # and mock _print_report to avoid timing issues
             with patch.object(
                 self.cleanup, "_get_urns", return_value=self.sample_urns
-            ), patch.object(
-                self.cleanup, "_process_futures", return_value={}
-            ), patch.object(self.cleanup, "_print_report"):
+            ), patch.object(self.cleanup, "_process_futures", return_value={}):
                 # Run cleanup
                 self.cleanup.cleanup_soft_deleted_entities()
 
@@ -842,10 +829,9 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
 
         # Set up _get_urns to return empty list
         # and mock _process_futures to simulate completion
-        # and mock _print_report to avoid timing issues
         with patch.object(self.cleanup, "_get_urns", return_value=[]), patch.object(
             self.cleanup, "_process_futures"
-        ), patch.object(self.cleanup, "_print_report"):
+        ):
             # Run cleanup
             self.cleanup.cleanup_soft_deleted_entities()
 
