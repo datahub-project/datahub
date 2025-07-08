@@ -1,21 +1,7 @@
-import React from 'react';
-import styled from 'styled-components';
-
-import { Pill } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { formatNumber } from '@src/app/shared/formatNumber';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 
-const Styled = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const TabName = styled.div`
-    padding-right: 4px;
-`;
-
-function GlossaryRelatedAssetsTabHeader() {
+export default function useGlossaryRelatedAssetsTabCount() {
     const { entityData } = useEntityData();
 
     // To get the number of related assets
@@ -44,12 +30,5 @@ function GlossaryRelatedAssetsTabHeader() {
         fetchPolicy: 'cache-and-network',
     });
 
-    return (
-        <Styled>
-            <TabName>Related Assets</TabName>
-            <Pill label={formatNumber(data?.searchAcrossEntities?.total || 0)} />
-        </Styled>
-    );
+    return data?.searchAcrossEntities?.total || 0;
 }
-
-export default GlossaryRelatedAssetsTabHeader;
