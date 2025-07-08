@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
 from pydantic import Field, validator
-from simple_salesforce import Salesforce
+from simple_salesforce import Salesforce, format_soql
 from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
 import datahub.emitter.mce_builder as builder
@@ -402,13 +402,11 @@ class SalesforceApi:
         # to filter out entities not on ObjectManager UI. Hence SOQL on EntityDefinition
         # object is used instead, as suggested by salesforce support.
 
-        query_url = (
-            self.base_url
-            + "tooling/query/?q=SELECT DurableId,QualifiedApiName,DeveloperName,"
+        entities_response = self.sf.query_all(
+            "SELECT DurableId,QualifiedApiName,DeveloperName,"
             + "Label,PluralLabel,InternalSharingModel,ExternalSharingModel,DeploymentStatus "
             + "FROM EntityDefinition WHERE IsCustomizable = true"
         )
-        entities_response = self.sf._call_salesforce("GET", query_url).json()
         logger.debug(
             "Salesforce EntityDefinition query returned {count} sObjects".format(
                 count=len(entities_response["records"])
@@ -443,22 +441,34 @@ class SalesforceApi:
     def get_fields_for_object(
         self, sObjectName: str, sObjectDurableId: str
     ) -> List[EntityParticle]:
-        sObject_fields_query_url = (
-            self.base_url
-            + "tooling/query?q=SELECT "
+        query = format_soql("SELECT "
             + "QualifiedApiName,DeveloperName,Label, FieldDefinition.DataType, DataType,"
             + "FieldDefinition.LastModifiedDate, FieldDefinition.LastModifiedBy.Username,"
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText, "
-            + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
+            + "IsCalculated FROM EntityParticle WHERE EntityDefinitionId={}",
                 sObjectDurableId
             )
-        )
+        
+        try:
+            sObject_fields_response = self.sf.query_all(query)
+        except Exception as e:
+            logger.warning("Error querying EntityParticle", exc_info=e)
 
-        sObject_fields_response = self.sf._call_salesforce(
-            "GET", sObject_fields_query_url
-        ).json()
+            sObject_fields_response = self.sf.query_all("SELECT "
+            + "QualifiedApiName,DeveloperName,Label, FieldDefinition.DataType, DataType,"
+                + "FieldDefinition.LastModifiedDate, FieldDefinition.LastModifiedBy.Username,"
+                + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique"
+                + ",IsCompound, IsComponent, ReferenceTo"
+                # + ",FieldDefinition.ComplianceGroup"
+                + ",RelationshipName, IsNillable, InlineHelpText "
+                # + ",FieldDefinition.Description"
+                + ",IsCalculated "
+                +" FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
+                    sObjectDurableId
+                )
+            )
 
         logger.debug(f"Received Salesforce {sObjectName} fields response")
 
@@ -468,19 +478,16 @@ class SalesforceApi:
     def get_custom_fields_for_object(
         self, sObjectName: str, sObjectDurableId: str
     ) -> Dict[str, CustomField]:
-        sObject_custom_fields_query_url = (
-            self.base_url
-            + "tooling/query?q=SELECT "
+        query = format_soql("SELECT "
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(sObjectDurableId)
+            + "FROM CustomField WHERE EntityDefinitionId={}",
+            sObjectDurableId
         )
 
         customFields: Dict[str, CustomField] = {}
         try:
-            sObject_custom_fields_response = self.sf._call_salesforce(
-                "GET", sObject_custom_fields_query_url
-            ).json()
+            sObject_custom_fields_response = self.sf.query_all(query)
 
             logger.debug(
                 "Received Salesforce {sObject} custom fields response".format(
@@ -974,7 +981,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
         if fieldName in sfSystemFields:
             fieldTags.append("SystemField")
 
-        if field["FieldDefinition"]["ComplianceGroup"] is not None:
+        if field["FieldDefinition"].get("ComplianceGroup") is not None:
             # CCPA, COPPA, GDPR, HIPAA, PCI, PersonalInfo, PII
             fieldTags.extend(
                 iter(field["FieldDefinition"]["ComplianceGroup"].split(";"))
