@@ -1586,6 +1586,7 @@ def create_lineage_sql_parsed_result(
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
+    default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -1605,6 +1606,7 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
