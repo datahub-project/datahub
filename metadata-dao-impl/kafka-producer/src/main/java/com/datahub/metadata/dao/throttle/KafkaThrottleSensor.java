@@ -3,7 +3,6 @@ package com.datahub.metadata.dao.throttle;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
 
-import com.codahale.metrics.Gauge;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -57,6 +56,7 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   @Nonnull private final String mclConsumerGroupId;
   @Nonnull private final String versionedTopicName;
   @Nonnull private final String timeseriesTopicName;
+  private final MetricUtils metricUtils;
 
   /** A list of throttle event listeners to execute when throttling occurs and ceases */
   @Builder.Default @Nonnull
@@ -156,10 +156,9 @@ public class KafkaThrottleSensor implements ThrottleSensor {
         // not throttled, remove backoff tracking
         log.info("Throttle exponential backoff reset.");
         backoffMap.remove(mclType);
-        MetricUtils.gauge(
-            this.getClass(),
-            String.format("%s_throttled", getTopicName(mclType)),
-            () -> (Gauge<?>) () -> 0);
+        if (metricUtils != null)
+          metricUtils.gauge(
+              this.getClass(), String.format("%s_throttled", getTopicName(mclType)), () -> 0);
       } else {
         throttled.put(mclType, backoffWaitMs);
       }
@@ -177,13 +176,16 @@ public class KafkaThrottleSensor implements ThrottleSensor {
       throttled.keySet().stream()
           .forEach(
               mclType -> {
-                MetricUtils.gauge(
-                    this.getClass(),
-                    String.format("%s_throttled", getTopicName(mclType)),
-                    () -> (Gauge<?>) () -> 1);
-                MetricUtils.counter(
-                        this.getClass(), String.format("%s_throttledCount", getTopicName(mclType)))
-                    .inc();
+                if (metricUtils != null)
+                  metricUtils.gauge(
+                      this.getClass(),
+                      String.format("%s_throttled", getTopicName(mclType)),
+                      () -> 1);
+                if (metricUtils != null)
+                  metricUtils.increment(
+                      this.getClass(),
+                      String.format("%s_throttledCount", getTopicName(mclType)),
+                      1);
               });
 
       log.info("Throttling {} callbacks for {} ms.", throttleCallbacks.size(), maxBackoffWaitMs);
