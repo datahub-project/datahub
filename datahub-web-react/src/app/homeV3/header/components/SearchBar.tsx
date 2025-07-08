@@ -36,6 +36,7 @@ export default function SearchBar() {
                 width="100%"
                 fixAutoComplete
                 viewsEnabled
+                viewsInPopover={false}
                 isShowNavBarRedesign
                 showViewAllResults
                 combineSiblings
