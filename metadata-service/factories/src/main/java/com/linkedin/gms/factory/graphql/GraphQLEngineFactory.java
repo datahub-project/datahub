@@ -41,6 +41,7 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -209,6 +210,10 @@ public class GraphQLEngineFactory {
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
+  @Autowired
+  @Qualifier("pageTemplateService")
+  private PageTemplateService pageTemplateService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -264,6 +269,7 @@ public class GraphQLEngineFactory {
     args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
     args.setApplicationService(applicationService);
+    args.setPageTemplateService(pageTemplateService);
     args.setGraphQLConfiguration(configProvider.getGraphQL());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
