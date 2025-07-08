@@ -146,7 +146,7 @@ class ExamplesReport(Report, Closeable):
 
     # We are adding this to make querying easier for fine-grained lineage
     _fine_grained_lineage_special_case_name = "fineGrainedLineages"
-    _samples_to_add: int = 10
+    _samples_to_add: int = 20
     _lineage_aspects_seen: Set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
@@ -165,6 +165,103 @@ class ExamplesReport(Report, Closeable):
         if self._file_based_dict is not None:
             self._file_based_dict.close()
             self._file_based_dict = None
+
+    def _build_aspects_where_clause(self, aspects: List[str]) -> str:
+        """Build WHERE clause for matching any of the given aspects."""
+        if not aspects:
+            return ""
+
+        conditions = []
+        for aspect in aspects:
+            conditions.append(f"aspects LIKE '%{aspect}%'")
+
+        return " OR ".join(conditions)
+
+    def _collect_samples_by_subtype(self, where_clause: str, sample_key: str) -> None:
+        """Helper method to collect samples organized by subtype for a given where clause."""
+
+        subtype_query = f"""
+        SELECT DISTINCT subTypes
+        FROM urn_aspects 
+        WHERE {where_clause}
+        """
+
+        subtypes = set()
+        for row in self._file_based_dict.sql_query(subtype_query):
+            sub_type = row["subTypes"] or "unknown"
+            subtypes.add(sub_type)
+
+        for sub_type in subtypes:
+            query = f"""
+            SELECT urn
+            FROM urn_aspects 
+            WHERE {where_clause} AND subTypes = ?
+            limit {self._samples_to_add}
+            """
+
+            for row in self._file_based_dict.sql_query(query, (sub_type,)):
+                self.samples[sample_key][sub_type].append(row["urn"])
+
+    def _collect_samples_by_aspects(self, aspects: List[str], sample_key: str) -> None:
+        """Helper method to collect samples for entities that have any of the given aspects."""
+        if not aspects:
+            return
+
+        where_clause = self._build_aspects_where_clause(aspects)
+        self._collect_samples_by_subtype(where_clause, sample_key)
+
+    def _collect_samples_by_lineage_aspects(
+        self, aspects: List[str], sample_key: str
+    ) -> None:
+        """Helper method to collect samples for entities that have any of the given lineage aspects.
+
+        Lineage aspects are stored in JSON format and require quote escaping in LIKE clauses.
+        """
+        if not aspects:
+            return
+
+        lineage_conditions = []
+        for aspect in aspects:
+            lineage_conditions.append(f"aspects LIKE '%\"{aspect}\"%'")
+
+        where_clause = " OR ".join(lineage_conditions)
+        self._collect_samples_by_subtype(where_clause, sample_key)
+
+    def _collect_samples_with_all_conditions(self, sample_key: str) -> None:
+        """Helper method to collect samples for entities that have lineage, profiling, and usage aspects."""
+        if not self._lineage_aspects_seen:
+            return
+
+        # Build lineage conditions using the same logic as _collect_samples_by_lineage_aspects
+        lineage_conditions = []
+        for aspect in self._lineage_aspects_seen:
+            lineage_conditions.append(f"aspects LIKE '%\"{aspect}\"%'")
+        lineage_where_clause = " OR ".join(lineage_conditions)
+
+        # Build profiling conditions using the same logic as _collect_samples_by_aspects
+        profiling_where_clause = self._build_aspects_where_clause(["datasetProfile"])
+
+        # Build usage conditions using the same logic as _collect_samples_by_aspects
+        usage_where_clause = self._build_aspects_where_clause(
+            [
+                "datasetUsageStatistics",
+                "chartUsageStatistics",
+                "dashboardUsageStatistics",
+            ]
+        )
+
+        query = f"""
+        SELECT urn, subTypes
+        FROM urn_aspects
+        WHERE ({lineage_where_clause})
+        AND ({profiling_where_clause})
+        AND ({usage_where_clause})
+        limit {self._samples_to_add}
+        """
+
+        for row in self._file_based_dict.sql_query(query):
+            sub_type = row["subTypes"] or "unknown"
+            self.samples[sample_key][sub_type].append(row["urn"])
 
     def _has_fine_grained_lineage(
         self, mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]
@@ -261,65 +358,19 @@ class ExamplesReport(Report, Closeable):
                 self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
 
         self.samples.clear()
-        # query = f"""
-        # SELECT urn
-        # FROM urn_aspects
-        # where aspects like '%datasetProfile%'
-        # limit {self._samples_to_add}
-        # """
-        # for row in self._file_based_dict.sql_query(query):
-        #     self.samples["profiling"].append(row["urn"])
-
-        # query = f"""
-        # SELECT urn
-        # FROM urn_aspects
-        # where aspects like '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
-        # limit {self._samples_to_add}
-        # """
-        # for row in self._file_based_dict.sql_query(query):
-        #     self.samples["usage"].append(row["urn"])
-
-        if self._lineage_aspects_seen:
-            lineage_like_conditions = []
-            for aspect in self._lineage_aspects_seen:
-                lineage_like_conditions.append(f"aspects LIKE '%\"{aspect}\"%'")
-
-            where_clause = " OR ".join(lineage_like_conditions)
-
-            subtype_query = f"""
-            SELECT DISTINCT subTypes
-            FROM urn_aspects 
-            WHERE {where_clause}
-            """
-
-            subtypes = set()
-            for row in self._file_based_dict.sql_query(subtype_query):
-                sub_type = row["subTypes"] or "unknown"
-                subtypes.add(sub_type)
-
-            for sub_type in subtypes:
-                query = f"""
-                SELECT urn
-                FROM urn_aspects 
-                WHERE {where_clause} AND subTypes = ?
-                limit {self._samples_to_add}
-                """
-
-                for row in self._file_based_dict.sql_query(query, (sub_type,)):
-                    self.samples["lineage"][sub_type].append(row["urn"])
-
-            # lineage_where_clause = " OR ".join(lineage_like_conditions)
-            # query = f"""
-            # SELECT urn
-            # FROM urn_aspects
-            # WHERE ({lineage_where_clause})
-            # AND aspects LIKE '%datasetProfile%'
-            # AND aspects LIKE '%datasetUsageStatistics|chartUsageStatistics|dashboardUsageStatistics%'
-            # limit {self._samples_to_add}
-            # """
-
-            # for row in self._file_based_dict.sql_query(query):
-            #     self.samples["all_3"].append(row["urn"])
+        self._collect_samples_by_aspects(["datasetProfile"], "profiling")
+        self._collect_samples_by_aspects(
+            [
+                "datasetUsageStatistics",
+                "chartUsageStatistics",
+                "dashboardUsageStatistics",
+            ],
+            "usage",
+        )
+        self._collect_samples_by_lineage_aspects(
+            list(self._lineage_aspects_seen), "lineage"
+        )
+        self._collect_samples_with_all_conditions("all_3")
 
 
 class EntityFilterReport(ReportAttribute):
