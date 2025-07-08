@@ -1,3 +1,4 @@
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
@@ -14,6 +15,8 @@ T = TypeVar("T")
 
 if TYPE_CHECKING:
     from datahub.ingestion.run.pipeline_config import FlagsConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -107,8 +110,4 @@ class PipelineContext:
                 if self._pipeline._time_to_print() and not self._pipeline.no_progress:
                     self._pipeline.pretty_print_summary(currently_running=True)
             except Exception as e:
-                # Don't let progress reporting errors crash the pipeline
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to report progress: {e}")
