@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Iterable, List, Optional
+from urllib.parse import unquote
 
 from pydantic import Field, SecretStr, validator
 
@@ -120,9 +121,9 @@ class GCSSource(StatefulIngestionSourceBase):
         for path_spec in self.config.path_specs:
             s3_path_specs.append(
                 PathSpec(
-                    include=path_spec.include.replace("gs://", "s3://"),
+                    include=path_spec.include,  # Keep original GCS format for path matching
                     exclude=(
-                        [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
+                        [exc for exc in path_spec.exclude]
                         if path_spec.exclude
                         else None
                     ),
@@ -160,7 +161,17 @@ class GCSSource(StatefulIngestionSourceBase):
         )
 
         # Apply all customizations to the source
-        return adapter.apply_customizations(source)
+        source = adapter.apply_customizations(source)
+        
+        # Override the create_s3_path method to create GCS paths instead of S3 paths
+        # This ensures that the path matching logic works correctly with GCS paths
+        def create_gcs_path(bucket_name: str, key: str) -> str:
+            """Create GCS path for consistency with path matching."""
+            return unquote(f"gs://{bucket_name}/{key}")
+        
+        source.create_s3_path = create_gcs_path
+        
+        return source
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
