@@ -191,7 +191,7 @@ following.
 
 ```
 NAME                       CLASS    HOSTS                         ADDRESS                                                                 PORTS   AGE
-datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
+datahub-datahub-frontend   <none>   demo.datahub.com   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
 ```
 
 Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (

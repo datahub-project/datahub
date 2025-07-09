@@ -149,7 +149,7 @@ and remove new Terms from the `PII` Classification, e.g. without requiring re-an
 
 ## Demo
 
-Check out [our demo site](https://demo.datahubproject.io/glossary) to see an example Glossary and how it works!
+Check out [our demo site](https://demo.datahub.com) to see an example Glossary and how it works!
 
 ### GraphQL
 

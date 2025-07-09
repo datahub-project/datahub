@@ -24,7 +24,7 @@ module.exports = {
         {
           type: "link",
           label: "Demo",
-          href: "https://demo.datahubproject.io/",
+          href: "https://demo.datahub.com/",
         },
         {
           type: "link",

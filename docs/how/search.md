@@ -85,7 +85,7 @@ If you want to:
 
 - Exact match on term or phrase
 
-  - `"pet profile"` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22pet%20profile%22)
+  - `"pet profile"` [Sample results](https://demo.datahub.com/search?page=1&query=%22pet%20profile%22)
   - `pet profile` [Sample results](https://demo.datahubproject.io/search?page=1&query=pet%20profile)
   - Enclosing one or more terms with double quotes will enforce exact matching on these terms, preventing further tokenization.
 
@@ -549,7 +549,7 @@ The order of the search results is based on the weight what Datahub gives them b
 
 **Where to find more information?**
 
-The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
+The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 `curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
 
