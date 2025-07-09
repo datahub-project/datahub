@@ -654,8 +654,8 @@ public class OpenAPIV3GeneratorTest {
     /* ------------------------------------------------------------------ */
     /*  1)  /openapi/v3/entity  (POST  |  PATCH)                          */
     /* ------------------------------------------------------------------ */
-    assertTrue(paths.containsKey("/openapi/v3/generic/entity"), "collection path must exist");
-    PathItem collection = paths.get("/openapi/v3/generic/entity");
+    assertTrue(paths.containsKey("/openapi/v3/entity/generic"), "collection path must exist");
+    PathItem collection = paths.get("/openapi/v3/entity/generic");
 
     // ---------- POST (create / replace) ----------
     assertNotNull(collection.getPost(), "POST (create/upsert) must exist");
