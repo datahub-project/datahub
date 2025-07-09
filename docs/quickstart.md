@@ -22,7 +22,7 @@ If you're interested in a managed version, [DataHub](https://www.datahub.com) pr
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.8+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.9+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 

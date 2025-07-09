@@ -40,7 +40,7 @@ def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip inst
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
-          'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
+          'import sys; sys.version_info >= (3, 9), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
