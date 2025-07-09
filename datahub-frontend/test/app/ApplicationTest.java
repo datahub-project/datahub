@@ -68,15 +68,15 @@ public class ApplicationTest extends WithBrowser {
   @Override
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
-            .configure("metadataService.port", String.valueOf(gmsServerPort()))
-            .configure("auth.baseUrl", "http://localhost:" + providePort())
-            .configure(
-                    "auth.oidc.discoveryUri",
-                    "http://localhost:"
-                            + oauthServerPort()
-                            + "/testIssuer/.well-known/openid-configuration")
-            .in(new Environment(Mode.TEST))
-            .build();
+        .configure("metadataService.port", String.valueOf(gmsServerPort()))
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + oauthServerPort()
+                + "/testIssuer/.well-known/openid-configuration")
+        .in(new Environment(Mode.TEST))
+        .build();
   }
 
   @Override
@@ -114,7 +114,7 @@ public class ApplicationTest extends WithBrowser {
     gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     gmsServer.enqueue(
-            new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
+        new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
     gmsServer.start(gmsServerPort());
 
     // Start Mock Identity Provider
@@ -153,86 +153,86 @@ public class ApplicationTest extends WithBrowser {
   private void startMockOauthServer() {
     // Configure HEAD responses
     Route[] routes =
-            new Route[] {
-                    new Route() {
-                      @Override
-                      public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {
-                        return "HEAD".equals(oAuth2HttpRequest.getMethod())
-                                && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
-                                .equals(oAuth2HttpRequest.getUrl().url().getPath())
-                                || String.format("/%s/token", ISSUER_ID)
-                                .equals(oAuth2HttpRequest.getUrl().url().getPath()));
-                      }
+        new Route[] {
+          new Route() {
+            @Override
+            public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {
+              return "HEAD".equals(oAuth2HttpRequest.getMethod())
+                  && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
+                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
+                      || String.format("/%s/token", ISSUER_ID)
+                          .equals(oAuth2HttpRequest.getUrl().url().getPath()));
+            }
 
-                      @Override
-                      public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
-                        return new OAuth2HttpResponse(
-                                Headers.of(
-                                        Map.of(
-                                                "Content-Type", "application/json",
-                                                "Cache-Control", "no-store",
-                                                "Pragma", "no-cache",
-                                                "Content-Length", "-1")),
-                                200,
-                                null,
-                                null);
-                      }
-                    }
-            };
+            @Override
+            public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
+              return new OAuth2HttpResponse(
+                  Headers.of(
+                      Map.of(
+                          "Content-Type", "application/json",
+                          "Cache-Control", "no-store",
+                          "Pragma", "no-cache",
+                          "Content-Length", "-1")),
+                  200,
+                  null,
+                  null);
+            }
+          }
+        };
     oauthServer = new MockOAuth2Server(routes);
     oauthServerStarted = new CompletableFuture<>();
 
     // Create and start server in separate thread
     oauthServerThread =
-            new Thread(
-                    () -> {
-                      try {
-                        // Configure mock responses
-                        oauthServer.enqueueCallback(
-                                new DefaultOAuth2TokenCallback(
-                                        ISSUER_ID,
-                                        "testUser",
-                                        "JWT",
-                                        List.of(),
-                                        Map.of(
-                                                "email", "testUser@myCompany.com",
-                                                "groups", "myGroup"),
-                                        600));
+        new Thread(
+            () -> {
+              try {
+                // Configure mock responses
+                oauthServer.enqueueCallback(
+                    new DefaultOAuth2TokenCallback(
+                        ISSUER_ID,
+                        "testUser",
+                        "JWT",
+                        List.of(),
+                        Map.of(
+                            "email", "testUser@myCompany.com",
+                            "groups", "myGroup"),
+                        600));
 
-                        oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
+                oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
 
-                        oauthServerStarted.complete(null);
+                oauthServerStarted.complete(null);
 
-                        // Keep thread alive until server is stopped
-                        while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
-                          try {
-                            Thread.sleep(1000);
-                          } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            break;
-                          }
-                        }
-                      } catch (Exception e) {
-                        oauthServerStarted.completeExceptionally(e);
-                      }
-                    });
+                // Keep thread alive until server is stopped
+                while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
+                  try {
+                    Thread.sleep(1000);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                  }
+                }
+              } catch (Exception e) {
+                oauthServerStarted.completeExceptionally(e);
+              }
+            });
 
     oauthServerThread.setDaemon(true); // Ensure thread doesn't prevent JVM shutdown
     oauthServerThread.start();
 
     // Wait for server to start with timeout
     oauthServerStarted
-            .orTimeout(10, TimeUnit.SECONDS)
-            .whenComplete(
-                    (result, throwable) -> {
-                      if (throwable != null) {
-                        if (throwable instanceof TimeoutException) {
-                          throw new RuntimeException(
-                                  "MockOAuth2Server failed to start within timeout", throwable);
-                        }
-                        throw new RuntimeException("MockOAuth2Server failed to start", throwable);
-                      }
-                    });
+        .orTimeout(10, TimeUnit.SECONDS)
+        .whenComplete(
+            (result, throwable) -> {
+              if (throwable != null) {
+                if (throwable instanceof TimeoutException) {
+                  throw new RuntimeException(
+                      "MockOAuth2Server failed to start within timeout", throwable);
+                }
+                throw new RuntimeException("MockOAuth2Server failed to start", throwable);
+              }
+            });
 
     // Discovery url to authorization server metadata
     wellKnownUrl = oauthServer.wellKnownUrl(ISSUER_ID).toString();
@@ -248,7 +248,7 @@ public class ApplicationTest extends WithBrowser {
 
       if (responseCode != 200) {
         throw new RuntimeException(
-                "MockOAuth2Server not accessible. Response code: " + responseCode);
+            "MockOAuth2Server not accessible. Response code: " + responseCode);
       }
       logger.info("Successfully started MockOAuth2Server.");
     } catch (Exception e) {
@@ -282,8 +282,8 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testOpenIdConfig() {
     assertEquals(
-            "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
-            wellKnownUrl);
+        "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
+        wellKnownUrl);
   }
 
   @Test
@@ -304,10 +304,10 @@ public class ApplicationTest extends WithBrowser {
     // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
     // the time before this executes
     assertTrue(
-            claims
-                    .getExpirationTime()
-                    .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
-                    < 0);
+        claims
+                .getExpirationTime()
+                .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
+            < 0);
   }
 
   @Test
