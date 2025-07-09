@@ -857,16 +857,23 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
     def mock_search_by_filter(*args, **kwargs):
         return []
 
-    with patch(
-        "datahub.api.entities.external.external_entities.PlatformResourceRepository.search_by_filter",
-        side_effect=mock_search_by_filter,
-    ), patch.object(
-        glue_source_instance.lf_client,
-        "get_resource_lf_tags",
-        side_effect=mock_get_resource_lf_tags,
-    ), patch.object(
-        glue_source_instance.lf_client, "list_lf_tags", side_effect=mock_list_lf_tags
-    ), Stubber(glue_source_instance.glue_client) as glue_stubber:
+    with (
+        patch(
+            "datahub.api.entities.external.external_entities.PlatformResourceRepository.search_by_filter",
+            side_effect=mock_search_by_filter,
+        ),
+        patch.object(
+            glue_source_instance.lf_client,
+            "get_resource_lf_tags",
+            side_effect=mock_get_resource_lf_tags,
+        ),
+        patch.object(
+            glue_source_instance.lf_client,
+            "list_lf_tags",
+            side_effect=mock_list_lf_tags,
+        ),
+        Stubber(glue_source_instance.glue_client) as glue_stubber,
+    ):
         # Set up Glue client stubs
         glue_stubber.add_response("get_databases", get_databases_response, {})
         glue_stubber.add_response(

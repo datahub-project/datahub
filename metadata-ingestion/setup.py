@@ -106,8 +106,8 @@ sqlglot_lib = {
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
-    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
-    "schwifty<2024.08.0",
+    # schwifty is needed for the classify plugin
+    "schwifty",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -395,8 +395,6 @@ plugins: Dict[str, Set[str]] = {
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
         "duckdb>=1.0.0",
-        # duckdb dropped support for python 3.8 in 1.3.0
-        "duckdb<1.3.0; python_version < '3.9'",
         "fastapi",
         "uvicorn",
     },

@@ -435,11 +435,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with patch(
-        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
-    ) as mock_client, patch.object(
-        HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
+    with (
+        patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client
         register_mock_data(workspace_client)
