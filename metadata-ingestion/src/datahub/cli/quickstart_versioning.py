@@ -21,7 +21,7 @@ DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
-    mysql_tag: Optional[str]
+    mysql_tag: Optional[str] = None
 
 
 def _is_it_a_version(version: str) -> bool:

@@ -57,7 +57,6 @@ from datahub.metadata.schema_classes import (
 )
 
 log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 _type_mapping: Dict[Union[Type, str], Type] = {
     "list": UnionTypeClass,

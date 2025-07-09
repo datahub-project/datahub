@@ -72,7 +72,6 @@ from datahub.pydantic.compat import (
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -134,7 +133,7 @@ class StructuredPropertiesHelper:
 
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(default=None, validate_default=True)
     structured_properties: Optional[StructuredProperties] = None
     type: Optional[str] = None
     nativeDataType: Optional[str] = None
@@ -380,9 +379,9 @@ class Dataset(StrictModel):
     id: Optional[str] = None
     platform: Optional[str] = None
     env: str = "PROD"
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(default=None, validate_default=True)
     description: Optional[str] = None
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, validate_default=True)
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
