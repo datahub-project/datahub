@@ -41,10 +41,11 @@ public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
-  private final Config config;
-  private final Environment environment;
   private final HttpClient httpClient =
       HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+
+  private final Config config;
+  private final Environment environment;
 
   @Inject
   public Application(Environment environment, @Nonnull Config config) {
@@ -52,6 +53,12 @@ public class Application extends Controller {
     this.environment = environment;
   }
 
+  /**
+   * Serves the build output index.html for any given path
+   *
+   * @param path takes a path string, which essentially is ignored routing is managed client side
+   * @return {Result} build output index.html resource
+   */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
@@ -68,11 +75,22 @@ public class Application extends Controller {
     return ok("GOOD");
   }
 
+  /**
+   * index Action proxies to serveAsset
+   *
+   * @param path takes a path string which is either index.html or the path segment after /
+   * @return {Result} response from serveAsset method
+   */
   @Nonnull
   public Result index(@Nullable String path) {
     return serveAsset("");
   }
 
+  /**
+   * Proxies requests to the Metadata Service
+   *
+   * <p>TODO: Investigate using mutual SSL authentication to call Metadata Service.
+   */
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path, Http.Request request) {
     final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy(request);
@@ -93,15 +111,12 @@ public class Application extends Controller {
             config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
-
     final String protocol = metadataServiceUseSsl ? "https" : "http";
     final String targetUrl =
         String.format(
             "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
-
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
-
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
     Map<String, List<String>> headers = request.getHeaders().toMap();
     if (headers.containsKey(Http.HeaderNames.HOST)
@@ -131,9 +146,7 @@ public class Application extends Controller {
     request
         .contentType()
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
-
     Instant start = Instant.now();
-
     return httpClient
         .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
         .thenApply(
@@ -165,7 +178,6 @@ public class Application extends Controller {
             })
         .exceptionally(
             ex -> {
-              // Snap out of it on any error or timeout
               Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
               if (cause instanceof java.net.http.HttpTimeoutException) {
                 return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
@@ -186,6 +198,11 @@ public class Application extends Controller {
     return HttpRequest.BodyPublishers.noBody();
   }
 
+  /**
+   * Creates a wrapping ObjectNode containing config information
+   *
+   * @return Http Result instance with app configuration attributes
+   */
   @Nonnull
   public Result appConfig() {
     final ObjectNode config = Json.newObject();
@@ -198,16 +215,26 @@ public class Application extends Controller {
         Integer.valueOf(this.config.getString("linkedin.suggestion.confidence.threshold")));
     config.set("wikiLinks", wikiLinks());
     config.set("tracking", trackingInfo());
+    // In a staging environment, we can trigger this flag to be true so that the UI can handle based
+    // on
+    // such config and alert users that their changes will not affect production data
     config.put("isStagingBanner", this.config.getBoolean("ui.show.staging.banner"));
     config.put("isLiveDataWarning", this.config.getBoolean("ui.show.live.data.banner"));
     config.put("showChangeManagement", this.config.getBoolean("ui.show.CM.banner"));
+    // Flag to enable people entity elements
     config.put("showPeople", this.config.getBoolean("ui.show.people"));
     config.put("changeManagementLink", this.config.getString("ui.show.CM.link"));
+    // Flag set in order to warn users that search is experiencing issues
     config.put("isStaleSearch", this.config.getBoolean("ui.show.stale.search"));
     config.put("showAdvancedSearch", this.config.getBoolean("ui.show.advanced.search"));
+    // Flag to use the new api for browsing datasets
     config.put("useNewBrowseDataset", this.config.getBoolean("ui.new.browse.dataset"));
+    // show lineage graph in relationships tabs
     config.put("showLineageGraph", this.config.getBoolean("ui.show.lineage.graph"));
+    // show institutional memory for available entities
     config.put("showInstitutionalMemory", this.config.getBoolean("ui.show.institutional.memory"));
+
+    // Insert properties for user profile operations
     config.set("userEntityProps", userEntityProps());
 
     final ObjectNode response = Json.newObject();
@@ -216,6 +243,11 @@ public class Application extends Controller {
     return ok(response);
   }
 
+  /**
+   * Creates a JSON object of profile / avatar properties
+   *
+   * @return Json avatar / profile image properties
+   */
   @Nonnull
   private ObjectNode userEntityProps() {
     final ObjectNode props = Json.newObject();
@@ -224,6 +256,9 @@ public class Application extends Controller {
     return props;
   }
 
+  /**
+   * @return Json object with internal wiki links
+   */
   @Nonnull
   private ObjectNode wikiLinks() {
     final ObjectNode wikiLinks = Json.newObject();
@@ -243,6 +278,9 @@ public class Application extends Controller {
     return wikiLinks;
   }
 
+  /**
+   * @return Json object containing the tracking configuration details
+   */
   @Nonnull
   private ObjectNode trackingInfo() {
     final ObjectNode piwik = Json.newObject();
@@ -258,7 +296,28 @@ public class Application extends Controller {
     return trackingConfig;
   }
 
+  /**
+   * Returns the value of the Authorization Header to be provided when proxying requests to the
+   * downstream Metadata Service.
+   *
+   * <p>Currently, the Authorization header value may be derived from
+   *
+   * <p>a) The value of the "token" attribute of the Session Cookie provided by the client. This
+   * value is set when creating the session token initially from a token granted by the Metadata
+   * Service.
+   *
+   * <p>Or if the "token" attribute cannot be found in a session cookie, then we fallback to
+   *
+   * <p>b) The value of the Authorization header provided in the original request. This will be used
+   * in cases where clients are making programmatic requests to Metadata Service APIs directly,
+   * without providing a session cookie (ui only).
+   *
+   * <p>If neither are found, an empty string is returned.
+   */
   private String getAuthorizationHeaderValueToProxy(Http.Request request) {
+    // If the session cookie has an authorization token, use that. If there's an authorization
+    // header provided, simply
+    // use that.
     String value = "";
     if (request.session().data().containsKey(SESSION_COOKIE_GMS_TOKEN_NAME)) {
       value = "Bearer " + request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
@@ -268,15 +327,27 @@ public class Application extends Controller {
     return value;
   }
 
+  /**
+   * Returns the value of the legacy X-DataHub-Actor header to forward to the Metadata Service. This
+   * is sent along with any requests that have a valid frontend session cookie to identify the
+   * calling actor, for backwards compatibility.
+   *
+   * <p>If Metadata Service authentication is enabled, this value is not required because Actor
+   * context will most often come from the authentication credentials provided in the Authorization
+   * header.
+   */
   private String getDataHubActorHeader(Http.Request request) {
     String actor = request.session().data().get(ACTOR);
     return actor == null ? "" : actor;
   }
 
   private String mapPath(@Nonnull final String path) {
+    // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
     if (path.equals("/api/v2/graphql")) {
       return "/api/graphql";
     }
+
+    // Case 2: Map requests to /gms to / (Rest.li API)
     final String gmsApiPath = "/api/gms";
     if (path.startsWith(gmsApiPath)) {
       String newPath = path.substring(gmsApiPath.length());
@@ -285,28 +356,49 @@ public class Application extends Controller {
       }
       return newPath;
     }
+
+    // Otherwise, return original path
     return path;
   }
 
+  /**
+   * Called if verbose logging is enabled and request takes longer that the slow query milliseconds
+   * defined in the config
+   *
+   * @param request GraphQL request that was made
+   * @param resolvedUri URI that was requested
+   * @param duration How long the query took to complete
+   */
   private void logSlowQuery(Http.Request request, String resolvedUri, float duration) {
     StringBuilder jsonBody = new StringBuilder();
     Optional<Cookie> actorCookie = request.getCookie("actor");
     String actorValue = actorCookie.isPresent() ? actorCookie.get().value() : "N/A";
+
+    // Get the JSON body
     try {
       ObjectMapper mapper = new ObjectMapper();
       JsonNode jsonNode = request.body().asJson();
-      if (jsonNode != null && jsonNode.isObject()) {
-        ((ObjectNode) jsonNode).remove("query");
-        jsonBody.append(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode));
-      }
+      ((ObjectNode) jsonNode).remove("query");
+      jsonBody.append(mapper.writeValueAsString(jsonNode));
     } catch (Exception e) {
       logger.info("GraphQL Request Received: {}, Unable to parse JSON body", resolvedUri);
     }
     String jsonBodyStr = jsonBody.toString();
+
+    // Get the query string
+    StringBuilder query = new StringBuilder();
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      query.append(mapper.writeValueAsString(request.queryString()));
+    } catch (Exception e) {
+      logger.info("GraphQL Request Received: {}, Unable to parse query string", resolvedUri);
+    }
+    String queryString = query.toString();
+
     logger.info(
         "Slow GraphQL Request Received: {}, Request query string: {}, Request actor: {}, Request JSON: {}, Request completed in {} ms",
         resolvedUri,
-        request.queryString(),
+        queryString,
         actorValue,
         jsonBodyStr,
         duration);
