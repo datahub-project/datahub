@@ -43,7 +43,6 @@ buildscript {
   ext.springKafkaVersion = '3.3.6'
   ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
-  ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
@@ -64,6 +63,7 @@ buildscript {
   ext.openLineageVersion = '1.25.0'
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
+  ext.micrometerVersion = '1.15.1'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -142,11 +142,10 @@ project.ext.externalDependency = [
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'org.apache.cassandra:java-driver-core:4.19.0',
     'datastaxOssQueryBuilder': 'org.apache.cassandra:java-driver-query-builder:4.19.0',
-    'dgraph4j' : 'io.dgraph:dgraph4j:24.1.1',
-    'dgraphNetty': 'io.grpc:grpc-netty:1.71.0',
-    'dgraphShadedNetty': 'io.grpc:grpc-netty-shaded:1.71.0',
-    'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
-    'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
+    'micrometerPrometheus': "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
+    'micrometerJmx': "io.micrometer:micrometer-registry-jmx:$micrometerVersion",
+    'micrometerObserve': "io.micrometer:micrometer-observation:$micrometerVersion",
+    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.5.1",
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
@@ -154,8 +153,8 @@ project.ext.externalDependency = [
     'ebeanQueryBean': 'io.ebean:querybean-generator:' + ebeanVersion,
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:21.5',
-    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
+    'graphqlJava': 'com.graphql-java:graphql-java:22.3',
+    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
@@ -224,9 +223,8 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'com.mysql:mysql-connector-j:8.4.0',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
+    'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
-    'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
