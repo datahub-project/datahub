@@ -1,4 +1,4 @@
-from pydantic import BaseModel as GenericModel, PydanticDeprecatedSince20
+from pydantic import PydanticDeprecatedSince20
 from pydantic.v1 import (  # type: ignore
     BaseModel as v1_BaseModel,
     Extra as v1_Extra,
@@ -23,7 +23,6 @@ class v1_ConfigModel(v1_BaseModel):
 
 __all__ = [
     "PydanticDeprecatedSince20",
-    "GenericModel",
     "v1_ConfigModel",
     "v1_Field",
     "v1_root_validator",
