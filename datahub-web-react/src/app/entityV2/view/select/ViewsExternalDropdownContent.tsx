@@ -36,7 +36,7 @@ const DropdownContentHeader = styled.div`
 const DropdownContent = styled.div`
     padding-top: ${spacing.xsm};
     gap: ${spacing.xsm};
-    height: 160px; // height to show two rows
+    max-height: 240px; // height to show up to three rows
     overflow-y: auto;
     overflow-x: hidden;
 
