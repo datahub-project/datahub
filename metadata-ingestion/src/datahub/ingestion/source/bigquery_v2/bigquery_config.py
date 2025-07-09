@@ -459,7 +459,7 @@ class BigQueryV2Config(
     schema_resolution_batch_size: int = Field(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
-        hidden_from_schema=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     max_threads_dataset_parallelism: int = Field(
@@ -518,6 +518,6 @@ class BigQueryV2Config(
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
 
-    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+    platform_instance_not_supported_for_bigquery: classmethod = pydantic_removed_field(
         "platform_instance"
     )
