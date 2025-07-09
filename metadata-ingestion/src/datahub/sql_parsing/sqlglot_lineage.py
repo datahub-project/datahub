@@ -124,6 +124,17 @@ class _DownstreamColumnRef(_ParserBaseModel):
 
 
 class DownstreamColumnRef(_ParserBaseModel):
+    """
+    TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
+          What stops us is that `column_type` field of type `SchemaFieldDataTypeClass` is not hashable - it's an
+          auto-generated class from .pdl model files. We need generic solution allowing us to either:
+          1. Implement hashing for .pdl model objects
+          2. Reliably provide pydantic (both v1 and v2) with information to skip particular fields from default
+             hash function - with a twist here that _FrozenModel implements its own `__lt__` function - it needs
+             to understand that instruction as well.
+          Instances of this class needs to be hashable as we store them in a set when processing lineage from queries.
+    """
+
     table: Optional[Urn] = None
     column: str
     column_type: Optional[SchemaFieldDataTypeClass] = None
@@ -156,6 +167,13 @@ class _ColumnLineageInfo(_ParserBaseModel):
 
 
 class ColumnLineageInfo(_ParserBaseModel):
+    """
+    TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
+          To achieve this, we need to change `upstreams` to `Tuple[ColumnRef, ...]` - along with many code lines
+          depending on it.
+          Instances of this class needs to be hashable as we store them in a set when processing lineage from queries.
+    """
+
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
