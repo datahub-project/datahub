@@ -151,7 +151,7 @@ class DataLakeSourceConfig(
             raise ValueError("platform must not be empty")
         return platform
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
