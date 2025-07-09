@@ -353,7 +353,15 @@ class Pipeline:
     def _warn_old_cli_version(self) -> None:
         """Print version information: current CLI version, server version, and latest CLI version."""
 
-        version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        try:
+            version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        except RuntimeError as e:
+            # Handle case where there's no event loop available (e.g., in ThreadPoolExecutor)
+            if "no current event loop" in str(e):
+                logger.debug("Skipping version check - no event loop available")
+                return
+            raise
+
         if not version_stats or not self.graph:
             return
         default_cli_server = (
