@@ -651,38 +651,83 @@ public class OpenAPIV3GeneratorTest {
   public void testGenericEntityEndpointsExist() {
     Map<String, PathItem> paths = openAPI.getPaths();
 
-    /* ---------- collection ­/openapi/v3/entity ------------------ */
-    assertTrue(paths.containsKey("/openapi/v3/entity"), "collection path must exist");
-    PathItem collection = paths.get("/openapi/v3/entity");
+    /* ------------------------------------------------------------------ */
+    /*  1)  /openapi/v3/entity  (POST  |  PATCH)                          */
+    /* ------------------------------------------------------------------ */
+    assertTrue(paths.containsKey("/openapi/v3/generic/entity"), "collection path must exist");
+    PathItem collection = paths.get("/openapi/v3/generic/entity");
+
+    // ---------- POST (create / replace) ----------
     assertNotNull(collection.getPost(), "POST (create/upsert) must exist");
+    Schema<?> postBodySchema =
+        collection.getPost().getRequestBody().getContent().get("application/json").getSchema();
+    assertEquals(
+        postBodySchema.get$ref(),
+        "#/components/schemas/CrossEntitiesRequest_v3",
+        "collection POST must use CrossEntitiesRequest_v3");
+
+    // ---------- PATCH (batch patch) --------------
     assertNotNull(collection.getPatch(), "PATCH (batch patch) must exist");
+    Schema<?> patchBodySchema =
+        collection.getPatch().getRequestBody().getContent().get("application/json").getSchema();
+    assertEquals(
+        patchBodySchema.get$ref(),
+        "#/components/schemas/CrossEntitiesPatch_v3",
+        "collection PATCH must use CrossEntitiesPatch_v3");
 
-    /* ---------- batchGet ­/openapi/v3/entity/batchGet ----------- */
-    assertTrue(paths.containsKey("/openapi/v3/entity/batchGet"), "batchGet path must exist");
-    assertNotNull(
-        paths.get("/openapi/v3/entity/batchGet").getPost(), "batchGet must be a POST operation");
+    /* ------------------------------------------------------------------ */
+    /*  2)  /openapi/v3/entity/batchGet  (POST)                           */
+    /* ------------------------------------------------------------------ */
+    assertTrue(
+        paths.containsKey("/openapi/v3/entity/generic/batchGet"), "batchGet path must exist");
+    PathItem batchGet = paths.get("/openapi/v3/entity/generic/batchGet");
+    assertNotNull(batchGet.getPost(), "batchGet must be a POST operation");
 
-    /* ---------- single ­/openapi/v3/entity/{urn} ---------------- */
-    assertTrue(paths.containsKey("/openapi/v3/entity/{urn}"), "single-entity path must exist");
-    PathItem byUrn = paths.get("/openapi/v3/entity/{urn}");
+    Schema<?> batchGetBodySchema =
+        batchGet.getPost().getRequestBody().getContent().get("application/json").getSchema();
+    assertEquals(
+        batchGetBodySchema.get$ref(),
+        "#/components/schemas/CrossEntitiesBatchGetRequest_v3",
+        "batchGet POST must use CrossEntitiesBatchGetRequest_v3");
+
+    /* ------------------------------------------------------------------ */
+    /*  3)  /openapi/v3/entity/{urn}  (GET | HEAD | DELETE)               */
+    /* ------------------------------------------------------------------ */
+    assertTrue(
+        paths.containsKey("/openapi/v3/entity/generic/{urn}"), "single-entity path must exist");
+    PathItem byUrn = paths.get("/openapi/v3/entity/generic/{urn}");
     assertNotNull(byUrn.getGet(), "GET by URN must exist");
     assertNotNull(byUrn.getHead(), "HEAD by URN must exist");
     assertNotNull(byUrn.getDelete(), "DELETE by URN must exist");
 
-    /* ---------- component wiring (quick sanity check) ----------- */
-    //  POST request body on collection must reference EntitiesEntityRequest_v3
-    Schema<?> postSchema =
-        collection.getPost().getRequestBody().getContent().get("application/json").getSchema();
-    assertTrue(
-        Json.pretty(postSchema).contains("EntitiesEntityRequest_v3"),
-        "POST body should use EntitiesEntityRequest_v3 schema");
+    /* ------------------------------------------------------------------ */
+    /*  4)  /openapi/v3/entity/scroll  (POST – filter only, no aspects)   */
+    /* ------------------------------------------------------------------ */
+    assertTrue(paths.containsKey("/openapi/v3/entity/scroll"), "scroll path must exist");
+    assertNotNull(paths.get("/openapi/v3/entity/scroll").getPost(), "scroll must be POST");
 
-    //  PATCH request body on collection must reference EntitiesEntityRequestPatch_v3
-    Schema<?> patchSchema =
-        collection.getPatch().getRequestBody().getContent().get("application/json").getSchema();
-    assertTrue(
-        Json.pretty(patchSchema).contains("EntitiesEntityRequestPatch_v3"),
-        "PATCH body should use EntitiesEntityRequestPatch_v3 schema");
+    // The scroll body is a filter and should use EntitiesEntityRequest_v3
+    Schema<?> scrollSchema =
+        paths
+            .get("/openapi/v3/entity/scroll")
+            .getPost()
+            .getRequestBody()
+            .getContent()
+            .get("application/json")
+            .getSchema();
+    assertEquals(
+        scrollSchema.get$ref(),
+        "#/components/schemas/EntitiesEntityRequest_v3",
+        "scroll body must use EntitiesEntityRequest_v3");
+
+    /* ------------------------------------------------------------------ */
+    /*  5)  Component presence quick-check                                */
+    /* ------------------------------------------------------------------ */
+    Set<String> componentKeys = openAPI.getComponents().getSchemas().keySet();
+    assertTrue(componentKeys.contains("CrossEntitiesRequest_v3"));
+    assertTrue(componentKeys.contains("CrossEntitiesPatch_v3"));
+    assertTrue(componentKeys.contains("CrossEntitiesBatchGetRequest_v3"));
+    assertTrue(componentKeys.contains("CrossEntitiesResponse_v3"));
   }
 
   private JsonSchema loadOpenAPI31Schema(JsonSchemaFactory schemaFactory) throws Exception {

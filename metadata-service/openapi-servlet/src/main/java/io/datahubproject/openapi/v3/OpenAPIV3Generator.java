@@ -81,6 +81,12 @@ public class OpenAPIV3Generator {
   private static final String ASPECTS = "Aspects";
   private static final String ENTITIES = "Entities";
 
+  private static final String CROSS_ENTITIES = "CrossEntities";
+  private static final String CROSS_ENTITY_REQUEST_SUFFIX = "Request" + MODEL_VERSION;
+  private static final String CROSS_ENTITY_PATCH_SUFFIX = "Patch" + MODEL_VERSION;
+  private static final String CROSS_ENTITY_RESPONSE_SUFFIX = "Response" + MODEL_VERSION;
+  private static final String CROSS_ENTITY_BATCHGET_SUFFIX = "BatchGetRequest" + MODEL_VERSION;
+
   private static final Set<String> EXCLUDE_ENTITIES = Set.of("dataHubOpenAPISchema");
   private static final Set<String> EXCLUDE_ASPECTS = Set.of("dataHubOpenAPISchemaKey");
   private static final String ASPECT_PATCH_PROPERTY = "AspectPatchProperty";
@@ -114,6 +120,9 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas(
+        "BatchGet" + ENTITIES + ENTITY_REQUEST_SUFFIX,
+        buildEntitiesBatchGetRequestSchema(filteredAspectSpec, aspectNames));
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -165,9 +174,6 @@ public class OpenAPIV3Generator {
               "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
               buildEntityBatchGetRequestSchema(e, aspectNames));
           components.addSchemas(
-              "BatchGet" + ENTITIES + ENTITY_REQUEST_SUFFIX,
-              buildEntitiesBatchGetRequestSchema(filteredAspectSpec, aspectNames));
-          components.addSchemas(
               entityName + ENTITY_REQUEST_PATCH_SUFFIX,
               buildEntityPatchSchema(e, aspectNames, true));
         });
@@ -177,6 +183,18 @@ public class OpenAPIV3Generator {
     components.addSchemas(
         ENTITIES + ENTITY_REQUEST_PATCH_SUFFIX,
         buildEntitiesPatchRequestSchema(definedEntitySpecs));
+    components.addSchemas(
+        CROSS_ENTITIES + CROSS_ENTITY_BATCHGET_SUFFIX,
+        buildCrossEntityBatchGetRequestSchema(definedEntitySpecs));
+    components.addSchemas(
+        CROSS_ENTITIES + CROSS_ENTITY_REQUEST_SUFFIX,
+        buildCrossEntityUpsertSchema(definedEntitySpecs));
+    components.addSchemas(
+        CROSS_ENTITIES + CROSS_ENTITY_PATCH_SUFFIX,
+        buildCrossEntityPatchSchema(definedEntitySpecs));
+    components.addSchemas(
+        CROSS_ENTITIES + CROSS_ENTITY_RESPONSE_SUFFIX,
+        buildCrossEntityResponseSchema(definedEntitySpecs));
 
     // Parameters
 
@@ -217,9 +235,9 @@ public class OpenAPIV3Generator {
         });
 
     // ----------  Generic Entity paths  --------------------------------------
-    paths.addPathItem(PATH_PREFIX + "/entity", buildListGenericEntitiesPath());
-    paths.addPathItem(PATH_PREFIX + "/entity/batchGet", buildBatchGetGenericEntitiesPath());
-    paths.addPathItem(PATH_PREFIX + "/entity/{urn}", buildSingleGenericEntityPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/generic", buildListGenericEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/generic/batchGet", buildBatchGetGenericEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/generic/{urn}", buildSingleGenericEntityPath());
 
     // --> Aspect Paths
     definedEntitySpecs.forEach(
@@ -711,13 +729,11 @@ public class OpenAPIV3Generator {
                 new MediaType()
                     .schema(
                         newSchema()
-                            .type(TYPE_ARRAY)
-                            .items(
-                                newSchema()
-                                    .$ref(
-                                        "#/components/schemas/"
-                                            + ENTITIES
-                                            + ENTITY_REQUEST_SUFFIX))));
+                            .$ref(
+                                "#/components/schemas/"
+                                    + CROSS_ENTITIES
+                                    + CROSS_ENTITY_REQUEST_SUFFIX)));
+
     ApiResponse post200 =
         new ApiResponse()
             .description("Created entities")
@@ -728,13 +744,10 @@ public class OpenAPIV3Generator {
                         new MediaType()
                             .schema(
                                 newSchema()
-                                    .type(TYPE_ARRAY)
-                                    .items(
-                                        newSchema()
-                                            .$ref(
-                                                "#/components/schemas/"
-                                                    + ENTITIES
-                                                    + ENTITY_RESPONSE_SUFFIX)))));
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + CROSS_ENTITIES
+                                            + CROSS_ENTITY_RESPONSE_SUFFIX))));
     ApiResponse post202 =
         new ApiResponse()
             .description("Async batch creation submitted")
@@ -763,7 +776,7 @@ public class OpenAPIV3Generator {
             .responses(
                 new ApiResponses().addApiResponse("200", post200).addApiResponse("202", post202));
 
-    /* ---------- PATCH ------------------------------------------- */
+    /* ---------- PATCH (generic json-patch) ----------------------- */
     Content patchBodyContent =
         new Content()
             .addMediaType(
@@ -771,13 +784,11 @@ public class OpenAPIV3Generator {
                 new MediaType()
                     .schema(
                         newSchema()
-                            .type(TYPE_ARRAY)
-                            .items(
-                                newSchema()
-                                    .$ref(
-                                        "#/components/schemas/"
-                                            + ENTITIES
-                                            + ENTITY_REQUEST_PATCH_SUFFIX))));
+                            .$ref(
+                                "#/components/schemas/"
+                                    + CROSS_ENTITIES
+                                    + CROSS_ENTITY_PATCH_SUFFIX)));
+
     ApiResponse patch200 =
         new ApiResponse()
             .description("Patched entities")
@@ -788,13 +799,10 @@ public class OpenAPIV3Generator {
                         new MediaType()
                             .schema(
                                 newSchema()
-                                    .type(TYPE_ARRAY)
-                                    .items(
-                                        newSchema()
-                                            .$ref(
-                                                "#/components/schemas/"
-                                                    + ENTITIES
-                                                    + ENTITY_RESPONSE_SUFFIX)))));
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + CROSS_ENTITIES
+                                            + CROSS_ENTITY_RESPONSE_SUFFIX))));
     ApiResponse patch202 =
         new ApiResponse()
             .description("Async batch patch submitted")
@@ -837,13 +845,11 @@ public class OpenAPIV3Generator {
                 new MediaType()
                     .schema(
                         newSchema()
-                            .type(TYPE_ARRAY)
-                            .items(
-                                newSchema()
-                                    .$ref(
-                                        "#/components/schemas/BatchGet"
-                                            + ENTITIES
-                                            + ENTITY_REQUEST_SUFFIX))));
+                            .$ref(
+                                "#/components/schemas/"
+                                    + CROSS_ENTITIES
+                                    + CROSS_ENTITY_BATCHGET_SUFFIX)));
+
     ApiResponse ok =
         new ApiResponse()
             .description("Batch result")
@@ -854,13 +860,11 @@ public class OpenAPIV3Generator {
                         new MediaType()
                             .schema(
                                 newSchema()
-                                    .type(TYPE_ARRAY)
-                                    .items(
-                                        newSchema()
-                                            .$ref(
-                                                "#/components/schemas/"
-                                                    + ENTITIES
-                                                    + ENTITY_RESPONSE_SUFFIX)))));
+                                    .$ref(
+                                        "#/components/schemas/"
+                                            + CROSS_ENTITIES
+                                            + CROSS_ENTITY_RESPONSE_SUFFIX))));
+
     Operation op =
         new Operation()
             .summary("Batch Get Generic Entities.")
@@ -874,6 +878,7 @@ public class OpenAPIV3Generator {
                         .schema(newSchema().type(TYPE_BOOLEAN)._default(false))))
             .requestBody(new RequestBody().required(true).content(body))
             .responses(new ApiResponses().addApiResponse("200", ok));
+
     return new PathItem().post(op);
   }
 
@@ -1450,6 +1455,93 @@ public class OpenAPIV3Generator {
         .description(toUpperFirst(entity.getName()) + " object.")
         .required(List.of(PROPERTY_URN))
         .properties(properties);
+  }
+
+  private static Schema buildCrossEntityUpsertSchema(List<EntitySpec> entitySpecs) {
+    Map<String, Schema> props = new LinkedHashMap<>();
+    entitySpecs.forEach(
+        e ->
+            props.put(
+                e.getName(),
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        newSchema()
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)))));
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Mixed-entity upsert request body.")
+        .additionalProperties(false)
+        .properties(props);
+  }
+
+  private static Schema buildCrossEntityPatchSchema(List<EntitySpec> entitySpecs) {
+    Map<String, Schema> props = new LinkedHashMap<>();
+    entitySpecs.forEach(
+        e ->
+            props.put(
+                e.getName(),
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        newSchema()
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    toUpperFirst(e.getName()), ENTITY_REQUEST_PATCH_SUFFIX)))));
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Mixed-entity patch request body.")
+        .additionalProperties(false)
+        .properties(props);
+  }
+
+  private static Schema buildCrossEntityResponseSchema(List<EntitySpec> entitySpecs) {
+    Map<String, Schema> props = new LinkedHashMap<>();
+    entitySpecs.forEach(
+        e ->
+            props.put(
+                e.getName(),
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        newSchema()
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    toUpperFirst(e.getName()), ENTITY_RESPONSE_SUFFIX)))));
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Mixed-entity upsert / patch response.")
+        .additionalProperties(false)
+        .properties(props);
+  }
+
+  private static Schema buildCrossEntityBatchGetRequestSchema(List<EntitySpec> entitySpecs) {
+    Map<String, Schema> props = new LinkedHashMap<>();
+
+    entitySpecs.forEach(
+        e ->
+            props.put(
+                e.getName(),
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        newSchema()
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    "BatchGet" + toUpperFirst(e.getName()), // BatchGet<Ent>
+                                    ENTITY_REQUEST_SUFFIX)))));
+
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Mixed-entity batch-get request body.")
+        .additionalProperties(false)
+        .properties(props);
   }
 
   /** Same structure as buildEntityBatchGetRequestSchema but covers the union of all aspects. */
