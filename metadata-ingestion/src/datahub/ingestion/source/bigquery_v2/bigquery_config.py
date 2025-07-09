@@ -184,7 +184,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
     # NOTE: `schema_pattern` is added here only to hide it from docs.
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     @root_validator(pre=False, skip_on_failure=True)
@@ -321,7 +321,7 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property "
         "which should be touched with care.",
@@ -440,13 +440,13 @@ class BigQueryV2Config(
     )
 
     run_optimized_column_query: bool = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
     file_backed_cache_size: int = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )

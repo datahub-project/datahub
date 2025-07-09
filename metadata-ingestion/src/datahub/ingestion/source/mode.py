@@ -203,7 +203,7 @@ class ModeConfig(
     items_per_page: int = Field(
         default=DEFAULT_API_ITEMS_PER_PAGE,
         description="Number of items per page for paginated API requests.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     @validator("connect_uri")

@@ -200,7 +200,9 @@ class BaseUsageConfig(BaseTimeWindowConfig):
             "Total character limit for all queries in a single usage aspect."
             " Queries will be truncated to length `queries_character_limit / top_n_queries`."
         ),
-        hidden_from_docs=True,  # Don't want to encourage people to break elasticsearch
+        json_schema_extra={
+            "hidden_from_docs": True
+        },  # Don't want to encourage people to break elasticsearch
     )
 
     top_n_queries: pydantic.PositiveInt = Field(

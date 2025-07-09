@@ -262,7 +262,7 @@ class SnowflakeV2Config(
     )
 
     structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=60,
         description="Interval in seconds to invalidate the structured properties template cache.",
     )
@@ -332,7 +332,7 @@ class SnowflakeV2Config(
 
     # Allows empty containers to be ingested before datasets are added, avoiding permission errors
     warn_no_datasets: bool = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=False,
         description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )

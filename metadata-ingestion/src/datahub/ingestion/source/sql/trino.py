@@ -221,7 +221,9 @@ class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme: str = Field(default="trino", description="", hidden_from_docs=True)
+    scheme: str = Field(
+        default="trino", description="", json_schema_extra={"hidden_from_docs": True}
+    )
     database: str = Field(description="database (catalog)")
 
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(

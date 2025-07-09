@@ -99,7 +99,11 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
     )
-    scheme: str = Field(default="mysql+pymysql", description="", hidden_from_docs=True)
+    scheme: str = Field(
+        default="mysql+pymysql",
+        description="",
+        json_schema_extra={"hidden_from_docs": True},
+    )
 
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -124,7 +128,7 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     )
 
     include_view_lineage: bool = Field(
-        default=False, description="", hidden_from_docs=True
+        default=False, description="", json_schema_extra={"hidden_from_docs": True}
     )
 
     include_catalog_name_in_ids: bool = Field(

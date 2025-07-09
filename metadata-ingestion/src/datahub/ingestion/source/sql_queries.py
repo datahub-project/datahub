@@ -56,7 +56,7 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     use_schema_resolver: bool = Field(
         description="Read SchemaMetadata aspects from DataHub to aid in SQL parsing. Turn off only for testing.",
         default=True,
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     default_db: Optional[str] = Field(
         description="The default database to use for unqualified table names",

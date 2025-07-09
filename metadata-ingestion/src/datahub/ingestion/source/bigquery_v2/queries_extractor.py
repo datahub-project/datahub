@@ -91,7 +91,7 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="Local path to store the audit log.",
         # TODO: For now, this is simply an advanced config to make local testing easier.
         # Eventually, we will want to store date-specific files in the directory and use it as a cache.
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     user_email_pattern: AllowDenyPattern = Field(

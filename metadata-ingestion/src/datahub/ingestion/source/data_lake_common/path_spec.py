@@ -110,7 +110,7 @@ class PathSpec(ConfigModel):
 
     # This is not used yet, but will be used in the future to sort the partitions
     sort_key: Optional[SortKey] = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=None,
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )

@@ -136,7 +136,7 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         # TODO: This shouldn't be part of the config.
         "looker",
         description="Default platform name.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     extract_column_level_lineage: bool = Field(
         True,
