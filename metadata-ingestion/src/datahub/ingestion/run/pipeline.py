@@ -354,7 +354,7 @@ class Pipeline:
         """Print version information: current CLI version, server version, and latest CLI version."""
 
         version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
-        if not version_stats:
+        if not version_stats or not self.graph:
             return
         default_cli_server = (
             self.graph.get_config().get("managedIngestion", {}).get("defaultCliVersion")
