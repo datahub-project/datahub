@@ -9,15 +9,17 @@ import {
 
 import { DataHubPageModule, DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
+const MOCKED_TIMESTAMP = 1752056099724;
+
 const MOCKED_MODULE: DataHubPageModule = {
     urn: 'urn:li:dataHubPageModule:example',
     type: EntityType.DatahubPageModule,
     properties: {
         created: {
-            time: 1752056099724,
+            time: MOCKED_TIMESTAMP,
         },
         lastModified: {
-            time: 1752056099724,
+            time: MOCKED_TIMESTAMP,
         },
         name: 'Link 1 (example)',
         type: DataHubPageModuleType.Link,
