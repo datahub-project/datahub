@@ -170,7 +170,7 @@ Do not use the 'latest' or 'debug' tags for any of the images, as those are not 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
-demo.datahubproject.io.
+demo.datahub.com
 
 To have the metadata [authentication service](../authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication) enabled and use [API tokens](../authentication/personal-access-tokens.md#creating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
 
