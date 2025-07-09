@@ -828,11 +828,13 @@ class TestDataHubRestEmitter:
             assert not trace.data
 
     def test_await_status_logging(self, openapi_emitter):
-        with patch.object(logger, "debug") as mock_debug, patch.object(
-            logger, "error"
-        ) as mock_error, patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit:
+        with (
+            patch.object(logger, "debug") as mock_debug,
+            patch.object(logger, "error") as mock_error,
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+        ):
             # Test empty trace data logging
             openapi_emitter._await_status([], timedelta(seconds=10))
             mock_debug.assert_called_once_with("No trace data to verify")
@@ -898,10 +900,11 @@ class TestDataHubRestEmitter:
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
         """Test that chunking works correctly across different HTTP methods"""
-        with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit, patch(
-            "datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2
+        with (
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+            patch("datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
         ):
             # Create more items than the chunk size for each method
             items = [
@@ -1294,11 +1297,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to RESTLI overrides SDK client mode default"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
             emitter._session = mock_session
@@ -1309,11 +1317,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to OPENAPI enables OpenAPI for any client mode"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Test INGESTION mode
             emitter = DataHubRestEmitter(
@@ -1337,11 +1350,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_true_overrides_all(self):
         """Test that explicit constructor parameter True overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             # Even with env var and non-SDK mode, constructor param should win
             emitter = DataHubRestEmitter(
@@ -1353,11 +1371,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_false_overrides_all(self):
         """Test that explicit constructor parameter False overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Even with env var and SDK mode, constructor param should win
             emitter = DataHubRestEmitter(
