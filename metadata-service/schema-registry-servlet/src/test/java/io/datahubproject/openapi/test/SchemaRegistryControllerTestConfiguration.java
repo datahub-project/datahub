@@ -2,6 +2,7 @@ package io.datahubproject.openapi.test;
 
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
@@ -14,4 +15,6 @@ public class SchemaRegistryControllerTestConfiguration {
   @MockBean KafkaHealthChecker kafkaHealthChecker;
 
   @MockBean EntityRegistry entityRegistry;
+
+  @MockBean MetricUtils metricUtils;
 }

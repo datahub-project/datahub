@@ -146,7 +146,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_data={
         "datahub_airflow_plugin": ["py.typed"],
     },

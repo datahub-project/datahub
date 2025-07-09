@@ -70,6 +70,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -100,7 +101,7 @@ public class EbeanEntityServiceTest
 
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -146,7 +147,8 @@ public class EbeanEntityServiceTest
 
     // Create database and spy on aspectDao
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
-    EbeanAspectDao aspectDao = spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault));
+    EbeanAspectDao aspectDao =
+        spy(new EbeanAspectDao(server, EbeanConfiguration.testDefault, null));
 
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
@@ -480,6 +482,40 @@ public class EbeanEntityServiceTest
         envelopedAspect2.getSystemMetadata().getVersion(),
         "3",
         "Expected version 0 with systemMeta version 3 accounting for the the collision");
+  }
+
+  // NOTE: This is not currently super useful because H2 always treats spaces as significant
+  @Test
+  public void testSystemMetadataDuplicateKeyWhitespace() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:duplicateKeyTest");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    ChangeItemImpl item =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(true))
+            .systemMetadata(systemMetadata)
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(item))
+            .build(opContext),
+        false,
+        true);
+
+    Urn entityUrnWhitespace = UrnUtils.getUrn(entityUrn + " ");
+    Map<Urn, List<EnvelopedAspect>> envelopedAspects =
+        _entityServiceImpl.getLatestEnvelopedAspects(
+            opContext,
+            ImmutableSet.of(entityUrn, entityUrnWhitespace),
+            ImmutableSet.of(STATUS_ASPECT_NAME),
+            false);
+
+    assertEquals(envelopedAspects.get(entityUrn).size(), 1);
+    assertEquals(envelopedAspects.get(entityUrnWhitespace).size(), 0);
   }
 
   @Test

@@ -24,8 +24,6 @@ _self_pin = (
 rest_common = {"requests", "requests_file"}
 
 base_requirements = {
-    # For python 3.7 and importlib-metadata>=5.0.0, build failed with attribute error
-    "importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'",
     # Actual dependencies.
     # Temporary pinning to 2.0.0 until we can upgrade to 3.0.0
     "prefect >= 2.0.0,<3.0.0",
@@ -111,7 +109,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
