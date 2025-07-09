@@ -255,7 +255,9 @@ def valid_client_version(version: Version) -> bool:
     """Only version strings like 0.4.5 and 0.6.7.8 are valid. 0.8.6.7rc1 is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
-    if version.major == 0 and version.minor in [8, 9, 10, 11]:
+    if version.major == 0 and version.minor in [8, 9, 10, 11, 12, 13, 14, 15]:
+        return True
+    if version.major == 1 and version.minor in [0, 1]:
         return True
 
     return False
@@ -266,7 +268,9 @@ def valid_server_version(version: Version) -> bool:
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
 
-    if version.major == 0 and version.minor in [8, 9, 10]:
+    if version.major == 0 and version.minor in [8, 9, 10, 11, 12, 13, 14, 15]:
+        return True
+    if version.major == 1 and version.minor in [0, 1]:
         return True
 
     return False

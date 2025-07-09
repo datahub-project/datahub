@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional
 import click
 import humanfriendly
 import psutil
+from packaging.version import Version
 
 from datahub._version import nice_version_name
 from datahub.configuration.common import (
@@ -44,6 +45,12 @@ from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.upgrade.upgrade import (
+    VersionStats,
+    is_client_server_compatible,
+    retrieve_version_stats,
+    valid_client_version,
+)
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
@@ -343,6 +350,48 @@ class Pipeline:
             except Exception as e:
                 logger.warning("Reporting failed on start", exc_info=e)
 
+    def _warn_old_cli_version(self) -> None:
+        """Print version information: current CLI version, server version, and latest CLI version."""
+
+        version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        if not version_stats:
+            return
+        default_cli_server = (
+            self.graph.get_config().get("managedIngestion", {}).get("defaultCliVersion")
+        )
+        server_version_obj = VersionStats(
+            version=Version(default_cli_server), release_date=None
+        )
+
+        # TODO remove this before commit
+        version_stats.client.current.version = Version("0.13.1.0")
+        server_version_obj.version = Version("1.0.0")
+
+        is_valid_client_version = valid_client_version(
+            version_stats.client.current.version
+        )
+        is_valid_server_version = valid_client_version(server_version_obj.version)
+        _is_client_server_compatible = is_client_server_compatible(
+            version_stats.client.current, server_version_obj
+        )
+        logger.debug(f"""
+            client_version: {version_stats.client.current.version}
+            server_version: {server_version_obj.version}
+            is_valid_client_version: {is_valid_client_version}
+            is_valid_server_version: {is_valid_server_version}
+            _is_client_server_compatible: {_is_client_server_compatible}
+        """)
+        if (
+            is_valid_client_version
+            and is_valid_server_version
+            and _is_client_server_compatible > 0
+        ):
+            self.source.get_report().warning(
+                title="Server default CLI version is ahead of CLI version",
+                message="Please upgrade the CLI version being used",
+                context=f"Server Default CLI version: {default_cli_server}, Used CLI version: {version_stats.client.current.version}",
+            )
+
     def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
             try:
@@ -399,6 +448,7 @@ class Pipeline:
         return False
 
     def run(self) -> None:
+        self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
