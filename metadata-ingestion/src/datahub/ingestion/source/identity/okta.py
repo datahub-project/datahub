@@ -332,18 +332,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
@@ -418,18 +412,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 

@@ -374,7 +374,6 @@ class DataHubDatabaseReader:
                 entityUrn=row["urn"],
                 aspect=ASPECT_MAP[row["aspect"]].from_obj(json_aspect),
                 systemMetadata=system_metadata,
-                changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
             logger.warning(

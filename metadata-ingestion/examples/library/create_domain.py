@@ -14,8 +14,6 @@ domain_properties_aspect = DomainPropertiesClass(
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityType="domain",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=domain_urn,
     aspect=domain_properties_aspect,
 )

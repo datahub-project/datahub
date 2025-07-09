@@ -47,10 +47,7 @@ def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
     )
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATASET_ENTITY_TYPE,
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProperties",
             aspect=dataset_properties,
         )
     )
@@ -71,10 +68,7 @@ def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
 
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATASET_ENTITY_TYPE,
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="schemaMetadata",
             aspect=dataset_schema,
         )
     )
@@ -111,10 +105,7 @@ def create_nodes_and_edges(
     data_flow_info = DataFlowInfoClass(name=airflow_dag.name)
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATA_FLOW_ENTITY_TYPE,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=data_flow_urn,
-            aspectName=DATA_FLOW_INFO_ASPECT_NAME,
             aspect=data_flow_info,
         )
     )
@@ -130,10 +121,7 @@ def create_nodes_and_edges(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityType=DATA_JOB_ENTITY_TYPE,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=data_job_urn,
-                aspectName=DATA_JOB_INFO_ASPECT_NAME,
                 aspect=data_job_info,
             )
         )
@@ -145,10 +133,7 @@ def create_nodes_and_edges(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityType=DATA_JOB_ENTITY_TYPE,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=data_job_urn,
-                aspectName=DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
                 aspect=data_job_io,
             )
         )
@@ -185,10 +170,7 @@ def create_upstream_mcp(
 ) -> MetadataChangeProposalWrapper:
     print(f"Creating upstreamLineage aspect for {entity_urn}")
     mcp = MetadataChangeProposalWrapper(
-        entityType=entity_type,
         entityUrn=entity_urn,
-        changeType=ChangeTypeClass.UPSERT,
-        aspectName="upstreamLineage",
         aspect=UpstreamLineage(upstreams=upstreams),
         systemMetadata=SystemMetadata(
             lastObserved=timestamp_millis,

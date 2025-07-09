@@ -501,10 +501,7 @@ class VerticaSource(SQLAlchemySource):
         if dpi_aspect:
             yield dpi_aspect
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 

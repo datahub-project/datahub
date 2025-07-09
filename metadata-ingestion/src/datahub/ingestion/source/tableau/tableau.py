@@ -2640,14 +2640,10 @@ class TableauSiteSource:
     def get_metadata_change_proposal(
         self,
         urn: str,
-        aspect_name: str,
         aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityType=c.DATASET,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn,
-            aspectName=aspect_name,
             aspect=aspect,
         ).as_workunit()
 

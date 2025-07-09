@@ -601,10 +601,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 yield dpi_aspect
 
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.table_subtype]),
             ).as_workunit()
 
@@ -810,10 +807,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
             # Add views subtype
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.view_subtype]),
             ).as_workunit()
 
@@ -824,10 +818,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="viewProperties",
                 aspect=view_properties_aspect,
             ).as_workunit()
 

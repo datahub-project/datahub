@@ -433,11 +433,8 @@ class DremioSource(StatefulIngestionSourceBase):
             ]
         )
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName=lineage.ASPECT_NAME,
             aspect=lineage,
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         for upstream_urn in upstream_urns:
