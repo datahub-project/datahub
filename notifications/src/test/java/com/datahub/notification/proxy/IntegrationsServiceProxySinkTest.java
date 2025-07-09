@@ -26,6 +26,8 @@ public class IntegrationsServiceProxySinkTest {
 
   @Mock private NotificationSinkConfig config;
 
+  @Mock private OperationContext operationContext;
+
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
@@ -52,7 +54,7 @@ public class IntegrationsServiceProxySinkTest {
 
   @Test
   public void testInit() {
-    sink.init(config);
+    sink.init(operationContext, config);
     verify(config, times(1)).getIntegrationsService();
   }
 

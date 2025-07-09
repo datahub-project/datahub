@@ -100,6 +100,7 @@ public class NotificationSinkManagerFactory {
           try {
             final NotificationSink notificationSink = clazz.newInstance();
             notificationSink.init(
+                systemOpContext,
                 new NotificationSinkConfig(
                     configs,
                     this.entityClient,

@@ -27,7 +27,8 @@ public interface NotificationSink {
   Collection<NotificationRecipientType> recipientTypes();
 
   /** Initializes a notification sink. */
-  void init(@Nonnull final NotificationSinkConfig cfg);
+  void init(
+      @Nonnull final OperationContext operationContext, @Nonnull final NotificationSinkConfig cfg);
 
   /** Sends a notification to one or more recipients based on a {@link NotificationRequest}. */
   void send(

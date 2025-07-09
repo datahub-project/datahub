@@ -37,6 +37,7 @@ import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -95,6 +96,7 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final IndexConvention indexConvention;
   @Nonnull private final ESIndexBuilder indexBuilder;
+  private final MetricUtils metricUtils;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
@@ -104,7 +106,8 @@ public class ElasticSearchTimeseriesAspectService
       @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull IndexConvention indexConvention,
-      @Nonnull ESIndexBuilder indexBuilder) {
+      @Nonnull ESIndexBuilder indexBuilder,
+      MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
@@ -119,9 +122,15 @@ public class ElasticSearchTimeseriesAspectService
             new ArrayBlockingQueue<>(
                 timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "timeseries", this.queryPool, metricUtils.getRegistry().orElse(null));
+    }
+
     this.entityRegistry = entityRegistry;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.metricUtils = metricUtils;
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }

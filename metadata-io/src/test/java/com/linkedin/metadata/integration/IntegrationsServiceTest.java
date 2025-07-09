@@ -3,7 +3,6 @@ package com.linkedin.metadata.integration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -15,7 +14,11 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.link.LinkPreviewInfo;
 import com.linkedin.link.LinkPreviewType;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.apache.http.ProtocolVersion;
@@ -37,7 +40,7 @@ public class IntegrationsServiceTest {
 
   @Mock private CloseableHttpClient httpClient;
 
-  @Mock private Authentication systemAuthentication;
+  @Mock private MetricUtils metricUtils;
 
   @Mock private BackoffPolicy backoffPolicy;
 
@@ -46,9 +49,16 @@ public class IntegrationsServiceTest {
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
+
+    OperationContext systemOperationContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(
+                () -> SystemTelemetryContext.TEST.toBuilder().metricUtils(metricUtils).build())
+            .buildSystemContext();
+
     integrationsService =
         new IntegrationsService(
-            "localhost", 8080, false, systemAuthentication, httpClient, backoffPolicy, 3, 30);
+            "localhost", 8080, false, systemOperationContext, httpClient, backoffPolicy, 3, 30);
   }
 
   @Test

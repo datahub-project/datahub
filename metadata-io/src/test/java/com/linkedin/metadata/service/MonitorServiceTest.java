@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionAdjustmentSettings;
@@ -16,6 +15,7 @@ import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
+import com.linkedin.assertion.AssertionValueChangeType;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FieldAssertionType;
 import com.linkedin.assertion.FieldMetricAssertion;
@@ -42,6 +42,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -72,11 +73,16 @@ import com.linkedin.schema.StringType;
 import com.linkedin.timeseries.CalendarInterval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.ProtocolVersion;
@@ -111,19 +117,14 @@ public class MonitorServiceTest {
 
   @Mock private BackoffPolicy backoffPolicy;
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
   @Test
-  private void testGetMonitorInfo() throws Exception {
+  public void testGetMonitorInfo() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
     // Case 1: Info exists
     MonitorInfo info = service.getMonitorInfo(mock(OperationContext.class), TEST_MONITOR_URN);
     Assert.assertEquals(info, mockMonitorInfo());
@@ -199,12 +200,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Test method
     Urn result =
@@ -237,12 +233,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
@@ -273,12 +264,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
@@ -350,12 +336,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Test method
     Urn result =
@@ -432,12 +413,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Test method
     Urn result =
@@ -477,12 +453,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
@@ -521,12 +492,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
@@ -558,12 +524,7 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
@@ -596,12 +557,7 @@ public class MonitorServiceTest {
     final SystemEntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
-            TEST_HOST,
-            TEST_PORT,
-            false,
-            mockClient,
-            Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(OpenApiClient.class), opContext);
 
     // Case 1: Info exists
     Mockito.doAnswer(
@@ -762,7 +718,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final FreshnessAssertionInfo freshnessAssertionInfo =
         new FreshnessAssertionInfo()
@@ -823,7 +779,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final SqlAssertionInfo sqlAssertionInfo =
         new SqlAssertionInfo()
@@ -877,7 +833,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final FieldAssertionInfo fieldAssertionInfo =
         new FieldAssertionInfo()
@@ -948,7 +904,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setVersion(0);
@@ -1016,7 +972,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final Urn testUrn1 = UrnUtils.getUrn("urn:li:assertion:test");
     final Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
@@ -1067,7 +1023,7 @@ public class MonitorServiceTest {
             backoffPolicy,
             3,
             Mockito.mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     final Urn testUrn1 = UrnUtils.getUrn("urn:li:assertion:test");
     final Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
@@ -1107,7 +1063,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     // Get access to private method using reflection
     java.lang.reflect.Method shouldRetrainMethod =
@@ -1200,7 +1156,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     // Mock HTTP response
     CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
@@ -1240,7 +1196,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     // Mock HTTP response with 500 error
     CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
@@ -1270,7 +1226,7 @@ public class MonitorServiceTest {
             // Set retryCount to 1 to fail faster in test
             1,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     // Mock HTTP client to throw an exception
     when(mockHttpClient.execute(any(HttpUriRequest.class)))
@@ -1296,7 +1252,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     MonitorService spyService = spy(service);
 
@@ -1367,7 +1323,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     MonitorService spyService = spy(service);
 
@@ -1465,7 +1421,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     MonitorService spyService = spy(service);
 
@@ -1547,7 +1503,7 @@ public class MonitorServiceTest {
             new ExponentialBackoff(2),
             3,
             mock(OpenApiClient.class),
-            objectMapper);
+            opContext);
 
     MonitorService spyService = spy(service);
 
@@ -1588,5 +1544,241 @@ public class MonitorServiceTest {
 
     // Verify that retrainMonitor was NOT called since there's no previous monitor
     verify(spyService, never()).retrainAssertionMonitor(any(Urn.class));
+  }
+
+  @Test
+  public void testExecuteRequestWithExceptionMetrics() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+    OperationContext mockOpContext = mock(OperationContext.class);
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+
+    // Mock the operation context to return metric utils
+    when(mockOpContext.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
+
+    // Create service with mocked dependencies
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3, // retry count
+            mock(OpenApiClient.class),
+            mockOpContext);
+
+    // Create a specific exception type to test
+    IOException testException = new IOException("Connection refused");
+
+    // Mock HTTP client to throw exception on all attempts
+    when(mockHttpClient.execute(any(HttpUriRequest.class))).thenThrow(testException);
+
+    // Execute the request and expect it to fail after retries
+    try {
+      service.runAssertions(List.of(TEST_ASSERTION_URN), true, Collections.emptyMap(), false);
+      fail("Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      // Expected exception after all retries exhausted
+      assertTrue(e.getMessage().contains("Received exception while attempting to run assertions!"));
+    }
+
+    // Verify that the metric was incremented for each retry attempt
+    // With retry count of 3, we expect 3 increments
+    verify(mockMetricUtils, times(3))
+        .increment(
+            eq(MonitorService.class),
+            eq("exception" + MetricUtils.DELIMITER + "ioexception"),
+            eq(1d));
+
+    // Verify HTTP client was called 3 times (initial + 2 retries)
+    verify(mockHttpClient, times(3)).execute(any(HttpUriRequest.class));
+  }
+
+  @Test
+  public void testExecuteRequestWithDifferentExceptionTypes() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+    OperationContext mockOpContext = mock(OperationContext.class);
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+
+    // Mock the operation context to return metric utils
+    when(mockOpContext.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
+
+    // Create service with retry count of 2
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            2, // retry count
+            mock(OpenApiClient.class),
+            mockOpContext);
+
+    // Mock HTTP client to throw different exceptions on each attempt
+    when(mockHttpClient.execute(any(HttpUriRequest.class)))
+        .thenThrow(new SocketTimeoutException("Timeout"))
+        .thenThrow(new ConnectException("Connection refused"));
+
+    // Execute testSqlAssertion - it returns null on failure instead of throwing
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    AssertionResult result =
+        service.testSqlAssertion(
+            TEST_ENTITY_URN,
+            TEST_CONNECTION_URN,
+            new SqlAssertionInfo()
+                .setChangeType(AssertionValueChangeType.ABSOLUTE)
+                .setType(SqlAssertionType.METRIC)
+                .setOperator(AssertionStdOperator.EQUAL_TO)
+                .setParameters(parameters)
+                .setEntity(TEST_ENTITY_URN)
+                .setStatement("SELECT COUNT(*) FROM table WHERE some_condition = True"));
+
+    // Verify result is null due to exception
+    assertNull(result);
+
+    // Verify metrics were incremented with correct exception class names
+    verify(mockMetricUtils, times(1))
+        .increment(
+            eq(MonitorService.class),
+            eq("exception" + MetricUtils.DELIMITER + "sockettimeoutexception"),
+            eq(1d));
+
+    verify(mockMetricUtils, times(1))
+        .increment(
+            eq(MonitorService.class),
+            eq("exception" + MetricUtils.DELIMITER + "connectexception"),
+            eq(1d));
+
+    // Verify HTTP client was called twice
+    verify(mockHttpClient, times(2)).execute(any(HttpUriRequest.class));
+  }
+
+  @Test
+  public void testExecuteRequestSuccessAfterRetry() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+    OperationContext mockOpContext = mock(OperationContext.class);
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+
+    // Mock the operation context to return metric utils
+    when(mockOpContext.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
+
+    // Create service
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            3,
+            mock(OpenApiClient.class),
+            mockOpContext);
+
+    // Mock successful response
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson = "{\"type\": \"SUCCESS\"}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+
+    // Mock HTTP client to fail once then succeed
+    when(mockHttpClient.execute(any(HttpUriRequest.class)))
+        .thenThrow(new IOException("Temporary failure"))
+        .thenReturn(mockResponse);
+
+    // Execute the request - should succeed after retry
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    AssertionResult result =
+        service.testSqlAssertion(
+            TEST_ENTITY_URN,
+            TEST_CONNECTION_URN,
+            new SqlAssertionInfo()
+                .setChangeType(AssertionValueChangeType.ABSOLUTE)
+                .setType(SqlAssertionType.METRIC)
+                .setOperator(AssertionStdOperator.EQUAL_TO)
+                .setParameters(parameters)
+                .setEntity(TEST_ENTITY_URN)
+                .setStatement("SELECT COUNT(*) FROM table WHERE some_condition = True"));
+
+    // Verify result
+    assertNotNull(result);
+    assertEquals(AssertionResultType.SUCCESS, result.getType());
+
+    // Verify metric was incremented once for the first failure
+    verify(mockMetricUtils, times(1))
+        .increment(
+            eq(MonitorService.class),
+            eq("exception" + MetricUtils.DELIMITER + "ioexception"),
+            eq(1d));
+
+    // Verify HTTP client was called twice (initial fail + successful retry)
+    verify(mockHttpClient, times(2)).execute(any(HttpUriRequest.class));
+  }
+
+  @Test
+  public void testExecuteRequestNoMetricUtils() throws Exception {
+    // Set up mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
+    OperationContext mockOpContext = mock(OperationContext.class);
+
+    // Mock the operation context to return empty metric utils
+    when(mockOpContext.getMetricUtils()).thenReturn(Optional.empty());
+
+    // Create service
+    MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            mockHttpClient,
+            new ExponentialBackoff(2),
+            2,
+            mock(OpenApiClient.class),
+            mockOpContext);
+
+    // Mock HTTP client to throw exception
+    when(mockHttpClient.execute(any(HttpUriRequest.class)))
+        .thenThrow(new IOException("Connection error"));
+
+    // Execute the request and expect it to fail
+    try {
+      service.retrainAssertionMonitor(TEST_MONITOR_URN);
+      fail("Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      // Expected exception
+      assertTrue(
+          e.getMessage().contains("Caught exception while attempting to train assertion monitor!"));
+    }
+
+    // Verify getMetricUtils was called but no NPE occurred
+    verify(mockOpContext, atLeast(1)).getMetricUtils();
+
+    // Verify HTTP client was called expected number of times
+    verify(mockHttpClient, times(2)).execute(any(HttpUriRequest.class));
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.test;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -8,6 +7,7 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -32,7 +32,7 @@ public class RestliMetadataTestClient extends BaseClient implements MetadataTest
    *
    * @param urn Urn of the entity being evaluated
    * @param tests List of tests being evaluated. If null, runs all tests
-   * @param authentication Authentication to access this functionality
+   * @param operationContext Authentication to access this functionality
    * @return
    */
   @Nonnull
@@ -40,7 +40,7 @@ public class RestliMetadataTestClient extends BaseClient implements MetadataTest
       @Nonnull final Urn urn,
       @Nullable List<Urn> tests,
       boolean shouldPush,
-      @Nonnull final Authentication authentication)
+      @Nonnull final OperationContext operationContext)
       throws RemoteInvocationException {
     TestDoEvaluateRequestBuilder requestBuilder =
         TEST_REQUEST_BUILDERS.actionEvaluate().urnParam(urn.toString()).pushParam(shouldPush);
@@ -48,18 +48,20 @@ public class RestliMetadataTestClient extends BaseClient implements MetadataTest
       requestBuilder.testsParam(
           new StringArray(tests.stream().map(Urn::toString).collect(Collectors.toList())));
     }
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, operationContext).getEntity();
   }
 
   @Nonnull
   public BatchedTestResults evaluateSingleTest(
-      @Nonnull final Urn testUrn, boolean shouldPush, @Nonnull final Authentication authentication)
+      @Nonnull final Urn testUrn,
+      boolean shouldPush,
+      @Nonnull final OperationContext operationContext)
       throws RemoteInvocationException {
     TestDoTestEvaluateRequestBuilder requestBuilder =
         TEST_REQUEST_BUILDERS
             .actionTestEvaluate()
             .urnParam(testUrn.toString())
             .pushParam(shouldPush);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, operationContext).getEntity();
   }
 }

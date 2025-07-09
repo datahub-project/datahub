@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -237,7 +238,7 @@ public class AggregationQueryBuilder {
       return getFacetToDisplayNames().get(name);
     } else if (name.contains(AGGREGATION_SEPARATOR_CHAR)) {
       return Arrays.stream(name.split(AGGREGATION_SEPARATOR_CHAR))
-          .map(i -> getFacetToDisplayNames().get(i))
+          .map(i -> getFacetToDisplayNames().getOrDefault(i, i)) // Use original name if not found
           .collect(Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
     }
     return name;
@@ -562,13 +563,34 @@ public class AggregationQueryBuilder {
   }
 
   /**
-   * Only used in aggregation queries, lazy load
+   * Returns a mapping of facet field names to their human-readable display names for use in search
+   * aggregations.
    *
-   * @return map of field name to facet display names
+   * <p>This method processes all searchable annotations across all entity types to build a
+   * comprehensive mapping. When multiple entities define different display names for the same facet
+   * field, the conflicting names are merged by joining them with "/" in alphabetical order (e.g.,
+   * "Name/Title").
+   *
+   * <p>The mapping is built only once on first access and cached for subsequent calls. This
+   * includes:
+   *
+   * <ul>
+   *   <li>Regular facet fields (when annotation has addToFilters=true)
+   *   <li>"Has value" boolean fields (when annotation has addHasValuesToFilters=true)
+   *   <li>A hardcoded entry for the virtual index field ("_index" → "Type")
+   * </ul>
+   *
+   * <p>When display name collisions are detected, a warning is logged indicating which field has
+   * multiple display names across entities.
+   *
+   * @return a map where keys are facet field names (e.g., "type") and values are their
+   *     corresponding display names (e.g., "Type", "Chart Type"). Display names may be merged with
+   *     "/" when conflicts exist across entities.
    */
   private Map<String, String> getFacetToDisplayNames() {
     if (filtersToDisplayName == null) {
-      filtersToDisplayName =
+      // First, collect all field-to-display-name mappings grouped by field name
+      Map<String, Set<String>> fieldToDisplayNames =
           entitySearchAnnotations.entrySet().stream()
               .flatMap(
                   entry ->
@@ -578,7 +600,27 @@ public class AggregationQueryBuilder {
                                   getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
                                       .stream()))
               .collect(
-                  Collectors.toMap(Pair::getFirst, p -> p.getSecond().getSecond(), mapMerger()));
+                  Collectors.groupingBy(
+                      Pair::getFirst,
+                      Collectors.mapping(
+                          p -> p.getSecond().getSecond(), Collectors.toCollection(TreeSet::new))));
+
+      // Log fields with multiple display names
+      fieldToDisplayNames.entrySet().stream()
+          .filter(entry -> entry.getValue().size() > 1)
+          .forEach(
+              entry ->
+                  log.warn(
+                      "Field '{}' has multiple display names: {}",
+                      entry.getKey(),
+                      entry.getValue()));
+
+      // Create the final map with merged display names
+      filtersToDisplayName =
+          fieldToDisplayNames.entrySet().stream()
+              .collect(
+                  Collectors.toMap(Map.Entry::getKey, entry -> String.join("/", entry.getValue())));
+
       filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     }
 

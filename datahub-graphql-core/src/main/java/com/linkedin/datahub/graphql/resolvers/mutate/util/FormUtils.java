@@ -552,7 +552,7 @@ public class FormUtils {
         () -> {
           try {
             metadataTestClient.evaluateSingleTest(
-                UrnUtils.getUrn(taskUrn), true, context.getAuthentication());
+                UrnUtils.getUrn(taskUrn), true, context.getOperationContext());
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to evaluate bulk form response task with urn %s", taskUrn),

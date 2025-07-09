@@ -22,7 +22,7 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.context.Context;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
@@ -212,7 +212,8 @@ abstract class AbstractScimRepository<
     systemOperationContext.withSpan(
         "scimDelete",
         () -> {
-          Optional.ofNullable(Context.current().get(TraceContext.EVENT_SOURCE_CONTEXT_KEY))
+          Optional.ofNullable(
+                  Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
               .ifPresent(eventSource -> eventSource.set(SSO_SCIM_SOURCE));
           _entityService.deleteUrn(systemOperationContext, urn);
         });
@@ -245,7 +246,8 @@ abstract class AbstractScimRepository<
     systemOperationContext.withSpan(
         "scimIngest",
         () -> {
-          Optional.ofNullable(Context.current().get(TraceContext.EVENT_SOURCE_CONTEXT_KEY))
+          Optional.ofNullable(
+                  Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
               .ifPresent(eventSource -> eventSource.set(SSO_SCIM_SOURCE));
           _entityService.ingestProposal(systemOperationContext, mcp, auditStamp, false);
         });

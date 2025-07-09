@@ -47,7 +47,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.SessionConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,8 +68,15 @@ import org.springframework.context.annotation.Primary;
     })
 @Import({ConfigurationProvider.class})
 public class ScimpleSpringTestApp {
+  // Static instance to ensure only one container across all Spring contexts
+  private static volatile Neo4jTestServerBuilder SHARED_NEO4J_BUILDER;
+  private static final Object NEO4J_LOCK = new Object();
+
   @Value("${secretService.encryptionKey}")
   private String encryptionKey;
+
+  // Store the server builder as a field for cleanup
+  private Neo4jTestServerBuilder neo4jServerBuilder;
 
   @Bean("systemOperationContext")
   @ConditionalOnMissingBean
@@ -101,7 +107,7 @@ public class ScimpleSpringTestApp {
       @Qualifier("systemOperationContext") OperationContext systemOperationContext)
       throws EntityRegistryException, IOException, URISyntaxException {
 
-    EbeanAspectDao _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    EbeanAspectDao _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
@@ -199,20 +205,42 @@ public class ScimpleSpringTestApp {
   @ConditionalOnMissingBean
   GraphService graphService(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-    Neo4jTestServerBuilder _serverBuilder = new Neo4jTestServerBuilder();
 
-    _serverBuilder.newServer();
+    // Ensure only one Neo4j container is created across all test contexts
+    Neo4jTestServerBuilder builder;
+    synchronized (NEO4J_LOCK) {
+      if (SHARED_NEO4J_BUILDER == null) {
+        SHARED_NEO4J_BUILDER = new Neo4jTestServerBuilder();
+        SHARED_NEO4J_BUILDER.start();
 
-    Driver _driver = GraphDatabase.driver(_serverBuilder.boltURI());
+        // Register shutdown hook to clean up when JVM exits
+        Runtime.getRuntime()
+            .addShutdownHook(
+                new Thread(
+                    () -> {
+                      if (SHARED_NEO4J_BUILDER != null) {
+                        SHARED_NEO4J_BUILDER.shutdown();
+                      }
+                    }));
+      }
+      builder = SHARED_NEO4J_BUILDER;
+    }
 
+    // Get the driver from the shared builder
+    Driver _driver = builder.getDriver();
+
+    // Clear the database for test isolation
+    try (var session = _driver.session()) {
+      session.run("MATCH (n) DETACH DELETE n").consume();
+    }
+
+    // Create the Neo4j graph service
     Neo4jGraphService _client =
         new Neo4jGraphService(
             new LineageRegistry(SnapshotEntityRegistry.getInstance()),
             _driver,
             SessionConfig.defaultConfig(),
             TEST_GRAPH_SERVICE_CONFIG);
-
-    _client.clear();
 
     return _client;
   }

@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,8 +22,9 @@ public class EntityAspectDaoFactory {
   @Nonnull
   protected AspectDao createEbeanInstance(
       @Qualifier("ebeanServer") final Database server,
-      final ConfigurationProvider configurationProvider) {
-    return new EbeanAspectDao(server, configurationProvider.getEbean());
+      final ConfigurationProvider configurationProvider,
+      final MetricUtils metricUtils) {
+    return new EbeanAspectDao(server, configurationProvider.getEbean(), metricUtils);
   }
 
   @Bean(name = "entityAspectDao")

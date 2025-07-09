@@ -113,6 +113,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
 
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -145,6 +146,7 @@ public class SlackNotificationSinkTest {
 
     // Case 1: No Connection, Empty Static Config
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             Collections.emptyMap(),
             mockEntityClient,
@@ -158,6 +160,7 @@ public class SlackNotificationSinkTest {
 
     // Case 2: No Connection, Static config with bot token and default channel
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of(
                 "botToken",
@@ -208,6 +211,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlack);
 
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -235,6 +239,7 @@ public class SlackNotificationSinkTest {
     // No bot_token field in the json
     Mockito.when(mockSecretProvider.decryptSecret("blob")).thenReturn("{}");
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -258,6 +263,7 @@ public class SlackNotificationSinkTest {
                 any(OperationContext.class), eq(SlackNotificationSink.SLACK_CONNECTION_URN)))
         .thenReturn(null);
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -377,6 +383,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -447,6 +454,7 @@ public class SlackNotificationSinkTest {
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
             mockEntityClient,
@@ -538,6 +546,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -639,6 +648,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -738,6 +748,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -844,6 +855,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -976,6 +988,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockEntityClient,
@@ -1046,6 +1059,7 @@ public class SlackNotificationSinkTest {
     SlackNotificationSink sink = new SlackNotificationSink(mockClient);
     sink.botToken = TEST_BOT_TOKEN;
     sink.init(
+        opContext,
         new NotificationSinkConfig(
             ImmutableMap.of(
                 "botToken", TEST_BOT_TOKEN,

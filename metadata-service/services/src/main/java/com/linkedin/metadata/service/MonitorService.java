@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
@@ -72,6 +71,7 @@ public class MonitorService extends BaseService {
   private final CloseableHttpClient httpClient;
   private final BackoffPolicy backoffPolicy;
   private final int retryCount;
+  private final OperationContext systemOperationContext;
 
   public MonitorService(
       @Nonnull final String monitorServiceHost,
@@ -79,7 +79,7 @@ public class MonitorService extends BaseService {
       @Nonnull final Boolean useSsl,
       @Nonnull final SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull OperationContext systemOperationContext) {
     this(
         monitorServiceHost,
         monitorServicePort,
@@ -89,7 +89,7 @@ public class MonitorService extends BaseService {
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
         3,
         openApiClient,
-        objectMapper);
+        systemOperationContext);
   }
 
   public MonitorService(
@@ -101,9 +101,9 @@ public class MonitorService extends BaseService {
       @Nonnull final BackoffPolicy backoffPolicy,
       final int retryCount,
       @Nonnull final OpenApiClient openApiClient,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull OperationContext systemOperationContext) {
 
-    super(entityClient, openApiClient, objectMapper);
+    super(entityClient, openApiClient, systemOperationContext.getObjectMapper());
 
     this.monitorServiceHost = Objects.requireNonNull(monitorServiceHost);
     this.monitorServicePort = Objects.requireNonNull(monitorServicePort);
@@ -111,6 +111,7 @@ public class MonitorService extends BaseService {
     this.protocol = useSsl ? "https" : "http";
     this.backoffPolicy = backoffPolicy;
     this.retryCount = retryCount;
+    this.systemOperationContext = systemOperationContext;
   }
 
   /**
@@ -644,10 +645,16 @@ public class MonitorService extends BaseService {
       try {
         return httpClient.execute(request);
       } catch (Exception ex) {
-        MetricUtils.counter(
-                MonitorService.class,
-                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
-            .inc();
+        systemOperationContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(
+                        MonitorService.class,
+                        "exception"
+                            + MetricUtils.DELIMITER
+                            + ex.getClass().getSimpleName().toLowerCase(),
+                        1));
         if (attemptCount == this.retryCount - 1) {
           throw ex;
         } else {

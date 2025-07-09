@@ -14,10 +14,10 @@ import com.linkedin.datahub.graphql.generated.OperationsStatsInput;
 import com.linkedin.datahub.graphql.types.operations.OperationsQueryResultMapper;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.OperationsServiceUtil;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,6 +45,7 @@ public class DatasetOperationsStatsResolver
             ? UsageTimeRange.valueOf(input.getRange().toString())
             : DEFAULT_RANGE;
     final String timeZone = input.getTimeZone();
+    final OperationContext opContext = context.getOperationContext();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -59,7 +60,7 @@ public class DatasetOperationsStatsResolver
             }
             com.linkedin.operations.OperationsQueryResult result =
                 OperationsServiceUtil.queryRange(
-                    context.getOperationContext(),
+                    opContext,
                     timeseriesAspectService,
                     resourceUrn.toString(),
                     WindowDuration.DAY,
@@ -69,7 +70,11 @@ public class DatasetOperationsStatsResolver
           } catch (Exception e) {
             log.error(
                 String.format("Failed to load Operations Stats for resource %s", resourceUrn), e);
-            MetricUtils.counter(this.getClass(), "operations_stats_dropped").inc();
+            opContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(this.getClass(), "operations_stats_dropped", 1));
           }
           // don't cause loading the whole dataset to fail
           return new OperationsQueryResult();

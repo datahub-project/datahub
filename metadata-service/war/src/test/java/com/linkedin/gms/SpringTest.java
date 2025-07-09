@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import io.micrometer.core.instrument.Clock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -36,6 +37,7 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   // still testing prod config
   @MockBean private Database database;
   @MockBean private BootstrapManager bootstrapManager;
+  @MockBean private Clock clock;
 
   @Test
   public void testTelemetry() {

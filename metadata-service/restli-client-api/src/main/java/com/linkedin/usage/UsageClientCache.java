@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
 import com.linkedin.common.client.ClientCache;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -48,7 +49,11 @@ public class UsageClientCache {
       return this;
     }
 
-    public UsageClientCache build() {
+    private UsageClientCache build() {
+      return null;
+    }
+
+    public UsageClientCache build(MetricUtils metricUtils) {
       // estimate size
       Weigher<Key, UsageQueryResult> weighByEstimatedSize =
           (key, value) -> value.data().toString().getBytes().length;
@@ -70,7 +75,7 @@ public class UsageClientCache {
               .config(config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
-              .build(UsageClientCache.class);
+              .build(metricUtils, UsageClientCache.class);
 
       return new UsageClientCache(config, cache, loadFunction);
     }

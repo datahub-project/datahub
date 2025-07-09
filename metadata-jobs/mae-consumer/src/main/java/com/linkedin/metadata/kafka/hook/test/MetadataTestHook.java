@@ -21,7 +21,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.BatchedTestResults;
@@ -29,6 +28,7 @@ import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestInterval;
 import com.linkedin.test.TestSourceType;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
@@ -79,12 +79,13 @@ public class MetadataTestHook implements MetadataChangeLogHook {
       ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME, Constants.STATUS_ASPECT_NAME);
   private final Boolean isOnTestChangeEnabled;
   private final Boolean isOnEntityChangeEnabled;
+  private final OperationContext systemOperationContext;
 
   @Autowired
   public MetadataTestHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${metadataTests.hook.onTestChange:true}") Boolean onTestChangeEnabled,
       @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled,
@@ -92,7 +93,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     this(
         entityRegistry,
         testClient,
-        systemAuthentication,
+        systemOperationContext,
         isEnabled,
         2,
         TimeUnit.SECONDS,
@@ -105,7 +106,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   MetadataTestHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull Boolean isEnabled,
       final int cacheExpirationTime,
       final TimeUnit cacheExpirationUnit) {
@@ -114,7 +115,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     this(
         entityRegistry,
         testClient,
-        systemAuthentication,
+        systemOperationContext,
         isEnabled,
         cacheExpirationTime,
         cacheExpirationUnit,
@@ -126,7 +127,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   MetadataTestHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull Boolean isEnabled,
       final int cacheExpirationTime,
       final TimeUnit cacheExpirationUnit,
@@ -135,7 +136,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
       @Nonnull String consumerGroupSuffix) {
     this.entityRegistry = entityRegistry;
     this.testClient = testClient;
-    this.systemAuthentication = systemAuthentication;
+    this.systemAuthentication = systemOperationContext.getAuthentication();
+    this.systemOperationContext = systemOperationContext;
     this.isEnabled = isEnabled;
     isOnTestChangeEnabled = onTestChangeEnabled;
     isOnEntityChangeEnabled = onEntityChangeEnabled;
@@ -169,10 +171,18 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   private void evaluateTest(Urn entity) {
     try {
       log.debug("Evaluating tests for urn {}", entity);
-      testClient.evaluate(entity, null, true, systemAuthentication);
-      MetricUtils.counter(this.getClass(), "evaluateTestOnChangeSucceeded").inc();
+      testClient.evaluate(entity, null, true, systemOperationContext);
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), "evaluateTestOnChangeSucceeded", 1));
     } catch (RemoteInvocationException e) {
-      MetricUtils.counter(this.getClass(), "evaluateTestOnChangeFailed").inc();
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), "evaluateTestOnChangeFailed", 1));
       log.error("Error while evaluating test for entity {}", entity, e);
     }
   }
@@ -181,7 +191,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     try {
       BatchedTestResults results =
           testClient.evaluateSingleTest(
-              Objects.requireNonNull(event.getEntityUrn()), true, systemAuthentication);
+              Objects.requireNonNull(event.getEntityUrn()), true, systemOperationContext);
       log.info(
           "Test {} evaluated successfully with results for {} entries",
           event.getEntityUrn(),

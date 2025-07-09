@@ -89,13 +89,18 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private int queryKeysCount = 375; // 0 means no pagination on keys
 
   private final String batchGetMethod;
+  @Nullable private final MetricUtils metricUtils;
 
-  public EbeanAspectDao(@Nonnull final Database server, EbeanConfiguration ebeanConfiguration) {
+  public EbeanAspectDao(
+      @Nonnull final Database server,
+      EbeanConfiguration ebeanConfiguration,
+      MetricUtils metricUtils) {
     this.server = server;
     this.batchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
+    this.metricUtils = metricUtils;
   }
 
   @Override
@@ -736,14 +741,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           }
         }
 
-        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
+        if (metricUtils != null)
+          metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
         log.warn("Retryable PersistenceException: {}", exception.getMessage());
         transactionContext.addException(exception);
       }
     } while (transactionContext.shouldAttemptRetry());
 
     if (transactionContext.lastException() != null) {
-      MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailedAfterRetries")).inc();
+      if (metricUtils != null)
+        metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailedAfterRetries"), 1);
       throw new RetryLimitReached(
           "Failed to add after " + maxTransactionRetry + " retries",
           transactionContext.lastException());

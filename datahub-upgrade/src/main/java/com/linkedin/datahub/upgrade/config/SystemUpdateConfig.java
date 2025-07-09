@@ -22,6 +22,7 @@ import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
@@ -119,13 +120,14 @@ public class SystemUpdateConfig {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties,
       @Qualifier("duheSchemaRegistryConfig")
-          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig,
+      MetricUtils metricUtils) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
         new KafkaProducer<>(
             DataHubKafkaProducerFactory.buildProducerProperties(
                 duheSchemaRegistryConfig, kafkaConfiguration, properties));
-    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker);
+    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
   }
 
   /**

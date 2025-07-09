@@ -25,6 +25,7 @@ import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.ExecuteUnshareResult;
 import io.datahubproject.integrations.model.LineageDirection;
 import io.datahubproject.integrations.model.SuggestedDescription;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -78,18 +79,18 @@ public class IntegrationsService {
   private final AiApi aiApi;
   @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  @Nonnull private final OperationContext systemOperationContext;
 
   public IntegrationsService(
       @Nonnull final String integrationsServiceHost,
       @Nonnull final Integer integrationsServicePort,
       @Nonnull final Boolean useSsl,
-      @Nonnull final Authentication systemAuthentication) {
+      @Nonnull final OperationContext systemOperationContext) {
     this(
         integrationsServiceHost,
         integrationsServicePort,
         useSsl,
-        systemAuthentication,
+        systemOperationContext,
         HttpClients.createDefault(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
         3,
@@ -100,14 +101,15 @@ public class IntegrationsService {
       @Nonnull final String integrationsServiceHost,
       @Nonnull final Integer integrationsServicePort,
       @Nonnull final Boolean useSsl,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull final CloseableHttpClient httpClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       final int retryCount,
       @Nonnull final Integer timeoutSeconds) {
     this.integrationsServiceHost = Objects.requireNonNull(integrationsServiceHost);
     this.integrationsServicePort = Objects.requireNonNull(integrationsServicePort);
-    this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    this.systemOperationContext = Objects.requireNonNull(systemOperationContext);
+    this.systemAuthentication = Objects.requireNonNull(systemOperationContext.getAuthentication());
     this.httpClient = Objects.requireNonNull(httpClient);
     this.protocol = useSsl ? "https" : "http";
     this.backoffPolicy = backoffPolicy;
@@ -288,10 +290,14 @@ public class IntegrationsService {
       try {
         return httpClient.execute(request);
       } catch (Exception ex) {
-        MetricUtils.counter(
-                IntegrationsService.class,
-                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
-            .inc();
+        systemOperationContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(
+                        IntegrationsService.class,
+                        "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase(),
+                        1));
         if (attemptCount == this.retryCount - 1) {
           throw ex;
         } else {
@@ -698,7 +704,9 @@ public class IntegrationsService {
                   return null;
                 }
                 try {
-                  return this.objectMapper.writeValueAsString(response.getData());
+                  return systemOperationContext
+                      .getObjectMapper()
+                      .writeValueAsString(response.getData());
                 } catch (Exception e) {
                   throw new RuntimeException(e);
                 }

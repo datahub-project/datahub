@@ -57,7 +57,8 @@ public abstract class IntegrationsServiceProxySink implements NotificationSink {
   }
 
   @Override
-  public void init(@NotNull NotificationSinkConfig cfg) {
+  public void init(
+      @NotNull final OperationContext operationContext, @NotNull NotificationSinkConfig cfg) {
     log.info("Initializing IntegrationsServiceProxySink...");
     this.integrationsService = cfg.getIntegrationsService();
   }

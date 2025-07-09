@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.TransactionResult;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
@@ -29,7 +30,7 @@ public class EbeanAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     Database server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
-    testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, mock(MetricUtils.class));
   }
 
   @Test

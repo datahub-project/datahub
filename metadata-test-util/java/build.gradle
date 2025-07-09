@@ -16,13 +16,8 @@ dependencies {
     implementation externalDependency.jakartaAnnotations
     implementation externalDependency.h2
 
-    implementation externalDependency.neo4jHarness
-    implementation (externalDependency.neo4jApocCore) {
-        exclude group: 'org.yaml', module: 'snakeyaml'
-    }
-    implementation (externalDependency.neo4jApocCommon) {
-        exclude group: 'org.yaml', module: 'snakeyaml'
-    }
+    implementation externalDependency.testContainersNeo4j
+    implementation externalDependency.neo4jJavaDriver
 
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito

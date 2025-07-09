@@ -39,7 +39,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.service.util.AssertionUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.slack.api.Slack;
@@ -89,8 +88,6 @@ public class SlackNotificationSink implements NotificationSink {
   private static final String GLOSSARY_TERM_MODIFIER_TYPE = "Glossary Term";
   private static final String GLOSSARY_TERM_GROUP_MODIFIER_TYPE = "Glossary Term Group";
   static final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn(Constants.SLACK_CONNECTION_ID);
-
-  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   /** A list of notification templates supported by this sink. */
   private static final List<NotificationTemplateType> ALL_SUPPORTED_TEMPLATES =
@@ -147,6 +144,7 @@ public class SlackNotificationSink implements NotificationSink {
   private Integer maxRetries;
   private long retryAfterTimestamp;
   private boolean slackSinkV2Enabled = false;
+  @Nonnull private OperationContext systemOperationContext;
 
   @VisibleForTesting String botToken;
 
@@ -186,7 +184,10 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   @Override
-  public void init(@Nonnull final NotificationSinkConfig cfg) {
+  public void init(
+      @Nonnull final OperationContext systemOperationContext,
+      @Nonnull final NotificationSinkConfig cfg) {
+    this.systemOperationContext = systemOperationContext;
     SlackConfig slackConfig = new SlackConfig();
     if (cfg.getStaticConfig().getOrDefault(PROXY_URL_CONFIG_NAME, null) != null) {
       slackConfig.setProxyUrl((String) cfg.getStaticConfig().get(PROXY_URL_CONFIG_NAME));
@@ -789,7 +790,9 @@ public class SlackNotificationSink implements NotificationSink {
       return Collections.emptyList();
     }
     try {
-      return objectMapper.readValue(jsonParam, new TypeReference<List<String>>() {});
+      return systemOperationContext
+          .getObjectMapper()
+          .readValue(jsonParam, new TypeReference<List<String>>() {});
     } catch (Exception e) {
       log.warn("Failed to deserialize JSON list: {}", jsonParam, e);
       return Collections.emptyList();
@@ -1236,15 +1239,24 @@ public class SlackNotificationSink implements NotificationSink {
             .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
             .build();
     final ChatPostMessageResponse response = sendMessage(msgRequest, retryMode);
-    MetricUtils.counter(this.getClass(), "send_message_attempt").inc();
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> metricUtils.increment(this.getClass(), "send_message_attempt", 1));
     // if response is null, the message has been dropped due to rate limiting. It has already been
     // logged.
     if (response != null) {
       if (response.isOk()) {
-        MetricUtils.counter(this.getClass(), "send_message_success").inc();
+        systemOperationContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils -> metricUtils.increment(this.getClass(), "send_message_success", 1));
         log.debug("Successfully sent Slack notification to channel {}", channel);
       } else {
-        MetricUtils.counter(this.getClass(), "send_message_fail").inc();
+        systemOperationContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils -> metricUtils.increment(this.getClass(), "send_message_fail", 1));
         log.error(
             "Failed to sink Slack notification to channel {} with text {}. Received error from Slack API: {}",
             channel,
@@ -1306,7 +1318,10 @@ public class SlackNotificationSink implements NotificationSink {
         log.debug("Issue parsing retryAfter from slack API response headers", exc);
       }
     }
-    MetricUtils.counter(this.getClass(), NOTIFICATION_DROPPED_METRIC).inc();
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> metricUtils.increment(this.getClass(), NOTIFICATION_DROPPED_METRIC, 1));
     return null;
   }
 
@@ -1320,7 +1335,10 @@ public class SlackNotificationSink implements NotificationSink {
     log.debug(
         "Skipping sending notification for request {}. Pausing due to hitting our rate limit",
         request);
-    MetricUtils.counter(this.getClass(), NOTIFICATION_DROPPED_METRIC).inc();
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> metricUtils.increment(this.getClass(), NOTIFICATION_DROPPED_METRIC, 1));
     return null;
   }
 

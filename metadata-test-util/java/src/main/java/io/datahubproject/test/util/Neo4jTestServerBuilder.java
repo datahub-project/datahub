@@ -1,66 +1,62 @@
 package io.datahubproject.test.util;
 
-import apoc.path.PathExplorer;
-import java.io.File;
 import java.net.URI;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.harness.Neo4j;
-import org.neo4j.harness.Neo4jBuilder;
-import org.neo4j.harness.internal.InProcessNeo4jBuilder;
+import org.neo4j.driver.Driver;
 
+/**
+ * Neo4j test server builder that uses a shared container instance. This prevents multiple
+ * containers from being started.
+ */
 public class Neo4jTestServerBuilder {
 
-  private final Neo4jBuilder builder;
-  private Neo4j controls;
-
-  private Neo4jTestServerBuilder(Neo4jBuilder builder) {
-    this.builder = builder;
-  }
+  private boolean started = false;
 
   public Neo4jTestServerBuilder() {
-    this(new InProcessNeo4jBuilder().withProcedure(PathExplorer.class).withDisabledServer());
+    // Constructor doesn't start anything
   }
 
-  public Neo4jTestServerBuilder(File workingDirectory) {
-    this(new InProcessNeo4jBuilder(workingDirectory.toPath()).withDisabledServer());
-  }
+  public void start() {
+    // The shared container is already started via static initialization
+    started = true;
 
-  public Neo4j newServer() {
-    if (controls == null) {
-      controls = builder.build();
-    }
-    return controls;
+    // Clear the database for test isolation
+    SharedNeo4jTestContainer.clearDatabase();
   }
 
   public void shutdown() {
-    if (controls != null) {
-      controls.close();
-      controls = null;
-    }
+    // Don't actually stop the shared container
+    // Just mark as not started
+    started = false;
   }
 
   public URI boltURI() {
-    if (controls == null) {
-      throw new IllegalStateException("Cannot access instance URI.");
-    }
-    return controls.boltURI();
+    ensureStarted();
+    return URI.create(SharedNeo4jTestContainer.getBoltUrl());
   }
 
   public URI httpURI() {
-    if (controls == null) {
-      throw new IllegalStateException("Cannot access instance URI.");
-    }
-    return controls.httpURI();
+    ensureStarted();
+    return URI.create(SharedNeo4jTestContainer.getHttpUrl());
   }
 
-  public URI httpsURI() {
-    if (controls == null) {
-      throw new IllegalStateException("Cannot access instance URI.");
-    }
-    return controls.httpURI();
+  public Driver getDriver() {
+    ensureStarted();
+    return SharedNeo4jTestContainer.getDriver();
   }
 
-  public GraphDatabaseService getGraphDatabaseService() {
-    return controls.defaultDatabaseService();
+  public String getPassword() {
+    return SharedNeo4jTestContainer.getPassword();
+  }
+
+  private void ensureStarted() {
+    if (!started) {
+      throw new IllegalStateException("Server not started. Call start() first.");
+    }
+  }
+
+  // Backwards compatibility
+  @Deprecated
+  public void newServer() {
+    start();
   }
 }

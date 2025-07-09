@@ -31,7 +31,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.TraceIdGenerator;
 import io.datahubproject.openapi.v1.models.TraceStatus;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
@@ -53,8 +53,10 @@ import org.testng.annotations.Test;
 
 public class TraceServiceImplTest {
   private static final String TEST_TRACE_ID_FUTURE =
-      TraceContext.TRACE_ID_GENERATOR.generateTraceId(Instant.now().toEpochMilli() + 1000);
-  private static final String TEST_TRACE_ID = TraceContext.TRACE_ID_GENERATOR.generateTraceId();
+      SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
+          Instant.now().toEpochMilli() + 1000);
+  private static final String TEST_TRACE_ID =
+      SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId();
   protected static final String ASPECT_NAME = "status";
   protected static final String TIMESERIES_ASPECT_NAME = "datasetProfile";
   protected static final Urn TEST_URN =
@@ -96,7 +98,7 @@ public class TraceServiceImplTest {
     // Mock entityService response for primary storage
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
@@ -235,7 +237,7 @@ public class TraceServiceImplTest {
     // Mock primary storage with historic state
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID_FUTURE);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID_FUTURE);
     systemMetadata.setProperties(new StringMap(properties));
 
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
@@ -298,7 +300,7 @@ public class TraceServiceImplTest {
     // Mock the failed message in MCPFailedTraceReader
     SystemMetadata failedMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
     failedMetadata.setProperties(new StringMap(properties));
 
     FailedMetadataChangeProposal failedMCP =
@@ -358,7 +360,7 @@ public class TraceServiceImplTest {
     // Create system metadata with NO_OP state
     SystemMetadata systemMetadata = new SystemMetadata();
     systemMetadata.setProperties(
-        new StringMap(Map.of(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID)));
+        new StringMap(Map.of(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID)));
     SystemMetadataUtils.setNoOp(systemMetadata, true); // Set NO_OP flag
 
     // Create enveloped aspect with NO_OP system metadata

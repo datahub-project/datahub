@@ -3,7 +3,6 @@ package com.linkedin.metadata.kafka.hook.test;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.UpstreamArray;
@@ -17,6 +16,8 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.concurrent.TimeUnit;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -28,11 +29,11 @@ public class MetadataTestHookTest {
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    Authentication mockAuthentication = Mockito.mock(Authentication.class);
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
     _mockTestClient = initTestClientMock();
     _metadataTestHook =
         new MetadataTestHook(
-            ENTITY_REGISTRY, _mockTestClient, mockAuthentication, true, 1, TimeUnit.MILLISECONDS);
+            ENTITY_REGISTRY, _mockTestClient, opContext, true, 1, TimeUnit.MILLISECONDS);
   }
 
   @Test
@@ -65,7 +66,7 @@ public class MetadataTestHookTest {
             Mockito.any(Urn.class),
             Mockito.anyList(),
             Mockito.anyBoolean(),
-            Mockito.any(Authentication.class));
+            Mockito.any(OperationContext.class));
   }
 
   @Test
@@ -88,7 +89,7 @@ public class MetadataTestHookTest {
             Mockito.eq(event.getEntityUrn()),
             Mockito.eq(null),
             Mockito.eq(true),
-            Mockito.any(Authentication.class));
+            Mockito.any(OperationContext.class));
   }
 
   @Test
@@ -126,7 +127,7 @@ public class MetadataTestHookTest {
             Mockito.any(Urn.class),
             Mockito.anyList(),
             Mockito.anyBoolean(),
-            Mockito.any(Authentication.class));
+            Mockito.any(OperationContext.class));
   }
 
   private MetadataTestClient initTestClientMock() throws Exception {

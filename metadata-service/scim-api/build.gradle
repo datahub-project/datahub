@@ -73,13 +73,13 @@ dependencies {
 
     testImplementation externalDependency.ebean
 
-    testImplementation externalDependency.neo4jHarness
-
     testImplementation externalDependency.antlr4Runtime
 
     testImplementation externalDependency.antlr4
 
     testImplementation externalDependency.junit
+
+    testImplementation externalDependency.neo4jJavaDriver
 
     testImplementation testFixtures(project(':metadata-io'))
 

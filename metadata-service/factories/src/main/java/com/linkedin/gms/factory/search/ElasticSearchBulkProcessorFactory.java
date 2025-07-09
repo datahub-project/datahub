@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.support.WriteRequest;
@@ -44,9 +45,9 @@ public class ElasticSearchBulkProcessorFactory {
 
   @Bean(name = "elasticSearchBulkProcessor", destroyMethod = "close")
   @Nonnull
-  protected ESBulkProcessor getInstance() {
+  protected ESBulkProcessor getInstance(MetricUtils metricUtils) {
     ESBulkProcessor processor =
-        ESBulkProcessor.builder(searchClient)
+        ESBulkProcessor.builder(searchClient, metricUtils)
             .async(async)
             .bulkFlushPeriod(bulkFlushPeriod)
             .bulkRequestsLimit(bulkRequestsLimit)

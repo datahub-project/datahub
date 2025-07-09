@@ -47,7 +47,7 @@ public class UsageStatsJavaClientTest {
   public void testQueryRangeShouldBeCalledWhenNoStartTimeMillisProvided() throws IOException {
     _instant.when(Instant::now).thenReturn(_now);
     UsageStatsJavaClient client =
-        new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig);
+        new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig, null);
 
     try {
       client.getUsageStatsNoCache(_opContext, "resource", UsageTimeRange.MONTH, null, null);
@@ -71,7 +71,7 @@ public class UsageStatsJavaClientTest {
   public void testQueryShouldBeCalledWhenStartTimeMillisProvided() throws IOException {
     _instant.when(Instant::now).thenReturn(_now);
     UsageStatsJavaClient client =
-        new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig);
+        new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig, null);
 
     try {
       client.getUsageStatsNoCache(

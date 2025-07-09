@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
+import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
@@ -54,6 +55,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -103,9 +105,7 @@ public class GmsGraphQLEngineArgs {
   ERModelRelationshipService erModelRelationshipService;
   FormService formService;
   RestrictedService restrictedService;
-  int graphQLQueryComplexityLimit;
-  int graphQLQueryDepthLimit;
-  boolean graphQLQueryIntrospectionEnabled;
+  GraphQLConfiguration graphQLConfiguration;
   BusinessAttributeService businessAttributeService;
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   ConnectionService connectionService;
@@ -113,6 +113,8 @@ public class GmsGraphQLEngineArgs {
   EntityVersioningService entityVersioningService;
   StsClient stsClient;
   ApplicationService applicationService;
+  boolean systemTelemetryEnabled;
+  MetricUtils metricUtils;
 
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;

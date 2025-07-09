@@ -36,7 +36,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -65,8 +64,8 @@ import org.apache.commons.lang.NotImplementedException;
 public abstract class BaseMclNotificationGenerator implements MclNotificationGenerator {
 
   // TODO - decide whether this limit is reasonable!
-  private static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
-  private static final Integer MAX_DOWNSTREAMS_HOP = 1000;
+  static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
+  static final Integer MAX_DOWNSTREAMS_HOP = 1000;
 
   // Should stay disabled due to concerns around performance with upstream queries on notifications
   private static final boolean ENABLE_DOWNSTREAM_ENTITIES = false;
@@ -325,7 +324,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     try {
       searchResult =
           _entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1000);
-      MetricUtils.counter(this.getClass(), NOTIFICATIONS_SEARCH_CALL_COUNT).inc();
+      systemOpContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), NOTIFICATIONS_SEARCH_CALL_COUNT, 1));
     } catch (Exception e) {
       log.error("Failed to fetch subscriptions for filter {}", filter, e);
       return Collections.emptySet();
@@ -441,7 +444,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
               1000,
               MAX_DOWNSTREAMS_HOP,
               systemOpContext.getSessionAuthentication().getActor().toUrnStr());
-      MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
+      systemOpContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT, 1));
 
       return results.getRelationships().stream()
           .map(LineageRelationship::getEntity)
@@ -468,7 +475,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
               MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
               MAX_DOWNSTREAMS_HOP,
               systemOpContext.getSessionAuthentication().getActor().toUrnStr());
-      MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
+      systemOpContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT, 1));
 
       summary.setTotal(results.getTotal());
 
