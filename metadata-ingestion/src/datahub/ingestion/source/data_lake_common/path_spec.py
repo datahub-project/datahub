@@ -166,6 +166,12 @@ class PathSpec(ConfigModel):
         return False
 
     def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+        # Ensure both path and glob_include use the same protocol for matching
+        if self.glob_include.startswith('s3://') and path.startswith('gs://'):
+            path = path.replace('gs://', 's3://', 1)
+        elif self.glob_include.startswith('gs://') and path.startswith('s3://'):
+            path = path.replace('s3://', 'gs://', 1)
+
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return False
 
