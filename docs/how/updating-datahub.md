@@ -19,6 +19,7 @@
 
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
+- #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
 
 -->
 
@@ -28,15 +29,26 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- All DataHub Python packages now require Python 3.9+. This affects the following packages:
+  - `acryl-datahub` (DataHub CLI and SDK)
+  - `acryl-datahub-actions`
+  - `acryl-datahub-airflow-plugin`
+  - `acryl-datahub-prefect-plugin`
+  - `acryl-datahub-gx-plugin`
+  - `acryl-datahub-dagster-plugin` (already required Python 3.9+)
+- #13619: The `acryl-datahub-airflow-plugin` has dropped support for Airflow versions less than 2.7.
+
 ### Known Issues
 
 ### Potential Downtime
 
 ### Deprecations
 
-- #13858 For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
+- #13858: For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
 
 ### Other Notable Changes
+
+- The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
 
 ## 1.1.0
 

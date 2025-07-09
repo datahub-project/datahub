@@ -13,3 +13,27 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:your_subscriptions
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Your Subscriptions"
+    type: SUBSCRIBED_ASSETS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:top_domains
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Domains"
+    type: DOMAINS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

@@ -82,7 +82,8 @@ public class TimeseriesAspectServiceUnitTest {
           TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
           entityRegistry,
           indexConvention,
-          indexBuilder);
+          indexBuilder,
+          null);
 
   private static final String INDEX_PATTERN = "indexPattern";
 

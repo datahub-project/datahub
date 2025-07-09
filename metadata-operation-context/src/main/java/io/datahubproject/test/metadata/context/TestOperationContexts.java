@@ -28,7 +28,7 @@ import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.Map;
 import java.util.Optional;
@@ -221,7 +221,7 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextTraceNoSearchAuthorization(
       @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
-      @Nullable Supplier<TraceContext> traceContextSupplier) {
+      @Nullable Supplier<SystemTelemetryContext> systemTelemetryContextSupplier) {
 
     return systemContext(
         null,
@@ -233,7 +233,7 @@ public class TestOperationContexts {
         null,
         null,
         objectMapperContextSupplier,
-        traceContextSupplier);
+        systemTelemetryContextSupplier);
   }
 
   public static OperationContext systemContext(
@@ -268,7 +268,7 @@ public class TestOperationContexts {
       @Nullable Consumer<OperationContext> postConstruct,
       @Nullable Supplier<ValidationContext> environmentContextSupplier,
       @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
-      @Nullable Supplier<TraceContext> traceContextSupplier) {
+      @Nullable Supplier<SystemTelemetryContext> systemTelemetryContextSupplier) {
 
     OperationContextConfig config =
         Optional.ofNullable(configSupplier).map(Supplier::get).orElse(DEFAULT_OPCONTEXT_CONFIG);
@@ -304,7 +304,10 @@ public class TestOperationContexts {
             ? ObjectMapperContext.DEFAULT
             : objectMapperContextSupplier.get();
 
-    TraceContext traceContext = traceContextSupplier != null ? traceContextSupplier.get() : null;
+    SystemTelemetryContext systemTelemetryContext =
+        systemTelemetryContextSupplier != null
+            ? systemTelemetryContextSupplier.get()
+            : SystemTelemetryContext.TEST;
 
     OperationContext operationContext =
         OperationContext.asSystem(
@@ -316,7 +319,7 @@ public class TestOperationContexts {
             retrieverContext,
             validationContext,
             objectMapperContext,
-            traceContext,
+            systemTelemetryContext,
             true);
 
     if (postConstruct != null) {
@@ -374,9 +377,43 @@ public class TestOperationContexts {
   }
 
   public static OperationContext userContextNoSearchAuthorization(
-      @Nonnull RequestContext requestContext) {
+      @Nonnull RequestContext.RequestContextBuilder requestContext) {
     return systemContextNoSearchAuthorization(defaultEntityRegistry())
         .asSession(requestContext, Authorizer.EMPTY, TEST_USER_AUTH);
+  }
+
+  @lombok.Builder
+  public static class Builder {
+    @Nullable Supplier<OperationContextConfig> configSupplier;
+    @Nullable Supplier<Authentication> systemAuthSupplier;
+    @Nullable Supplier<ServicesRegistryContext> servicesRegistrySupplier;
+    @Nullable Supplier<EntityRegistry> entityRegistrySupplier;
+    @Nullable Supplier<RetrieverContext> retrieverContextSupplier;
+    @Nullable Supplier<IndexConvention> indexConventionSupplier;
+    @Nullable Consumer<OperationContext> postConstruct;
+    @Nullable Supplier<ValidationContext> environmentContextSupplier;
+    @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier;
+    @Nullable Supplier<SystemTelemetryContext> systemTelemetryContextSupplier;
+
+    public static class BuilderBuilder {
+      private BuilderBuilder build() {
+        return null;
+      }
+
+      public OperationContext buildSystemContext() {
+        return TestOperationContexts.systemContext(
+            this.configSupplier,
+            this.systemAuthSupplier,
+            this.servicesRegistrySupplier,
+            this.entityRegistrySupplier,
+            this.retrieverContextSupplier,
+            this.indexConventionSupplier,
+            this.postConstruct,
+            this.environmentContextSupplier,
+            this.objectMapperContextSupplier,
+            this.systemTelemetryContextSupplier);
+      }
+    }
   }
 
   private TestOperationContexts() {}

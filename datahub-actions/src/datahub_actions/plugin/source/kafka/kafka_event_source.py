@@ -157,7 +157,7 @@ class KafkaEventSource(EventSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
-        config = KafkaEventSourceConfig.parse_obj(config_dict)
+        config = KafkaEventSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def events(self) -> Iterable[EventEnvelope]:
