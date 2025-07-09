@@ -52,7 +52,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
