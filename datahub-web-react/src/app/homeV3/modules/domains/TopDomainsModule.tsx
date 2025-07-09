@@ -22,6 +22,8 @@ const TopDomainsModule = (props: ModuleProps) => {
                     icon="Globe"
                     title="No Domains Created"
                     description="Start by creating a domain in order to see it on your list"
+                    linkText="Configure your Data Domains"
+                    onLinkClick={navigateToDomains}
                 />
             ) : (
                 domains.map((domain) => (
