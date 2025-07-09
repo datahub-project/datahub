@@ -16,15 +16,26 @@ import com.linkedin.module.DataHubPageModuleVisibility;
 import com.linkedin.module.PageModuleScope;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class PageModuleService {
   private final EntityClient entityClient;
+
+  // Default module URNs that cannot be deleted
+  private static final List<String> DEFAULT_MODULE_URNS =
+      List.of(
+          "urn:li:dataHubPageModule:your_assets",
+          "urn:li:dataHubPageModule:your_subscriptions",
+          "urn:li:dataHubPageModule:top_domains");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;
@@ -126,5 +137,69 @@ public class PageModuleService {
       throw new RuntimeException(
           String.format("Failed to retrieve PageModule with urn %s", moduleUrn), e);
     }
+  }
+
+  /**
+   * Deletes a DataHub page module.
+   *
+   * @param opContext the operation context
+   * @param moduleUrn the URN of the page module to delete
+   */
+  public void deletePageModule(@Nonnull OperationContext opContext, @Nonnull final Urn moduleUrn) {
+    Objects.requireNonNull(moduleUrn, "moduleUrn must not be null");
+
+    try {
+      checkDeleteModulePermissions(opContext, moduleUrn);
+
+      entityClient.deleteEntity(opContext, moduleUrn);
+
+      // Asynchronously delete all references to the entity (to return quickly)
+      CompletableFuture.runAsync(
+          () -> {
+            try {
+              entityClient.deleteEntityReferences(opContext, moduleUrn);
+            } catch (Exception e) {
+              log.error(
+                  String.format(
+                      "Caught exception while attempting to clear all entity references for PageModule with urn %s",
+                      moduleUrn),
+                  e);
+            }
+          });
+
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to delete PageModule with urn %s", moduleUrn), e);
+    }
+  }
+
+  /**
+   * Ensures that a page module exists, and uses the page module properties to determine if the user
+   * can delete this module. PERSONAL modules can only be deleted by the user that created them.
+   * GLOBAL modules can only be deleted by those with the manage privilege. Default modules cannot
+   * be deleted.
+   */
+  public void checkDeleteModulePermissions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn moduleUrn) {
+    // Check if this is a default module that cannot be deleted
+    if (DEFAULT_MODULE_URNS.contains(moduleUrn.toString())) {
+      throw new IllegalArgumentException(
+          String.format("Cannot delete default page module with urn %s", moduleUrn));
+    }
+
+    DataHubPageModuleProperties properties = getPageModuleProperties(opContext, moduleUrn);
+
+    if (properties == null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Attempted to delete a page module that does not exist with urn %s", moduleUrn));
+    }
+
+    if (properties.getVisibility().getScope().equals(PageModuleScope.PERSONAL)
+        && !properties.getCreated().getActor().equals(opContext.getActorContext().getActorUrn())) {
+      throw new UnauthorizedException(
+          "Attempted to delete personal a page module that was not created by the actor");
+    }
+    // TODO: check permissions for deleting a GLOBAL module in CH-510
   }
 }
