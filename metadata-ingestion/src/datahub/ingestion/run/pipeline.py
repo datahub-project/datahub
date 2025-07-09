@@ -363,10 +363,6 @@ class Pipeline:
             version=Version(default_cli_server), release_date=None
         )
 
-        # TODO remove this before commit
-        version_stats.client.current.version = Version("0.13.1.0")
-        server_version_obj.version = Version("1.0.0")
-
         is_valid_client_version = valid_client_version(
             version_stats.client.current.version
         )
