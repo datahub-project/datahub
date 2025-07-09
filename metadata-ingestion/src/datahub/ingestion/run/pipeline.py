@@ -351,7 +351,10 @@ class Pipeline:
                 logger.warning("Reporting failed on start", exc_info=e)
 
     def _warn_old_cli_version(self) -> None:
-        """Print version information: current CLI version, server version, and latest CLI version."""
+        """
+        Check if the server default CLI version is ahead of the CLI version being used.
+        If so, add a warning to the report.
+        """
 
         try:
             version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
