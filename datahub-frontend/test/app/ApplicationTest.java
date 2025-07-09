@@ -432,19 +432,12 @@ public class ApplicationTest extends WithBrowser {
     // No exception expected
   }
 
-  private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
-    if (request.body().asBytes() != null) {
-      return HttpRequest.BodyPublishers.ofByteArray(request.body().asBytes().toArray());
-    } else if (request.body().asText() != null) {
-      return HttpRequest.BodyPublishers.ofString(request.body().asText());
-    }
-    return HttpRequest.BodyPublishers.noBody();
-  }
-
   @Test
   public void testBuildBodyPublisher_withText() throws Exception {
-    String text = "hello world";
-    Http.Request request = Helpers.fakeRequest().bodyText(text).build();
+    // Create a request with only text
+    String text = "test text";
+    Http.Request request =
+        new Http.RequestBuilder().method("POST").uri("/test").bodyText(text).build();
 
     Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
     m.setAccessible(true);
@@ -455,7 +448,8 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testBuildBodyPublisher_noBody() throws Exception {
-    Http.Request request = Helpers.fakeRequest().build();
+    // Create a request with no body
+    Http.Request request = new Http.RequestBuilder().method("POST").uri("/test").build();
 
     Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
     m.setAccessible(true);
