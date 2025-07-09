@@ -531,7 +531,7 @@ plugins: Dict[str, Set[str]] = {
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
-    "gcs": {*s3_base, *data_lake_profiling},
+    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce", *cachetools_lib},

@@ -101,11 +101,13 @@ class TestLineageHelper:
     def test_load_lineage_data_file_not_found(self, monkeypatch):
         self.setup_mock_file_operations(monkeypatch, "", exists=False)
 
-        with pytest.raises(FileNotFoundError):
-            _load_lineage_data()
+        # Should return empty dict instead of raising exception
+        result = _load_lineage_data()
+        assert result == {}
 
     def test_load_lineage_data_invalid_json(self, monkeypatch):
         self.setup_mock_file_operations(monkeypatch, "invalid json", exists=True)
 
-        with pytest.raises(json.JSONDecodeError):
-            _load_lineage_data()
+        # Should return empty dict instead of raising exception
+        result = _load_lineage_data()
+        assert result == {}
