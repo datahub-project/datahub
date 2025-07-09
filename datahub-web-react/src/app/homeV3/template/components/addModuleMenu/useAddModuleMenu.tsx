@@ -4,29 +4,21 @@ import React, { useCallback, useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
-import { AddModuleMenuHandlerInput } from '@app/homeV3/template/components/addModuleMenu/types';
-import { getModuleTitle } from '@app/homeV3/template/components/addModuleMenu/utils';
 
-import { DataHubPageModule } from '@types';
-
-export default function useMenu(
+export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
-    onClick?: (input: AddModuleMenuHandlerInput) => void,
+    onClick?: (module: ModuleInfo) => void,
 ): MenuProps {
     const convertModule = useCallback(
-        (module: DataHubPageModule): ItemType => ({
-            title: getModuleTitle(module),
-            key: module.urn,
+        (module: ModuleInfo): ItemType => ({
+            title: module.name,
+            key: module.key,
             label: <ModuleMenuItem module={module} />,
-            onClick: () =>
-                onClick?.({
-                    module,
-                    moduleType: module.properties.type,
-                }),
+            onClick: () => onClick?.(module),
         }),
         [onClick],
     );
@@ -34,7 +26,7 @@ export default function useMenu(
     return useMemo(() => {
         const items: MenuProps['items'] = [];
 
-        if (modulesAvailableToAdd.customModules) {
+        if (modulesAvailableToAdd.customModules.length) {
             items.push({
                 key: 'customModulesGroup',
                 label: <GroupItem title="Custom" />,
@@ -43,7 +35,7 @@ export default function useMenu(
             });
         }
 
-        if (modulesAvailableToAdd.customLargeModules) {
+        if (modulesAvailableToAdd.customLargeModules.length) {
             items.push({
                 key: 'customLargeModulesGroup',
                 label: <GroupItem title="Custom Large" />,
@@ -52,7 +44,7 @@ export default function useMenu(
             });
         }
 
-        if (modulesAvailableToAdd.adminCreatedModules) {
+        if (modulesAvailableToAdd.adminCreatedModules.length) {
             items.push({
                 key: 'adminCreatedModulesGroup',
                 title: 'Admin Created Widgets',

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { AddModuleInput } from '@app/homeV3/template/types';
+import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 
 import { DataHubPageTemplate } from '@types';
@@ -26,9 +26,9 @@ interface Props {
 
 export default function Template({ template, className }: Props) {
     const hasRows = !!template?.properties?.rows?.length;
-    const onAddModule = useCallback((input: AddModuleInput) => {
+    const onAddModule = useCallback((input: AddModuleHandlerInput) => {
         // TODO: implement the real handler
-        console.log('Add module handler', input.module?.properties?.name, input);
+        console.log('onAddModule handled with input', input);
     }, []);
 
     const modulesAvailableToAdd = useModulesAvailableToAdd();

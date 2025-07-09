@@ -2,10 +2,9 @@ import { Button, Dropdown, Icon, colors } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import { AddModuleMenuHandlerInput } from '@app/homeV3/template/components/addModuleMenu/types';
-import useMenu from '@app/homeV3/template/components/addModuleMenu/useMenu';
-import { AddModuleInput, RowSide } from '@app/homeV3/template/types';
+import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
+import { AddModuleHandlerInput, RowSide } from '@app/homeV3/template/types';
 
 type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 
@@ -46,7 +45,7 @@ const StyledVisibleOnHoverButton = styled(StyledButton)`
 interface Props {
     orientation: AddModuleButtonOrientation;
     modulesAvailableToAdd: ModulesAvailableToAdd;
-    onAddModule?: (input: AddModuleInput) => void;
+    onAddModule?: (input: AddModuleHandlerInput) => void;
     className?: string;
     rowIndex?: number;
     rowSide?: RowSide;
@@ -65,11 +64,10 @@ export default function AddModuleButton({
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
 
     const onAddModuleHandler = useCallback(
-        (input: AddModuleMenuHandlerInput) => {
+        (module: ModuleInfo) => {
             setIsOpened(false);
             onAddModule?.({
-                module: input.module,
-                moduleType: input.moduleType,
+                module,
                 rowIndex,
                 rowSide,
             });
@@ -77,10 +75,10 @@ export default function AddModuleButton({
         [onAddModule, rowIndex, rowSide],
     );
 
-    const menu = useMenu(modulesAvailableToAdd, onAddModuleHandler);
+    const menu = useAddModuleMenu(modulesAvailableToAdd, onAddModuleHandler);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-        // FYI: Antd can open dropdown in the cursor's position only with contextMenu trigger
+        // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger
         // we handle left click and emit contextmenu event instead to open the dropdown in the cursor's position
         const event = new MouseEvent('contextmenu', {
             bubbles: true,

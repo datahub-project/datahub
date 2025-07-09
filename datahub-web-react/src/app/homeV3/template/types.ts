@@ -1,11 +1,9 @@
-import { DataHubPageModule, DataHubPageModuleType } from '@types';
+import { ModuleInfo } from '@app/homeV3/modules/types';
 
 export type RowSide = 'left' | 'right';
 
-export interface AddModuleInput {
-    module?: DataHubPageModule; // Fill in case of adding an existing module
-    moduleType: DataHubPageModuleType;
-
+export interface AddModuleHandlerInput {
+    module: ModuleInfo;
     // When these fields are empty it means adding a module to the new row
     rowIndex?: number;
     rowSide?: RowSide;

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { AddModuleInput } from '@app/homeV3/template/types';
+import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 
 import { DataHubPageTemplateRow } from '@types';
 
@@ -17,7 +17,7 @@ const RowWrapper = styled.div`
 
 interface Props {
     row: DataHubPageTemplateRow;
-    onAddModule?: (input: AddModuleInput) => void;
+    onAddModule?: (input: AddModuleHandlerInput) => void;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
 }
