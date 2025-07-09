@@ -457,36 +457,38 @@ class TestGCSURINormalization(unittest.TestCase):
     def test_gcs_uri_normalization_for_pattern_matching(self):
         """Test that GCS URIs are normalized to S3 URIs for pattern matching."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Test GCS URI normalization
         gcs_uri = "gs://bucket/path/to/file.parquet"
         normalized_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(gcs_uri)
         self.assertEqual(normalized_uri, "s3://bucket/path/to/file.parquet")
-        
+
         # Test that non-GCS URIs are left unchanged
         s3_uri = "s3://bucket/path/to/file.parquet"
         normalized_s3_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(s3_uri)
         self.assertEqual(normalized_s3_uri, s3_uri)
-        
+
         # Test empty string
         empty_uri = ""
-        normalized_empty = gcs_adapter._normalize_gcs_uri_for_pattern_matching(empty_uri)
+        normalized_empty = gcs_adapter._normalize_gcs_uri_for_pattern_matching(
+            empty_uri
+        )
         self.assertEqual(normalized_empty, empty_uri)
 
     def test_gcs_prefix_stripping(self):
         """Test that GCS prefixes are stripped correctly."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Test GCS URI prefix stripping
         gcs_uri = "gs://bucket/path/to/file.parquet"
         stripped_uri = gcs_adapter._strip_gcs_prefix(gcs_uri)
         self.assertEqual(stripped_uri, "bucket/path/to/file.parquet")
-        
+
         # Test that non-GCS URIs are left unchanged
         s3_uri = "s3://bucket/path/to/file.parquet"
         stripped_s3_uri = gcs_adapter._strip_gcs_prefix(s3_uri)
         self.assertEqual(stripped_s3_uri, s3_uri)
-        
+
         # Test bucket-only URI
         bucket_uri = "gs://bucket/"
         stripped_bucket = gcs_adapter._strip_gcs_prefix(bucket_uri)
@@ -495,53 +497,53 @@ class TestGCSURINormalization(unittest.TestCase):
     def test_gcs_adapter_customizations(self):
         """Test that GCS adapter registers the expected customizations."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Check that the required customizations are registered
         expected_customizations = [
             "is_s3_platform",
             "create_s3_path",
             "get_external_url",
             "_normalize_uri_for_pattern_matching",
-            "_strip_platform_prefix"
+            "strip_s3_prefix",
         ]
-        
+
         for customization in expected_customizations:
             self.assertIn(customization, gcs_adapter.customizations)
 
     def test_gcs_adapter_applied_to_mock_source(self):
         """Test that GCS adapter customizations are applied to a mock source."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Create a mock S3 source
         mock_source = MagicMock()
         mock_source.source_config = MagicMock()
-        
+
         # Apply customizations
-        result = gcs_adapter.apply_customizations(mock_source)
-        
+        gcs_adapter.apply_customizations(mock_source)
+
         # Check that the customizations were applied
         self.assertTrue(hasattr(mock_source, "_normalize_uri_for_pattern_matching"))
-        self.assertTrue(hasattr(mock_source, "_strip_platform_prefix"))
+        self.assertTrue(hasattr(mock_source, "strip_s3_prefix"))
         self.assertTrue(hasattr(mock_source, "create_s3_path"))
-        
+
         # Test that the URI normalization method works on the mock source
         test_uri = "gs://bucket/path/file.parquet"
         normalized = mock_source._normalize_uri_for_pattern_matching(test_uri)
         self.assertEqual(normalized, "s3://bucket/path/file.parquet")
-        
+
         # Test that the prefix stripping method works on the mock source
-        stripped = mock_source._strip_platform_prefix(test_uri)
+        stripped = mock_source.strip_s3_prefix(test_uri)
         self.assertEqual(stripped, "bucket/path/file.parquet")
 
     def test_gcs_path_creation_via_adapter(self):
         """Test that GCS paths are created correctly via the adapter."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Create a mock source and apply customizations
         mock_source = MagicMock()
         mock_source.source_config = MagicMock()
         gcs_adapter.apply_customizations(mock_source)
-        
+
         # Test that create_s3_path now creates GCS paths
         gcs_path = mock_source.create_s3_path("bucket", "path/to/file.parquet")
         self.assertEqual(gcs_path, "gs://bucket/path/to/file.parquet")
@@ -549,22 +551,27 @@ class TestGCSURINormalization(unittest.TestCase):
     def test_pattern_matching_scenario(self):
         """Test the actual pattern matching scenario that was failing."""
         gcs_adapter = create_object_store_adapter("gcs")
-        
+
         # Simulate the scenario where:
         # 1. Path spec pattern is s3://bucket/path/{table}/*.parquet
         # 2. File URI is gs://bucket/path/food_parquet/file.parquet
-        
+
         path_spec_pattern = "s3://bucket/path/{table}/*.parquet"
         file_uri = "gs://bucket/path/food_parquet/file.parquet"
-        
+
         # Normalize the file URI for pattern matching
-        normalized_file_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(file_uri)
-        
+        normalized_file_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(
+            file_uri
+        )
+
         # The normalized URI should now be compatible with the pattern
-        self.assertEqual(normalized_file_uri, "s3://bucket/path/food_parquet/file.parquet")
-        
+        self.assertEqual(
+            normalized_file_uri, "s3://bucket/path/food_parquet/file.parquet"
+        )
+
         # Test that the normalized URI would match the pattern (simplified test)
         import pathlib
+
         glob_pattern = path_spec_pattern.replace("{table}", "*")
         self.assertTrue(pathlib.PurePath(normalized_file_uri).match(glob_pattern))
 

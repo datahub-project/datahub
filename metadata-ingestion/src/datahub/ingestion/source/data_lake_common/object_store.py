@@ -520,9 +520,12 @@ class ObjectStoreSourceAdapter:
                 lambda table_data: self.get_gcs_external_url(table_data),
             )
             # Fix URI mismatch issue in pattern matching
-            self.register_customization("_normalize_uri_for_pattern_matching", self._normalize_gcs_uri_for_pattern_matching)
-            # Fix URI handling in schema extraction
-            self.register_customization("_strip_platform_prefix", self._strip_gcs_prefix)
+            self.register_customization(
+                "_normalize_uri_for_pattern_matching",
+                self._normalize_gcs_uri_for_pattern_matching,
+            )
+            # Fix URI handling in schema extraction - override strip_s3_prefix for GCS
+            self.register_customization("strip_s3_prefix", self._strip_gcs_prefix)
         elif platform == "s3":
             self.register_customization("is_s3_platform", lambda: True)
             self.register_customization("create_s3_path", self.create_s3_path)

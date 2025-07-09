@@ -6,7 +6,6 @@ from pydantic import ValidationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_source import GCSSource
 
 
@@ -99,20 +98,21 @@ def test_gcs_uri_normalization_fix():
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
-    
+
     gcs_source = GCSSource.create(source, ctx)
-    
+
     # Check that the S3 source has the URI normalization method
     assert hasattr(gcs_source.s3_source, "_normalize_uri_for_pattern_matching")
-    assert hasattr(gcs_source.s3_source, "_strip_platform_prefix")
-    
+    # Check that strip_s3_prefix is overridden for GCS
+    assert hasattr(gcs_source.s3_source, "strip_s3_prefix")
+
     # Test URI normalization
     gs_uri = "gs://test-bucket/data/food_parquet/year=2023/file.parquet"
     normalized_uri = gcs_source.s3_source._normalize_uri_for_pattern_matching(gs_uri)
     assert normalized_uri == "s3://test-bucket/data/food_parquet/year=2023/file.parquet"
-    
+
     # Test prefix stripping
-    stripped_uri = gcs_source.s3_source._strip_platform_prefix(gs_uri)
+    stripped_uri = gcs_source.s3_source.strip_s3_prefix(gs_uri)
     assert stripped_uri == "test-bucket/data/food_parquet/year=2023/file.parquet"
 
 
@@ -131,23 +131,28 @@ def test_gcs_path_spec_pattern_matching():
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
-    
+
     gcs_source = GCSSource.create(source, ctx)
-    
+
     # Get the path spec that was converted to S3 format
     s3_path_spec = gcs_source.s3_source.source_config.path_specs[0]
-    
+
     # The path spec should have been converted to S3 format
-    assert s3_path_spec.include == "s3://test-bucket/data/{table}/year={partition[0]}/*.parquet"
-    
+    assert (
+        s3_path_spec.include
+        == "s3://test-bucket/data/{table}/year={partition[0]}/*.parquet"
+    )
+
     # Test that a GCS file URI would be normalized for pattern matching
     gs_file_uri = "gs://test-bucket/data/food_parquet/year=2023/file.parquet"
-    normalized_uri = gcs_source.s3_source._normalize_uri_for_pattern_matching(gs_file_uri)
-    
+    normalized_uri = gcs_source.s3_source._normalize_uri_for_pattern_matching(
+        gs_file_uri
+    )
+
     # The normalized URI should match the pattern (after converting template variables)
-    import re
     import pathlib
-    
+    import re
+
     # Convert the path spec pattern to glob format (similar to what PathSpec.glob_include does)
     glob_pattern = re.sub(r"\{[^}]+\}", "*", s3_path_spec.include)
     assert pathlib.PurePath(normalized_uri).match(glob_pattern)
@@ -168,12 +173,14 @@ def test_gcs_source_preserves_gs_uris():
         ],
         "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
     }
-    
+
     gcs_source = GCSSource.create(source, ctx)
-    
+
     # Test that create_s3_path creates GCS URIs
-    gcs_path = gcs_source.s3_source.create_s3_path("test-bucket", "data/food_parquet/file.parquet")
+    gcs_path = gcs_source.s3_source.create_s3_path(
+        "test-bucket", "data/food_parquet/file.parquet"
+    )
     assert gcs_path == "gs://test-bucket/data/food_parquet/file.parquet"
-    
+
     # Test that the platform is correctly set
     assert gcs_source.s3_source.source_config.platform == PLATFORM_GCS
