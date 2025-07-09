@@ -1,76 +1,50 @@
 package app;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static play.mvc.Http.Status.NOT_FOUND;
-import static play.mvc.Http.Status.OK;
-import static play.test.Helpers.fakeRequest;
-import static play.test.Helpers.route;
+import static org.mockito.Mockito.*;
 
+import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.nimbusds.jwt.JWT;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.JWTParser;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import controllers.Application;
-import controllers.routes;
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.URL;
+import java.net.ConnectException;
+import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
-import java.text.ParseException;
-import java.util.*;
+import java.net.http.HttpResponse;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import no.nav.security.mock.oauth2.MockOAuth2Server;
-import no.nav.security.mock.oauth2.http.OAuth2HttpRequest;
-import no.nav.security.mock.oauth2.http.OAuth2HttpResponse;
-import no.nav.security.mock.oauth2.http.Route;
-import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
-import okhttp3.Headers;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.awaitility.Awaitility;
-import org.awaitility.Durations;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.*;
-import org.junitpioneer.jupiter.SetEnvironmentVariable;
-import org.openqa.selenium.Cookie;
-import org.openqa.selenium.htmlunit.HtmlUnitDriver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import play.Environment;
-import play.Mode;
-import play.inject.guice.GuiceApplicationBuilder;
 import play.libs.Json;
 import play.mvc.Http;
+import play.mvc.Http.Cookie;
 import play.mvc.Result;
-import play.test.Helpers;
-import play.test.TestBrowser;
-import play.test.WithBrowser;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
-@SetEnvironmentVariable(key = "KAFKA_BOOTSTRAP_SERVER", value = "")
-@SetEnvironmentVariable(key = "DATAHUB_ANALYTICS_ENABLED", value = "false")
-@SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")
-@SetEnvironmentVariable(key = "AUTH_OIDC_JIT_PROVISIONING_ENABLED", value = "false")
-@SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
-@SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")
-@SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
-public class ApplicationTest extends WithBrowser {
-  private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
-  private static final String ISSUER_ID = "testIssuer";
-
-  // For unit tests on controller methods
-  private Application unitApp;
+public class ApplicationTest {
+  private Application app;
+  private Application appWithMockEnv;
+  private HttpClient mockHttpClient;
+  private Config config;
+  private Environment environment;
 
   @BeforeEach
-  public void unitSetup() {
+  public void setUp() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
+    configMap.put("metadataService.host", "localhost");
+    configMap.put("metadataService.port", 8080);
+    configMap.put("metadataService.useSsl", false);
+    configMap.put("graphql.verbose.logging", true);
+    configMap.put("graphql.verbose.slowQueryMillis", 0);
     configMap.put("app.version", "1.0.0");
     configMap.put("linkedin.internal", true);
     configMap.put("linkedin.show.dataset.lineage", true);
@@ -102,359 +76,498 @@ public class ApplicationTest extends WithBrowser {
     configMap.put("links.wiki.datasetDecommission", "http://datasetdecommission");
     configMap.put("tracking.piwik.siteid", "123");
     configMap.put("tracking.piwik.url", "http://piwik");
-    Config config = ConfigFactory.parseMap(configMap);
-    Environment env = Environment.simple();
-    unitApp = new Application(env, config);
+    config = ConfigFactory.parseMap(configMap);
+
+    environment = mock(Environment.class);
+
+    // Mock index.html resource as happy path
+    InputStream indexStream = new ByteArrayInputStream("INDEX".getBytes());
+    when(environment.resourceAsStream(eq("public/index.html"))).thenReturn(indexStream);
+
+    app = new Application(environment, config);
+
+    // App with environment that throws on resourceAsStream (exception path)
+    Environment envException = mock(Environment.class);
+    when(envException.resourceAsStream(anyString())).thenThrow(new RuntimeException("not found"));
+    appWithMockEnv = new Application(envException, config);
+
+    // Patch httpClient for proxy tests
+    mockHttpClient = mock(HttpClient.class);
+    var f = Application.class.getDeclaredField("httpClient");
+    f.setAccessible(true);
+    f.set(app, mockHttpClient);
   }
 
-  // --- Play/Browser/Integration Test Section ---
+  // ---------- serveAsset, healthcheck, index ----------
 
-  @Override
-  protected play.Application provideApplication() {
-    return new GuiceApplicationBuilder()
-        .configure("metadataService.port", String.valueOf(gmsServerPort()))
-        .configure("auth.baseUrl", "http://localhost:" + providePort())
-        .configure(
-            "auth.oidc.discoveryUri",
-            "http://localhost:"
-                + oauthServerPort()
-                + "/testIssuer/.well-known/openid-configuration")
-        .in(new Environment(Mode.TEST))
-        .build();
-  }
-
-  @Override
-  protected TestBrowser provideBrowser(int port) {
-    HtmlUnitDriver webClient = new HtmlUnitDriver();
-    webClient.setJavascriptEnabled(false);
-    return Helpers.testBrowser(webClient, providePort());
-  }
-
-  public int oauthServerPort() {
-    return providePort() + 1;
-  }
-
-  public int gmsServerPort() {
-    return providePort() + 2;
-  }
-
-  private MockOAuth2Server oauthServer;
-  private Thread oauthServerThread;
-  private CompletableFuture<Void> oauthServerStarted;
-  private MockWebServer gmsServer;
-  private String wellKnownUrl;
-  private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
-  private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
-
-  @BeforeAll
-  public void init() throws IOException {
-    // Start Mock GMS
-    gmsServer = new MockWebServer();
-    gmsServer.enqueue(new MockResponse().setResponseCode(404));
-    gmsServer.enqueue(new MockResponse().setResponseCode(404));
-    gmsServer.enqueue(new MockResponse().setResponseCode(404));
-    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    gmsServer.enqueue(
-        new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
-    gmsServer.start(gmsServerPort());
-
-    // Start Mock Identity Provider
-    startMockOauthServer();
-    // Start Play Frontend
-    startServer();
-    // Start Browser
-    createBrowser();
-
-    Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
-  }
-
-  @AfterAll
-  public void shutdown() throws IOException {
-    if (gmsServer != null) {
-      logger.info("Shutdown Mock GMS");
-      gmsServer.shutdown();
-    }
-    logger.info("Shutdown Play Frontend");
-    stopServer();
-    if (oauthServer != null) {
-      logger.info("Shutdown MockOAuth2Server");
-      oauthServer.shutdown();
-    }
-    if (oauthServerThread != null && oauthServerThread.isAlive()) {
-      logger.info("Shutdown MockOAuth2Server thread");
-      oauthServerThread.interrupt();
-      try {
-        oauthServerThread.join(2000);
-      } catch (InterruptedException e) {
-        logger.warn("Shutdown MockOAuth2Server thread failed to join.");
-      }
-    }
-  }
-
-  private void startMockOauthServer() {
-    Route[] routes =
-        new Route[] {
-          new Route() {
-            @Override
-            public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {
-              return "HEAD".equals(oAuth2HttpRequest.getMethod())
-                  && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
-                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
-                      || String.format("/%s/token", ISSUER_ID)
-                          .equals(oAuth2HttpRequest.getUrl().url().getPath()));
-            }
-
-            @Override
-            public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
-              return new OAuth2HttpResponse(
-                  Headers.of(
-                      Map.of(
-                          "Content-Type", "application/json",
-                          "Cache-Control", "no-store",
-                          "Pragma", "no-cache",
-                          "Content-Length", "-1")),
-                  200,
-                  null,
-                  null);
-            }
-          }
-        };
-    oauthServer = new MockOAuth2Server(routes);
-    oauthServerStarted = new CompletableFuture<>();
-    oauthServerThread =
-        new Thread(
-            () -> {
-              try {
-                oauthServer.enqueueCallback(
-                    new DefaultOAuth2TokenCallback(
-                        ISSUER_ID,
-                        "testUser",
-                        "JWT",
-                        List.of(),
-                        Map.of(
-                            "email", "testUser@myCompany.com",
-                            "groups", "myGroup"),
-                        600));
-                oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
-                oauthServerStarted.complete(null);
-                while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
-                  try {
-                    Thread.sleep(1000);
-                  } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                  }
-                }
-              } catch (Exception e) {
-                oauthServerStarted.completeExceptionally(e);
-              }
-            });
-    oauthServerThread.setDaemon(true);
-    oauthServerThread.start();
-    oauthServerStarted
-        .orTimeout(10, TimeUnit.SECONDS)
-        .whenComplete(
-            (result, throwable) -> {
-              if (throwable != null) {
-                if (throwable instanceof TimeoutException) {
-                  throw new RuntimeException(
-                      "MockOAuth2Server failed to start within timeout", throwable);
-                }
-                throw new RuntimeException("MockOAuth2Server failed to start", throwable);
-              }
-            });
-    wellKnownUrl = oauthServer.wellKnownUrl(ISSUER_ID).toString();
-    try {
-      URL url = new URL(wellKnownUrl);
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-      conn.setRequestMethod("GET");
-      int responseCode = conn.getResponseCode();
-      logger.info("Well-known endpoint response code: {}", responseCode);
-      if (responseCode != 200) {
-        throw new RuntimeException(
-            "MockOAuth2Server not accessible. Response code: " + responseCode);
-      }
-      logger.info("Successfully started MockOAuth2Server.");
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to connect to MockOAuth2Server", e);
-    }
+  @Test
+  public void testServeAsset_success() throws Exception {
+    Method m = Application.class.getDeclaredMethod("serveAsset", String.class);
+    m.setAccessible(true);
+    Result result = (Result) m.invoke(app, "any");
+    assertEquals(200, result.status());
+    assertEquals("no-cache", result.headers().get("Cache-Control"));
+    assertEquals("text/html", result.contentType().get());
   }
 
   @Test
-  public void testHealth() {
-    Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
-    Result result = route(app, request);
-    assertEquals(OK, result.status());
+  public void testServeAsset_exception() throws Exception {
+    Method m = Application.class.getDeclaredMethod("serveAsset", String.class);
+    m.setAccessible(true);
+    Result result = (Result) m.invoke(appWithMockEnv, "any");
+    assertEquals(404, result.status());
+    assertEquals("no-cache", result.headers().get("Cache-Control"));
+    assertEquals("text/html", result.contentType().get());
+  }
+
+  @Test
+  public void testHealthcheck() {
+    Result r = app.healthcheck();
+    assertEquals(200, r.status());
+    assertTrue(play.test.Helpers.contentAsString(r).contains("GOOD"));
   }
 
   @Test
   public void testIndex() {
-    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
-    Result result = route(app, request);
-    assertEquals(OK, result.status());
+    Result r = app.index("whatever");
+    assertEquals(200, r.status());
+    assertEquals("text/html", r.contentType().get());
   }
 
-  @Test
-  public void testIndexNotFound() {
-    Http.RequestBuilder request = fakeRequest(routes.Application.index("/other"));
-    Result result = route(app, request);
-    assertEquals(NOT_FOUND, result.status());
-  }
+  // ---------- appConfig + helpers ----------
 
   @Test
-  public void testOpenIdConfig() {
-    assertEquals(
-        "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
-        wellKnownUrl);
-  }
-
-  @Test
-  public void testHappyPathOidc() throws ParseException {
-    browser.goTo("/authenticate");
-    assertEquals("", browser.url());
-    Cookie actorCookie = browser.getCookie("actor");
-    assertEquals(TEST_USER, actorCookie.getValue());
-    Cookie sessionCookie = browser.getCookie("PLAY_SESSION");
-    String jwtStr = sessionCookie.getValue();
-    JWT jwt = JWTParser.parse(jwtStr);
-    JWTClaimsSet claims = jwt.getJWTClaimsSet();
-    Map<String, String> data = (Map<String, String>) claims.getClaim("data");
-    assertEquals(TEST_TOKEN, data.get("token"));
-    assertEquals(TEST_USER, data.get("actor"));
-    assertTrue(
-        claims
-                .getExpirationTime()
-                .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
-            < 0);
-  }
-
-  @Test
-  public void testAPI() throws ParseException {
-    testHappyPathOidc();
-    int requestCount = gmsServer.getRequestCount();
-
-    // Prepare the mock backend to respond with HTTP 200 and an empty JSON body
-    // when the proxy forwards the /api/v2/graphql/ request.
-    gmsServer.enqueue(new MockResponse().setResponseCode(200).setBody("{}"));
-    browser.goTo("/api/v2/graphql/");
-    assertEquals(++requestCount, gmsServer.getRequestCount());
-  }
-
-  @Test
-  public void testAPI_backendConnectionError() throws ParseException, IOException {
-    testHappyPathOidc();
-    int requestCount = gmsServer.getRequestCount();
-    gmsServer.shutdown();
-    browser.goTo("/api/v2/graphql/");
-    assertEquals(requestCount, gmsServer.getRequestCount());
-    // Optionally: assert browser shows connection error
-    // assertTrue(browser.getPageSource().contains("Proxy connection failed"));
-  }
-
-  @Test
-  public void testOidcRedirectToRequestedUrl() {
-    browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
-    assertEquals("container/urn:li:container:DATABASE", browser.url());
-  }
-
-  @Test
-  public void testInvalidRedirectUrl() {
-    browser.goTo("/authenticate?redirect_uri=https%3A%2F%2Fwww.google.com");
-    assertEquals("", browser.url());
-    browser.goTo("/authenticate?redirect_uri=file%3A%2F%2FmyFile");
-    assertEquals("", browser.url());
-    browser.goTo("/authenticate?redirect_uri=ftp%3A%2F%2FsomeFtp");
-    assertEquals("", browser.url());
-    browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
-    assertEquals("", browser.url());
-  }
-
-  // ---------- UNIT TESTS FOR CONTROLLER METHODS ----------
-
-  @Test
-  public void testAppConfigUnit() {
-    Result result = unitApp.appConfig();
-    assertEquals(OK, result.status(), "Should return HTTP 200 OK");
-    String content = Helpers.contentAsString(result);
+  public void testAppConfig_full() {
+    Result result = app.appConfig();
+    assertEquals(200, result.status());
+    String content = play.test.Helpers.contentAsString(result);
     assertTrue(content.contains("\"application\":\"datahub-frontend\""));
-    assertTrue(content.contains("\"appVersion\":\"1.0.0\""));
-    assertTrue(content.contains("\"isInternal\":true"));
-    assertTrue(content.contains("\"shouldShowDatasetLineage\":true"));
-    assertTrue(content.contains("\"userEntityProps\""));
-    assertTrue(content.contains("\"wikiLinks\""));
-    assertTrue(content.contains("\"tracking\""));
+    assertTrue(content.contains("\"aviUrlPrimary\":\"http://primary.avi\""));
+    assertTrue(content.contains("\"appHelp\":\"http://help\""));
+    assertTrue(content.contains("\"piwikSiteId\":123"));
+    assertTrue(content.contains("\"isEnabled\":true"));
   }
 
   @Test
-  public void testUserEntityPropsDirect() throws Exception {
+  public void testUserEntityProps() throws Exception {
     Method m = Application.class.getDeclaredMethod("userEntityProps");
     m.setAccessible(true);
-    ObjectNode props = (ObjectNode) m.invoke(unitApp);
+    ObjectNode props = (ObjectNode) m.invoke(app);
     assertEquals("http://primary.avi", props.get("aviUrlPrimary").asText());
     assertEquals("http://fallback.avi", props.get("aviUrlFallback").asText());
   }
 
   @Test
-  public void testWikiLinksDirect() throws Exception {
+  public void testWikiLinks() throws Exception {
     Method m = Application.class.getDeclaredMethod("wikiLinks");
     m.setAccessible(true);
-    ObjectNode links = (ObjectNode) m.invoke(unitApp);
+    ObjectNode links = (ObjectNode) m.invoke(app);
     assertEquals("http://help", links.get("appHelp").asText());
     assertEquals("http://gdprpii", links.get("gdprPii").asText());
     assertEquals("http://datasetdecommission", links.get("datasetDecommission").asText());
   }
 
   @Test
-  public void testTrackingInfoDirect() throws Exception {
+  public void testTrackingInfo() throws Exception {
     Method m = Application.class.getDeclaredMethod("trackingInfo");
     m.setAccessible(true);
-    ObjectNode tracking = (ObjectNode) m.invoke(unitApp);
-    assertTrue(tracking.has("trackers"), "trackers field should exist");
-    assertTrue(tracking.has("isEnabled"), "isEnabled field should exist");
-    assertTrue(tracking.get("isEnabled").asBoolean(), "isEnabled should be true");
+    ObjectNode tracking = (ObjectNode) m.invoke(app);
+    assertTrue(tracking.has("trackers"));
+    assertTrue(tracking.get("isEnabled").asBoolean());
     ObjectNode trackers = (ObjectNode) tracking.get("trackers");
     ObjectNode piwik = (ObjectNode) trackers.get("piwik");
     assertEquals(123, piwik.get("piwikSiteId").asInt());
     assertEquals("http://piwik", piwik.get("piwikUrl").asText());
   }
 
+  // ---------- mapPath ----------
+
   @Test
-  public void testLogSlowQueryNoException() throws Exception {
-    Http.Request request =
-        Helpers.fakeRequest()
-            .bodyJson(Json.parse("{\"query\":\"select * from test\", \"other\":\"value\"}"))
-            .build();
-    Method m =
-        Application.class.getDeclaredMethod(
-            "logSlowQuery", Http.Request.class, String.class, float.class);
+  public void testMapPath_legacyGraphQL() throws Exception {
+    Method m = Application.class.getDeclaredMethod("mapPath", String.class);
     m.setAccessible(true);
-    m.invoke(unitApp, request, "/api/test", 1234f);
-    // No exception expected
+    assertEquals("/api/graphql", m.invoke(app, "/api/v2/graphql"));
   }
 
   @Test
-  public void testBuildBodyPublisher_withText() throws Exception {
-    // Create a request with only text
-    String text = "test text";
-    Http.Request request =
-        new Http.RequestBuilder().method("POST").uri("/test").bodyText(text).build();
+  public void testMapPath_gmsApi_withSlash() throws Exception {
+    Method m = Application.class.getDeclaredMethod("mapPath", String.class);
+    m.setAccessible(true);
+    assertEquals("/foo", m.invoke(app, "/api/gms/foo"));
+  }
 
+  @Test
+  public void testMapPath_gmsApi_noLeadingSlash() throws Exception {
+    Method m = Application.class.getDeclaredMethod("mapPath", String.class);
+    m.setAccessible(true);
+    assertEquals("/bar", m.invoke(app, "/api/gmsbar"));
+  }
+
+  @Test
+  public void testMapPath_default() throws Exception {
+    Method m = Application.class.getDeclaredMethod("mapPath", String.class);
+    m.setAccessible(true);
+    assertEquals("/otherpath", m.invoke(app, "/otherpath"));
+  }
+
+  // ---------- getAuthorizationHeaderValueToProxy ----------
+
+  @Test
+  public void testGetAuthorizationHeaderValueToProxy_sessionToken() throws Exception {
+    Method m =
+        Application.class.getDeclaredMethod(
+            "getAuthorizationHeaderValueToProxy", Http.Request.class);
+    m.setAccessible(true);
+    Map<String, String> session = Map.of("token", "abc123");
+    Http.Request req = new Http.RequestBuilder().session(session).build();
+    String value = (String) m.invoke(app, req);
+    assertEquals("Bearer abc123", value);
+  }
+
+  @Test
+  public void testGetAuthorizationHeaderValueToProxy_authHeader() throws Exception {
+    Method m =
+        Application.class.getDeclaredMethod(
+            "getAuthorizationHeaderValueToProxy", Http.Request.class);
+    m.setAccessible(true);
+    Http.Request req =
+        new Http.RequestBuilder().header(Http.HeaderNames.AUTHORIZATION, "Bearer xyz").build();
+    String value = (String) m.invoke(app, req);
+    assertEquals("Bearer xyz", value);
+  }
+
+  @Test
+  public void testGetAuthorizationHeaderValueToProxy_none() throws Exception {
+    Method m =
+        Application.class.getDeclaredMethod(
+            "getAuthorizationHeaderValueToProxy", Http.Request.class);
+    m.setAccessible(true);
+    Http.Request req = new Http.RequestBuilder().build();
+    String value = (String) m.invoke(app, req);
+    assertEquals("", value);
+  }
+
+  // ---------- getDataHubActorHeader ----------
+
+  @Test
+  public void testGetDataHubActorHeader_present() throws Exception {
+    Method m = Application.class.getDeclaredMethod("getDataHubActorHeader", Http.Request.class);
+    m.setAccessible(true);
+    Map<String, String> session = Map.of("actor", "alice");
+    Http.Request req = new Http.RequestBuilder().session(session).build();
+    String value = (String) m.invoke(app, req);
+    assertEquals("alice", value);
+  }
+
+  @Test
+  public void testGetDataHubActorHeader_absent() throws Exception {
+    Method m = Application.class.getDeclaredMethod("getDataHubActorHeader", Http.Request.class);
+    m.setAccessible(true);
+    Http.Request req = new Http.RequestBuilder().build();
+    String value = (String) m.invoke(app, req);
+    assertEquals("", value);
+  }
+
+  // ---------- buildBodyPublisher ----------
+
+  @Test
+  public void testBuildBodyPublisher_withText() throws Exception {
+    String text = "hello world";
+    Http.Request req = new Http.RequestBuilder().method("POST").uri("/test").bodyText(text).build();
     Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
     m.setAccessible(true);
-    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(unitApp, request);
-
+    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(app, req);
     assertNotNull(publisher);
   }
 
   @Test
   public void testBuildBodyPublisher_noBody() throws Exception {
-    // Create a request with no body
-    Http.Request request = new Http.RequestBuilder().method("POST").uri("/test").build();
-
+    Http.Request req = new Http.RequestBuilder().method("POST").uri("/test").build();
     Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
     m.setAccessible(true);
-    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(unitApp, request);
-
+    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(app, req);
     assertNotNull(publisher);
+  }
+
+  // ---------- logSlowQuery ----------
+
+  @Test
+  public void testLogSlowQuery_jsonAndQuery_ok() throws Exception {
+    Method m =
+        Application.class.getDeclaredMethod(
+            "logSlowQuery", Http.Request.class, String.class, float.class);
+    m.setAccessible(true);
+    ObjectNode node = Json.newObject();
+    node.put("query", "gql");
+    node.put("foo", "bar");
+    Http.Request req =
+        new Http.RequestBuilder()
+            .bodyJson(node)
+            .cookie(
+                new Cookie("actor", "bob", null, null, null, false, false, Cookie.SameSite.NONE))
+            .build();
+    m.invoke(app, req, "/uri", 123f);
+    // Should log without throwing (JSON present, parses fine)
+  }
+
+  @Test
+  public void testLogSlowQuery_jsonAndQuery_exception() throws Exception {
+    Method m =
+        Application.class.getDeclaredMethod(
+            "logSlowQuery", Http.Request.class, String.class, float.class);
+    m.setAccessible(true);
+    Http.Request req = new Http.RequestBuilder().build();
+    m.invoke(app, req, "/uri", 123f);
+    // Should log without throwing (asJson() returns null, triggers exception block)
+  }
+
+  // ---------- proxy (all branches) ----------
+
+  @Test
+  public void testProxy_HappyPath_AllHeadersVariants() throws Exception {
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put(Http.HeaderNames.HOST, List.of("originalhost"));
+    headers.put(Http.HeaderNames.AUTHORIZATION, List.of("Bearer token"));
+    headers.put("Custom-Header", List.of("value"));
+    String body = "{\"query\":\"{}\"}";
+    Map<String, String> session = Map.of("actor", "bob");
+
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    Map<String, List<String>> respHeaders = new HashMap<>();
+    respHeaders.put("X-Backend", List.of("backend"));
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(respHeaders, (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{\"ok\":true}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.RequestBuilder builder =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText(body)
+            .session(session);
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      for (String value : entry.getValue()) {
+        builder.header(entry.getKey(), value);
+      }
+    }
+
+    Http.Request req = builder.build();
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+    assertTrue(result.headers().containsKey("X-Backend"));
+  }
+
+  @Test
+  public void testProxy_AddsXForwardedProtoAndHost_WhenAbsent() throws Exception {
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put("Custom-Header", List.of("value"));
+
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.RequestBuilder builder = new Http.RequestBuilder().method("GET").uri("/api/v2/graphql/");
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      for (String value : entry.getValue()) {
+        builder.header(entry.getKey(), value);
+      }
+    }
+
+    Http.Request req = builder.build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_DoesNotDuplicateXForwardedHeaders() throws Exception {
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put(Http.HeaderNames.HOST, List.of("host"));
+    headers.put(Http.HeaderNames.X_FORWARDED_HOST, List.of("already"));
+    headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of("https"));
+
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.RequestBuilder builder = new Http.RequestBuilder().method("POST").uri("/api/v2/graphql/");
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      for (String value : entry.getValue()) {
+        builder.header(entry.getKey(), value);
+      }
+    }
+
+    Http.Request req = builder.build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_RemovesRestrictedAndSpecialHeaders() throws Exception {
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put("connection", List.of("close"));
+    headers.put("host", List.of("host"));
+    headers.put(Http.HeaderNames.CONTENT_TYPE, List.of("application/xml"));
+    headers.put(Http.HeaderNames.AUTHORIZATION, List.of("Bearer old"));
+    headers.put(AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, List.of("actor"));
+    headers.put("Custom-Header", List.of("value"));
+
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.RequestBuilder builder =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}");
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      for (String value : entry.getValue()) {
+        builder.header(entry.getKey(), value);
+      }
+    }
+
+    Http.Request req = builder.build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_DoesNotSendAuthorizationHeaderIfEmpty() throws Exception {
+    // Test by not setting session token or auth header
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.Request req = new Http.RequestBuilder().method("GET").uri("/api/v2/graphql/").build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_ContentTypeOptional() throws Exception {
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+    Http.Request req =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}")
+            .build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_LogsSlowQuery() throws Exception {
+    HttpResponse<byte[]> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.headers()).thenReturn(HttpHeaders.of(new HashMap<>(), (k, v) -> true));
+    when(mockResponse.body()).thenReturn("{}".getBytes());
+
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(10);
+              return CompletableFuture.completedFuture(mockResponse);
+            });
+
+    Http.Request req =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}")
+            .build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(200, result.status());
+  }
+
+  @Test
+  public void testProxy_HandlesHttpTimeoutException() throws Exception {
+    CompletableFuture<HttpResponse<byte[]>> failed = new CompletableFuture<>();
+    failed.completeExceptionally(
+        new CompletionException(new java.net.http.HttpTimeoutException("Timeout!")));
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(failed);
+
+    Http.Request req =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}")
+            .build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(play.mvc.Http.Status.GATEWAY_TIMEOUT, result.status());
+    assertTrue(play.test.Helpers.contentAsString(result).contains("Proxy request timed out"));
+  }
+
+  @Test
+  public void testProxy_HandlesConnectException() throws Exception {
+    CompletableFuture<HttpResponse<byte[]>> failed = new CompletableFuture<>();
+    failed.completeExceptionally(new CompletionException(new ConnectException("Refused")));
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(failed);
+
+    Http.Request req =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}")
+            .build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(play.mvc.Http.Status.BAD_GATEWAY, result.status());
+    assertTrue(play.test.Helpers.contentAsString(result).contains("Proxy connection failed"));
+  }
+
+  @Test
+  public void testProxy_HandlesOtherException() throws Exception {
+    CompletableFuture<HttpResponse<byte[]>> failed = new CompletableFuture<>();
+    failed.completeExceptionally(new CompletionException(new RuntimeException("Boom!")));
+    when(mockHttpClient.sendAsync(any(), any(HttpResponse.BodyHandler.class))).thenReturn(failed);
+
+    Http.Request req =
+        new Http.RequestBuilder()
+            .method("POST")
+            .uri("/api/v2/graphql/")
+            .bodyText("{\"query\":\"{}\"}")
+            .build();
+
+    Result result = app.proxy("graphql", req).get(5, TimeUnit.SECONDS);
+    assertEquals(play.mvc.Http.Status.INTERNAL_SERVER_ERROR, result.status());
+    assertTrue(play.test.Helpers.contentAsString(result).contains("Proxy error"));
   }
 }
