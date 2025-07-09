@@ -121,9 +121,9 @@ class GCSSource(StatefulIngestionSourceBase):
         for path_spec in self.config.path_specs:
             s3_path_specs.append(
                 PathSpec(
-                    include=path_spec.include,  # Keep original GCS format for path matching
+                    include=path_spec.include.replace("gs://", "s3://"),
                     exclude=(
-                        [exc for exc in path_spec.exclude]
+                        [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
                         if path_spec.exclude
                         else None
                     ),
