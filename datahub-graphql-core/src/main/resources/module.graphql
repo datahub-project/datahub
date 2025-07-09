@@ -28,6 +28,11 @@ extend type Mutation {
   Create or update a DataHub page module
   """
   upsertPageModule(input: UpsertPageModuleInput!): DataHubPageModule!
+
+  """
+  Delete a DataHub page module
+  """
+  deletePageModule(input: DeletePageModuleInput!): Boolean!
 }
 
 """
@@ -221,4 +226,14 @@ type RichTextModuleParams {
   The content of the rich text module
   """
   content: String!
+}
+
+"""
+Input for deleting a DataHub page module
+"""
+input DeletePageModuleInput {
+  """
+  The URN of the page module to delete
+  """
+  urn: String!
 }

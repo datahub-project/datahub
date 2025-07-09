@@ -2,12 +2,15 @@ package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -193,6 +196,116 @@ public class PageModuleServiceTest {
         () -> {
           service.getPageModuleEntityResponse(mockOpContext, moduleUrn);
         });
+  }
+
+  @Test
+  public void testDeletePageModuleSuccess() throws Exception {
+    // Arrange
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    // Mock getPageModuleProperties to return a non-null value so permission check passes
+    PageModuleService spyService = org.mockito.Mockito.spy(service);
+    org.mockito.Mockito.doReturn(createTestModuleProperties())
+        .when(spyService)
+        .getPageModuleProperties(mockOpContext, moduleUrn);
+    // Mock actor context and actor URN
+    io.datahubproject.metadata.context.ActorContext mockActorContext =
+        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
+    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
+    org.mockito.Mockito.when(mockActorContext.getActorUrn())
+        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
+
+    // Act
+    spyService.deletePageModule(mockOpContext, moduleUrn);
+
+    // Assert
+    verify(mockEntityClient, times(1)).deleteEntity(mockOpContext, moduleUrn);
+  }
+
+  @Test
+  public void testDeletePageModuleFailure() throws Exception {
+    // Arrange
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+
+    doThrow(new RuntimeException("Test exception"))
+        .when(mockEntityClient)
+        .deleteEntity(any(), any());
+
+    // Act & Assert
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          service.deletePageModule(mockOpContext, moduleUrn);
+        });
+  }
+
+  @Test
+  public void testDeletePageModuleWithNullUrn() throws Exception {
+    // Act & Assert
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          service.deletePageModule(mockOpContext, null);
+        });
+  }
+
+  @Test
+  public void testDeletePageModuleDefaultModulePrevention() throws Exception {
+    // Test that default modules cannot be deleted
+    String[] defaultModuleUrns = {
+      "urn:li:dataHubPageModule:your_assets",
+      "urn:li:dataHubPageModule:your_subscriptions",
+      "urn:li:dataHubPageModule:top_domains"
+    };
+
+    for (String defaultModuleUrn : defaultModuleUrns) {
+      Urn moduleUrn = UrnUtils.getUrn(defaultModuleUrn);
+      try {
+        service.deletePageModule(mockOpContext, moduleUrn);
+        fail("Should not be able to delete default module: " + defaultModuleUrn);
+      } catch (RuntimeException ex) {
+        assertTrue(ex.getCause() instanceof IllegalArgumentException);
+        assertTrue(
+            ex.getCause()
+                .getMessage()
+                .contains("Cannot delete default page module with urn " + defaultModuleUrn));
+      }
+    }
+  }
+
+  @Test
+  public void testDeletePersonalPageModuleNotCreatedByActor() throws Exception {
+    // Arrange
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    PageModuleService spyService = org.mockito.Mockito.spy(service);
+    // Create properties with PERSONAL scope and a different creator
+    DataHubPageModuleProperties properties = createTestModuleProperties();
+    properties.getVisibility().setScope(com.linkedin.module.PageModuleScope.PERSONAL);
+    // Set creator to someone else
+    com.linkedin.common.urn.Urn otherUserUrn = UrnUtils.getUrn("urn:li:corpuser:other-user");
+    properties.getCreated().setActor(otherUserUrn);
+    org.mockito.Mockito.doReturn(properties)
+        .when(spyService)
+        .getPageModuleProperties(mockOpContext, moduleUrn);
+    // Mock actor context and actor URN (the actor is NOT the creator)
+    io.datahubproject.metadata.context.ActorContext mockActorContext =
+        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
+    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
+    org.mockito.Mockito.when(mockActorContext.getActorUrn())
+        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
+
+    // Act & Assert
+    try {
+      spyService.deletePageModule(mockOpContext, moduleUrn);
+      fail("Should not be able to delete a PERSONAL page module not created by the actor");
+    } catch (RuntimeException ex) {
+      assertTrue(
+          ex.getCause() instanceof io.datahubproject.openapi.exception.UnauthorizedException);
+      assertTrue(
+          ex.getCause()
+              .getMessage()
+              .contains(
+                  "Attempted to delete personal a page module that was not created by the actor"));
+    }
   }
 
   private DataHubPageModuleParams createTestParams() {
