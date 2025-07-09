@@ -3,13 +3,14 @@ import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import RootDomains from '@app/domainV2/nestedDomains/RootDomains';
 import { updateListDomainsCache } from '@app/domainV2/utils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
-import { Button } from '@src/alchemy-components';
+import { Button, Tooltip } from '@src/alchemy-components';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -39,6 +40,9 @@ export default function ManageDomainsPageV2() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const history = useHistory();
+    const { platformPrivileges } = useUserContext();
+
+    const canCreateDomains = platformPrivileges?.createDomains;
 
     useEffect(() => {
         setEntityData(null);
@@ -59,14 +63,24 @@ export default function ManageDomainsPageV2() {
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <PageTitle title="Domains" subTitle="Group data assets using hierarchical collections" />
-                <Button
-                    id={DOMAINS_CREATE_DOMAIN_ID}
-                    onClick={() => setIsCreatingDomain(true)}
-                    data-testid="domains-new-domain-button"
-                    icon={{ icon: 'Add', source: 'material' }}
+                <Tooltip
+                    showArrow={false}
+                    title={canCreateDomains ? '' : 'Reach out to your DataHub admin to set up domains.'}
+                    placement="left"
                 >
-                    Create
-                </Button>
+                    {/* Wrapping in a span to let the tooltip receive hover state even when the button is disabled */}
+                    <span style={{ display: 'inline-block' }}>
+                        <Button
+                            id={DOMAINS_CREATE_DOMAIN_ID}
+                            onClick={() => setIsCreatingDomain(true)}
+                            data-testid="domains-new-domain-button"
+                            icon={{ icon: 'Add', source: 'material' }}
+                            disabled={!canCreateDomains}
+                        >
+                            Create
+                        </Button>
+                    </span>
+                </Tooltip>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />
             {isCreatingDomain && (

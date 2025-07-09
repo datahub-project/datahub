@@ -58,7 +58,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
 
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
-
+    const showCreateGlossary = canManageGlossaries || user?.platformPrivileges?.proposeCreateGlossaryNode;
     const width = useSidebarWidth(0.2);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
@@ -72,14 +72,25 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
             >
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
-                    <Tooltip title="Create Glossary" placement="left" showArrow={false}>
-                        <StyledButton
-                            variant="filled"
-                            color="primary"
-                            isCircle
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            onClick={() => setIsCreateNodeModalVisible(true)}
-                        />
+                    <Tooltip
+                        title={
+                            showCreateGlossary
+                                ? 'Create Glossary'
+                                : 'Reach out to your DataHub admin to set up Glossary.'
+                        }
+                        placement="left"
+                        showArrow={false}
+                    >
+                        <span style={{ display: 'inline-block' }}>
+                            <StyledButton
+                                variant="filled"
+                                color="primary"
+                                isCircle
+                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                onClick={() => setIsCreateNodeModalVisible(true)}
+                                disabled={!showCreateGlossary}
+                            />
+                        </span>
                     </Tooltip>
                 </SidebarTitleWrapper>
                 <GlossarySearch />

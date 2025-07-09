@@ -1,8 +1,10 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const EmptyDomainContainer = styled.div`
@@ -48,6 +50,9 @@ interface Props {
 
 function EmptyDomainsSection(props: Props) {
     const { title, description, setIsCreatingDomain, icon } = props;
+    const { platformPrivileges } = useUserContext();
+    const canCreateDomains = platformPrivileges?.createDomains;
+
     return (
         <EmptyDomainContainer>
             <StyledEmpty
@@ -59,9 +64,15 @@ function EmptyDomainsSection(props: Props) {
                     </>
                 }
             >
-                <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <PlusOutlined /> Create Domain
-                </StyledButton>
+                <Tooltip
+                    showArrow={false}
+                    title={canCreateDomains ? '' : 'Reach out to your DataHub admin to set up domains.'}
+                    placement="left"
+                >
+                    <StyledButton onClick={() => setIsCreatingDomain(true)} disabled={!canCreateDomains}>
+                        <PlusOutlined /> Create Domain
+                    </StyledButton>
+                </Tooltip>
             </StyledEmpty>
         </EmptyDomainContainer>
     );

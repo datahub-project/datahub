@@ -3,6 +3,7 @@ import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import { updateListDomainsCache } from '@app/domainV2/utils';
 
@@ -32,18 +33,28 @@ const StyledButton = styled(Button)`
 export default function DomainsSidebarHeader() {
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
+    const { platformPrivileges } = useUserContext();
+    const canCreateDomains = platformPrivileges?.createDomains;
 
     return (
         <Wrapper>
             <DomainTitle>Domains</DomainTitle>
-            <Tooltip showArrow={false} title="Create new Domain" placement="right">
-                <StyledButton
-                    variant="filled"
-                    color="primary"
-                    isCircle
-                    icon={{ icon: 'Plus', source: 'phosphor' }}
-                    onClick={() => setIsCreatingDomain(true)}
-                />
+            <Tooltip
+                showArrow={false}
+                title={canCreateDomains ? 'Create new Domain' : 'Reach out to your DataHub admin to set up domains.'}
+                placement="left"
+            >
+                {/* Wrapping in a span to let the tooltip receive hover state even when the button is disabled */}
+                <span style={{ display: 'inline-block' }}>
+                    <StyledButton
+                        variant="filled"
+                        color="primary"
+                        isCircle
+                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                        onClick={() => setIsCreatingDomain(true)}
+                        disabled={!canCreateDomains}
+                    />
+                </span>
             </Tooltip>
             {isCreatingDomain && (
                 <CreateDomainModal
