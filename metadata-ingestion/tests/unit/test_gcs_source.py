@@ -1,3 +1,5 @@
+import pathlib
+import re
 from unittest import mock
 
 import pytest
@@ -116,6 +118,52 @@ def test_gcs_uri_normalization_fix():
     assert stripped_uri == "test-bucket/data/food_parquet/year=2023/file.parquet"
 
 
+@pytest.mark.parametrize(
+    "gs_uri,expected_normalized,expected_stripped",
+    [
+        (
+            "gs://test-bucket/data/food_parquet/year=2023/file.parquet",
+            "s3://test-bucket/data/food_parquet/year=2023/file.parquet",
+            "test-bucket/data/food_parquet/year=2023/file.parquet",
+        ),
+        (
+            "gs://my-bucket/simple/file.json",
+            "s3://my-bucket/simple/file.json",
+            "my-bucket/simple/file.json",
+        ),
+        (
+            "gs://bucket/nested/deep/path/data.csv",
+            "s3://bucket/nested/deep/path/data.csv",
+            "bucket/nested/deep/path/data.csv",
+        ),
+    ],
+)
+def test_gcs_uri_transformations(gs_uri, expected_normalized, expected_stripped):
+    """Test GCS URI normalization and prefix stripping with various inputs."""
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
+
+    source = {
+        "path_specs": [
+            {
+                "include": "gs://test-bucket/data/{table}/*.parquet",
+                "table_name": "{table}",
+            }
+        ],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+
+    gcs_source = GCSSource.create(source, ctx)
+
+    # Test URI normalization
+    normalized_uri = gcs_source.s3_source._normalize_uri_for_pattern_matching(gs_uri)
+    assert normalized_uri == expected_normalized
+
+    # Test prefix stripping
+    stripped_uri = gcs_source.s3_source.strip_s3_prefix(gs_uri)
+    assert stripped_uri == expected_stripped
+
+
 def test_gcs_path_spec_pattern_matching():
     """Test that GCS path specs correctly match files after URI normalization."""
     graph = mock.MagicMock(spec=DataHubGraph)
@@ -148,10 +196,6 @@ def test_gcs_path_spec_pattern_matching():
     normalized_uri = gcs_source.s3_source._normalize_uri_for_pattern_matching(
         gs_file_uri
     )
-
-    # The normalized URI should match the pattern (after converting template variables)
-    import pathlib
-    import re
 
     # Convert the path spec pattern to glob format (similar to what PathSpec.glob_include does)
     glob_pattern = re.sub(r"\{[^}]+\}", "*", s3_path_spec.include)

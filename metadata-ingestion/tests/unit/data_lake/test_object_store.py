@@ -1,5 +1,8 @@
+import pathlib
 import unittest
 from unittest.mock import MagicMock
+
+import pytest
 
 from datahub.ingestion.source.data_lake_common.object_store import (
     ABSObjectStore,
@@ -451,48 +454,43 @@ class TestCreateObjectStoreAdapter(unittest.TestCase):
         self.assertEqual(adapter.platform_name, "Unknown (unknown)")
 
 
+# Parametrized tests for GCS URI normalization
+@pytest.mark.parametrize(
+    "input_uri,expected",
+    [
+        ("gs://bucket/path/to/file.parquet", "s3://bucket/path/to/file.parquet"),
+        ("s3://bucket/path/to/file.parquet", "s3://bucket/path/to/file.parquet"),
+        ("", ""),
+        ("gs://bucket/", "s3://bucket/"),
+        ("gs://bucket/nested/path/file.json", "s3://bucket/nested/path/file.json"),
+    ],
+)
+def test_gcs_uri_normalization_for_pattern_matching(input_uri, expected):
+    """Test that GCS URIs are normalized to S3 URIs for pattern matching."""
+    gcs_adapter = create_object_store_adapter("gcs")
+    result = gcs_adapter._normalize_gcs_uri_for_pattern_matching(input_uri)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "input_uri,expected",
+    [
+        ("gs://bucket/path/to/file.parquet", "bucket/path/to/file.parquet"),
+        ("s3://bucket/path/to/file.parquet", "s3://bucket/path/to/file.parquet"),
+        ("", ""),
+        ("gs://bucket/", "bucket/"),
+        ("gs://bucket/nested/path/file.json", "bucket/nested/path/file.json"),
+    ],
+)
+def test_gcs_prefix_stripping(input_uri, expected):
+    """Test that GCS prefixes are stripped correctly."""
+    gcs_adapter = create_object_store_adapter("gcs")
+    result = gcs_adapter._strip_gcs_prefix(input_uri)
+    assert result == expected
+
+
 class TestGCSURINormalization(unittest.TestCase):
     """Tests for the GCS URI normalization fix."""
-
-    def test_gcs_uri_normalization_for_pattern_matching(self):
-        """Test that GCS URIs are normalized to S3 URIs for pattern matching."""
-        gcs_adapter = create_object_store_adapter("gcs")
-
-        # Test GCS URI normalization
-        gcs_uri = "gs://bucket/path/to/file.parquet"
-        normalized_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(gcs_uri)
-        self.assertEqual(normalized_uri, "s3://bucket/path/to/file.parquet")
-
-        # Test that non-GCS URIs are left unchanged
-        s3_uri = "s3://bucket/path/to/file.parquet"
-        normalized_s3_uri = gcs_adapter._normalize_gcs_uri_for_pattern_matching(s3_uri)
-        self.assertEqual(normalized_s3_uri, s3_uri)
-
-        # Test empty string
-        empty_uri = ""
-        normalized_empty = gcs_adapter._normalize_gcs_uri_for_pattern_matching(
-            empty_uri
-        )
-        self.assertEqual(normalized_empty, empty_uri)
-
-    def test_gcs_prefix_stripping(self):
-        """Test that GCS prefixes are stripped correctly."""
-        gcs_adapter = create_object_store_adapter("gcs")
-
-        # Test GCS URI prefix stripping
-        gcs_uri = "gs://bucket/path/to/file.parquet"
-        stripped_uri = gcs_adapter._strip_gcs_prefix(gcs_uri)
-        self.assertEqual(stripped_uri, "bucket/path/to/file.parquet")
-
-        # Test that non-GCS URIs are left unchanged
-        s3_uri = "s3://bucket/path/to/file.parquet"
-        stripped_s3_uri = gcs_adapter._strip_gcs_prefix(s3_uri)
-        self.assertEqual(stripped_s3_uri, s3_uri)
-
-        # Test bucket-only URI
-        bucket_uri = "gs://bucket/"
-        stripped_bucket = gcs_adapter._strip_gcs_prefix(bucket_uri)
-        self.assertEqual(stripped_bucket, "bucket/")
 
     def test_gcs_adapter_customizations(self):
         """Test that GCS adapter registers the expected customizations."""
@@ -570,8 +568,6 @@ class TestGCSURINormalization(unittest.TestCase):
         )
 
         # Test that the normalized URI would match the pattern (simplified test)
-        import pathlib
-
         glob_pattern = path_spec_pattern.replace("{table}", "*")
         self.assertTrue(pathlib.PurePath(normalized_file_uri).match(glob_pattern))
 
