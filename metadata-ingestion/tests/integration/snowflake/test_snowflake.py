@@ -63,9 +63,12 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     output_file = tmp_path / "snowflake_test_events.json"
     golden_file = test_resources_dir / "snowflake_golden.json"
 
-    with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
-    ) as mock_sample_values:
+    with (
+        mock.patch("snowflake.connector.connect") as mock_connect,
+        mock.patch(
+            "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
+        ) as mock_sample_values,
+    ):
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
@@ -121,7 +124,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
-                        email_as_user_identifier=True,
                         incremental_lineage=False,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc

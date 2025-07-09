@@ -17,7 +17,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
 import io.datahubproject.openapi.v1.models.TraceWriteStatus;
 import java.io.IOException;
@@ -135,7 +135,7 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     GenericRecord genericRecord = toGenericRecord(buildMessage(systemMetadata));
@@ -178,7 +178,7 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
     // Create system metadata with trace ID
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     // Build message with metadata
@@ -220,7 +220,7 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
     // Mock system metadata
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
     M message = buildMessage(systemMetadata);
 

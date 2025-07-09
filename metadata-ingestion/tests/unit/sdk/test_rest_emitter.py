@@ -828,11 +828,13 @@ class TestDataHubRestEmitter:
             assert not trace.data
 
     def test_await_status_logging(self, openapi_emitter):
-        with patch.object(logger, "debug") as mock_debug, patch.object(
-            logger, "error"
-        ) as mock_error, patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit:
+        with (
+            patch.object(logger, "debug") as mock_debug,
+            patch.object(logger, "error") as mock_error,
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+        ):
             # Test empty trace data logging
             openapi_emitter._await_status([], timedelta(seconds=10))
             mock_debug.assert_called_once_with("No trace data to verify")
@@ -898,10 +900,11 @@ class TestDataHubRestEmitter:
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
         """Test that chunking works correctly across different HTTP methods"""
-        with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit, patch(
-            "datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2
+        with (
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+            patch("datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
         ):
             # Create more items than the chunk size for each method
             items = [
@@ -1191,6 +1194,72 @@ class TestDataHubRestEmitter:
         emitter.fetch_server_config()
         assert mock_session.get.call_count == 2  # Fetched again
 
+    def test_unicode_character_emission(self):
+        """Test that unicode characters are properly escaped"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create MCP with unicode characters in dataset properties
+        test_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UnicodeTest,PROD)",
+            aspect=DatasetProperties(
+                name="Test Dataset with émojis 🚀 and spëcial chars ñ",
+                description="Dataset with unicode: café, naïve, résumé, 中文, العربية",
+            ),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(test_mcp)
+
+            # Verify _emit_generic was called
+            mock_emit.assert_called_once()
+
+            # Get the payload and verify unicode escaping
+            payload = mock_emit.call_args[0][1]  # Second positional argument
+
+            # unicode escapes are double-escaped within the JSON structure
+            assert "\\\\u00e9" in payload  # é (double-escaped)
+            assert (
+                "\\\\ud83d\\\\ude80" in payload
+            )  # 🚀 rocket emoji as UTF-16 surrogate pair (double-escaped)
+            assert "\\\\u00eb" in payload  # ë (double-escaped)
+            assert "\\\\u00f1" in payload  # ñ (double-escaped)
+            assert "\\\\u4e2d\\\\u6587" in payload  # 中文 (double-escaped)
+
+            # ASCII characters should remain unescaped
+            assert "Test Dataset" in payload
+            assert "Dataset with unicode" in payload
+
+    def test_preserve_unicode_escapes_function_directly(self):
+        """Test the preserve_unicode_escapes function with various unicode scenarios"""
+        from datahub.emitter.rest_emitter import preserve_unicode_escapes
+
+        # Test simple unicode characters
+        test_dict = {
+            "name": "Café",
+            "description": "naïve résumé",
+            "emoji": "Hello 👋 World 🌍",
+            "chinese": "你好世界",
+            "arabic": "مرحبا بالعالم",
+            "nested": {
+                "field": "spëciàl chàrs",
+                "list": ["item1", "itëm2 🚀", "中文项目"],
+            },
+        }
+
+        result = preserve_unicode_escapes(test_dict)
+
+        # Verify unicode escaping - check the actual dictionary values
+        assert result["name"] == "Caf\\u00e9"  # é
+        assert result["description"] == "na\\u00efve r\\u00e9sum\\u00e9"  # ï, é
+        assert result["emoji"] == "Hello \\u1f44b World \\u1f30d"  # 👋 🌍
+        assert result["chinese"] == "\\u4f60\\u597d\\u4e16\\u754c"  # 你好世界
+        assert result["nested"]["field"] == "sp\\u00ebci\\u00e0l ch\\u00e0rs"  # ë, à, à
+        assert result["nested"]["list"][1] == "it\\u00ebm2 \\u1f680"  # ë, 🚀
+        assert result["nested"]["list"][2] == "\\u4e2d\\u6587\\u9879\\u76ee"  # 中文项目
+
+        # ASCII should remain unchanged
+        assert result["nested"]["list"][0] == "item1"  # Pure ASCII
+
 
 class TestOpenApiModeSelection:
     def test_sdk_client_mode_no_env_var(self, mock_session, mock_response):
@@ -1228,11 +1297,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to RESTLI overrides SDK client mode default"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
             emitter._session = mock_session
@@ -1243,11 +1317,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to OPENAPI enables OpenAPI for any client mode"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Test INGESTION mode
             emitter = DataHubRestEmitter(
@@ -1271,11 +1350,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_true_overrides_all(self):
         """Test that explicit constructor parameter True overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             # Even with env var and non-SDK mode, constructor param should win
             emitter = DataHubRestEmitter(
@@ -1287,11 +1371,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_false_overrides_all(self):
         """Test that explicit constructor parameter False overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Even with env var and SDK mode, constructor param should win
             emitter = DataHubRestEmitter(

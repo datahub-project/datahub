@@ -8,6 +8,7 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
+import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -78,8 +79,21 @@ export const ManageIngestionPage = () => {
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
+    const {
+        isLoading: isCapabilitySummaryLoading,
+        error: isCapabilitySummaryError,
+        isProfilingSupported,
+    } = useCapabilitySummary();
+
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
+
+    if (!isCapabilitySummaryLoading && !isCapabilitySummaryError) {
+        console.log(
+            'Example to be removed when is actually used for something is profiling support for bigquery',
+            isProfilingSupported('bigquery'),
+        );
+    }
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {

@@ -582,9 +582,10 @@ def test_get_lineage_multiple_hops(
         results = client.lineage.get_lineage(source_urn=source_urn, max_hops=2)
 
     # check warning if logged when max_hops > 2
-    with patch.object(
-        client._graph, "execute_graphql", return_value=mock_response
-    ), caplog.at_level("WARNING"):
+    with (
+        patch.object(client._graph, "execute_graphql", return_value=mock_response),
+        caplog.at_level("WARNING"),
+    ):
         client.lineage.get_lineage(source_urn=source_urn, max_hops=3)
         assert any(
             "the search will try to find the full lineage graph" in msg

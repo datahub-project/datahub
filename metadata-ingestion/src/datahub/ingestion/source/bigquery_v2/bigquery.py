@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Iterable, List, Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -99,6 +100,7 @@ def cleanup(config: BigQueryV2Config) -> None:
     SourceCapability.PARTITION_SUPPORT,
     "Enabled by default, partition keys and clustering keys are supported.",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -241,7 +243,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ).workunit_processor,
         ]
 
+    def _warn_deprecated_configs(self):
+        if (
+            self.config.match_fully_qualified_names is not None
+            and not self.config.match_fully_qualified_names
+            and self.config.schema_pattern is not None
+            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.report.report_warning(
+                message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
+                context="Config option deprecation warning",
+                title="Config option deprecation warning",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._warn_deprecated_configs()
         projects = get_projects(
             self.bq_schema_extractor.schema_api,
             self.report,
@@ -270,28 +288,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
-            with self.report.new_stage(
-                f"*: {QUERIES_EXTRACTION}"
-            ), BigQueryQueriesExtractor(
-                connection=self.config.get_bigquery_client(),
-                schema_api=self.bq_schema_extractor.schema_api,
-                config=BigQueryQueriesExtractorConfig(
-                    window=self.config,
-                    user_email_pattern=self.config.usage.user_email_pattern,
-                    include_lineage=self.config.include_table_lineage,
-                    include_usage_statistics=self.config.include_usage_statistics,
-                    include_operations=self.config.usage.include_operational_stats,
-                    include_queries=self.config.include_queries,
-                    include_query_usage_statistics=self.config.include_query_usage_statistics,
-                    top_n_queries=self.config.usage.top_n_queries,
-                    region_qualifiers=self.config.region_qualifiers,
-                ),
-                structured_report=self.report,
-                filters=self.filters,
-                identifiers=self.identifiers,
-                schema_resolver=self.sql_parser_schema_resolver,
-                discovered_tables=self.bq_schema_extractor.table_refs,
-            ) as queries_extractor:
+            with (
+                self.report.new_stage(f"*: {QUERIES_EXTRACTION}"),
+                BigQueryQueriesExtractor(
+                    connection=self.config.get_bigquery_client(),
+                    schema_api=self.bq_schema_extractor.schema_api,
+                    config=BigQueryQueriesExtractorConfig(
+                        window=self.config,
+                        user_email_pattern=self.config.usage.user_email_pattern,
+                        include_lineage=self.config.include_table_lineage,
+                        include_usage_statistics=self.config.include_usage_statistics,
+                        include_operations=self.config.usage.include_operational_stats,
+                        include_queries=self.config.include_queries,
+                        include_query_usage_statistics=self.config.include_query_usage_statistics,
+                        top_n_queries=self.config.usage.top_n_queries,
+                        region_qualifiers=self.config.region_qualifiers,
+                    ),
+                    structured_report=self.report,
+                    filters=self.filters,
+                    identifiers=self.identifiers,
+                    schema_resolver=self.sql_parser_schema_resolver,
+                    discovered_tables=self.bq_schema_extractor.table_refs,
+                ) as queries_extractor,
+            ):
                 self.report.queries_extractor = queries_extractor.report
                 yield from queries_extractor.get_workunits_internal()
         else:
