@@ -113,7 +113,7 @@ public class ESIndexBuilderTest {
     when(buildIndicesConfig.getRetentionUnit()).thenReturn(ChronoUnit.DAYS.name());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
     when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
-    when(buildIndicesConfig.isZoneAwarenessEnabled()).thenReturn(false);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(true);
 
     indexBuilder =
         new ESIndexBuilder(
@@ -837,12 +837,12 @@ public class ESIndexBuilderTest {
   }
 
   @Test
-  void testReindexWithZoneAwarenessEnabled() throws Exception {
+  void testReindexWithOptimizationDisabled() throws Exception {
     // Setup zone awareness enabled configuration
-    when(buildIndicesConfig.isZoneAwarenessEnabled()).thenReturn(true);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
 
     // Create index builder with zone awareness enabled
-    ESIndexBuilder zoneAwareIndexBuilder =
+    ESIndexBuilder optimizationDisabledIndexBuilder =
         new ESIndexBuilder(
             searchClient,
             NUM_SHARDS,
@@ -927,7 +927,7 @@ public class ESIndexBuilderTest {
         .thenReturn(aliasResponse);
 
     // Execute the reindex
-    ReindexResult result = zoneAwareIndexBuilder.buildIndex(indexState);
+    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(indexState);
 
     // Verify the result
     assertEquals(result, ReindexResult.REINDEXED_SKIPPED_0DOCS);

@@ -943,7 +943,7 @@ public class ESIndexBuilder {
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
-    if (!elasticSearchConfiguration.getBuildIndices().isZoneAwarenessEnabled()) {
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
       setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
     }
     setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
@@ -987,7 +987,7 @@ public class ESIndexBuilder {
       Map<String, Object> reinfo)
       throws IOException {
     // set the original values
-    if (!elasticSearchConfiguration.getBuildIndices().isZoneAwarenessEnabled()) {
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
       setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
     }
     setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);

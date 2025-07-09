@@ -77,7 +77,8 @@ public class SearchTestUtils {
                       });
                 }
               })
-          .buildIndices(BuildIndicesConfiguration.builder().zoneAwarenessEnabled(false).build())
+          .buildIndices(
+              BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
           .build();
 
   public static SystemMetadataServiceConfig TEST_SYSTEM_METADATA_SERVICE_CONFIG =

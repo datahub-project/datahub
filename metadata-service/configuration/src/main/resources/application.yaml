@@ -282,7 +282,7 @@ elasticsearch:
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
-    zoneAwarenessEnabled: ${ELASTICSEARCH_BUILD_INDICES_ZONE_AWARENESS_ENABLED:false} # Enable when zone awareness is set up for the ES cluster, skips reindexing optimization that reduces replicas to zero.
+    reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:20}
     # Defines the behavior of quoted searches, do they apply weights or exclude results

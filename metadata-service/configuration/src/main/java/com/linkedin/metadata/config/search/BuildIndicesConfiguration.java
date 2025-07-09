@@ -17,5 +17,5 @@ public class BuildIndicesConfiguration {
   private boolean allowDocCountMismatch;
   private String retentionUnit;
   private Long retentionValue;
-  private boolean zoneAwarenessEnabled;
+  private boolean reindexOptimizationEnabled;
 }
