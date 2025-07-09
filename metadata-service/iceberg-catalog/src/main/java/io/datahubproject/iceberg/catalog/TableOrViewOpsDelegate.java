@@ -22,6 +22,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -31,10 +32,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
-import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.SnapshotSummary;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.*;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
@@ -42,6 +40,7 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.ViewMetadata;
 import org.apache.iceberg.view.ViewMetadataParser;
@@ -177,6 +176,20 @@ abstract class TableOrViewOpsDelegate<M> {
       AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
       SchemaMetadata schemaMetadata =
           converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+      // extend schema metadata with partition info
+      if (metadata.tableMetadata != null) {
+        PartitionSpec spec = metadata.tableMetadata.spec(metadata.tableMetadata.defaultSpecId());
+        org.apache.iceberg.Schema schema = metadata.tableMetadata.schema();
+        for (PartitionField field : spec.fields()) {
+          Types.NestedField schemaField = schema.findField(field.sourceId());
+          schemaField.name();
+          for (SchemaField datahubField : schemaMetadata.getFields()) {
+            if (datahubField.getFieldPath().endsWith(schemaField.name())) {
+              datahubField.setIsPartitioningKey(true);
+            }
+          }
+        }
+      }
       datasetBatch.aspect(SCHEMA_METADATA_ASPECT_NAME, schemaMetadata);
     }
 
