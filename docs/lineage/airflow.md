@@ -17,7 +17,7 @@ There's two implementations of the plugin, with different Airflow version suppor
 
 | Approach  | Airflow Versions | Notes                                                                                   |
 | --------- | ---------------- | --------------------------------------------------------------------------------------- |
-| Plugin v2 | 2.7+             | Recommended. Requires Python 3.8+                                                       |
+| Plugin v2 | 2.7+             | Recommended. Requires Python 3.9+                                                       |
 | Plugin v1 | 2.5 - 2.8        | Deprecated. No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.5, it's possible to use the plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
@@ -29,7 +29,7 @@ If you're using Airflow older than 2.5, it's possible to use the plugin with old
 
 ### Installation
 
-The v2 plugin requires Airflow 2.7+ and Python 3.8+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
+The v2 plugin requires Airflow 2.7+ and Python 3.9+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
@@ -85,7 +85,7 @@ enabled = True  # default
 
 ### Installation
 
-The v1 plugin requires Airflow 2.3 - 2.8 and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
+The v1 plugin requires Airflow 2.3 - 2.8 and Python 3.9+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
 Note that the v1 plugin is less featureful than the v2 plugin, and is overall not actively maintained.
 Since datahub v0.15.0, the v2 plugin has been the default. If you need to use the v1 plugin with `acryl-datahub-airflow-plugin` v0.15.0+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
@@ -386,7 +386,7 @@ This will immediately disable the plugin without requiring a restart.
 We try to support Airflow releases for ~2 years after their release. This is a best-effort guarantee - it's not always possible due to dependency / security issues cropping up in older versions.
 
 We no longer officially support Airflow <2.7. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
-The first two options support Python 3.7+, and the others require Python 3.8+.
+The first two options support Python 3.7+, and latter three require Python 3.8+.
 
 - Airflow 1.10.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.9.1.0.
 - Airflow 2.0.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.11.0.1.
