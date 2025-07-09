@@ -384,7 +384,6 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
-        shared_sql_connection: Optional[ConnectionWrapper] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -458,8 +457,8 @@ class SqlParsingAggregator(Closeable):
         # In particular, it must be true that if two queries have the same fingerprint,
         # they must generate the same lineage.
 
-        self._shared_connection: Optional[ConnectionWrapper] = shared_sql_connection
-        if self.query_log != QueryLogSetting.DISABLED and not self._shared_connection:
+        self._shared_connection: Optional[ConnectionWrapper] = None
+        if self.query_log != QueryLogSetting.DISABLED:
             # Initialize and log a file to store the queries.
             query_log_path = pathlib.Path(tempfile.mkdtemp()) / "query_log.db"
             self.report.query_log_path = str(query_log_path)
