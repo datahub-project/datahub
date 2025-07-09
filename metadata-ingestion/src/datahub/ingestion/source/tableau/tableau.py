@@ -528,13 +528,13 @@ class TableauConfig(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
-    emit_published_datasources_regardless_of_workbook: bool = Field(
+    emit_all_published_datasources: bool = Field(
         default=False,
-        description="Ingest all published data sources, including those not connected to workbooks.",
+        description="Ingest all published data sources. When False (default), only ingest published data sources that belong to an ingested workbook.",
     )
-    emit_embedded_datasources_regardless_of_workbook: bool = Field(
+    emit_all_embedded_datasources: bool = Field(
         default=False,
-        description="Ingest all embedded data sources, including those not connected to workbooks.",
+        description="Ingest all embedded data sources. When False (default), only ingest embedded data sources that belong to an ingested workbook.",
     )
 
     env: str = Field(
@@ -2865,7 +2865,7 @@ class TableauSiteSource:
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = (
             {}
-            if self.config.emit_published_datasources_regardless_of_workbook
+            if self.config.emit_all_published_datasources
             else {c.ID_WITH_IN: self.datasource_ids_being_used}
         )
 
@@ -3562,7 +3562,7 @@ class TableauSiteSource:
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = (
             {}
-            if self.config.emit_embedded_datasources_regardless_of_workbook
+            if self.config.emit_all_embedded_datasources
             else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
         )
 
