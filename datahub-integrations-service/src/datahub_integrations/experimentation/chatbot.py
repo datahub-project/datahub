@@ -26,13 +26,13 @@ class Prompt(pydantic.BaseModel):
     # TODO: add mechanism for testing follow-up questions using a starting chat history
 
 
-class _PromptList(pydantic.BaseModel):
-    __root__: list[Prompt]
+class _PromptList(pydantic.RootModel):
+    root: list[Prompt]
 
 
 def load_prompts_file(file: pathlib.Path) -> list[Prompt]:
     prompts_raw = yaml.safe_load(file.read_text())
-    return pydantic.parse_obj_as(_PromptList, prompts_raw).__root__
+    return _PromptList.model_validate(prompts_raw).root
 
 
 prompts_file = chatbot_experiments_dir / "prompts.yaml"

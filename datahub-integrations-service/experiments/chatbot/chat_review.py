@@ -83,7 +83,7 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
 
         history = None
         if raw_history := row["history"]:
-            history = ChatHistory.parse_raw(raw_history)
+            history = ChatHistory.model_validate(raw_history)
 
         next_message = None
         response = None
@@ -206,7 +206,7 @@ def main(run_name: Optional[str] = None):
                     response=selected_row["Response"],
                     guidelines=new_guidelines,
                 )
-                st.json(new_evaluation.dict())
+                st.json(new_evaluation.model_dump())
             else:
                 st.markdown("### Current Evaluation")
                 st.json(selected_row["Raw Data"]["evaluation"].dict())

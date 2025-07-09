@@ -50,8 +50,8 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
         return {
             "response": next_message.text,
             "follow_up_suggestions": next_message.suggestions,
-            "next_message": next_message.json(),
-            "history": history.json(),
+            "next_message": next_message.model_dump_json(),
+            "history": history.model_dump_json(),
             "error": None,
         }
     except Exception as e:
