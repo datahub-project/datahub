@@ -145,5 +145,19 @@
         }
       }
     }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetGenericV3%2CPROD%29",
+      "description": "Remove datasetGenericV3 if present",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Achart%3A%28looker%2CchartGenericV3%29",
+      "description": "Remove chartGenericV3 if present",
+      "method": "delete"
+    }
   }
 ]
