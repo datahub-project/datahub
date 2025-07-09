@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
+import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -236,6 +237,19 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("recentlySearchedCandidateSource")
   private RecentlySearchedSource recentlySearchedSource;
 
+  @MockBean
+  @Qualifier("pageTemplateService")
+  private PageTemplateService pageTemplateService;
+
+  @MockBean
+  @Qualifier("baseElasticSearchComponents")
+  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+      baseElasticSearchComponents;
+
+  @MockBean
+  @Qualifier("pageModuleService")
+  private PageModuleService pageModuleService;
+
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
 
@@ -312,7 +326,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "indexConvention", indexConvention);
     setField(factoryWithAnalytics, "graphClient", graphClient);
     setField(factoryWithAnalytics, "entityService", entityService);
-    setField(factoryWithAnalytics, "_entitySearchService", entitySearchService);
     setField(factoryWithAnalytics, "graphService", graphService);
     setField(factoryWithAnalytics, "siblingGraphService", siblingGraphService);
     setField(factoryWithAnalytics, "timeseriesAspectService", timeseriesAspectService);
@@ -342,7 +355,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "_connectionService", connectionService);
     setField(factoryWithAnalytics, "assertionService", assertionService);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
-    setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
 
     // When
     GraphQLEngine engineWithAnalytics =
