@@ -1,11 +1,10 @@
 import { MenuProps } from 'antd';
-import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useCallback, useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
@@ -15,12 +14,34 @@ import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
+const YOUR_ASSETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:your_assets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Your Assets',
+        type: DataHubPageModuleType.OwnedAssets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+const DOMAINS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:top_domains',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Domains',
+        type: DataHubPageModuleType.Domains,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
     position: AddModuleHandlerInput,
     closeMenu: () => void,
 ): MenuProps {
-    const { addModule, createModule } = usePageTemplateContext();
+    const { addModule } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -33,17 +54,18 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    const handleCreateNewModule = useCallback(
-        (type: DataHubPageModuleType, name: string) => {
-            createModule({
-                name,
-                type,
-                position,
-            });
-            closeMenu();
-        },
-        [createModule, position, closeMenu],
-    );
+    // TODO: use this commented out code later once we implement creating new modules
+    // const handleCreateNewModule = useCallback(
+    //     (type: DataHubPageModuleType, name: string) => {
+    //         createModule({
+    //             name,
+    //             type,
+    //             position,
+    //         });
+    //         closeMenu();
+    //     },
+    //     [createModule, position, closeMenu],
+    // );
 
     return useMemo(() => {
         const items: MenuProps['items'] = [];
@@ -125,27 +147,5 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd, handleAddExistingModule, handleCreateNewModule]);
+    }, [modulesAvailableToAdd, handleAddExistingModule]);
 }
-
-const YOUR_ASSETS_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:your_assets',
-    type: EntityType.DatahubPageModule,
-    properties: {
-        name: 'Your Assets',
-        type: DataHubPageModuleType.OwnedAssets,
-        visibility: { scope: PageModuleScope.Global },
-        params: {},
-    },
-};
-
-const DOMAINS_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:top_domains',
-    type: EntityType.DatahubPageModule,
-    properties: {
-        name: 'Domains',
-        type: DataHubPageModuleType.Domains,
-        visibility: { scope: PageModuleScope.Global },
-        params: {},
-    },
-};

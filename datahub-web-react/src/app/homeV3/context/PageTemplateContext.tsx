@@ -1,11 +1,11 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
-import { PageTemplateFragment } from '@graphql/template.generated';
+import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
+import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
+import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
+import { PageTemplateContextState } from '@app/homeV3/context/types';
 
-import { useModuleOperations } from './hooks/useModuleOperations';
-import { useTemplateOperations } from './hooks/useTemplateOperations';
-import { useTemplateState } from './hooks/useTemplateState';
-import { PageTemplateContextState } from './types';
+import { PageTemplateFragment } from '@graphql/template.generated';
 
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
@@ -75,9 +75,11 @@ export const PageTemplateProvider = ({
 };
 
 export function usePageTemplateContext() {
-    const ctx = useContext(PageTemplateContext);
-    if (!ctx) throw new Error('usePageTemplateContext must be used within a PageTemplateProvider');
-    return ctx;
+    const context = useContext(PageTemplateContext);
+    if (!context) {
+        throw new Error('usePageTemplateContext must be used within a PageTemplateProvider');
+    }
+    return context;
 }
 
 // Re-export types for convenience

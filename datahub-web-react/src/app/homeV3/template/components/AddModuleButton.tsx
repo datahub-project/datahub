@@ -5,7 +5,8 @@ import styled from 'styled-components';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 import { AddModuleHandlerInput, RowSide } from '@app/homeV3/template/types';
-import { DataHubPageModuleType } from '@types';
+
+// import { DataHubPageModuleType } from '@types';
 
 type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 
@@ -51,20 +52,14 @@ interface Props {
     rowSide?: RowSide;
 }
 
-export default function AddModuleButton({
-    orientation,
-    modulesAvailableToAdd,
-    className,
-    rowIndex,
-    rowSide,
-}: Props) {
+export default function AddModuleButton({ orientation, modulesAvailableToAdd, className, rowIndex, rowSide }: Props) {
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
 
     // Create position object for the menu
     const position: AddModuleHandlerInput = {
-        module: { key: '', type: DataHubPageModuleType.OwnedAssets, name: '', icon: 'Database' }, // Placeholder module
+        // module: { key: '', type: DataHubPageModuleType.OwnedAssets, name: '', icon: 'Database' }, // Placeholder module
         rowIndex,
         rowSide,
     };

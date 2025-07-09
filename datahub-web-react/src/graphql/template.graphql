@@ -11,12 +11,6 @@ fragment PageTemplate on DataHubPageTemplate {
         visibility {
             scope
         }
-        created {
-            time
-        }
-        lastModified {
-            time
-        }
     }
 }
 

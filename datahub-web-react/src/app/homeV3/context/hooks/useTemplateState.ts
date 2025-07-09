@@ -9,9 +9,7 @@ export function useTemplateState(
     const [personalTemplate, setPersonalTemplate] = useState<PageTemplateFragment | null>(
         initialPersonalTemplate || null,
     );
-    const [globalTemplate, setGlobalTemplate] = useState<PageTemplateFragment | null>(
-        initialGlobalTemplate || null,
-    );
+    const [globalTemplate, setGlobalTemplate] = useState<PageTemplateFragment | null>(initialGlobalTemplate || null);
     const [isEditingGlobalTemplate, setIsEditingGlobalTemplate] = useState(false);
 
     // The current template is personal unless editing global or personal is missing
@@ -38,4 +36,4 @@ export function useTemplateState(
         setGlobalTemplate,
         setTemplate,
     };
-} 
+}

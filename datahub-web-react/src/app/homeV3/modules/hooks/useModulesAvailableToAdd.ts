@@ -6,8 +6,8 @@ import {
     DEFAULT_MODULES,
 } from '@app/homeV3/modules/constants';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import { PageModuleFragment } from '@graphql/template.generated';
 
+import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 // TODO: Mocked default modules (should be replaced with the real calling of endpoint once it implemented)

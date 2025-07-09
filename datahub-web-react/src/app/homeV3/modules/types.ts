@@ -1,7 +1,7 @@
 import { IconNames } from '@components';
 
-import { DataHubPageModuleType } from '@types';
 import { PageModuleFragment } from '@graphql/template.generated';
+import { DataHubPageModuleType } from '@types';
 
 export type ModuleInfo = {
     key: string;

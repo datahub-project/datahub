@@ -1,6 +1,6 @@
-import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-
 import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+
+import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, PageModuleScope } from '@types';
 
 // Input types for the methods
@@ -29,4 +29,4 @@ export type PageTemplateContextState = {
     setTemplate: (template: PageTemplateFragment | null) => void;
     addModule: (input: AddModuleInput) => void;
     createModule: (input: CreateModuleInput) => void;
-}; 
+};

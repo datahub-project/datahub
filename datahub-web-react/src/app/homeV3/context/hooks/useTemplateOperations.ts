@@ -2,11 +2,7 @@ import { useCallback } from 'react';
 
 import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 
-import {
-    PageModuleFragment,
-    PageTemplateFragment,
-    useUpsertPageTemplateMutation,
-} from '@graphql/template.generated';
+import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
 import { PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
@@ -33,7 +29,7 @@ export function useTemplateOperations() {
                 });
             } else {
                 // Add to existing row
-                const rowIndex = position.rowIndex;
+                const { rowIndex } = position;
                 if (rowIndex >= newRows.length) {
                     // Create new row if index is out of bounds
                     newRows.push({
@@ -66,9 +62,14 @@ export function useTemplateOperations() {
 
     // Helper function to upsert template
     const upsertTemplate = useCallback(
-        (templateToUpsert: PageTemplateFragment | null, isPersonal: boolean, personalTemplate: PageTemplateFragment | null) => {
+        (
+            templateToUpsert: PageTemplateFragment | null,
+            isPersonal: boolean,
+            personalTemplate: PageTemplateFragment | null,
+        ) => {
             if (!templateToUpsert) {
-                throw new Error('Template is required for upsert');
+                console.error('Template is required for upsert');
+                return Promise.reject(new Error('Template is required for upsert'));
             }
 
             const isCreatingPersonalTemplate = isPersonal && !personalTemplate;
@@ -98,4 +99,4 @@ export function useTemplateOperations() {
         updateTemplateWithModule,
         upsertTemplate,
     };
-} 
+}

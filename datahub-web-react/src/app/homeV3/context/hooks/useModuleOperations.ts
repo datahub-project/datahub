@@ -1,3 +1,4 @@
+import { message } from 'antd';
 import { useCallback } from 'react';
 
 import { AddModuleHandlerInput } from '@app/homeV3/template/types';
@@ -47,7 +48,8 @@ export function useModuleOperations(
             const templateToUpdate = isPersonal ? personalTemplate || globalTemplate : globalTemplate;
 
             if (!templateToUpdate) {
-                throw new Error('No template available to update');
+                console.error('No template provided to update');
+                return;
             }
 
             // Update template state
@@ -69,7 +71,7 @@ export function useModuleOperations(
                     setGlobalTemplate(globalTemplate);
                 }
                 console.error('Failed to update template:', error);
-                throw error;
+                message.error('Failed to update template', error);
             });
         },
         [
@@ -104,7 +106,8 @@ export function useModuleOperations(
                 .then((moduleResult) => {
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
-                        throw new Error('Failed to create module');
+                        console.error('Failed to create module');
+                        return;
                     }
 
                     // Create a module fragment for optimistic UI
@@ -127,7 +130,7 @@ export function useModuleOperations(
                 })
                 .catch((error) => {
                     console.error('Failed to create module:', error);
-                    throw error;
+                    message.error('Failed to create module', error);
                 });
         },
         [upsertPageModuleMutation, addModule],
@@ -137,4 +140,4 @@ export function useModuleOperations(
         addModule,
         createModule,
     };
-} 
+}

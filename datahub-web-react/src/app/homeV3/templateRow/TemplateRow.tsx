@@ -5,7 +5,6 @@ import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 
-import { DataHubPageTemplateRow } from '@types';
 import { PageTemplateRowFragment } from '@graphql/template.generated';
 
 const RowWrapper = styled.div`
