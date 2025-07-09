@@ -1,0 +1,33 @@
+fragment pageTemplateFields on DataHubPageTemplate {
+    urn
+    type
+    properties {
+        rows {
+            ...PageTemplateRow
+        }
+        surface {
+            surfaceType
+        }
+        visibility {
+            scope
+        }
+    }
+}
+
+fragment PageTemplateRow on DataHubPageTemplateRow {
+    modules {
+        ...PageModule
+    }
+}
+
+fragment PageModule on DataHubPageModule {
+    urn
+    type
+    properties {
+        name
+        type
+        visibility {
+            scope
+        }
+    }
+}

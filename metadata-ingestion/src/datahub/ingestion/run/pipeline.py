@@ -171,7 +171,10 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        with contextlib.ExitStack() as exit_stack, contextlib.ExitStack() as inner_exit_stack:
+        with (
+            contextlib.ExitStack() as exit_stack,
+            contextlib.ExitStack() as inner_exit_stack,
+        ):
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:

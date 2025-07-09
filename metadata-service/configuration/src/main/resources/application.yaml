@@ -8,7 +8,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*
+  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -194,6 +194,7 @@ visualConfig:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
   application:
+    # DEPRECATED: This is now controlled via the UI settings.
     showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
@@ -404,6 +405,56 @@ spring:
   kafka:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
+  autoconfigure:
+    exclude:
+      # We don't use these
+      - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearchRestHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jms.JmsHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.ldap.LdapHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mail.MailHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mongo.MongoHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mongo.MongoReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.neo4j.Neo4jHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.redis.RedisHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.redis.RedisReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.tracing.OpenTelemetryTracingAutoConfiguration
+      # These are overridden with more complex configuration
+      - org.springframework.boot.actuate.autoconfigure.tracing.otlp.OtlpAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.metrics.export.otlp.OtlpMetricsExportAutoConfiguration
+
+management:
+  health:
+    defaults:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,info,healthcheck,metrics
+    jmx:
+      enabled: true
+  # Opentelemetry
+  tracing:
+    enabled: true
+    propagation:
+      type: W3C
+  otlp:
+    tracing:
+      export:
+        enabled: false
+  # Micrometer Configuration
+  metrics:
+    cache:
+      enabled: false
+    export:
+      jmx:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_JMX_ENABLED:true} # Enable jmx metrics export
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true} # Enable prometheus metrics export
+    tags:
+      application: ${spring.application.name}
 
 # Useful to debug low-level Spring errors such as class version mismatches
 server:
@@ -677,6 +728,46 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+  metrics:
+    # Master switch for all GraphQL metrics collection via Micrometer
+    # When false, no GraphQL metrics are collected (request-level or field-level)
+    enabled: ${GRAPHQL_METRICS_ENABLED:true}
+    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.95,0.99,0.9995}
+
+    # Enable field-level resolver metrics collection
+    # When true, timing metrics are collected for individual GraphQL field resolvers
+    # This can add overhead for queries with many fields, so consider enabling selectively
+    # Metrics include: graphql.field.duration, graphql.field.errors
+    fieldLevelEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_ENABLED:false}
+
+    # Comma-delimited list of GraphQL operation names to instrument at field level
+    # When specified, only these operations will have field-level metrics collected
+    # Empty or unset means all operations are instrumented (if fieldLevelEnabled=true)
+    # Example: "getSearchResultsForMultiple,searchAcrossLineageStructure"
+    # Use case: Enable detailed metrics only for known slow or critical operations
+    fieldLevelOperations: ${GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS:getSearchResultsForMultiple,searchAcrossLineageStructure}
+
+    # Include the field path as a tag in field-level metrics
+    # WARNING: Can cause high cardinality if your schema has array fields
+    # Paths are truncated to replace array indices with * (e.g., /users/0/name -> /users/*/name)
+    # Only enable for debugging specific issues, not recommended for production
+    fieldLevelPathEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED:false}
+
+    # Comma-delimited list of GraphQL field path patterns to instrument
+    # Works in conjunction with fieldLevelOperations - both conditions must match if both are set
+    # Pattern syntax:
+    #   - /user/posts/* - matches direct children of posts (e.g., /user/posts/title)
+    #   - /user/posts/** - matches posts and all descendants
+    #   - /*/comments/* - matches comments under any parent
+    # Empty or unset means all paths are instrumented (if fieldLevelEnabled=true)
+    # Example: "/user/posts/**,/search/results/*,/**/comments"
+    # Use case: Focus metrics on specific parts of your schema known to be slow
+    fieldLevelPaths: ${GRAPHQL_METRICS_FIELD_LEVEL_PATHS:}
+
+    # Include metrics for trivial data fetchers (simple property access from objects)
+    # These are usually very fast and numerous, so excluding them reduces metric volume
+    # Only enable if you suspect performance issues with object property access
+    trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}

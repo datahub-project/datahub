@@ -151,7 +151,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
-        getIndexBuilder());
+        getIndexBuilder(),
+        null);
   }
 
   /*

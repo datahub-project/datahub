@@ -1,3 +1,10 @@
+extend type Mutation {
+  """
+  Batch update the state for a set of steps.
+  """
+  upsertPageTemplate(input: UpsertPageTemplateInput!): DataHubPageTemplate!
+}
+
 """
 A Page Template used for rendering custom or default layouts in the UI
 """
@@ -105,4 +112,39 @@ enum PageTemplateScope {
   This template is used across users
   """
   GLOBAL
+}
+
+"""
+Input for adding or updating a DataHubPageTemplate entity
+"""
+input UpsertPageTemplateInput {
+  """
+  The urn of the page template if updating, empty if creating a new page template
+  """
+  urn: String
+
+  """
+  The rows of a page template
+  """
+  rows: [PageTemplateRowInput!]!
+
+  """
+  The scope of the template ie. is it personal or global
+  """
+  scope: PageTemplateScope!
+
+  """
+  The area that this template is used in
+  """
+  surfaceType: PageTemplateSurfaceType!
+}
+
+"""
+Input a row of a page template
+"""
+input PageTemplateRowInput {
+  """
+  A list of Page Module urns that comprise this row
+  """
+  modules: [String!]!
 }
