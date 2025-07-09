@@ -5,7 +5,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -28,6 +28,7 @@ from databricks.sdk.service.sql import (
 )
 from databricks.sdk.service.workspace import ObjectType
 from databricks.sql import connect
+from databricks.sql.types import Row
 
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -504,14 +505,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str) -> List[List[str]]:
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
         try:
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
-                cursor.execute(query)
+                cursor.execute(query, list(params))
                 return cursor.fetchall()
 
         except Exception as e:
