@@ -28,4 +28,4 @@ def pydantic_multiline_string(field: str) -> classmethod:
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field deprecated do not overwrite each other.
     _validate_field.__name__ = f"{_validate_field.__name__}_{field}"
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_validate_field)
+    return pydantic.validator(field, pre=True, allow_reuse=True)(_validate_field)  # type: ignore
