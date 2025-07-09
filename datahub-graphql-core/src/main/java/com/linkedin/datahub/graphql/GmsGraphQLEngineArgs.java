@@ -38,6 +38,7 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
@@ -100,6 +101,7 @@ public class GmsGraphQLEngineArgs {
   EntityVersioningService entityVersioningService;
   ApplicationService applicationService;
   PageTemplateService pageTemplateService;
+  PageModuleService pageModuleService;
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
 
