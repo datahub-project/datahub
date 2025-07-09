@@ -213,7 +213,12 @@ public class CachingEntitySearchService {
                   getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(
+                              this.getClass(), "autocomplete_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }
@@ -257,7 +262,11 @@ public class CachingEntitySearchService {
               result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(this.getClass(), "browse_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }
@@ -323,7 +332,11 @@ public class CachingEntitySearchService {
                       facets);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(this.getClass(), "scroll_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }

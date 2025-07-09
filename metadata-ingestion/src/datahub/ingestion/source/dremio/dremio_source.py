@@ -261,9 +261,12 @@ class DremioSource(StatefulIngestionSourceBase):
 
             # Profiling
             if self.config.is_profiling_enabled():
-                with self.report.new_stage(PROFILING), ThreadPoolExecutor(
-                    max_workers=self.config.profiling.max_workers
-                ) as executor:
+                with (
+                    self.report.new_stage(PROFILING),
+                    ThreadPoolExecutor(
+                        max_workers=self.config.profiling.max_workers
+                    ) as executor,
+                ):
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
                         for dataset in datasets
