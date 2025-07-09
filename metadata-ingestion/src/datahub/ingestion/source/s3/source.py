@@ -682,7 +682,9 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
-            strip_s3_prefix(table_data.table_path)
+            self._strip_platform_prefix(table_data.table_path)
+            if self.is_s3_platform() and hasattr(self, '_strip_platform_prefix')
+            else strip_s3_prefix(table_data.table_path)
             if self.is_s3_platform()
             else table_data.table_path.strip("/")
         )
@@ -949,7 +951,12 @@ class S3Source(StatefulIngestionSourceBase):
         """
 
         def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
-            allowed = path_spec_.allowed(s3_uri)
+            # Normalize URI for pattern matching if platform-specific normalization is available
+            normalized_uri = s3_uri
+            if hasattr(self, '_normalize_uri_for_pattern_matching'):
+                normalized_uri = self._normalize_uri_for_pattern_matching(s3_uri)
+            
+            allowed = path_spec_.allowed(normalized_uri)
             if not allowed:
                 logger.debug(f"File {s3_uri} not allowed and skipping")
                 self.report.report_file_dropped(s3_uri)
@@ -1394,8 +1401,13 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 table_dict: Dict[str, TableData] = {}
                 for browse_path in file_browser:
+                    # Normalize URI for pattern matching if platform-specific normalization is available
+                    normalized_file_path = browse_path.file
+                    if hasattr(self, '_normalize_uri_for_pattern_matching'):
+                        normalized_file_path = self._normalize_uri_for_pattern_matching(browse_path.file)
+                    
                     if not path_spec.allowed(
-                        browse_path.file,
+                        normalized_file_path,
                         ignore_ext=self.is_s3_platform()
                         and self.source_config.use_s3_content_type,
                     ):
