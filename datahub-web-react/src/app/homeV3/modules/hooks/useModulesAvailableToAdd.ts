@@ -16,12 +16,6 @@ export const MOCKED_ADMIN_CREATED_MODULES: PageModuleFragment[] = [
         urn: 'urn:li:dataHubPageModule:link_admin_1',
         type: EntityType.DatahubPageModule,
         properties: {
-            created: {
-                time: 1752056099724,
-            },
-            lastModified: {
-                time: 1752056099724,
-            },
             name: 'Link 1 (example)',
             type: DataHubPageModuleType.Link,
             visibility: {
@@ -34,12 +28,6 @@ export const MOCKED_ADMIN_CREATED_MODULES: PageModuleFragment[] = [
         urn: 'urn:li:dataHubPageModule:link_admin_2',
         type: EntityType.DatahubPageModule,
         properties: {
-            created: {
-                time: 1752056099724,
-            },
-            lastModified: {
-                time: 1752056099724,
-            },
             name: 'Link 2 (example)',
             type: DataHubPageModuleType.Link,
             visibility: {

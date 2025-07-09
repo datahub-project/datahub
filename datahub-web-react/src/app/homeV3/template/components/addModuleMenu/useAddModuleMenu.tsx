@@ -4,15 +4,16 @@ import React, { useCallback, useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
-import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { AddModuleHandlerInput } from '@app/homeV3/template/types';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
+
 import { PageModuleFragment } from '@graphql/template.generated';
-import { Visibility } from '@mui/icons-material';
+import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
@@ -21,46 +22,28 @@ export default function useAddModuleMenu(
 ): MenuProps {
     const { addModule, createModule } = usePageTemplateContext();
 
-    const handleAddExistingModule = useCallback((module: ModuleInfo | PageModuleFragment) => {
-        if (position) {
-            // Check if it's a full module fragment or just ModuleInfo
-            if ('properties' in module) {
-                // It's a PageModuleFragment
-                addModule({
-                    module: module as PageModuleFragment,
-                    position
-                });
-            } else if (module.urn) {
-                // It's a ModuleInfo with URN - we need to create a basic fragment
-                const moduleFragment: PageModuleFragment = {
-                    urn: module.urn,
-                    type: EntityType.DatahubPageModule,
-                    properties: {
-                        name: module.name,
-                        type: module.type,
-                        visibility: { scope: PageModuleScope.Personal },
-                        params: {}
-                    }
-                };
-                addModule({
-                    module: moduleFragment,
-                    position
-                });
-            }
-        }
-        closeMenu();
-    }, [addModule, position]);
+    const handleAddExistingModule = useCallback(
+        (module: PageModuleFragment) => {
+            addModule({
+                module: module as PageModuleFragment,
+                position,
+            });
+            closeMenu();
+        },
+        [addModule, position, closeMenu],
+    );
 
-    const handleCreateNewModule = useCallback((type: DataHubPageModuleType, name: string) => {
-        if (position) {
+    const handleCreateNewModule = useCallback(
+        (type: DataHubPageModuleType, name: string) => {
             createModule({
                 name,
                 type,
-                position
+                position,
             });
-        }
-        closeMenu();
-    }, [createModule, position]);
+            closeMenu();
+        },
+        [createModule, position, closeMenu],
+    );
 
     return useMemo(() => {
         const items: MenuProps['items'] = [];
@@ -70,7 +53,7 @@ export default function useAddModuleMenu(
             key: 'quick-link',
             label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
             onClick: () => {
-                handleCreateNewModule(DataHubPageModuleType.Link, 'Quick Link');
+                // TODO: open up modal to add a quick link
             },
         };
 
@@ -79,7 +62,7 @@ export default function useAddModuleMenu(
             key: 'documentation',
             label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
             onClick: () => {
-                handleCreateNewModule(DataHubPageModuleType.RichText, 'Documentation');
+                // TODO: open up modal to add documentation
             },
         };
 
@@ -120,19 +103,23 @@ export default function useAddModuleMenu(
             const adminModuleItems = modulesAvailableToAdd.adminCreatedModules.map((module) => ({
                 title: module.properties.name,
                 key: module.urn,
-                label: <ModuleMenuItem module={{ 
-                    key: module.urn, 
-                    type: module.properties.type, 
-                    name: module.properties.name, 
-                    icon: 'Database' 
-                }} />,
+                label: <ModuleMenuItem module={convertModuleToModuleInfo(module)} />,
                 onClick: () => handleAddExistingModule(module),
             }));
 
             items.push({
                 key: 'adminCreatedModulesGroup',
-                label: <GroupItem title="Admin Created" />,
-                type: 'group',
+                title: 'Admin Created Widgets',
+                label: (
+                    <MenuItem
+                        icon="Database"
+                        title="Admin Created Widgets"
+                        description="Your organizations data products"
+                        hasChildren
+                    />
+                ),
+                expandIcon: <></>, // hide the default expand icon
+                popupClassName: RESET_DROPDOWN_MENU_STYLES_CLASSNAME, // reset styles of submenu
                 children: adminModuleItems,
             });
         }
@@ -141,25 +128,24 @@ export default function useAddModuleMenu(
     }, [modulesAvailableToAdd, handleAddExistingModule, handleCreateNewModule]);
 }
 
-
 const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: "Your Assets",
+        name: 'Your Assets',
         type: DataHubPageModuleType.OwnedAssets,
         visibility: { scope: PageModuleScope.Global },
-        params: {}
-    }
-}
+        params: {},
+    },
+};
 
 const DOMAINS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:top_domains',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: "Domains",
+        name: 'Domains',
         type: DataHubPageModuleType.Domains,
         visibility: { scope: PageModuleScope.Global },
-        params: {}
-    }
-}
+        params: {},
+    },
+};
