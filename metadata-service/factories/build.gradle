@@ -24,6 +24,7 @@ dependencies {
   implementation externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   implementation externalDependency.gson
+  implementation externalDependency.k8
   implementation (externalDependency.hazelcast) {
     exclude group: 'org.json', module: 'json'
   }
