@@ -19,6 +19,7 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
+import java.net.http.HttpRequest;
 import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -429,5 +430,37 @@ public class ApplicationTest extends WithBrowser {
     m.setAccessible(true);
     m.invoke(unitApp, request, "/api/test", 1234f);
     // No exception expected
+  }
+
+  private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
+    if (request.body().asBytes() != null) {
+      return HttpRequest.BodyPublishers.ofByteArray(request.body().asBytes().toArray());
+    } else if (request.body().asText() != null) {
+      return HttpRequest.BodyPublishers.ofString(request.body().asText());
+    }
+    return HttpRequest.BodyPublishers.noBody();
+  }
+
+  @Test
+  public void testBuildBodyPublisher_withText() throws Exception {
+    String text = "hello world";
+    Http.Request request = Helpers.fakeRequest().bodyText(text).build();
+
+    Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
+    m.setAccessible(true);
+    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(unitApp, request);
+
+    assertNotNull(publisher);
+  }
+
+  @Test
+  public void testBuildBodyPublisher_noBody() throws Exception {
+    Http.Request request = Helpers.fakeRequest().build();
+
+    Method m = Application.class.getDeclaredMethod("buildBodyPublisher", Http.Request.class);
+    m.setAccessible(true);
+    HttpRequest.BodyPublisher publisher = (HttpRequest.BodyPublisher) m.invoke(unitApp, request);
+
+    assertNotNull(publisher);
   }
 }
