@@ -72,14 +72,14 @@ describe('LargeModule', () => {
         properties: {
             name: 'Test Module',
             type: DataHubPageModuleType.OwnedAssets,
-            visibility: {
-                scope: PageModuleScope.Global,
-            },
             created: {
-                time: MOCKED_TIMESTAMP,
+                time: Date.now(),
             },
             lastModified: {
-                time: MOCKED_TIMESTAMP,
+                time: Date.now(),
+            },
+            visibility: {
+                scope: PageModuleScope.Global,
             },
             params: {},
         },

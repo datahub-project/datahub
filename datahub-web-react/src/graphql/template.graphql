@@ -1,4 +1,4 @@
-fragment pageTemplateFields on DataHubPageTemplate {
+fragment PageTemplate on DataHubPageTemplate {
     urn
     type
     properties {
@@ -32,12 +32,6 @@ fragment PageModule on DataHubPageModule {
     properties {
         name
         type
-        created {
-            time
-        }
-        lastModified {
-            time
-        }
         visibility {
             scope
         }
@@ -46,5 +40,17 @@ fragment PageModule on DataHubPageModule {
                 content
             }
         }
+    }
+}
+
+mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
+    upsertPageTemplate(input: $input) {
+        urn
+    }
+}
+
+mutation upsertPageModule($input: UpsertPageModuleInput!) {
+    upsertPageModule(input: $input) {
+        urn
     }
 }

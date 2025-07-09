@@ -1,6 +1,7 @@
 import { IconNames } from '@components';
 
 import { DataHubPageModuleType } from '@types';
+import { PageModuleFragment } from '@graphql/template.generated';
 
 export type ModuleInfo = {
     key: string;
@@ -14,5 +15,5 @@ export type ModuleInfo = {
 export type ModulesAvailableToAdd = {
     customModules: ModuleInfo[];
     customLargeModules: ModuleInfo[];
-    adminCreatedModules: ModuleInfo[];
+    adminCreatedModules: PageModuleFragment[]; // Full module fragments for admin-created modules
 };

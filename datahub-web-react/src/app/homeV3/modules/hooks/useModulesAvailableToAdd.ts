@@ -6,12 +6,12 @@ import {
     DEFAULT_MODULES,
 } from '@app/homeV3/modules/constants';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
+import { PageModuleFragment } from '@graphql/template.generated';
 
-import { DataHubPageModule, DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 // TODO: Mocked default modules (should be replaced with the real calling of endpoint once it implemented)
-const MOCKED_ADMIN_CREATED_MODULES: DataHubPageModule[] = [
+export const MOCKED_ADMIN_CREATED_MODULES: PageModuleFragment[] = [
     {
         urn: 'urn:li:dataHubPageModule:link_admin_1',
         type: EntityType.DatahubPageModule,
@@ -59,7 +59,7 @@ export default function useModulesAvailableToAdd(): ModulesAvailableToAdd {
         const customLargeModules = DEFAULT_MODULES.filter((module) =>
             ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES.includes(module.type),
         );
-        const adminCreatedModules = MOCKED_ADMIN_CREATED_MODULES.map(convertModuleToModuleInfo);
+        const adminCreatedModules = MOCKED_ADMIN_CREATED_MODULES;
 
         return {
             customModules,
