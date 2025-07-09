@@ -10,11 +10,7 @@ export function getModuleType(module: DataHubPageModule): DataHubPageModuleType 
 }
 
 export function getModuleIcon(module: DataHubPageModule): IconNames {
-    return getModuleIconByType(getModuleType(module));
-}
-
-export function getModuleIconByType(moduleType: DataHubPageModuleType): IconNames {
-    return MODULE_TYPE_TO_ICON.get(moduleType) ?? DEFAULT_MODULE_ICON;
+    return MODULE_TYPE_TO_ICON.get(getModuleType(module)) ?? DEFAULT_MODULE_ICON;
 }
 
 export function getModuleName(module: DataHubPageModule): string {

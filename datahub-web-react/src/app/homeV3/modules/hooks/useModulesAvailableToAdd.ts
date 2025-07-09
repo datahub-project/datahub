@@ -11,7 +11,7 @@ import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import { DataHubPageModule, DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 // TODO: Mocked default modules (should be replaced with the real calling of endpoint once it implemented)
-export const MOCKED_ADMIN_CREATED_MODULES: DataHubPageModule[] = [
+const MOCKED_ADMIN_CREATED_MODULES: DataHubPageModule[] = [
     {
         urn: 'urn:li:dataHubPageModule:link_admin_1',
         type: EntityType.DatahubPageModule,
