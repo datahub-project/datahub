@@ -2,7 +2,6 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timezone
-from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -18,7 +17,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
     QueryLogSetting,
-    QueryMetadata,
     SqlParsingAggregator,
     TableRename,
     TableSwap,
@@ -30,8 +28,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.testing import mce_helpers
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.ordered_set import OrderedSet
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -1034,491 +1030,396 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
-    def _connection_wrapper() -> ConnectionWrapper:
-        tables: Dict[str, Dict[str, Any]] = {
-            "stored_queries": {},
-            "query_map": {
-                "871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43": QueryMetadata(
-                    query_id="871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43",
-                    formatted_query_string="CREATE TABLE diamond_destination as select * from t4;",
-                    session_id="14774700499701726",
-                    query_type=QueryType.CREATE_TABLE_AS_SELECT,
-                    lineage_type="TRANSFORMED",
-                    latest_timestamp=datetime(
-                        2025, 7, 1, 13, 52, 22, 651000, tzinfo=timezone.utc
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: x.lower()
+        in [
+            "diamond_problem.dummy_test.diamond_problem.t1",
+            "diamond_problem.dummy_test.diamond_problem.t2",
+            "diamond_problem.dummy_test.diamond_problem.t3",
+            "diamond_problem.dummy_test.diamond_problem.t4",
+        ],
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn(
+            "snowflake", "diamond_problem.dummy_test.diamond_problem.diamond_source1"
+        ).urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn(
+            "snowflake",
+            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+        ).urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id="62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2",
+            query_text="CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+            upstreams=[
+                DatasetUrn(
+                    "snowflake",
+                    "diamond_problem.dummy_test.diamond_problem.diamond_source1",
+                ).urn()
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+            ).urn(),
+            session_id="14774700499701726",
+            timestamp=datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+                        ).urn(),
+                        column="col_a",
                     ),
-                    actor=CorpUserUrn(username="user@test"),
                     upstreams=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)"
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
+                            ).urn(),
+                            column="col_a",
+                        )
                     ],
-                    column_lineage=[
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_b",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)",
-                                    column="col_b",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_a",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)",
-                                    column="col_a",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_c",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)",
-                                    column="col_c",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                    ],
-                    column_usage={
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)": {
-                            "col_a",
-                            "col_c",
-                            "col_b",
-                        }
-                    },
-                    confidence_score=1.0,
-                    used_temp_tables=True,
-                    extra_info={
-                        "snowflake_query_id": "01bd6600-0908-c4fc-0034-7d831435616e",
-                        "snowflake_root_query_id": None,
-                        "snowflake_query_type": "CREATE_TABLE_AS_SELECT",
-                        "snowflake_role_name": "ACCOUNTADMIN",
-                        "query_duration": 496,
-                        "rows_inserted": 0,
-                        "rows_updated": 0,
-                        "rows_deleted": 0,
-                    },
-                    origin=None,
                 ),
-                "62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2": QueryMetadata(
-                    query_id="62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2",
-                    formatted_query_string="CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
-                    session_id="14774700499701726",
-                    query_type=QueryType.CREATE_TABLE_AS_SELECT,
-                    lineage_type="TRANSFORMED",
-                    latest_timestamp=datetime(
-                        2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+                        ).urn(),
+                        column="col_b",
                     ),
-                    actor=CorpUserUrn(username="user@test"),
                     upstreams=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)"
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
+                            ).urn(),
+                            column="col_b",
+                        )
                     ],
-                    column_lineage=[
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_a",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)",
-                                    column="col_a",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_c",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)",
-                                    column="col_c",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_b",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)",
-                                    column="col_b",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                    ],
-                    column_usage={
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)": {
-                            "col_a",
-                            "col_c",
-                            "col_b",
-                        }
-                    },
-                    confidence_score=1.0,
-                    used_temp_tables=True,
-                    extra_info={
-                        "snowflake_query_id": "01bd6600-0908-c087-0034-7d8314357182",
-                        "snowflake_root_query_id": None,
-                        "snowflake_query_type": "CREATE_TABLE_AS_SELECT",
-                        "snowflake_role_name": "ACCOUNTADMIN",
-                        "query_duration": 825,
-                        "rows_inserted": 0,
-                        "rows_updated": 0,
-                        "rows_deleted": 0,
-                    },
-                    origin=None,
                 ),
-                "b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac": QueryMetadata(
-                    query_id="b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac",
-                    formatted_query_string="CREATE TEMPORARY TABLE t2 as select * from t1;",
-                    session_id="14774700499701726",
-                    query_type=QueryType.CREATE_TABLE_AS_SELECT,
-                    lineage_type="TRANSFORMED",
-                    latest_timestamp=datetime(
-                        2025, 7, 1, 13, 52, 19, 940000, tzinfo=timezone.utc
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+                        ).urn(),
+                        column="col_c",
                     ),
-                    actor=CorpUserUrn(username="user@test"),
                     upstreams=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)"
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
+                            ).urn(),
+                            column="col_c",
+                        )
                     ],
-                    column_lineage=[
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_c",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_c",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_a",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_a",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_b",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_b",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                    ],
-                    column_usage={
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)": {
-                            "col_a",
-                            "col_c",
-                            "col_b",
-                        }
-                    },
-                    confidence_score=1.0,
-                    used_temp_tables=True,
-                    extra_info={
-                        "snowflake_query_id": "01bd6600-0908-c4fc-0034-7d831435615e",
-                        "snowflake_root_query_id": None,
-                        "snowflake_query_type": "CREATE_TABLE_AS_SELECT",
-                        "snowflake_role_name": "ACCOUNTADMIN",
-                        "query_duration": 604,
-                        "rows_inserted": 0,
-                        "rows_updated": 0,
-                        "rows_deleted": 0,
-                    },
-                    origin=None,
                 ),
-                "242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50": QueryMetadata(
-                    query_id="242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50",
-                    formatted_query_string="CREATE TEMPORARY TABLE t3 as select * from t1;",
-                    session_id="14774700499701726",
-                    query_type=QueryType.CREATE_TABLE_AS_SELECT,
-                    lineage_type="TRANSFORMED",
-                    latest_timestamp=datetime(
-                        2025, 7, 1, 13, 52, 20, 863000, tzinfo=timezone.utc
+            ],
+        )
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id="b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac",
+            query_text="CREATE TEMPORARY TABLE t2 as select * from t1;",
+            upstreams=[
+                DatasetUrn(
+                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+                ).urn()
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
+            ).urn(),
+            session_id="14774700499701726",
+            timestamp=datetime(2025, 7, 1, 13, 52, 19, 940000, tzinfo=timezone.utc),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
+                        ).urn(),
+                        column="col_a",
                     ),
-                    actor=CorpUserUrn(username="user@test"),
                     upstreams=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)"
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_a",
+                        )
                     ],
-                    column_lineage=[
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_c",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_c",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_a",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_a",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_b",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)",
-                                    column="col_b",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                    ],
-                    column_usage={
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)": {
-                            "col_a",
-                            "col_c",
-                            "col_b",
-                        }
-                    },
-                    confidence_score=1.0,
-                    used_temp_tables=True,
-                    extra_info={
-                        "snowflake_query_id": "01bd6600-0908-bfbc-0034-7d83143533da",
-                        "snowflake_root_query_id": None,
-                        "snowflake_query_type": "CREATE_TABLE_AS_SELECT",
-                        "snowflake_role_name": "ACCOUNTADMIN",
-                        "query_duration": 442,
-                        "rows_inserted": 0,
-                        "rows_updated": 0,
-                        "rows_deleted": 0,
-                    },
-                    origin=None,
                 ),
-                "fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f": QueryMetadata(
-                    query_id="fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f",
-                    formatted_query_string="CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
-                    session_id="14774700499701726",
-                    query_type=QueryType.CREATE_TABLE_AS_SELECT,
-                    lineage_type="TRANSFORMED",
-                    latest_timestamp=datetime(
-                        2025, 7, 1, 13, 52, 21, 609000, tzinfo=timezone.utc
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
+                        ).urn(),
+                        column="col_b",
                     ),
-                    actor=CorpUserUrn(username="user@test"),
                     upstreams=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t3,PROD)",
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t2,PROD)",
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_b",
+                        )
                     ],
-                    column_lineage=[
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_b",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t3,PROD)",
-                                    column="col_b",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_a",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t2,PROD)",
-                                    column="col_a",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                        ColumnLineageInfo(
-                            downstream=DownstreamColumnRef(
-                                table=None,
-                                column="col_c",
-                                column_type=None,
-                                native_column_type=None,
-                            ),
-                            upstreams=[
-                                ColumnRef(
-                                    table="urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t2,PROD)",
-                                    column="col_c",
-                                )
-                            ],
-                            logic=None,
-                        ),
-                    ],
-                    column_usage={
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t3,PROD)": {
-                            "col_a",
-                            "col_b",
-                        },
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t2,PROD)": {
-                            "col_a",
-                            "col_c",
-                        },
-                    },
-                    confidence_score=1.0,
-                    used_temp_tables=True,
-                    extra_info={
-                        "snowflake_query_id": "01bd6600-0908-c4fc-0034-7d8314356166",
-                        "snowflake_root_query_id": None,
-                        "snowflake_query_type": "CREATE_TABLE_AS_SELECT",
-                        "snowflake_role_name": "ACCOUNTADMIN",
-                        "query_duration": 714,
-                        "rows_inserted": 0,
-                        "rows_updated": 0,
-                        "rows_deleted": 0,
-                    },
-                    origin=None,
                 ),
-            },
-            "lineage_map": {
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD)": OrderedSet(
-                    ["871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43"]
-                )
-            },
-            "view_definitions": {},
-            "temp_lineage_map": {
-                "14774700499701726": {
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t1,PROD)": OrderedSet(
-                        [
-                            "62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2"
-                        ]
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
+                        ).urn(),
+                        column="col_c",
                     ),
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t2,PROD)": OrderedSet(
-                        [
-                            "b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac"
-                        ]
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_c",
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id="242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50",
+            query_text="CREATE TEMPORARY TABLE t3 as select * from t1;",
+            upstreams=[
+                DatasetUrn(
+                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
+                ).urn()
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
+            ).urn(),
+            session_id="14774700499701726",
+            timestamp=datetime(2025, 7, 1, 13, 52, 20, 863000, tzinfo=timezone.utc),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
+                        ).urn(),
+                        column="col_a",
                     ),
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t3,PROD)": OrderedSet(
-                        [
-                            "242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50"
-                        ]
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_a",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
+                        ).urn(),
+                        column="col_b",
                     ),
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.t4,PROD)": OrderedSet(
-                        [
-                            "fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f"
-                        ]
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_b",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
+                        ).urn(),
+                        column="col_c",
                     ),
-                }
-            },
-            "inferred_temp_schemas": {},
-            "table_renames": {},
-            "table_swaps": {},
-            "query_usage_counts": {
-                "62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2": {
-                    datetime(2025, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc): 1
-                },
-                "b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac": {
-                    datetime(2025, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc): 1
-                },
-                "242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50": {
-                    datetime(2025, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc): 1
-                },
-                "fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f": {
-                    datetime(2025, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc): 1
-                },
-                "871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43": {
-                    datetime(2025, 7, 1, 0, 0, 0, 0, tzinfo=timezone.utc): 1
-                },
-            },
-        }
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t1",
+                            ).urn(),
+                            column="col_c",
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
 
-        conn = ConnectionWrapper(filename=":memory:")  # type: ignore[arg-type]
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id="fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f",
+            query_text="CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+            upstreams=[
+                DatasetUrn(
+                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
+                ).urn(),
+                DatasetUrn(
+                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
+                ).urn(),
+            ],
+            downstream=DatasetUrn(
+                "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
+            ).urn(),
+            session_id="14774700499701726",
+            timestamp=datetime(2025, 7, 1, 13, 52, 21, 609000, tzinfo=timezone.utc),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
+                        ).urn(),
+                        column="col_a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t2",
+                            ).urn(),
+                            column="col_a",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
+                        ).urn(),
+                        column="col_b",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t3",
+                            ).urn(),
+                            column="col_b",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
+                        ).urn(),
+                        column="col_c",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t2",
+                            ).urn(),
+                            column="col_c",
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
 
-        for table_name, data in tables.items():
-            table_data: FileBackedDict[Any] = FileBackedDict(
-                shared_connection=conn, tablename=table_name
-            )
-            for k, v in data.items():
-                table_data[k] = v
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id="871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43",
+            query_text="CREATE TABLE diamond_destination as select * from t4;",
+            upstreams=[
+                DatasetUrn(
+                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
+                ).urn()
+            ],
+            downstream=DatasetUrn(
+                "snowflake",
+                "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+            ).urn(),
+            session_id="14774700499701726",
+            timestamp=datetime(2025, 7, 1, 13, 52, 22, 651000, tzinfo=timezone.utc),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake",
+                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+                        ).urn(),
+                        column="col_a",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t4",
+                            ).urn(),
+                            column="col_a",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake",
+                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+                        ).urn(),
+                        column="col_b",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t4",
+                            ).urn(),
+                            column="col_b",
+                        )
+                    ],
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=DatasetUrn(
+                            "snowflake",
+                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+                        ).urn(),
+                        column="col_c",
+                    ),
+                    upstreams=[
+                        ColumnRef(
+                            table=DatasetUrn(
+                                "snowflake",
+                                "diamond_problem.dummy_test.diamond_problem.t4",
+                            ).urn(),
+                            column="col_c",
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
 
-            table_data.flush()
-
-        return conn
-
-    conn = _connection_wrapper()
-
-    x = SqlParsingAggregator(platform="snowflake", shared_sql_connection=conn)
     mcpws = [
         mcp
-        for mcp in x._gen_lineage_for_downstream(
+        for mcp in aggregator._gen_lineage_for_downstream(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD)",
             queries_generated=set(),
         )
@@ -1531,5 +1432,5 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         pytestconfig,
         out_path,
         pytestconfig.rootpath
-        / "tests/unit/sql_parsing/aggregator_goldens/diamond_problem_golden.json",
+        / "tests/unit/sql_parsing/aggregator_goldens/test_diamond_problem_golden.json",
     )
