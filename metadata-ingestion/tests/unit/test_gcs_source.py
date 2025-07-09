@@ -228,3 +228,43 @@ def test_gcs_source_preserves_gs_uris():
 
     # Test that the platform is correctly set
     assert gcs_source.s3_source.source_config.platform == PLATFORM_GCS
+
+    # Test that container subtypes are correctly set for GCS
+    from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+
+    container_creator = gcs_source.s3_source.container_WU_creator
+    assert container_creator.get_sub_types() == DatasetContainerSubTypes.GCS_BUCKET
+
+
+def test_gcs_container_subtypes():
+    """Test that GCS containers use 'GCS bucket' subtype instead of 'S3 bucket'."""
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
+
+    source = {
+        "path_specs": [
+            {
+                "include": "gs://test-bucket/data/{table}/*.parquet",
+                "table_name": "{table}",
+            }
+        ],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+
+    gcs_source = GCSSource.create(source, ctx)
+
+    # Verify the platform is set correctly
+    assert gcs_source.s3_source.source_config.platform == PLATFORM_GCS
+
+    # Verify container subtypes use GCS bucket, not S3 bucket
+    from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+
+    container_creator = gcs_source.s3_source.container_WU_creator
+
+    # Should return "GCS bucket" for GCS platform
+    assert container_creator.get_sub_types() == DatasetContainerSubTypes.GCS_BUCKET
+    assert container_creator.get_sub_types() == "GCS bucket"
+
+    # Should NOT return "S3 bucket"
+    assert container_creator.get_sub_types() != DatasetContainerSubTypes.S3_BUCKET
+    assert container_creator.get_sub_types() != "S3 bucket"
