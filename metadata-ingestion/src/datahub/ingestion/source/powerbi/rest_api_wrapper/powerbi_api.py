@@ -673,7 +673,6 @@ class PowerBiAPI:
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
 
-    # flake8: noqa: C901
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:

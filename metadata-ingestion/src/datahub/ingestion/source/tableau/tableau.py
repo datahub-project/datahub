@@ -149,7 +149,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
     DashboardInfoClass,
@@ -2243,7 +2242,6 @@ class TableauSiteSource:
             yield self.get_metadata_change_event(dataset_snapshot)
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
-                aspect_name=c.SUB_TYPES,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
 
@@ -2408,7 +2406,6 @@ class TableauSiteSource:
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
-                aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
             self.report.num_tables_with_upstream_lineage += 1
@@ -2594,7 +2591,6 @@ class TableauSiteSource:
         )
         yield self.get_metadata_change_proposal(
             csql_urn,
-            aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
         self.report.num_tables_with_upstream_lineage += 1
@@ -2640,14 +2636,10 @@ class TableauSiteSource:
     def get_metadata_change_proposal(
         self,
         urn: str,
-        aspect_name: str,
         aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityType=c.DATASET,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn,
-            aspectName=aspect_name,
             aspect=aspect,
         ).as_workunit()
 
@@ -2755,7 +2747,6 @@ class TableauSiteSource:
                 )
                 yield self.get_metadata_change_proposal(
                     datasource_urn,
-                    aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
                 self.report.num_tables_with_upstream_lineage += 1
@@ -2774,7 +2765,6 @@ class TableauSiteSource:
         yield self.get_metadata_change_event(dataset_snapshot)
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
-            aspect_name=c.SUB_TYPES,
             aspect=SubTypesClass(
                 typeNames=(
                     ["Embedded Data Source"]
