@@ -17,11 +17,25 @@ from datahub_integrations.mcp.mcp_server import (
 async def _parse_token(
     request: Request, call_next: RequestResponseEndpoint
 ) -> Response:
-    # Middleware that uses the token query param to set the DataHub client contextvar.
-    token = request.query_params.get("token")
+    """ASGI middleware that extracts the token from the request and sets the client context accordingly."""
 
-    # We're explicitly using 400 here instead of 401 to ensure that MCP clients
-    # don't try to go through an OAuth flow.
+    # We can get the token from, in order of precedence:
+    # 1. the `token` query param
+    # 2. the `Authorization: Bearer <token>` header
+    token = request.query_params.get("token")
+    if not token and (auth_header := request.headers.get("Authorization")):
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                content={
+                    "detail": "Invalid authorization header format; expected 'Bearer <token>'"
+                },
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        token = auth_header.split(" ", 1)[1]
+
+    # Return an error response if the token is missing or empty.
+    # We're explicitly using 400 errors here instead of 401 to ensure that MCP
+    # clients don't try to go through an OAuth flow.
     if token is None:
         return JSONResponse(
             content={"detail": "Missing token"},
