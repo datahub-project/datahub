@@ -140,13 +140,13 @@ def test_gms_delete_mcp(graph_client):
     assert dashboard_info.title == invalid_dashboard_info["title"]
     assert dashboard_info.description == invalid_dashboard_info["description"]
 
-    mcpw = MetadataChangeProposalWrapper(
+    new_mcpw = MetadataChangeProposalWrapper(
         entityUrn=dashboard_urn,
         aspectName="dashboardKey",
         changeType=ChangeTypeClass.DELETE,
     )
 
-    graph_client.emit_mcp(mcpw, emit_mode=EmitMode.SYNC_PRIMARY)
+    graph_client.emit_mcp(new_mcpw, emit_mode=EmitMode.SYNC_PRIMARY)
 
     dashboard_info = graph_client.get_aspect(
         entity_urn=dashboard_urn,
