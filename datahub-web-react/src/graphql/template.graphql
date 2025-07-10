@@ -11,6 +11,12 @@ fragment pageTemplateFields on DataHubPageTemplate {
         visibility {
             scope
         }
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
     }
 }
 
@@ -26,8 +32,19 @@ fragment PageModule on DataHubPageModule {
     properties {
         name
         type
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
         visibility {
             scope
+        }
+        params {
+            richTextParams {
+                content
+            }
         }
     }
 }

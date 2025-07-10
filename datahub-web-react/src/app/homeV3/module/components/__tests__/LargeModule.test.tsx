@@ -63,6 +63,8 @@ vi.mock('@components', () => ({
     },
 }));
 
+const MOCKED_TIMESTAMP = 1752056099724;
+
 describe('LargeModule', () => {
     const mockModule: ModuleProps['module'] = {
         urn: 'urn:li:dataHubPageModule:test',
@@ -73,6 +75,13 @@ describe('LargeModule', () => {
             visibility: {
                 scope: PageModuleScope.Global,
             },
+            created: {
+                time: MOCKED_TIMESTAMP,
+            },
+            lastModified: {
+                time: MOCKED_TIMESTAMP,
+            },
+            params: {},
         },
     };
 
