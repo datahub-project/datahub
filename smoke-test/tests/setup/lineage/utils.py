@@ -12,7 +12,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -23,14 +22,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     UpstreamClass,
-)
-from tests.setup.lineage.constants import (
-    DATA_FLOW_ENTITY_TYPE,
-    DATA_FLOW_INFO_ASPECT_NAME,
-    DATA_JOB_ENTITY_TYPE,
-    DATA_JOB_INFO_ASPECT_NAME,
-    DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-    DATASET_ENTITY_TYPE,
 )
 from tests.setup.lineage.helper_classes import Dataset, Pipeline
 
