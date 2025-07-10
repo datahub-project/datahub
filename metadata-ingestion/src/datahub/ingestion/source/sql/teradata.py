@@ -441,7 +441,7 @@ class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport
     view_extraction_total_time_seconds: float = 0.0
     view_extraction_average_time_seconds: float = 0.0
     slowest_view_processing_time_seconds: float = 0.0
-    slowest_view_name: str = ""
+    slowest_view_name: TopKDict[str, float] = field(default_factory=TopKDict)
 
     # Connection pool performance metrics (actively used)
     connection_pool_wait_time_seconds: float = 0.0
@@ -1090,18 +1090,12 @@ ORDER by DataBaseName, TableName;
                     timings["total"] = time.time() - total_start
 
                     with report_lock:
-                        if (
+                        self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             timings["total"]
-                            > self.report.slowest_view_processing_time_seconds
-                        ):
-                            self.report.slowest_view_processing_time_seconds = timings[
-                                "total"
-                            ]
-                            self.report.slowest_view_name = f"{schema}.{view_name}"
+                        )
 
                 except Exception as e:
                     with report_lock:
-                        self._failed_views.add(f"{schema}.{view_name}")
                         self.report.num_view_processing_failures += 1
                         # Log full exception details for debugging
                         import traceback
@@ -1183,18 +1177,11 @@ ORDER by DataBaseName, TableName;
                         # Track individual view timing
                         view_end_time = time.time()
                         view_processing_time = view_end_time - view_start_time
-
-                        if (
+                        self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             view_processing_time
-                            > self.report.slowest_view_processing_time_seconds
-                        ):
-                            self.report.slowest_view_processing_time_seconds = (
-                                view_processing_time
-                            )
-                            self.report.slowest_view_name = f"{schema}.{view_name}"
+                        )
 
                     except Exception as e:
-                        self._failed_views.add(f"{schema}.{view_name}")
                         # Log full exception details for debugging
                         import traceback
 
@@ -1277,52 +1264,53 @@ ORDER by DataBaseName, TableName;
             return self._pooled_engine
 
     def cache_tables_and_views(self) -> None:
-        engine = self.get_metadata_engine()
-        try:
-            start_time = time.time()
-            database_counts: Dict[str, Dict[str, int]] = defaultdict(
-                lambda: {"tables": 0, "views": 0}
-            )
-
-            for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
-                table = TeradataTable(
-                    database=entry.DataBaseName.strip(),
-                    name=entry.name.strip(),
-                    description=entry.description.strip()
-                    if entry.description
-                    else None,
-                    object_type=entry.object_type,
-                    create_timestamp=entry.CreateTimeStamp,
-                    last_alter_name=entry.LastAlterName,
-                    last_alter_timestamp=entry.LastAlterTimeStamp,
-                    request_text=(
-                        entry.RequestText.strip()
-                        if entry.object_type == "View" and entry.RequestText
-                        else None
-                    ),
+        with self.report.new_stage("Cache tables and views"):
+            engine = self.get_metadata_engine()
+            try:
+                start_time = time.time()
+                database_counts: Dict[str, Dict[str, int]] = defaultdict(
+                    lambda: {"tables": 0, "views": 0}
                 )
 
-                # Count objects per database for metrics
-                if table.object_type == "View":
-                    database_counts[table.database]["views"] += 1
-                else:
-                    database_counts[table.database]["tables"] += 1
+                for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
+                    table = TeradataTable(
+                        database=entry.DataBaseName.strip(),
+                        name=entry.name.strip(),
+                        description=entry.description.strip()
+                        if entry.description
+                        else None,
+                        object_type=entry.object_type,
+                        create_timestamp=entry.CreateTimeStamp,
+                        last_alter_name=entry.LastAlterName,
+                        last_alter_timestamp=entry.LastAlterTimeStamp,
+                        request_text=(
+                            entry.RequestText.strip()
+                            if entry.object_type == "View" and entry.RequestText
+                            else None
+                        ),
+                    )
 
-                with self._tables_cache_lock:
-                    if table.database not in self._tables_cache:
-                        self._tables_cache[table.database] = []
-                    self._tables_cache[table.database].append(table)
+                    # Count objects per database for metrics
+                    if table.object_type == "View":
+                        database_counts[table.database]["views"] += 1
+                    else:
+                        database_counts[table.database]["tables"] += 1
 
-            # Update database-level metrics
-            extraction_time = time.time() - start_time
-            self.report.metadata_extraction_total_sec = extraction_time
+                    with self._tables_cache_lock:
+                        if table.database not in self._tables_cache:
+                            self._tables_cache[table.database] = []
+                        self._tables_cache[table.database].append(table)
 
-            for database, counts in database_counts.items():
-                self.report.num_database_tables_to_scan[database] = counts["tables"]
-                self.report.num_database_views_to_scan[database] = counts["views"]
+                # Update database-level metrics
+                extraction_time = time.time() - start_time
+                self.report.metadata_extraction_total_sec = extraction_time
 
-        finally:
-            engine.dispose()
+                for database, counts in database_counts.items():
+                    self.report.num_database_tables_to_scan[database] = counts["tables"]
+                    self.report.num_database_views_to_scan[database] = counts["views"]
+
+            finally:
+                engine.dispose()
 
     def _convert_entry_to_observed_query(self, entry: Any) -> ObservedQuery:
         """Convert database query entry to ObservedQuery for SqlParsingAggregator."""
@@ -1614,9 +1602,4 @@ ORDER by DataBaseName, TableName;
                 self._pooled_engine = None
 
         # Report failed views summary
-        if self._failed_views:
-            logger.warning(
-                f"Failed to process {len(self._failed_views)} views: {', '.join(sorted(self._failed_views))}"
-            )
-
         super().close()
