@@ -1959,7 +1959,8 @@ public class GmsGraphQLEngine {
                 "pageTemplate",
                 new LoadableTypeResolver<>(
                     dataHubPageTemplateType,
-                    (env) -> ((CorpUserHomePageSettings) env.getSource()).getPageTemplate().getUrn())));
+                    (env) ->
+                        ((CorpUserHomePageSettings) env.getSource()).getPageTemplate().getUrn())));
     builder.type(
         "CorpUserEditableProperties",
         typeWiring ->
