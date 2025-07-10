@@ -33,7 +33,7 @@ interface StatusProps {
 
 export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
     const icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status) || 'Pending...';
+    const text = getExecutionRequestStatusDisplayText(status) || 'Pending';
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <AllStatusWrapper>
