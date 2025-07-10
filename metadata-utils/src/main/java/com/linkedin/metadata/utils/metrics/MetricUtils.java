@@ -6,7 +6,9 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import lombok.Builder;
@@ -36,6 +38,7 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   private final MeterRegistry registry;
+  private final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
 
   public Optional<MeterRegistry> getRegistry() {
     return Optional.ofNullable(registry);
@@ -45,12 +48,17 @@ public class MetricUtils {
   public void time(String dropWizardMetricName, long durationNanos) {
     getRegistry()
         .ifPresent(
-            meterRegistry ->
-                Timer.builder(dropWizardMetricName)
-                    .tags(DROPWIZARD_METRIC, "true")
-                    .publishPercentiles(0.5, 0.75, 0.95, 0.98, 0.99, 0.999) // Dropwizard defaults
-                    .register(meterRegistry)
-                    .record(durationNanos, TimeUnit.NANOSECONDS));
+            meterRegistry -> {
+              Timer timer =
+                  legacyTimeCache.computeIfAbsent(
+                      dropWizardMetricName,
+                      name ->
+                          Timer.builder(name)
+                              .tags(DROPWIZARD_METRIC, "true")
+                              .publishPercentiles(0.5, 0.75, 0.95, 0.98, 0.99, 0.999)
+                              .register(meterRegistry));
+              timer.record(durationNanos, TimeUnit.NANOSECONDS);
+            });
   }
 
   @Deprecated
