@@ -19,6 +19,7 @@ Always check [the Maven central repository](https://search.maven.org/search?q=a:
 released version.
 
 **Note**: Starting from version 0.2.18, we provide separate jars for different Scala versions:
+
 - For Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
 - For Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
 
@@ -34,6 +35,7 @@ spark.datahub.rest.server                    http://localhost:8080
 ```
 
 For Scala 2.13:
+
 ```text
 #Configuring DataHub spark agent jar for Scala 2.13
 spark.jars.packages                          io.acryl:acryl-spark-lineage_2.13:0.2.18
@@ -48,6 +50,7 @@ spark-submit --packages io.acryl:acryl-spark-lineage_2.12:0.2.18 --conf "spark.e
 ```
 
 For Scala 2.13:
+
 ```sh
 spark-submit --packages io.acryl:acryl-spark-lineage_2.13:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
@@ -178,7 +181,7 @@ information like tokens.
 
 | Field                                                            | Required | Default                 | Description                                                                                                                                                                                                  |
 | ---------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage_2.12:0.2.18 (or io.acryl:acryl-spark-lineage_2.13:0.2.18 for Scala 2.13)                                                                          |
+| spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage_2.12:0.2.18 (or io.acryl:acryl-spark-lineage_2.13:0.2.18 for Scala 2.13)                                                                       |
 | spark.extraListeners                                             | ✅       |                         | datahub.spark.DatahubSparkListener                                                                                                                                                                           |
 | spark.datahub.emitter                                            |          | rest                    | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                                                  |
 | spark.datahub.rest.server                                        |          | <http://localhost:8080> | Datahub server url eg: <http://localhost:8080>                                                                                                                                                               |
@@ -417,11 +420,12 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
   - Option for Enhanced Merge Into Extraction
   - Fix rdd map detection to correctly handle map transformations in the lineage.
-  - **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
+  _- **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
     - Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
-    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
+    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`_
   - **Column-level Lineage Enhancement**: OpenLineage's transformation types are now captured and mapped to DataHub's FinegrainedLineage `TransformOption` as per the [OpenLineage column lineage specification](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type)
   - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
+  - FileStreamMicroBatchStream and foreachBatch for Spark streaming
 
 ### Version 0.2.17
 
