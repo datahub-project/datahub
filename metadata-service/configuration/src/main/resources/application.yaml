@@ -304,6 +304,8 @@ elasticsearch:
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
+      searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
+      autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
