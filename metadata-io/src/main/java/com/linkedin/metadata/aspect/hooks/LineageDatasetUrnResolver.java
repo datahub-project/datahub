@@ -52,6 +52,7 @@ public class LineageDatasetUrnResolver extends MutationHook {
     List<Pair<ChangeMCP, Boolean>> result = new ArrayList<>();
 
     for (ChangeMCP mcp : changeMCPS) {
+      boolean modified = false;
       if (mcp.getAspectName().equals(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
         DataJobInputOutput dataJobInputOutput = mcp.getAspect(DataJobInputOutput.class);
         boolean inputsDatasetsModified =
@@ -62,9 +63,9 @@ public class LineageDatasetUrnResolver extends MutationHook {
             (inputsDatasetsModified || outputDatasetsModified)
                 && checkFineGrainedLineages(
                     retrieverContext, dataJobInputOutput.getFineGrainedLineages());
-        result.add(
-            Pair.of(mcp, inputsDatasetsModified || outputDatasetsModified || fineGrainedModified));
+        modified = inputsDatasetsModified || outputDatasetsModified || fineGrainedModified;
       }
+      result.add(Pair.of(mcp, modified));
     }
     return result.stream();
   }
@@ -89,8 +90,8 @@ public class LineageDatasetUrnResolver extends MutationHook {
             edge.setDestinationUrn(resolvedUrn.get());
             edge.setConfidenceScore(scoreUrnResolvedPlatformResource, SetMode.IGNORE_NULL);
           }
-          modified = true;
         }
+        modified = true;
       }
     }
     return modified;
@@ -177,7 +178,7 @@ public class LineageDatasetUrnResolver extends MutationHook {
   }
 
   private boolean shouldResolve(DatasetUrn urn, RetrieverContext retrieverContext) {
-    return platforms.contains(urn.getPlatformEntity().getPlatformNameEntity());
+    return platforms != null && platforms.contains(urn.getPlatformEntity().getPlatformNameEntity());
   }
 
   private static boolean exists(Urn urn, RetrieverContext retrieverContext) {
@@ -190,15 +191,17 @@ public class LineageDatasetUrnResolver extends MutationHook {
         String.format(
             "urn:li:platformResource:%s.%s",
             urn.getPlatformEntity().getPlatformNameEntity(), urn.getDatasetNameEntity());
-    if (!exists(UrnUtils.getUrn(platformResourceUrn), retrieverContext)) {
-      return Optional.empty();
-    }
 
     Aspect resourceInfoAspect =
         retrieverContext
             .getAspectRetriever()
             .getLatestAspectObject(
                 UrnUtils.getUrn(platformResourceUrn), PLATFORM_RESOURCE_INFO_ASPECT_NAME);
+
+    if (resourceInfoAspect == null) {
+      return Optional.empty();
+    }
+
     PlatformResourceInfo resourceInfo =
         RecordUtils.toRecordTemplate(PlatformResourceInfo.class, resourceInfoAspect.data());
 
