@@ -19,7 +19,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
-@Builder
+@Builder(toBuilder = true)
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode

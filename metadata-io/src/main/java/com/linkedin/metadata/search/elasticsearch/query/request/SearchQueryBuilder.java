@@ -8,6 +8,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -65,7 +66,9 @@ public class SearchQueryBuilder {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
-    this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
+    this.customizedQueryHandler =
+        CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
+            .build();
   }
 
   public QueryBuilder buildQuery(
@@ -106,7 +109,7 @@ public class SearchQueryBuilder {
             .orElse(QueryBuilders.boolQuery());
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+      getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
               opContext.getEntityRegistry(),
@@ -320,11 +323,12 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getSimpleQuery(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
     Optional<QueryBuilder> result = Optional.empty();
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
 
     final boolean executeSimpleQuery;
     if (customQueryConfig != null) {
@@ -334,18 +338,31 @@ public class SearchQueryBuilder {
     }
 
     if (executeSimpleQuery) {
+      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
+
+      // Get base fields
+      Set<SearchFieldConfig> baseFields =
+          entitySpecs.stream()
+              .map(spec -> getStandardFields(entityRegistry, spec))
+              .flatMap(Set::stream)
+              .collect(Collectors.toSet());
+
+      Set<SearchFieldConfig> configuredFields =
+          customizedQueryHandler.applySearchFieldConfiguration(
+              baseFields,
+              customizedQueryHandler.resolveFieldConfiguration(
+                  operationContext.getSearchContext().getSearchFlags(),
+                  CustomConfiguration::getSearchFieldConfigDefault));
+
       /*
        * NOTE: This logic applies the queryByDefault annotations for each entity to ALL entities
        * If we ever have fields that are queryByDefault on some entities and not others, this section will need to be refactored
        * to apply an index filter AND the analyzers added here.
        */
-      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
       Map<String, List<SearchFieldConfig>> analyzerGroup =
-          entitySpecs.stream()
-              .map(spec -> getStandardFields(entityRegistry, spec))
-              .flatMap(Set::stream)
+          configuredFields.stream()
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
 

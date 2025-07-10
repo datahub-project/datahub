@@ -541,6 +541,78 @@ autocompleteConfigurations:
       boost_mode: multiply
 ```
 
+### Field Configurations
+
+Field configurations allow you to customize which fields are included in search queries and result highlighting. Each configuration is identified by a label and can modify the default behavior using three operations:
+
+- `add` - Adds fields to the system defaults
+- `remove` - Removes fields from the system defaults
+- `replace` - Completely replaces the system default field list
+
+As of today the UI will only exercise the `default` label, however calls to graphql can refer to other labels. See graphql documentation for further details.
+
+**Note:** The `replace` operation cannot be combined with `add` or `remove`. However, `add` and `remove` can be used together.
+
+#### Field Configuration Example
+
+```yaml
+fieldConfigurations:
+  # Default configuration - if searchFlags doesn't specify
+  default:
+    searchFields:
+      remove:
+        - fieldPaths
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+
+  # PDL legacy configuration
+  legacy:
+    searchFields:
+    # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      # No modifications - use PDL defaults
+
+  # Configuration for technical users - adds technical fields
+  technical:
+    searchFields:
+      add:
+        - fieldPaths
+        - platform
+      remove:
+        - customProperties
+    highlightFields:
+      enabled: true
+      add:
+        - fieldPaths
+        - platform
+
+  # Configuration for business users - simplified field set
+  business:
+    searchFields:
+      replace:
+        - name
+        - description
+        - tags
+        - glossaryTerms
+    highlightFields:
+      enabled: true
+      replace:
+        - name
+        - description
+
+  # Configuration with no highlighting
+  no-highlight:
+    searchFields:
+      # Uses system defaults
+    highlightFields:
+      enabled: false
+```
+
 ## FAQ and Troubleshooting
 
 **How are the results ordered?**
