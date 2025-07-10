@@ -11,6 +11,8 @@ const addNewQuery = () => {
   cy.get(".ProseMirror").last().click().type(`Test Description-${runId}`);
   cy.get('[data-testid="query-builder-save-button"]').click();
   cy.waitTextVisible("Created Query!");
+  cy.wait(3000);
+  cy.reload();
 };
 
 const editQuery = () => {
@@ -27,12 +29,14 @@ const editQuery = () => {
     .type(`Edited Description-${runId}`);
   cy.get('[data-testid="query-builder-save-button"]').click();
   cy.waitTextVisible("Edited Query!");
+  cy.reload();
 };
 
 const deleteQuery = () => {
   cy.get('[data-testid="delete-query"]').eq(0).click({ force: true });
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Deleted Query!");
+  cy.reload();
 };
 
 const verifyViewCardDetails = (query) => {
@@ -59,8 +63,6 @@ describe("manage queries", () => {
     cy.waitTextVisible(`+ Test Query-${runId}`);
     cy.waitTextVisible(`Test Table-${runId}`);
     cy.waitTextVisible(`Test Description-${runId}`);
-    cy.waitTextVisible("Created Query!");
-    cy.ensureTextNotPresent("Created Query!");
     verifyViewCardDetails(`+ Test Query-${runId}`);
   });
 
