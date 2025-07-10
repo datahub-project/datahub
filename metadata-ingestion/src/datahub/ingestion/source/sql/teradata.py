@@ -561,12 +561,6 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     config: TeradataConfig
 
-    LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
-
-    LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
-    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.QryLogV
-    """.strip()
-
     QUERY_TEXT_QUERY: str = """
     SELECT
         s.QueryID as "query_id",
@@ -603,40 +597,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     ORDER BY "query_id", "row_no"
     """.strip()
 
-    QUERY_TEXT_QUERY_WITH_HISTORY: str = """
-    SELECT
-        s.QueryID as "query_id",
-        UserName as "user",
-        StartTime AT TIME ZONE 'GMT' as "timestamp",
-        DefaultDatabase as default_database,
-        s.SqlTextInfo as "query_text",
-        s.SqlRowNo as "row_no"
-    FROM "DBC".QryLogV as l
-    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
-    WHERE
-        l.ErrorCode = 0
-        AND l.statementtype not in (
-        'Unrecognized type',
-        'Create Database/User',
-        'Help',
-        'Modify Database',
-        'Drop Table',
-        'Show',
-        'Not Applicable',
-        'Grant',
-        'Abort',
-        'Database',
-        'Flush Query Logging',
-        'Null',
-        'Begin/End DBQL',
-        'Revoke'
-    )
-        and "timestamp" >= TIMESTAMP '{start_time}'
-        and "timestamp" < TIMESTAMP '{end_time}'
-        and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
-        and default_database not in ('DEMONOW_MONITOR')
-        {databases_filter}
-    UNION ALL
+    QUERY_TEXT_QUERY_HISTORY: str = """
     SELECT
         h.QueryID as "query_id",
         h.UserName as "user",
@@ -669,19 +630,6 @@ class TeradataSource(TwoTierSQLAlchemySource):
         and h.DefaultDatabase not in ('DEMONOW_MONITOR')
         {databases_filter_history}
     ORDER BY "query_id", "row_no"
-    """.strip()
-
-    LINEAGE_TIMESTAMP_BOUND_QUERY_WITH_HISTORY: str = """
-    SELECT 
-        MIN("min_ts") as "min_ts", 
-        MAX("max_ts") as "max_ts" 
-    FROM (
-        SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" 
-        FROM DBC.QryLogV
-        UNION ALL
-        SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" 
-        FROM PDCRDATA.DBQLSqlTbl_Hst
-    ) combined_timestamps
     """.strip()
 
     TABLES_AND_VIEWS_QUERY: str = f"""
@@ -1358,7 +1306,7 @@ ORDER by DataBaseName, TableName;
 
     def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
         """Fetch lineage entries using server-side cursor to handle large result sets efficiently."""
-        base_query = self._make_lineage_query()
+        queries = self._make_lineage_queries()
 
         fetch_engine = self.get_metadata_engine()
         try:
@@ -1368,32 +1316,43 @@ ORDER by DataBaseName, TableName;
                     if self.config.use_server_side_cursors
                     else "client-side"
                 )
-                logger.info(f"Executing lineage query with {cursor_type} cursor...")
 
-                # Use helper method to try server-side cursor with fallback
-                result = self._execute_with_cursor_fallback(conn, base_query)
+                total_count_all_queries = 0
 
-                # Stream results in batches to avoid memory issues
-                batch_size = 5000
-                batch_count = 0
-                total_count = 0
+                for query_index, query in enumerate(queries, 1):
+                    logger.info(
+                        f"Executing lineage query {query_index}/{len(queries)} with {cursor_type} cursor..."
+                    )
 
-                while True:
-                    # Fetch a batch of rows
-                    batch = result.fetchmany(batch_size)
-                    if not batch:
-                        break
+                    # Use helper method to try server-side cursor with fallback
+                    result = self._execute_with_cursor_fallback(conn, query)
 
-                    batch_count += 1
-                    total_count += len(batch)
+                    # Stream results in batches to avoid memory issues
+                    batch_size = 5000
+                    batch_count = 0
+                    query_total_count = 0
+
+                    while True:
+                        # Fetch a batch of rows
+                        batch = result.fetchmany(batch_size)
+                        if not batch:
+                            break
+
+                        batch_count += 1
+                        query_total_count += len(batch)
+                        total_count_all_queries += len(batch)
+
+                        logger.info(
+                            f"Query {query_index} - Fetched batch {batch_count}: {len(batch)} lineage entries (query total: {query_total_count})"
+                        )
+                        yield from batch
 
                     logger.info(
-                        f"Fetched batch {batch_count}: {len(batch)} lineage entries (total: {total_count})"
+                        f"Completed query {query_index}: {query_total_count} lineage entries in {batch_count} batches"
                     )
-                    yield from batch
 
                 logger.info(
-                    f"Completed fetching {total_count} lineage entries in {batch_count} batches"
+                    f"Completed fetching all queries: {total_count_all_queries} total lineage entries from {len(queries)} queries"
                 )
 
         except Exception as e:
@@ -1431,7 +1390,7 @@ ORDER by DataBaseName, TableName;
         finally:
             engine.dispose()
 
-    def _make_lineage_query(self) -> str:
+    def _make_lineage_queries(self) -> List[str]:
         databases_filter = (
             ""
             if not self.config.databases
@@ -1440,7 +1399,17 @@ ORDER by DataBaseName, TableName;
             )
         )
 
-        # Determine which query to use based on configuration and table availability
+        queries = []
+
+        # Always include the current query
+        current_query = self.QUERY_TEXT_QUERY.format(
+            start_time=self.config.start_time,
+            end_time=self.config.end_time,
+            databases_filter=databases_filter,
+        )
+        queries.append(current_query)
+
+        # Add historical query if configured and available
         if (
             self.config.include_historical_lineage
             and self._check_historical_table_exists()
@@ -1448,31 +1417,26 @@ ORDER by DataBaseName, TableName;
             logger.info(
                 "Using historical lineage data from both DBC.QryLogV and PDCRDATA.DBQLSqlTbl_Hst"
             )
-            # For historical query, we need the database filter for both current and historical parts
+            # For historical query, we need the database filter for historical part
             databases_filter_history = (
                 databases_filter.replace("default_database", "h.DefaultDatabase")
                 if databases_filter
                 else ""
             )
 
-            query = self.QUERY_TEXT_QUERY_WITH_HISTORY.format(
+            historical_query = self.QUERY_TEXT_QUERY_HISTORY.format(
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
-                databases_filter=databases_filter,
                 databases_filter_history=databases_filter_history,
             )
+            queries.append(historical_query)
         else:
             if self.config.include_historical_lineage:
                 logger.warning(
                     "Historical lineage was requested but PDCRDATA.DBQLSqlTbl_Hst table is not available. Falling back to current data only."
                 )
 
-            query = self.QUERY_TEXT_QUERY.format(
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
-                databases_filter=databases_filter,
-            )
-        return query
+        return queries
 
     def get_metadata_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
