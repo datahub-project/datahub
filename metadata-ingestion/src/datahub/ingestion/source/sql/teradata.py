@@ -176,10 +176,7 @@ def get_schema_columns(
 
     # Update report if available
     if hasattr(self, "report"):
-        self.report.column_extraction_duration_seconds = (
-            getattr(self.report, "column_extraction_duration_seconds", 0.0)
-            + extraction_time
-        )
+        self.report.column_extraction_duration_seconds+ = extraction_time
 
     return columns
 
