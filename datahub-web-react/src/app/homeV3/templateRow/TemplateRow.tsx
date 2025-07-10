@@ -18,14 +18,16 @@ interface Props {
     row: PageTemplateRowFragment;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
+    originRowIndex: number;
 }
 
-export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex, originRowIndex }: Props) {
     return (
         <RowWrapper>
             <AddModuleButton
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
+                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="left"
             />
@@ -37,6 +39,7 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
             <AddModuleButton
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
+                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="right"
             />

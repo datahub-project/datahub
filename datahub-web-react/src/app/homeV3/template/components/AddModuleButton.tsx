@@ -46,17 +46,26 @@ interface Props {
     orientation: AddModuleButtonOrientation;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     className?: string;
+    originRowIndex?: number;
     rowIndex?: number;
     rowSide?: RowSide;
 }
 
-export default function AddModuleButton({ orientation, modulesAvailableToAdd, className, rowIndex, rowSide }: Props) {
+export default function AddModuleButton({
+    orientation,
+    modulesAvailableToAdd,
+    className,
+    originRowIndex,
+    rowIndex,
+    rowSide,
+}: Props) {
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
 
     // Create position object for the menu
     const position: ModulePositionInput = {
+        originRowIndex,
         rowIndex,
         rowSide,
     };

@@ -6,6 +6,7 @@ const ModuleContainer = styled.div<{ $height: string }>`
     border: ${borders['1px']} ${colors.gray[100]};
     border-radius: ${radius.lg};
     flex: 1;
+    overflow-x: hidden;
 
     height: ${(props) => props.$height};
     box-shadow:
