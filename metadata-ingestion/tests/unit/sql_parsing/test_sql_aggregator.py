@@ -1,7 +1,7 @@
 import functools
 import os
 import pathlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -1059,55 +1059,27 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         {"col_a": "int", "col_b": "int", "col_c": "int"},
     )
 
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
-            default_db="diamond_problem",
-            default_schema="dummy_test.diamond_problem",
-            session_id="14774700499701726",
-            timestamp=datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc),
-        )
-    )
+    # Diamond query pattern: source1 -> t1 -> {t2, t3} -> t4 -> destination
+    queries = [
+        "CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+        "CREATE TEMPORARY TABLE t2 as select * from t1;",
+        "CREATE TEMPORARY TABLE t3 as select * from t1;",
+        "CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+        "CREATE TABLE diamond_destination as select * from t4;",
+    ]
 
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="CREATE TEMPORARY TABLE t2 as select * from t1;",
-            default_db="diamond_problem",
-            default_schema="dummy_test.diamond_problem",
-            session_id="14774700499701726",
-            timestamp=datetime(2025, 7, 1, 13, 52, 19, 940000, tzinfo=timezone.utc),
-        )
-    )
+    base_timestamp = datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc)
 
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="CREATE TEMPORARY TABLE t3 as select * from t1;",
-            default_db="diamond_problem",
-            default_schema="dummy_test.diamond_problem",
-            session_id="14774700499701726",
-            timestamp=datetime(2025, 7, 1, 13, 52, 20, 863000, tzinfo=timezone.utc),
+    for i, query in enumerate(queries):
+        aggregator.add(
+            ObservedQuery(
+                query=query,
+                default_db="diamond_problem",
+                default_schema="dummy_test.diamond_problem",
+                session_id="14774700499701726",
+                timestamp=base_timestamp + timedelta(seconds=i),
+            )
         )
-    )
-
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
-            default_db="diamond_problem",
-            default_schema="dummy_test.diamond_problem",
-            session_id="14774700499701726",
-            timestamp=datetime(2025, 7, 1, 13, 52, 21, 609000, tzinfo=timezone.utc),
-        )
-    )
-
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="CREATE TABLE diamond_destination as select * from t4;",
-            default_db="diamond_problem",
-            default_schema="dummy_test.diamond_problem",
-            session_id="14774700499701726",
-            timestamp=datetime(2025, 7, 1, 13, 52, 22, 651000, tzinfo=timezone.utc),
-        )
-    )
 
     mcpws = [
         mcp
