@@ -25,6 +25,7 @@ dependencies {
     implementation externalDependency.json
 
     testImplementation externalDependency.testng
+    testImplementation "io.openlineage:openlineage-java:$openLineageVersion"
 }
 
 test {

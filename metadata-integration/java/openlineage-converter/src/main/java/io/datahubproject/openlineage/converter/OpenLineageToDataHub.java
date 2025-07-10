@@ -224,13 +224,38 @@ public class OpenLineageToDataHub {
       platform = namespace;
     }
 
-    String platformInstance = getPlatformInstance(mappingConfig, platform);
-    FabricType env = getEnv(mappingConfig, platform);
+    String platformInstance = getPlatformInstance(mappingConfig, platform, namespace);
+    FabricType env = getEnv(mappingConfig, platform, namespace);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
 
-  private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
+  private static FabricType getEnv(
+      DatahubOpenlineageConfig mappingConfig, String platform, String namespace) {
+    // First check if namespace contains URI format and can be mapped to an environment
+    if (namespace != null && namespace.contains(SCHEME_SEPARATOR)) {
+      try {
+        URI namespaceUri = new URI(namespace);
+        String namespaceAuthority = namespaceUri.getAuthority();
+
+        if (namespaceAuthority != null && !mappingConfig.getEnvironmentNamespaceMap().isEmpty()) {
+          // Check if we have a direct match for this namespace URI
+          String environmentName = mappingConfig.getEnvironmentNamespaceMap().get(namespace);
+          if (environmentName != null) {
+            try {
+              FabricType fabricType = FabricType.valueOf(environmentName.toUpperCase());
+              log.debug("Found environment {} for namespace {}", fabricType, namespace);
+              return fabricType;
+            } catch (IllegalArgumentException e) {
+              log.warn("Invalid environment value in namespace mapping: {}", environmentName);
+            }
+          }
+        }
+      } catch (URISyntaxException e) {
+        log.warn("Unable to parse namespace URI for environment mapping: {}", namespace);
+      }
+    }
+
     FabricType fabricType = mappingConfig.getFabricType();
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
@@ -250,7 +275,29 @@ public class OpenLineageToDataHub {
   }
 
   private static String getPlatformInstance(
-      DatahubOpenlineageConfig mappingConfig, String platform) {
+      DatahubOpenlineageConfig mappingConfig, String platform, String namespace) {
+    // First check if namespace contains URI format and can be mapped to a platform instance
+    if (namespace != null && namespace.contains(SCHEME_SEPARATOR)) {
+      try {
+        URI namespaceUri = new URI(namespace);
+        String namespaceAuthority = namespaceUri.getAuthority();
+
+        if (namespaceAuthority != null
+            && !mappingConfig.getPlatformInstanceNamespaceMap().isEmpty()) {
+          // Check if we have a direct match for this namespace URI
+          String platformInstanceName =
+              mappingConfig.getPlatformInstanceNamespaceMap().get(namespace);
+          if (platformInstanceName != null) {
+            log.debug(
+                "Found platform instance {} for namespace {}", platformInstanceName, namespace);
+            return platformInstanceName;
+          }
+        }
+      } catch (URISyntaxException e) {
+        log.warn("Unable to parse namespace URI: {}", namespace);
+      }
+    }
+
     // Use the platform instance from the path spec if it is present otherwise use the one from the
     // commonDatasetPlatformInstance
     String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
