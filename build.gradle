@@ -37,7 +37,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.65.7'
   ext.mavenVersion = '3.6.3'
-  ext.versionGradle = '8.11.1'
+  ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.5'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.6'
@@ -396,6 +396,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "javax.mail", module: "mail"
     exclude group: 'org.glassfish', module: 'javax.json'
     exclude group: 'org.glassfish', module: 'jakarta.json'
+    exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -566,6 +567,7 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
+  distributionSha256Sum = 'ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c'
 }
 
 tasks.register('format') {
