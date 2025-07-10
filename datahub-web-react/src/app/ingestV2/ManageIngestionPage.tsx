@@ -1,4 +1,4 @@
-import { Button, PageTitle, Tabs } from '@components';
+import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -69,11 +69,12 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
-    const me = useUserContext();
-    const { config, loaded } = useAppConfig();
+    const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
+    const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
-    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && canManageIngestion;
+    const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -88,7 +89,6 @@ export const ManageIngestionPage = () => {
         error: isCapabilitySummaryError,
         isProfilingSupported,
     } = useCapabilitySummary();
-
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
 
@@ -101,10 +101,16 @@ export const ManageIngestionPage = () => {
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
-        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
-            setSelectedTab(TabType.Secrets);
+        if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
+            if (showIngestionTab) {
+                setSelectedTab(TabType.Sources);
+            } else if (showSecretsTab) {
+                setSelectedTab(TabType.Secrets);
+            } else {
+                setSelectedTab(null);
+            }
         }
-    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
+    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
 
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const preserveParams = shouldPreserveParams.current;
@@ -185,17 +191,25 @@ export const ManageIngestionPage = () => {
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <div>
-                            <Button
-                                variant="filled"
-                                id={INGESTION_CREATE_SOURCE_ID}
-                                onClick={handleCreateSource}
-                                data-testid="create-ingestion-source-button"
-                                icon={{ icon: 'Plus', source: 'phosphor' }}
-                            >
-                                Create source
-                            </Button>
-                        </div>
+                        <Tooltip
+                            title={
+                                !canManageIngestion &&
+                                `You don't have permission to perform this action. Please contact your DataHub admin for more info.`
+                            }
+                        >
+                            <div>
+                                <Button
+                                    variant="filled"
+                                    id={INGESTION_CREATE_SOURCE_ID}
+                                    onClick={handleCreateSource}
+                                    data-testid="create-ingestion-source-button"
+                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    disabled={!canManageIngestion}
+                                >
+                                    Create source
+                                </Button>
+                            </div>
+                        </Tooltip>
                     )}
 
                     {selectedTab === TabType.Secrets && showSecretsTab && (
