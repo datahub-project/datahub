@@ -31,13 +31,49 @@ By default, the UI shows the latest version of the lineage. The time picker can 
 
 In this example, data flows from between different Snowflake tables orchestrated by dbt into Looker views and explores.
 
-## Column Level Lineage Support
+### Column Level Lineage
 
 Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level. Column lineage can be visualized while viewing table-level
 lineage by expanding the columns of tables and hovering or clicking on columns with lineage.
 
 <p align="center">
 <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage-v3.png" />
+</p>
+
+If there is column-level lineage to hidden assets or the table-level view is getting too busy,
+you can visualize lineage focused on a single column by clicking on the breadcrumb on a column:
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/schema-field-level-lineage-link.png" />
+</p>
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/schema-field-level-lineage.png" />
+</p>
+
+### Data Pipeline Lineage
+
+DataHub also supports visualizing your data pipelines' task relationships, alongside data lineage. On a data pipeline's
+entity page, go to the **Lineage** tab to open the visualization. At its center will be the data pipeline node,
+represented as a box containing all of its composite tasks. You can click and drag to move each task within the box,
+as well as click and drag the data pipeline box itself.
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-tab.png" />
+</p>
+
+Further, you can leverage DataHub's cross-platform lineage to view the upstreams and downstreams of each task.
+The number on the expand lineage button represents how many data-dependence upstreams / downstreams the task has.
+After expanding, you can keep expanding lineage further like the standard lineage explorer.
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-expand.png" />
+</p>
+
+Note that you can only expand one task's upstreams and one task's downstreams at a time, to keep the visualization simple.
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-expand-2.png" />
 </p>
 
 ## Adding Lineage
