@@ -19,6 +19,7 @@ from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     INGEST_MAX_PAYLOAD_BYTES,
+    KEY_ASPECT_NAMES,
     DataHubRestEmitter,
     DatahubRestEmitter,
     EmitMode,
@@ -36,6 +37,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
 )
 from datahub.metadata.schema_classes import (
+    KEY_ASPECTS,
     ChangeTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -1259,6 +1261,217 @@ class TestDataHubRestEmitter:
 
         # ASCII should remain unchanged
         assert result["nested"]["list"][0] == "item1"  # Pure ASCII
+
+    def test_emit_mcp_delete_functionality(self):
+        """Test that MCP delete operations use correct URL and payload format"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Test Case 1: Delete with key aspect (should succeed)
+        delete_mcp_key_aspect = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",  # This is a key aspect
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,  # No aspect data needed for delete
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(delete_mcp_key_aspect)
+
+            # Verify _emit_generic was called once
+            mock_emit.assert_called_once()
+
+            # Check that delete URL format was used
+            url = mock_emit.call_args[0][0]
+            assert url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+
+            # Check that delete payload format was used (just URN)
+            payload = mock_emit.call_args[0][1]
+            payload_dict = json.loads(payload)
+            expected_payload = {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+            }
+            assert payload_dict == expected_payload
+
+        # Test Case 2: Delete with non-key aspect (should log error and return)
+        delete_mcp_non_key_aspect = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",  # This is NOT a key aspect
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        with (
+            patch.object(emitter, "_emit_generic") as mock_emit,
+            patch("datahub.emitter.rest_emitter.logger") as mock_logger,
+        ):
+            emitter.emit_mcp(delete_mcp_non_key_aspect)
+
+            # Verify _emit_generic was NOT called
+            mock_emit.assert_not_called()
+
+            # Verify error was logged
+            mock_logger.error.assert_called_once()
+            error_call = mock_logger.error.call_args[0][0]
+            assert "Delete not supported for non key aspect" in error_call
+            assert "datasetProperties" in error_call
+            assert (
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+                in error_call
+            )
+
+    def test_emit_mcp_delete_vs_upsert_different_urls(self):
+        """Test that delete and upsert operations use different URLs"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create delete MCP
+        delete_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        # Create upsert MCP
+        upsert_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UpsertTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",
+            changeType=ChangeTypeClass.UPSERT,
+            aspect=DatasetProperties(name="Test Dataset"),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            # Test delete
+            emitter.emit_mcp(delete_mcp)
+            delete_url = mock_emit.call_args[0][0]
+
+            # Reset mock
+            mock_emit.reset_mock()
+
+            # Test upsert
+            emitter.emit_mcp(upsert_mcp)
+            upsert_url = mock_emit.call_args[0][0]
+
+            # Verify different URLs were used
+            assert delete_url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+            assert upsert_url == f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal"
+            assert delete_url != upsert_url
+
+    def test_emit_mcp_delete_payload_structure(self):
+        """Test that delete payload has correct structure compared to upsert"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create delete MCP
+        delete_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        # Create upsert MCP for comparison
+        upsert_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UpsertTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",
+            changeType=ChangeTypeClass.UPSERT,
+            aspect=DatasetProperties(name="Test Dataset"),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            # Test delete payload
+            emitter.emit_mcp(delete_mcp)
+            delete_payload = json.loads(mock_emit.call_args[0][1])
+
+            # Reset mock
+            mock_emit.reset_mock()
+
+            # Test upsert payload
+            emitter.emit_mcp(upsert_mcp)
+            upsert_payload = json.loads(mock_emit.call_args[0][1])
+
+            # Verify delete payload structure
+            assert "urn" in delete_payload
+            assert (
+                delete_payload["urn"]
+                == "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+            )
+            assert (
+                "proposal" not in delete_payload
+            )  # Should not have proposal for delete
+            assert "async" not in delete_payload  # Should not have async for delete
+
+            # Verify upsert payload structure (for comparison)
+            assert "proposal" in upsert_payload
+            assert "async" in upsert_payload
+            assert "urn" not in upsert_payload  # URN is inside proposal for upsert
+
+    def test_emit_mcp_delete_with_key_aspects_only(self):
+        """Test that delete only works with key aspects from KEY_ASPECTS"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Test with a known key aspect (should work)
+        key_aspect = next(iter(KEY_ASPECT_NAMES))  # Get first key aspect
+        delete_mcp_key = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,KeyAspectTest,PROD)",
+            entityType="dataset",
+            aspectName=key_aspect,
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(delete_mcp_key)
+
+            # Should have called _emit_generic
+            mock_emit.assert_called_once()
+
+            # Verify URL and payload
+            url = mock_emit.call_args[0][0]
+            payload = json.loads(mock_emit.call_args[0][1])
+
+            assert url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+            assert payload == {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,KeyAspectTest,PROD)"
+            }
+
+        # Test with a non-key aspect (should fail)
+        non_key_aspects = ["datasetProperties", "datasetProfile", "status"]
+        for aspect_name in non_key_aspects:
+            if aspect_name not in KEY_ASPECTS:  # Ensure it's actually not a key aspect
+                delete_mcp_non_key = MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)",
+                    entityType="dataset",
+                    aspectName=aspect_name,
+                    changeType=ChangeTypeClass.DELETE,
+                    aspect=None,
+                )
+
+                with (
+                    patch.object(emitter, "_emit_generic") as mock_emit,
+                    patch("datahub.emitter.rest_emitter.logger") as mock_logger,
+                ):
+                    emitter.emit_mcp(delete_mcp_non_key)
+
+                    # Should NOT have called _emit_generic
+                    mock_emit.assert_not_called()
+
+                    # Should have logged error
+                    mock_logger.error.assert_called_once()
+                    error_message = mock_logger.error.call_args[0][0]
+                    assert (
+                        f"Delete not supported for non key aspect: {aspect_name}"
+                        in error_message
+                    )
+
+                    # Reset for next iteration
+                    mock_emit.reset_mock()
+                    mock_logger.reset_mock()
+                break  # Only need to test one non-key aspect
 
 
 class TestOpenApiModeSelection:

@@ -13,6 +13,7 @@ from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
+    ChangeTypeClass,
     DashboardInfoClass,
     GenericAspectClass,
     MetadataChangeProposalClass,
@@ -97,3 +98,59 @@ def test_gms_ignore_unknown_dashboard_info(graph_client):
     assert dashboard_info
     assert dashboard_info.title == invalid_dashboard_info["title"]
     assert dashboard_info.description == invalid_dashboard_info["description"]
+
+
+def test_gms_delete_mcp(graph_client):
+    dashboard_urn = make_dashboard_urn(platform="looker", name="test-delete-mcp")
+    generated_urns.extend([dashboard_urn])
+
+    audit_stamp = pre_json_transform(
+        ChangeAuditStampsClass(
+            created=AuditStampClass(
+                time=int(time.time() * 1000),
+                actor="urn:li:corpuser:datahub",
+            )
+        ).to_obj()
+    )
+
+    invalid_dashboard_info = {
+        "title": "Ignore Unknown Title",
+        "description": "Ignore Unknown Description",
+        "lastModified": audit_stamp,
+        "notAValidField": "invalid field value",
+    }
+    mcpw = MetadataChangeProposalInvalidWrapper(
+        entityUrn=dashboard_urn,
+        aspectName="dashboardInfo",
+        aspect=invalid_dashboard_info,
+    )
+
+    mcp = mcpw.make_mcp()
+    assert "notAValidField" in str(mcp)
+    assert "invalid field value" in str(mcp)
+
+    graph_client.emit_mcp(mcpw, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    dashboard_info = graph_client.get_aspect(
+        entity_urn=dashboard_urn,
+        aspect_type=DashboardInfoClass,
+    )
+
+    assert dashboard_info
+    assert dashboard_info.title == invalid_dashboard_info["title"]
+    assert dashboard_info.description == invalid_dashboard_info["description"]
+
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=dashboard_urn,
+        aspectName="dashboardKey",
+        changeType=ChangeTypeClass.DELETE,
+    )
+
+    graph_client.emit_mcp(mcpw, emit_mode=EmitMode.SYNC_PRIMARY)
+
+    dashboard_info = graph_client.get_aspect(
+        entity_urn=dashboard_urn,
+        aspect_type=DashboardInfoClass,
+    )
+
+    assert not dashboard_info
