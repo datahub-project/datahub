@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { EntityStagedForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { useSiblingOptionsForAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { extractPlatformNameFromPlatformUrn } from '@app/entityV2/shared/utils';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import analytics, { EventType } from '@src/app/analytics';
@@ -69,6 +70,9 @@ export const CreateAssertionButton = ({
     const siblingOptionsToAuthorOn =
         useSiblingOptionsForAssertionBuilder(entityData, primaryEntityData.urn, primaryEntityData.entityType) ?? [];
 
+    // Check !isSiblingMode because in isSiblingMode we render a drop down listing each siblings instead
+    const isUnsupportedPlatform = !isSiblingMode && !isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn);
+
     const noPermissionsMessage = 'You do not have permission to create an assertion for this asset';
 
     if (!assertionMonitorsEnabled) {
@@ -78,7 +82,7 @@ export const CreateAssertionButton = ({
     /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
     const canEditAssertions = privileges?.canEditAssertions || false;
     const canEditMonitors = privileges?.canEditMonitors || false;
-    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors;
+    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors && !isUnsupportedPlatform;
 
     const disableCreateAssertion = !isAllowedToCreateAssertion;
     const disableCreateAssertionMessage = noPermissionsMessage;

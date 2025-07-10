@@ -18,6 +18,7 @@ import {
     VolumeAssertionBuilderTypeOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/ingest/source/builder/constants';
+import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { cleanAssertionDescription, removeNestedTypeNames } from '@app/shared/subscribe/drawer/utils';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 
@@ -788,14 +789,15 @@ export const getFreshnessSourceOption = (type: DatasetFreshnessSourceType, kind?
 
 /**
  * Returns true if the entity is eligible for online assertion monitoring.
- * Currently limited to Snowflake, Redshift, and BigQuery.
+ * Even though our native support is for Snowflake, Redshift, and BigQuery; we can monitor other platforms that self-report profiles and operations.
+ * We've disabled dbt because it's grouped with an actual dataset as a sibling.
  */
-const ASSERTION_SUPPORTED_PLATFORM_URNS = [SNOWFLAKE_URN, REDSHIFT_URN, BIGQUERY_URN, DATABRICKS_URN];
+const ASSERTION_UNSUPPORTED_PLATFORM_URNS = [DBT_URN];
 export const isEntityEligibleForAssertionMonitoring = (platformUrn) => {
     if (!platformUrn) {
         return false;
     }
-    return ASSERTION_SUPPORTED_PLATFORM_URNS.includes(platformUrn);
+    return !ASSERTION_UNSUPPORTED_PLATFORM_URNS.includes(platformUrn);
 };
 
 export const adjustCronText = (text: string) => {
