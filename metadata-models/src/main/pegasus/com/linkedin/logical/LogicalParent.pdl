@@ -9,6 +9,7 @@ record LogicalParent {
 	@Relationship = {
 	  "/destinationUrn": {
       "name": "LogicalInstanceOf",
+      "entityTypes": [ "dataset", "schemaField" ],
       "createdOn": "parent/created/time",
       "createdActor": "parent/created/actor",
       "updatedOn": "parent/lastModified/time",
