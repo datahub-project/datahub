@@ -99,7 +99,7 @@ describe('entity V2 utils test ->', () => {
         });
     });
     describe('handleBatchError ->', () => {
-        it('should return entities from EntityRelationshipsResult', () => {
+        describe('should return entities from EntityRelationshipsResult', () => {
             const urns = ['urn1', 'urn2'];
             const defaultMessage = { content: 'Default message', duration: 3 };
             test('should return custom message if urns length is greater than 1 and error code is 403', () => {

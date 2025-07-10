@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
@@ -29,7 +28,9 @@ const injectMeticulous = () => {
 };
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
+    const { viteStaticCopy } = await import('vite-plugin-static-copy');
+
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
