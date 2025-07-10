@@ -20,6 +20,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     position: relative;
     background: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
+    width: 100%;
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -77,6 +78,7 @@ type Props = {
     onClickPreview: () => void;
     onClickClear: () => void;
     selectView: () => void;
+    fixedWidth?: boolean;
 };
 
 export const ViewOption = ({
@@ -91,6 +93,7 @@ export const ViewOption = ({
     onClickPreview,
     onClickClear,
     selectView,
+    fixedWidth,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const onClear = (e) => {
@@ -118,6 +121,7 @@ export const ViewOption = ({
                     onClickPreview={onClickPreview}
                     selected={selectedUrn}
                     selectView={selectView}
+                    fixedWidth={fixedWidth}
                 />
                 {selectedUrn && (
                     <div className="close-container" onClick={(e) => onClear(e)} role="none">

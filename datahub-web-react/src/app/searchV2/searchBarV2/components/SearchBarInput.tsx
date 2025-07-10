@@ -2,11 +2,12 @@ import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
-import { ViewSelect } from '@src/app/entityV2/view/select/ViewSelect';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
@@ -79,6 +80,9 @@ interface Props {
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    viewsWithPopover?: boolean;
+    isViewsSelectOpened?: boolean;
+    setIsViewsSelectOpened?: (value: boolean) => void;
     width?: string;
 }
 
@@ -96,12 +100,14 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             placeholder,
             showCommandK,
             viewsEnabled,
+            viewsWithPopover,
             width,
+            isViewsSelectOpened,
+            setIsViewsSelectOpened,
         },
         ref,
     ) => {
         const [isFocused, setIsFocused] = useState<boolean>(false);
-        const [isViewsSelectOpened, setIsViewsSelectOpened] = useState<boolean>(false);
         const isShowNavBarRedesign = useShowNavBarRedesign();
 
         const onFocusHandler = useCallback(() => {
@@ -122,18 +128,18 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         }, []);
 
         const onViewSelectContainerClickHandler = (event: React.MouseEvent) => {
-            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on theviews button
+            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on the views button
         };
 
         const onViewsClickHandler = (isOpen: boolean) => {
-            setIsViewsSelectOpened(isOpen);
+            setIsViewsSelectOpened?.(isOpen);
             onViewsClick?.();
         };
 
         useEffect(() => {
-            // Automatically close the views select when the autocomplete's dropdown is opened event by keayboard shortcut
-            if (isDropdownOpened) setIsViewsSelectOpened(false);
-        }, [isDropdownOpened]);
+            // Automatically close the views select when the autocomplete's dropdown is opened event by keyboard shortcut
+            if (isDropdownOpened) setIsViewsSelectOpened?.(false);
+        }, [isDropdownOpened, setIsViewsSelectOpened]);
 
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -157,7 +163,14 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                                     onClick={onViewSelectContainerClickHandler}
                                     id={V2_SEARCH_BAR_VIEWS}
                                 >
-                                    <ViewSelect isOpen={isViewsSelectOpened} onOpenChange={onViewsClickHandler} />
+                                    {viewsWithPopover ? (
+                                        <ViewSelectButtonWithPopover
+                                            isOpen={isViewsSelectOpened}
+                                            onOpenChange={onViewsClickHandler}
+                                        />
+                                    ) : (
+                                        <ViewSelectButton />
+                                    )}
                                 </ViewSelectContainer>
                             )}
                         </SuffixWrapper>

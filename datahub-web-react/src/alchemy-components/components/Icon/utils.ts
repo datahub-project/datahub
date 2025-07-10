@@ -1,5 +1,5 @@
 import * as materialIcons from '@mui/icons-material';
-import * as phosphorIcons from 'phosphor-react';
+import * as phosphorIcons from '@phosphor-icons/react';
 
 import { IconSource } from '@components/components/Icon/types';
 
