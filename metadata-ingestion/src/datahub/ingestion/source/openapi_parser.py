@@ -455,3 +455,180 @@ def set_metadata(
         fields=canonical_schema,
     )
     return schema_metadata
+
+
+def enhance_schema_with_titles(
+    schema: Dict, sw_dict: Dict, schema_name: str = ""
+) -> Dict:
+    """
+    Enhance schemas with title fields so that json_schema_util.py uses schema names instead of 'object'.
+    This is done without modifying json_schema_util.py itself.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    enhanced_schema = schema.copy()
+
+    # Add title if it doesn't exist and we have a schema name
+    if "title" not in enhanced_schema and schema_name:
+        enhanced_schema["title"] = schema_name
+
+    # Recursively enhance nested schemas
+    if "properties" in enhanced_schema:
+        for prop_name, prop_schema in enhanced_schema["properties"].items():
+            # Use property name as schema name for nested objects
+            enhanced_schema["properties"][prop_name] = enhance_schema_with_titles(
+                prop_schema, sw_dict, prop_name
+            )
+
+    # Enhance array items
+    if "items" in enhanced_schema:
+        enhanced_schema["items"] = enhance_schema_with_titles(
+            enhanced_schema["items"], sw_dict, "item"
+        )
+
+    # Enhance additionalProperties
+    if "additionalProperties" in enhanced_schema and isinstance(
+        enhanced_schema["additionalProperties"], dict
+    ):
+        enhanced_schema["additionalProperties"] = enhance_schema_with_titles(
+            enhanced_schema["additionalProperties"], sw_dict, "value"
+        )
+
+    # Handle union types
+    for union_key in ["oneOf", "anyOf", "allOf"]:
+        if union_key in enhanced_schema:
+            enhanced_schema[union_key] = [
+                enhance_schema_with_titles(union_schema, sw_dict, f"{union_key}_{i}")
+                for i, union_schema in enumerate(enhanced_schema[union_key])
+            ]
+
+    return enhanced_schema
+
+
+def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
+    """
+    Recursively resolve all schema references in a Swagger v2 or OpenAPI v3 spec.
+    This ensures that all $ref references are resolved before passing to json_schema_util.py.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    resolved_schema = schema.copy()
+
+    # Handle direct references
+    if "$ref" in resolved_schema:
+        ref_path = resolved_schema["$ref"]
+
+        # Handle v2 references (e.g., "#/definitions/Pet")
+        if ref_path.startswith("#/definitions/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
+            if referenced_schema:
+                # Recursively resolve references in the referenced schema
+                resolved_referenced = resolve_schema_references(
+                    referenced_schema, sw_dict
+                )
+                # Enhance with title using the schema name
+                return enhance_schema_with_titles(
+                    resolved_referenced, sw_dict, schema_name
+                )
+
+        # Handle v3 references (e.g., "#/components/schemas/Pet")
+        elif ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = (
+                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+            )
+            if referenced_schema:
+                # Recursively resolve references in the referenced schema
+                resolved_referenced = resolve_schema_references(
+                    referenced_schema, sw_dict
+                )
+                # Enhance with title using the schema name
+                return enhance_schema_with_titles(
+                    resolved_referenced, sw_dict, schema_name
+                )
+
+    # Recursively resolve references in properties
+    if "properties" in resolved_schema:
+        for prop_name, prop_schema in resolved_schema["properties"].items():
+            resolved_schema["properties"][prop_name] = resolve_schema_references(
+                prop_schema, sw_dict
+            )
+
+    # Recursively resolve references in array items
+    if "items" in resolved_schema:
+        resolved_schema["items"] = resolve_schema_references(
+            resolved_schema["items"], sw_dict
+        )
+
+    # Recursively resolve references in additionalProperties
+    if "additionalProperties" in resolved_schema and isinstance(
+        resolved_schema["additionalProperties"], dict
+    ):
+        resolved_schema["additionalProperties"] = resolve_schema_references(
+            resolved_schema["additionalProperties"], sw_dict
+        )
+
+    # Handle union types (oneOf, anyOf, allOf)
+    for union_key in ["oneOf", "anyOf", "allOf"]:
+        if union_key in resolved_schema:
+            resolved_schema[union_key] = [
+                resolve_schema_references(union_schema, sw_dict)
+                for union_schema in resolved_schema[union_key]
+            ]
+
+    return resolved_schema
+
+
+def extract_schema_from_response_schema(
+    response_schema: Dict, sw_dict: Dict, schema_name: str = ""
+) -> Dict:
+    """
+    Extract schema definition from response schema, handling both v2 and v3 references.
+    """
+    if "$ref" in response_schema:
+        ref_path = response_schema["$ref"]
+
+        # Handle v2 references (e.g., "#/definitions/Pet")
+        if ref_path.startswith("#/definitions/"):
+            schema_name = ref_path.split("/")[-1]
+            return sw_dict.get("definitions", {}).get(schema_name, {})
+
+        # Handle v3 references (e.g., "#/components/schemas/Pet")
+        elif ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            return sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+
+    return response_schema
+
+
+def get_schema_from_response(response_schema: Dict, sw_dict: Dict) -> Optional[Dict]:
+    """
+    Extract the actual schema definition from a response schema.
+    Handles both direct schemas and references.
+    """
+    if not response_schema:
+        return None
+
+    # Handle array responses
+    if response_schema.get("type") == "array":
+        items_schema = response_schema.get("items", {})
+        resolved_items_schema = extract_schema_from_response_schema(
+            items_schema, sw_dict
+        )
+        # Resolve all references in the schema
+        return resolve_schema_references(resolved_items_schema, sw_dict)
+
+    # Handle direct object schemas
+    elif response_schema.get("type") == "object":
+        return resolve_schema_references(response_schema, sw_dict)
+
+    # Handle references
+    elif "$ref" in response_schema:
+        resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
+        # Resolve all references in the schema
+        return resolve_schema_references(resolved_schema, sw_dict)
+
+    return None

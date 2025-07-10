@@ -1,9 +1,11 @@
+import json
 import logging
 import time
 import warnings
 from abc import ABC
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import requests
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -21,12 +23,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.extractor.json_schema_util import (
+    get_schema_metadata,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
     compose_url_attr,
     extract_fields,
     get_endpoints,
+    get_schema_from_response,
     get_swag_json,
     get_tok,
     get_url_basepath,
@@ -40,6 +46,8 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
+    OtherSchemaClass,
+    SchemaMetadataClass,
     SubTypesClass,
     TagAssociationClass,
 )
@@ -84,6 +92,10 @@ class OpenApiConfig(ConfigModel):
     )
     verify_ssl: bool = Field(
         default=True, description="Enable SSL certificate verification"
+    )
+    use_schema_extraction: bool = Field(
+        default=True,
+        description="Whether to use json_schema_util.py to extract fields from response schemas.",
     )
 
     @validator("bearer_token", always=True)
@@ -227,6 +239,72 @@ class APISource(Source, ABC):
                 f"Unable to retrieve endpoint, response code {status_code}, key {type}"
             )
 
+    def detect_openapi_version(self, sw_dict: Dict) -> str:
+        """Detect whether this is OpenAPI v2 (Swagger) or v3."""
+        if "swagger" in sw_dict:
+            return "v2"
+        elif "openapi" in sw_dict:
+            return "v3"
+        else:
+            raise ValueError(
+                "Unable to detect OpenAPI version - missing 'swagger' or 'openapi' field"
+            )
+
+    def extract_response_schema_from_endpoint(
+        self, endpoint_spec: Dict, sw_dict: Dict
+    ) -> Optional[Dict]:
+        """Extract the response schema from an endpoint specification."""
+        try:
+            # Get the 200 response
+            responses = endpoint_spec.get("responses", {})
+            success_response = responses.get("200") or responses.get(200)
+
+            if not success_response:
+                return None
+
+            # Extract schema from response
+            if "content" in success_response:
+                # OpenAPI v3 format
+                content = success_response["content"]
+                if "application/json" in content:
+                    schema = content["application/json"].get("schema")
+                    if schema:
+                        return get_schema_from_response(schema, sw_dict)
+            elif "schema" in success_response:
+                # Swagger v2 format
+                schema = success_response["schema"]
+                return get_schema_from_response(schema, sw_dict)
+
+            return None
+        except Exception as e:
+            logger.warning(f"Error extracting response schema: {str(e)}")
+            return None
+
+    def create_schema_metadata_from_schema(
+        self, dataset_name: str, schema: Dict
+    ) -> SchemaMetadataClass:
+        """Create schema metadata using json_schema_util.py."""
+        try:
+            return get_schema_metadata(
+                platform=self.platform,
+                name=dataset_name,
+                json_schema=schema,
+                raw_schema_string=json.dumps(schema, indent=2),
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error creating schema metadata for {dataset_name}: {str(e)}"
+            )
+            # Fallback to empty schema metadata
+            return SchemaMetadataClass(
+                schemaName=dataset_name,
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=[],
+            )
+
     def init_dataset(
         self, endpoint_k: str, endpoint_dets: dict
     ) -> Tuple[str, str, List[MetadataWorkUnit]]:
@@ -291,26 +369,132 @@ class APISource(Source, ABC):
 
         return dataset_name, dataset_urn, workunits
 
+    def _extract_schema_from_openapi_spec(
+        self, endpoint_k: str, dataset_name: str, sw_dict: Dict
+    ) -> Optional[SchemaMetadataClass]:
+        """Extract schema from OpenAPI specification if enabled."""
+        if not self.config.use_schema_extraction:
+            return None
+
+        path_spec = sw_dict["paths"].get(endpoint_k, {})
+        get_spec = path_spec.get("get", {})
+
+        if get_spec:
+            response_schema = self.extract_response_schema_from_endpoint(
+                get_spec, sw_dict
+            )
+            if response_schema:
+                schema_metadata = self.create_schema_metadata_from_schema(
+                    dataset_name, response_schema
+                )
+                logger.info(f"Extracted schema from OpenAPI spec for {dataset_name}")
+                return schema_metadata
+        return None
+
+    def _extract_schema_from_endpoint_data(
+        self, endpoint_dets: Dict, dataset_name: str
+    ) -> Optional[SchemaMetadataClass]:
+        """Extract schema from endpoint data if available."""
+        if "data" in endpoint_dets:
+            return set_metadata(dataset_name, endpoint_dets["data"])
+        return None
+
+    def _make_api_request(self, url: str) -> Optional[requests.Response]:
+        """Make API request with appropriate authentication."""
+        if self.config.token:
+            return request_call(
+                url,
+                token=self.config.token,
+                proxies=self.config.proxies,
+                verify_ssl=self.config.verify_ssl,
+            )
+        else:
+            return request_call(
+                url,
+                username=self.config.username,
+                password=self.config.password,
+                proxies=self.config.proxies,
+                verify_ssl=self.config.verify_ssl,
+            )
+
+    def _extract_schema_from_simple_endpoint(
+        self, endpoint_k: str, dataset_name: str, root_dataset_samples: Dict
+    ) -> Optional[SchemaMetadataClass]:
+        """Extract schema from simple endpoint (no parameters)."""
+        tot_url = clean_url(self.config.url + self.url_basepath + endpoint_k)
+        response = self._make_api_request(tot_url)
+
+        if response and response.status_code == 200:
+            fields2add, root_dataset_samples[dataset_name] = extract_fields(
+                response, dataset_name
+            )
+            if not fields2add:
+                self.report.info(
+                    message="No fields found from endpoint response.",
+                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                )
+            return set_metadata(dataset_name, fields2add)
+        elif response:
+            self.report_bad_responses(response.status_code, type=endpoint_k)
+        return None
+
+    def _extract_schema_from_parameterized_endpoint(
+        self, endpoint_k: str, dataset_name: str, root_dataset_samples: Dict
+    ) -> Optional[SchemaMetadataClass]:
+        """Extract schema from parameterized endpoint."""
+        if endpoint_k not in self.config.forced_examples:
+            # Try guessing
+            url_guess = try_guessing(endpoint_k, root_dataset_samples)
+            tot_url = clean_url(self.config.url + self.url_basepath + url_guess)
+            response = self._make_api_request(tot_url)
+
+            if response and response.status_code == 200:
+                fields2add, _ = extract_fields(response, dataset_name)
+                if not fields2add:
+                    self.report.info(
+                        message="No fields found from endpoint response.",
+                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                    )
+                return set_metadata(dataset_name, fields2add)
+            elif response:
+                self.report_bad_responses(response.status_code, type=endpoint_k)
+        else:
+            # Use forced examples
+            composed_url = compose_url_attr(
+                raw_url=endpoint_k, attr_list=self.config.forced_examples[endpoint_k]
+            )
+            tot_url = clean_url(self.config.url + self.url_basepath + composed_url)
+            response = self._make_api_request(tot_url)
+
+            if response and response.status_code == 200:
+                fields2add, _ = extract_fields(response, dataset_name)
+                if not fields2add:
+                    self.report.info(
+                        message="No fields found from endpoint response.",
+                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                    )
+                return set_metadata(dataset_name, fields2add)
+            elif response:
+                self.report_bad_responses(response.status_code, type=endpoint_k)
+        return None
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         config = self.config
-
         sw_dict = self.config.get_swagger()
-
         self.url_basepath = get_url_basepath(sw_dict)
 
         # Getting all the URLs accepting the "GET" method
         with warnings.catch_warnings(record=True) as warn_c:
             url_endpoints = get_endpoints(sw_dict)
-
             for w in warn_c:
                 w_msg = w.message
                 w_spl = w_msg.args[0].split(" --- ")  # type: ignore
                 self.report.report_warning(message=w_spl[1], context=w_spl[0])
 
-        # here we put a sample from the "listing endpoint". To be used for later guessing of comosed endpoints.
-        root_dataset_samples = {}
+        # Sample from "listing endpoint" for guessing composed endpoints
+        root_dataset_samples: Dict[str, Any] = {}
 
-        # looping on all the urls
+        # Process all endpoints
         for endpoint_k, endpoint_dets in url_endpoints.items():
             if endpoint_k in config.ignore_endpoints:
                 continue
@@ -322,10 +506,43 @@ class APISource(Source, ABC):
             for wu in workunits:
                 yield wu
 
-            # Handle schema metadata if available
-            if "data" in endpoint_dets:
-                # we are lucky! data is defined in the swagger for this endpoint
-                schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
+            # Try to extract schema metadata
+            schema_metadata = None
+
+            # First try OpenAPI spec extraction
+            schema_metadata = self._extract_schema_from_openapi_spec(
+                endpoint_k, dataset_name, sw_dict
+            )
+
+            # If not found, try endpoint data
+            if not schema_metadata:
+                schema_metadata = self._extract_schema_from_endpoint_data(
+                    endpoint_dets, dataset_name
+                )
+
+            # If still not found, try API calls
+            if not schema_metadata:
+                if endpoint_dets["method"] != "get":
+                    self.report.report_warning(
+                        title="Failed to Extract Endpoint Metadata",
+                        message=f"No example provided for {endpoint_dets['method']}",
+                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                    )
+                    continue
+
+                # Try simple endpoint first
+                if "{" not in endpoint_k:
+                    schema_metadata = self._extract_schema_from_simple_endpoint(
+                        endpoint_k, dataset_name, root_dataset_samples
+                    )
+                else:
+                    # Try parameterized endpoint
+                    schema_metadata = self._extract_schema_from_parameterized_endpoint(
+                        endpoint_k, dataset_name, root_dataset_samples
+                    )
+
+            # Yield the schema metadata work unit
+            if schema_metadata:
                 wu = MetadataWorkUnit(
                     id=f"{dataset_name}-schema",
                     mcp=MetadataChangeProposalWrapper(
@@ -333,125 +550,6 @@ class APISource(Source, ABC):
                     ),
                 )
                 yield wu
-            elif endpoint_dets["method"] != "get":
-                self.report.report_warning(
-                    title="Failed to Extract Endpoint Metadata",
-                    message=f"No example provided for {endpoint_dets['method']}",
-                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                )
-                continue  # Only test endpoints if they're GETs
-            elif (
-                "{" not in endpoint_k
-            ):  # if the API does not explicitly require parameters
-                tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
-                if config.token:
-                    response = request_call(
-                        tot_url,
-                        token=config.token,
-                        proxies=config.proxies,
-                        verify_ssl=config.verify_ssl,
-                    )
-                else:
-                    response = request_call(
-                        tot_url,
-                        username=config.username,
-                        password=config.password,
-                        proxies=config.proxies,
-                        verify_ssl=config.verify_ssl,
-                    )
-                if response.status_code == 200:
-                    fields2add, root_dataset_samples[dataset_name] = extract_fields(
-                        response, dataset_name
-                    )
-                    if not fields2add:
-                        self.report.info(
-                            message="No fields found from endpoint response.",
-                            context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                        )
-                    schema_metadata = set_metadata(dataset_name, fields2add)
-                    wu = MetadataWorkUnit(
-                        id=f"{dataset_name}-schema",
-                        mcp=MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=schema_metadata
-                        ),
-                    )
-                    yield wu
-                else:
-                    self.report_bad_responses(response.status_code, type=endpoint_k)
-            else:
-                if endpoint_k not in config.forced_examples:
-                    # start guessing...
-                    url_guess = try_guessing(endpoint_k, root_dataset_samples)
-                    tot_url = clean_url(config.url + self.url_basepath + url_guess)
-                    if config.token:
-                        response = request_call(
-                            tot_url,
-                            token=config.token,
-                            proxies=config.proxies,
-                            verify_ssl=config.verify_ssl,
-                        )
-                    else:
-                        response = request_call(
-                            tot_url,
-                            username=config.username,
-                            password=config.password,
-                            proxies=config.proxies,
-                            verify_ssl=config.verify_ssl,
-                        )
-                    if response.status_code == 200:
-                        fields2add, _ = extract_fields(response, dataset_name)
-                        if not fields2add:
-                            self.report.info(
-                                message="No fields found from endpoint response.",
-                                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                            )
-                        schema_metadata = set_metadata(dataset_name, fields2add)
-                        wu = MetadataWorkUnit(
-                            id=f"{dataset_name}-schema",
-                            mcp=MetadataChangeProposalWrapper(
-                                entityUrn=dataset_urn, aspect=schema_metadata
-                            ),
-                        )
-                        yield wu
-                    else:
-                        self.report_bad_responses(response.status_code, type=endpoint_k)
-                else:
-                    composed_url = compose_url_attr(
-                        raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
-                    )
-                    tot_url = clean_url(config.url + self.url_basepath + composed_url)
-                    if config.token:
-                        response = request_call(
-                            tot_url,
-                            token=config.token,
-                            proxies=config.proxies,
-                            verify_ssl=config.verify_ssl,
-                        )
-                    else:
-                        response = request_call(
-                            tot_url,
-                            username=config.username,
-                            password=config.password,
-                            proxies=config.proxies,
-                            verify_ssl=config.verify_ssl,
-                        )
-                    if response.status_code == 200:
-                        fields2add, _ = extract_fields(response, dataset_name)
-                        if not fields2add:
-                            self.report.info(
-                                message="No fields found from endpoint response.",
-                                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                            )
-                        schema_metadata = set_metadata(dataset_name, fields2add)
-                        wu = MetadataWorkUnit(
-                            id=f"{dataset_name}-schema",
-                            mcp=MetadataChangeProposalWrapper(
-                                entityUrn=dataset_urn, aspect=schema_metadata
-                            ),
-                        )
-                        yield wu
-                    else:
-                        self.report_bad_responses(response.status_code, type=endpoint_k)
 
     def get_report(self):
         return self.report
