@@ -561,7 +561,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     config: TeradataConfig
 
-    QUERY_TEXT_QUERY: str = """
+    QUERY_TEXT_CURRENT_QUERIES: str = """
     SELECT
         s.QueryID as "query_id",
         UserName as "user",
@@ -597,38 +597,82 @@ class TeradataSource(TwoTierSQLAlchemySource):
     ORDER BY "query_id", "row_no"
     """.strip()
 
-    QUERY_TEXT_QUERY_HISTORY: str = """
+    QUERY_TEXT_HISTORICAL_UNION: str = """
     SELECT
-        h.QueryID as "query_id",
-        h.UserName as "user",
-        h.StartTime AT TIME ZONE 'GMT' as "timestamp",
-        h.DefaultDatabase as default_database,
-        h.SqlTextInfo as "query_text",
-        h.SqlRowNo as "row_no"
-    FROM "PDCRDATA".DBQLSqlTbl_Hst as h
-    WHERE
-        h.ErrorCode = 0
-        AND h.statementtype not in (
-        'Unrecognized type',
-        'Create Database/User',
-        'Help',
-        'Modify Database',
-        'Drop Table',
-        'Show',
-        'Not Applicable',
-        'Grant',
-        'Abort',
-        'Database',
-        'Flush Query Logging',
-        'Null',
-        'Begin/End DBQL',
-        'Revoke'
-    )
-        and h.StartTime AT TIME ZONE 'GMT' >= TIMESTAMP '{start_time}'
-        and h.StartTime AT TIME ZONE 'GMT' < TIMESTAMP '{end_time}'
-        and h.CollectTimeStamp >= TIMESTAMP '{start_time}'
-        and h.DefaultDatabase not in ('DEMONOW_MONITOR')
-        {databases_filter_history}
+        "query_id",
+        "user",
+        "timestamp",
+        default_database,
+        "query_text",
+        "row_no"
+    FROM (
+        SELECT
+            h.QueryID as "query_id",
+            h.UserName as "user",
+            h.StartTime AT TIME ZONE 'GMT' as "timestamp",
+            h.DefaultDatabase as default_database,
+            h.SqlTextInfo as "query_text",
+            h.SqlRowNo as "row_no"
+        FROM "PDCRDATA".DBQLSqlTbl_Hst as h
+        WHERE
+            h.ErrorCode = 0
+            AND h.statementtype not in (
+            'Unrecognized type',
+            'Create Database/User',
+            'Help',
+            'Modify Database',
+            'Drop Table',
+            'Show',
+            'Not Applicable',
+            'Grant',
+            'Abort',
+            'Database',
+            'Flush Query Logging',
+            'Null',
+            'Begin/End DBQL',
+            'Revoke'
+        )
+            and h.StartTime AT TIME ZONE 'GMT' >= TIMESTAMP '{start_time}'
+            and h.StartTime AT TIME ZONE 'GMT' < TIMESTAMP '{end_time}'
+            and h.CollectTimeStamp >= TIMESTAMP '{start_time}'
+            and h.DefaultDatabase not in ('DEMONOW_MONITOR')
+            {databases_filter_history}
+
+        UNION
+
+        SELECT
+            s.QueryID as "query_id",
+            l.UserName as "user",
+            l.StartTime AT TIME ZONE 'GMT' as "timestamp",
+            l.DefaultDatabase as default_database,
+            s.SqlTextInfo as "query_text",
+            s.SqlRowNo as "row_no"
+        FROM "DBC".QryLogV as l
+        JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
+        WHERE
+            l.ErrorCode = 0
+            AND l.statementtype not in (
+            'Unrecognized type',
+            'Create Database/User',
+            'Help',
+            'Modify Database',
+            'Drop Table',
+            'Show',
+            'Not Applicable',
+            'Grant',
+            'Abort',
+            'Database',
+            'Flush Query Logging',
+            'Null',
+            'Begin/End DBQL',
+            'Revoke'
+        )
+            and l.StartTime AT TIME ZONE 'GMT' >= TIMESTAMP '{start_time}'
+            and l.StartTime AT TIME ZONE 'GMT' < TIMESTAMP '{end_time}'
+            and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
+            and l.DefaultDatabase not in ('DEMONOW_MONITOR')
+            {databases_filter}
+    ) as combined_results
     ORDER BY "query_id", "row_no"
     """.strip()
 
@@ -1394,47 +1438,48 @@ ORDER by DataBaseName, TableName;
         databases_filter = (
             ""
             if not self.config.databases
-            else "and default_database in ({databases})".format(
+            else "and l.DefaultDatabase in ({databases})".format(
                 databases=",".join([f"'{db}'" for db in self.config.databases])
             )
         )
 
         queries = []
 
-        # Always include the current query
-        current_query = self.QUERY_TEXT_QUERY.format(
-            start_time=self.config.start_time,
-            end_time=self.config.end_time,
-            databases_filter=databases_filter,
-        )
-        queries.append(current_query)
-
-        # Add historical query if configured and available
+        # Check if historical lineage is configured and available
         if (
             self.config.include_historical_lineage
             and self._check_historical_table_exists()
         ):
             logger.info(
-                "Using historical lineage data from both DBC.QryLogV and PDCRDATA.DBQLSqlTbl_Hst"
+                "Using UNION query to combine historical and current lineage data to avoid duplicates"
             )
             # For historical query, we need the database filter for historical part
             databases_filter_history = (
-                databases_filter.replace("default_database", "h.DefaultDatabase")
+                databases_filter.replace("l.DefaultDatabase", "h.DefaultDatabase")
                 if databases_filter
                 else ""
             )
 
-            historical_query = self.QUERY_TEXT_QUERY_HISTORY.format(
+            union_query = self.QUERY_TEXT_HISTORICAL_UNION.format(
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
+                databases_filter=databases_filter,
                 databases_filter_history=databases_filter_history,
             )
-            queries.append(historical_query)
+            queries.append(union_query)
         else:
             if self.config.include_historical_lineage:
                 logger.warning(
                     "Historical lineage was requested but PDCRDATA.DBQLSqlTbl_Hst table is not available. Falling back to current data only."
                 )
+
+            # Use current-only query when historical data is not available
+            current_query = self.QUERY_TEXT_CURRENT_QUERIES.format(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                databases_filter=databases_filter,
+            )
+            queries.append(current_query)
 
         return queries
 

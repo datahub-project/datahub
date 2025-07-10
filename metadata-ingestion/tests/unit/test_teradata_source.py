@@ -629,7 +629,7 @@ class TestLineageQuerySeparation:
             assert "2024-01-02" in queries[0]
 
     def test_make_lineage_queries_with_historical_available(self):
-        """Test that both queries are returned when historical lineage is enabled and table exists."""
+        """Test that UNION query is returned when historical lineage is enabled and table exists."""
         config = TeradataConfig.parse_obj(
             {
                 **_base_config(),
@@ -655,20 +655,18 @@ class TestLineageQuerySeparation:
             ):
                 queries = source._make_lineage_queries()
 
-            assert len(queries) == 2
+            assert len(queries) == 1
 
-            # First query should be current data
-            assert '"DBC".QryLogV' in queries[0]
-            assert '"PDCRDATA".DBQLSqlTbl_Hst' not in queries[0]
+            # Single UNION query should contain both historical and current data
+            union_query = queries[0]
+            assert '"DBC".QryLogV' in union_query
+            assert '"PDCRDATA".DBQLSqlTbl_Hst' in union_query
+            assert "UNION" in union_query
+            assert "combined_results" in union_query
 
-            # Second query should be historical data
-            assert '"PDCRDATA".DBQLSqlTbl_Hst' in queries[1]
-            assert '"DBC".QryLogV' not in queries[1]
-
-            # Both should have the time filters
-            for query in queries:
-                assert "2024-01-01" in query
-                assert "2024-01-02" in query
+            # Should have the time filters
+            assert "2024-01-01" in union_query
+            assert "2024-01-02" in union_query
 
     def test_make_lineage_queries_with_historical_unavailable(self):
         """Test that only current query is returned when historical lineage is enabled but table doesn't exist."""
@@ -702,7 +700,7 @@ class TestLineageQuerySeparation:
             assert '"PDCRDATA".DBQLSqlTbl_Hst' not in queries[0]
 
     def test_make_lineage_queries_with_database_filter(self):
-        """Test that database filters are correctly applied to both queries."""
+        """Test that database filters are correctly applied to UNION query."""
         config = TeradataConfig.parse_obj(
             {
                 **_base_config(),
@@ -729,13 +727,12 @@ class TestLineageQuerySeparation:
             ):
                 queries = source._make_lineage_queries()
 
-            assert len(queries) == 2
+            assert len(queries) == 1
 
-            # Current query should have default_database filter
-            assert "default_database in ('test_db1','test_db2')" in queries[0]
-
-            # Historical query should have h.DefaultDatabase filter
-            assert "h.DefaultDatabase in ('test_db1','test_db2')" in queries[1]
+            # UNION query should have database filters for both current and historical parts
+            union_query = queries[0]
+            assert "l.DefaultDatabase in ('test_db1','test_db2')" in union_query
+            assert "h.DefaultDatabase in ('test_db1','test_db2')" in union_query
 
     def test_fetch_lineage_entries_chunked_multiple_queries(self):
         """Test that _fetch_lineage_entries_chunked handles multiple queries correctly."""
@@ -1067,7 +1064,7 @@ class TestQueryConstruction:
             assert 'ORDER BY "query_id", "row_no"' in current_query
 
     def test_historical_query_construction(self):
-        """Test that the historical query is constructed correctly."""
+        """Test that the UNION query contains historical data correctly."""
         config = TeradataConfig.parse_obj(
             {
                 **_base_config(),
@@ -1092,16 +1089,17 @@ class TestQueryConstruction:
                 source, "_check_historical_table_exists", return_value=True
             ):
                 queries = source._make_lineage_queries()
-                historical_query = queries[1]
+                union_query = queries[0]
 
-                # Verify historical query structure
-                assert 'FROM "PDCRDATA".DBQLSqlTbl_Hst as h' in historical_query
-                assert "h.ErrorCode = 0" in historical_query
-                assert "h.StartTime AT TIME ZONE 'GMT'" in historical_query
-                assert "h.DefaultDatabase" in historical_query
-                assert "2024-01-01" in historical_query
-                assert "2024-01-02" in historical_query
-                assert 'ORDER BY "query_id", "row_no"' in historical_query
+                # Verify UNION query contains historical data structure
+                assert 'FROM "PDCRDATA".DBQLSqlTbl_Hst as h' in union_query
+                assert "h.ErrorCode = 0" in union_query
+                assert "h.StartTime AT TIME ZONE 'GMT'" in union_query
+                assert "h.DefaultDatabase" in union_query
+                assert "2024-01-01" in union_query
+                assert "2024-01-02" in union_query
+                assert 'ORDER BY "query_id", "row_no"' in union_query
+                assert "UNION" in union_query
 
 
 if __name__ == "__main__":
