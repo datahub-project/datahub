@@ -17,8 +17,8 @@ import mlflow
 import mlflow.entities
 import mlflow.tracing
 from datahub.sdk.main_client import DataHubClient
+from fastmcp import FastMCP
 from loguru import logger
-from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from datahub_integrations.chat.chat_history import (
@@ -36,7 +36,7 @@ from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_client,
     get_bedrock_model_env_variable,
 )
-from datahub_integrations.mcp.mcp_server import mcp, with_client
+from datahub_integrations.mcp.mcp_server import mcp, with_datahub_client
 from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
 from datahub_integrations.slack.utils.string import truncate
 
@@ -332,7 +332,7 @@ class ChatSession:
                 self._add_message(tool_request)
 
                 try:
-                    with with_client(self.client):
+                    with with_datahub_client(self.client):
                         result = tool.run(arguments=tool_request.tool_input)
                 except Exception as e:
                     self._add_message(
@@ -364,7 +364,7 @@ class ChatSession:
             last_message = self.history.messages[-1]
             if self.is_respond_to_user(last_message):
                 logger.info("Respond to user call received")
-                return last_message.result
+                return NextMessage.model_validate(last_message.result)
             elif isinstance(last_message, AssistantMessage):
                 logger.info("End turn message received")
                 return NextMessage(

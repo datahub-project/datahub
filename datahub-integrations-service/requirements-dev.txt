@@ -74,9 +74,14 @@ attrs==23.2.0
     # via
     #   -r requirements.txt
     #   aiohttp
+    #   cyclopts
     #   jsonschema
     #   pytest-docker
     #   referencing
+authlib==1.6.0
+    # via
+    #   -r requirements.txt
+    #   fastmcp
 avro==1.11.3
     # via
     #   -r requirements.txt
@@ -217,6 +222,7 @@ cryptography==42.0.5
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   authlib
     #   azure-identity
     #   msal
     #   pyjwt
@@ -224,6 +230,10 @@ cryptography==42.0.5
     #   snowflake-connector-python
 cycler==0.12.1
     # via matplotlib
+cyclopts==3.22.2
+    # via
+    #   -r requirements.txt
+    #   fastmcp
 databricks-sdk==0.50.0
     # via
     #   -r requirements.txt
@@ -248,16 +258,32 @@ deprecated==1.2.14
     #   pygithub
 diskcache==5.6.3
     # via acryl-datahub-integrations (pyproject.toml)
+dnspython==2.7.0
+    # via
+    #   -r requirements.txt
+    #   email-validator
 docker==7.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
     #   mlflow
+docstring-parser==0.16 ; python_full_version < '4'
+    # via
+    #   -r requirements.txt
+    #   cyclopts
+docutils==0.21.2
+    # via
+    #   -r requirements.txt
+    #   rich-rst
 duckdb==0.10.2
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+email-validator==2.2.0
+    # via
+    #   -r requirements.txt
+    #   pydantic
 entrypoints==0.4
     # via
     #   -r requirements.txt
@@ -269,6 +295,10 @@ et-xmlfile==2.0.0
     # via
     #   -r requirements.txt
     #   openpyxl
+exceptiongroup==1.3.0
+    # via
+    #   -r requirements.txt
+    #   fastmcp
 executing==2.2.0
     # via stack-data
 expandvars==0.12.0
@@ -277,7 +307,7 @@ expandvars==0.12.0
     #   acryl-datahub
 faker==24.11.0
     # via acryl-datahub-integrations (pyproject.toml)
-fastapi==0.115.13
+fastapi==0.116.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -293,6 +323,11 @@ fastjsonschema==2.19.1
     #   -r requirements.txt
     #   nbformat
     #   reactpy
+fastmcp==2.10.4
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 filelock==3.14.0
     # via
     #   -r requirements.txt
@@ -435,11 +470,12 @@ httptools==0.6.4
     # via
     #   -r requirements.txt
     #   uvicorn
-httpx==0.27.0
+httpx==0.28.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   fastmcp
     #   mcp
 httpx-sse==0.4.0
     # via
@@ -454,6 +490,7 @@ idna==3.7
     # via
     #   -r requirements.txt
     #   anyio
+    #   email-validator
     #   httpx
     #   requests
     #   snowflake-connector-python
@@ -519,6 +556,7 @@ jsonschema==4.21.1
     #   -r requirements.txt
     #   acryl-datahub
     #   altair
+    #   mcp
     #   nbformat
 jsonschema-specifications==2023.12.1
     # via
@@ -554,6 +592,10 @@ mako==1.3.10
     #   alembic
 markdown==3.7
     # via mlflow
+markdown-it-py==3.0.0
+    # via
+    #   -r requirements.txt
+    #   rich
 markdown-to-mrkdwn==0.2.0
     # via
     #   -r requirements.txt
@@ -574,11 +616,14 @@ matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mcp==1.9.4
+mcp==1.10.1
     # via
     #   -r requirements.txt
-    #   acryl-datahub-integrations (pyproject.toml)
-    #   acryl-datahub-integrations
+    #   fastmcp
+mdurl==0.1.2
+    # via
+    #   -r requirements.txt
+    #   markdown-it-py
 mixpanel==4.10.1
     # via
     #   -r requirements.txt
@@ -654,6 +699,10 @@ oauthlib==3.2.2
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
+openapi-pydantic==0.5.1
+    # via
+    #   -r requirements.txt
+    #   fastmcp
 openpyxl==3.1.5
     # via
     #   -r requirements.txt
@@ -800,8 +849,10 @@ pydantic==2.11.7
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
     #   fastapi
+    #   fastmcp
     #   mcp
     #   mlflow-skinny
+    #   openapi-pydantic
     #   pydantic-settings
 pydantic-core==2.33.2
     # via
@@ -823,10 +874,12 @@ pygitops==0.16.1
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-pygments==2.19.1
+pygments==2.19.2
     # via
+    #   -r requirements.txt
     #   ipython
     #   ipython-pygments-lexers
+    #   rich
 pyjwt==2.8.0
     # via
     #   -r requirements.txt
@@ -843,6 +896,10 @@ pyopenssl==24.1.0
     #   snowflake-connector-python
 pyparsing==3.1.2
     # via matplotlib
+pyperclip==1.9.0
+    # via
+    #   -r requirements.txt
+    #   fastmcp
 pyproject-hooks==1.1.0
     # via
     #   -r requirements.txt
@@ -877,9 +934,10 @@ python-dateutil==2.8.2
     #   jupyter-client
     #   matplotlib
     #   pandas
-python-dotenv==1.0.1
+python-dotenv==1.1.1
     # via
     #   -r requirements.txt
+    #   fastmcp
     #   pydantic-settings
     #   uvicorn
 python-http-client==3.3.7
@@ -959,6 +1017,16 @@ requests-file==2.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+rich==14.0.0
+    # via
+    #   -r requirements.txt
+    #   cyclopts
+    #   fastmcp
+    #   rich-rst
+rich-rst==1.3.1
+    # via
+    #   -r requirements.txt
+    #   cyclopts
 rpds-py==0.18.0
     # via
     #   -r requirements.txt
@@ -1023,7 +1091,6 @@ sniffio==1.3.1
     #   -r requirements.txt
     #   anyio
     #   asgi-lifespan
-    #   httpx
 snowflake-connector-python==3.13.1
     # via
     #   -r requirements.txt
@@ -1155,6 +1222,7 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   exceptiongroup
     #   fastapi
     #   graphene
     #   inflect
@@ -1198,7 +1266,7 @@ urllib3==1.26.18
     #   pygithub
     #   requests
     #   sentry-sdk
-uvicorn==0.34.3
+uvicorn==0.35.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)

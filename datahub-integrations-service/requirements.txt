@@ -38,8 +38,11 @@ asyncer==0.0.8
 attrs==23.2.0
     # via
     #   aiohttp
+    #   cyclopts
     #   jsonschema
     #   referencing
+authlib==1.6.0
+    # via fastmcp
 avro==1.11.3
     # via
     #   acryl-datahub
@@ -126,11 +129,14 @@ confluent-kafka==2.3.0
 cryptography==42.0.5
     # via
     #   acryl-datahub
+    #   authlib
     #   azure-identity
     #   msal
     #   pyjwt
     #   pyopenssl
     #   snowflake-connector-python
+cyclopts==3.22.2
+    # via fastmcp
 databricks-sdk==0.50.0
     # via mlflow-skinny
 databricks-sql-connector==2.9.6
@@ -141,17 +147,27 @@ deprecated==1.2.14
     #   opentelemetry-api
     #   opentelemetry-semantic-conventions
     #   pygithub
+dnspython==2.7.0
+    # via email-validator
 docker==7.0.0
     # via acryl-datahub
+docstring-parser==0.16 ; python_full_version < '4'
+    # via cyclopts
+docutils==0.21.2
+    # via rich-rst
 duckdb==0.10.2
     # via acryl-datahub-integrations
+email-validator==2.2.0
+    # via pydantic
 entrypoints==0.4
     # via acryl-datahub-actions
 et-xmlfile==2.0.0
     # via openpyxl
+exceptiongroup==1.3.0
+    # via fastmcp
 expandvars==0.12.0
     # via acryl-datahub
-fastapi==0.115.13
+fastapi==0.116.0
     # via
     #   acryl-datahub-integrations
     #   mlflow-skinny
@@ -161,6 +177,8 @@ fastavro==1.9.4
     #   confluent-kafka
 fastjsonschema==2.19.1
     # via reactpy
+fastmcp==2.10.4
+    # via acryl-datahub-integrations
 filelock==3.14.0
     # via
     #   pygitops
@@ -250,9 +268,10 @@ httpcore==1.0.9
     #   httpx
 httptools==0.6.4
     # via uvicorn
-httpx==0.27.0
+httpx==0.28.1
     # via
     #   acryl-datahub-integrations
+    #   fastmcp
     #   mcp
 httpx-sse==0.4.0
     # via mcp
@@ -261,6 +280,7 @@ humanfriendly==10.0
 idna==3.7
     # via
     #   anyio
+    #   email-validator
     #   httpx
     #   requests
     #   snowflake-connector-python
@@ -286,7 +306,9 @@ jsonpointer==2.4
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.21.1
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   mcp
 jsonschema-specifications==2023.12.1
     # via jsonschema
 loguru==0.7.2
@@ -297,14 +319,18 @@ lz4==4.4.4
     # via databricks-sql-connector
 mako==1.3.10
     # via alembic
+markdown-it-py==3.0.0
+    # via rich
 markdown-to-mrkdwn==0.2.0
     # via acryl-datahub-integrations
 markupsafe==2.1.5
     # via
     #   jinja2
     #   mako
-mcp==1.9.4
-    # via acryl-datahub-integrations
+mcp==1.10.1
+    # via fastmcp
+mdurl==0.1.2
+    # via markdown-it-py
 mixpanel==4.10.1
     # via acryl-datahub
 mlflow-skinny==2.22.0
@@ -337,6 +363,8 @@ numpy==1.26.4
     #   pyarrow
 oauthlib==3.2.2
     # via databricks-sql-connector
+openapi-pydantic==0.5.1
+    # via fastmcp
 openpyxl==3.1.5
     # via databricks-sql-connector
 opentelemetry-api==1.32.1
@@ -414,8 +442,10 @@ pydantic==2.11.7
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
     #   fastapi
+    #   fastmcp
     #   mcp
     #   mlflow-skinny
+    #   openapi-pydantic
     #   pydantic-settings
 pydantic-core==2.33.2
     # via pydantic
@@ -425,6 +455,8 @@ pygithub==2.3.0
     # via acryl-datahub-integrations
 pygitops==0.16.1
     # via acryl-datahub-integrations
+pygments==2.19.2
+    # via rich
 pyjwt==2.8.0
     # via
     #   msal
@@ -434,6 +466,8 @@ pynacl==1.5.0
     # via pygithub
 pyopenssl==24.1.0
     # via snowflake-connector-python
+pyperclip==1.9.0
+    # via fastmcp
 pyproject-hooks==1.1.0
     # via build
 pyreadline3==3.5.4 ; sys_platform == 'win32'
@@ -445,8 +479,9 @@ python-dateutil==2.8.2
     #   botocore
     #   google-cloud-bigquery
     #   pandas
-python-dotenv==1.0.1
+python-dotenv==1.1.1
     # via
+    #   fastmcp
     #   pydantic-settings
     #   uvicorn
 python-http-client==3.3.7
@@ -497,6 +532,13 @@ requests==2.31.0
     #   snowflake-connector-python
 requests-file==2.0.0
     # via acryl-datahub
+rich==14.0.0
+    # via
+    #   cyclopts
+    #   fastmcp
+    #   rich-rst
+rich-rst==1.3.1
+    # via cyclopts
 rpds-py==0.18.0
     # via
     #   jsonschema
@@ -525,9 +567,7 @@ slack-sdk==3.35.0
 smmap==5.0.1
     # via gitdb
 sniffio==1.3.1
-    # via
-    #   anyio
-    #   httpx
+    # via anyio
 snowflake-connector-python==3.13.1
     # via
     #   acryl-datahub
@@ -583,6 +623,7 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   exceptiongroup
     #   fastapi
     #   inflect
     #   mlflow-skinny
@@ -616,7 +657,7 @@ urllib3==1.26.18
     #   pygithub
     #   requests
     #   sentry-sdk
-uvicorn==0.34.3
+uvicorn==0.35.0
     # via
     #   acryl-datahub-integrations
     #   mcp

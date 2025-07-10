@@ -31,5 +31,5 @@ def test_chat_history(tmp_path: Path) -> None:
     )
 
     # Test that we can deserialize back to the same object.
-    deserialized_chat_history = ChatHistory.parse_file(output_file)
+    deserialized_chat_history = ChatHistory.load_file(output_file)
     assert chat_history == deserialized_chat_history

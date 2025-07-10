@@ -31,10 +31,7 @@ def st_chat_history(
                 st.markdown(message.text)
         elif ChatSession.is_respond_to_user(message):
             with st.chat_message("assistant"):
-                next_message = message.result
-                if not isinstance(next_message, NextMessage):
-                    # When restoring history from JSON, the message result loses its type.
-                    next_message = NextMessage.parse_obj(next_message)
+                next_message = NextMessage.model_validate(message.result)
 
                 markdown_tab, raw_tab = st.tabs(["Markdown", "Raw"])
                 with markdown_tab:

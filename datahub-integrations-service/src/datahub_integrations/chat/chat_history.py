@@ -76,14 +76,12 @@ class ToolCallRequest(_BaseMessage):
 class ToolResult(_BaseMessage):
     type: Literal["tool_result"] = "tool_result"
     tool_request: ToolCallRequest
-    result: Any = None
+    result: dict | str
 
     def to_obj(self) -> dict:
         content: dict[str, Any]
-        if isinstance(self.result, BaseModel):
-            jsonify = self.result.dict()
-            content = {"json": jsonify}
-        elif isinstance(self.result, dict):
+        if isinstance(self.result, dict):
+            # Ensure it's JSON-serializable - this is probably redundant.
             jsonify = json.loads(json.dumps(self.result))
             content = {"json": jsonify}
         else:
@@ -146,3 +144,7 @@ class ChatHistory(BaseModel):
 
     def save_file(self, path: pathlib.Path) -> None:
         path.write_text(self.json())
+
+    @classmethod
+    def load_file(cls, path: pathlib.Path) -> "ChatHistory":
+        return cls.model_validate_json(path.read_text())

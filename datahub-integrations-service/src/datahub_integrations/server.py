@@ -30,7 +30,7 @@ from datahub_integrations.gen_ai.description_context import (
     TooManyColumnsError,
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
-from datahub_integrations.mcp.router import authed_mcp_app, mcp_session_manager
+from datahub_integrations.mcp.router import mcp_http_app
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import (
@@ -48,7 +48,7 @@ from datahub_integrations.util.access_log import access_log
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with contextlib.AsyncExitStack() as stack:
         await stack.enter_async_context(actions_lifespan(app))
-        await stack.enter_async_context(mcp_session_manager.run())
+        await stack.enter_async_context(mcp_http_app.lifespan(app))
         yield
 
 
@@ -155,7 +155,7 @@ app.mount(
     StaticFiles(directory=STATIC_ASSETS_DIR),
     name="integrations-static-dir",
 )
-app.mount("/public/ai", authed_mcp_app)
+app.mount("/public/ai", mcp_http_app)
 
 
 app.include_router(internal_router, prefix="/private")

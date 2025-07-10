@@ -10,26 +10,26 @@ from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.utilities.ordered_set import OrderedSet
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from pydantic import BaseModel
 
-mcp = FastMCP(name="datahub", stateless_http=True)
+mcp = FastMCP[None](name="datahub")
 
 
 _mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
 
 
-def get_client() -> DataHubClient:
+def get_datahub_client() -> DataHubClient:
     # Will raise a LookupError if no client is set.
     return _mcp_dh_client.get()
 
 
-def set_client(client: DataHubClient) -> None:
+def set_datahub_client(client: DataHubClient) -> None:
     _mcp_dh_client.set(client)
 
 
 @contextlib.contextmanager
-def with_client(client: DataHubClient) -> Iterator[None]:
+def with_datahub_client(client: DataHubClient) -> Iterator[None]:
     token = _mcp_dh_client.set(client)
     try:
         yield
@@ -133,7 +133,7 @@ def _clean_get_entity_response(raw_response: dict) -> dict:
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
 def get_entity(urn: str) -> dict:
-    client = get_client()
+    client = get_datahub_client()
 
     if not client._graph.exists(urn):
         # TODO: Ideally we use the `exists` field to check this, and also deal with soft-deleted entities.
@@ -173,13 +173,13 @@ Here are some example filters:
 }
 ```
 
-- All Snowflake tables
+- All non-Snowflake tables
 ```
 {
-  "and_":[
+  "and":[
     {"entity_type": ["DATASET"]},
     {"entity_subtype": "Table"},
-    {"platform": ["snowflake"]}
+    {"not": {"platform": ["snowflake"]}}
   ]
 }
 ```
@@ -190,7 +190,7 @@ def search(
     filters: Optional[Filter] = None,
     num_results: int = 10,
 ) -> dict:
-    client = get_client()
+    client = get_datahub_client()
 
     types, compiled_filters = compile_filters(filters)
     variables = {
@@ -212,7 +212,7 @@ def search(
 
 @mcp.tool(description="Use this tool to get the SQL queries associated with a dataset.")
 def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> dict:
-    client = get_client()
+    client = get_datahub_client()
 
     # Set up variables for the query
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
@@ -327,7 +327,7 @@ Use this tool to get upstream or downstream lineage for any entity, including da
 Set upstream to True for upstream lineage, False for downstream lineage."""
 )
 def get_lineage(urn: str, upstream: bool, max_hops: int = 1) -> dict:
-    client = get_client()
+    client = get_datahub_client()
     lineage_api = AssetLineageAPI(client._graph)
     asset_lineage_directive = AssetLineageDirective(
         urn=urn, upstream=upstream, downstream=not upstream, max_hops=max_hops

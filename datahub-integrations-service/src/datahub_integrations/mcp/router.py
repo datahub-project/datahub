@@ -2,12 +2,16 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.sdk.main_client import DataHubClient
 from fastapi import Request, Response, status
-from starlette.exceptions import HTTPException
+from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse
 
 import datahub_integrations as di
 from datahub_integrations.app import DATAHUB_SERVER
-from datahub_integrations.mcp.mcp_server import mcp as datahub_fastmcp, with_client
+from datahub_integrations.mcp.mcp_server import (
+    mcp as datahub_fastmcp,
+    with_datahub_client,
+)
 
 
 async def _parse_token(
@@ -15,10 +19,18 @@ async def _parse_token(
 ) -> Response:
     # Middleware that uses the token query param to set the DataHub client contextvar.
     token = request.query_params.get("token")
+
+    # We're explicitly using 400 here instead of 401 to ensure that MCP clients
+    # don't try to go through an OAuth flow.
     if token is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing token")
+        return JSONResponse(
+            content={"detail": "Missing token"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
     elif not token:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty token")
+        return JSONResponse(
+            content={"detail": "Empty token"}, status_code=status.HTTP_400_BAD_REQUEST
+        )
 
     graph = DataHubGraph(
         config=DatahubClientConfig(
@@ -28,14 +40,11 @@ async def _parse_token(
         )
     )
     client = DataHubClient(graph=graph)
-    with with_client(client):
+    with with_datahub_client(client):
         return await call_next(request)
 
 
-_streamable_http_app = datahub_fastmcp.streamable_http_app()
-mcp_session_manager = datahub_fastmcp.session_manager
-
-# Somehow the app.add_middleware() doesn't handle exceptions properly,
-# causing 500 errors instead of the intended 400 errors.
-# However, using the middleware as a proper onion wrapper works fine.
-authed_mcp_app = BaseHTTPMiddleware(app=_streamable_http_app, dispatch=_parse_token)
+mcp_http_app = datahub_fastmcp.http_app(
+    stateless_http=True,
+    middleware=[Middleware(cls=BaseHTTPMiddleware, dispatch=_parse_token)],
+)

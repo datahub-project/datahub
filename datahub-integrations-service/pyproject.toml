@@ -22,7 +22,7 @@ dependencies = [
 	"slack-bolt",
 	"inflect",
 	# MCP
-	"mcp",
+	"fastmcp",
 	"markdown_to_mrkdwn",
 	# Actions.
 	"acryl-datahub-actions[kafka,tag_propagation,term_propagation,doc_propagation,snowflake_tag_propagation]",
