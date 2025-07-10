@@ -36,6 +36,9 @@ query getMe {
                     }
                 }
                 homePage {
+                    pageTemplate {
+                        ...pageTemplateFields
+                    }
                     dismissedAnnouncementUrns
                 }
             }
