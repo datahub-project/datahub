@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -12,12 +12,12 @@ export interface CreateModuleInput {
     type: DataHubPageModuleType;
     scope?: PageModuleScope;
     params?: any; // Module-specific parameters
-    position: AddModuleHandlerInput;
+    position: ModulePositionInput;
 }
 
 export interface AddModuleInput {
     module: PageModuleFragment;
-    position: AddModuleHandlerInput;
+    position: ModulePositionInput;
 }
 
 export function useModuleOperations(
@@ -29,7 +29,7 @@ export function useModuleOperations(
     updateTemplateWithModule: (
         templateToUpdate: PageTemplateFragment | null,
         module: PageModuleFragment,
-        position: AddModuleHandlerInput,
+        position: ModulePositionInput,
     ) => PageTemplateFragment | null,
     upsertTemplate: (
         templateToUpsert: PageTemplateFragment | null,
@@ -39,6 +39,7 @@ export function useModuleOperations(
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
 
+    // Updates template state with a new module and updates the appropriate template on the backend
     const addModule = useCallback(
         (input: AddModuleInput) => {
             const { module, position } = input;
@@ -85,6 +86,7 @@ export function useModuleOperations(
         ],
     );
 
+    // Takes input and makes a call to create a module then add that module to the template
     const createModule = useCallback(
         (input: CreateModuleInput) => {
             const { name, type, scope = PageModuleScope.Personal, params = {}, position } = input;
@@ -107,6 +109,7 @@ export function useModuleOperations(
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
                         console.error('Failed to create module');
+                        message.error('Failed to create module');
                         return;
                     }
 

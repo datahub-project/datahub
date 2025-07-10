@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 
 import type { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -35,7 +35,7 @@ vi.mock('@app/homeV3/template/components/addModuleMenu/components/MenuItem', () 
 
 describe('useAddModuleMenu', () => {
     const mockCloseMenu = vi.fn();
-    const mockPosition: AddModuleHandlerInput = { rowIndex: 0, rowSide: 'left' };
+    const mockPosition: ModulePositionInput = { rowIndex: 0, rowSide: 'left' };
 
     const modulesAvailableToAdd: ModulesAvailableToAdd = {
         customModules: [], // Not used in new implementation

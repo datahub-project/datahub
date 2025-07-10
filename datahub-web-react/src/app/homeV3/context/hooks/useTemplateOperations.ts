@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
@@ -15,7 +15,7 @@ export function useTemplateOperations() {
         (
             templateToUpdate: PageTemplateFragment | null,
             module: PageModuleFragment,
-            position: AddModuleHandlerInput,
+            position: ModulePositionInput,
         ): PageTemplateFragment | null => {
             if (!templateToUpdate) return null;
 

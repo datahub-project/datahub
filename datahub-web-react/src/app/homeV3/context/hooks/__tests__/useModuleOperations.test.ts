@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -100,7 +100,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };
@@ -145,7 +145,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'right',
             };
@@ -190,7 +190,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: undefined,
                 rowSide: 'left',
             };
@@ -236,7 +236,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };
@@ -293,7 +293,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };
@@ -392,7 +392,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: undefined,
                 rowSide: 'right',
             };
@@ -447,7 +447,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };
@@ -500,7 +500,7 @@ describe('useModuleOperations', () => {
                 ),
             );
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };

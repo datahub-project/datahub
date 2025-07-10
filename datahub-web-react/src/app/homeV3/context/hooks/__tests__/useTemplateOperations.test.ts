@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
@@ -63,7 +63,7 @@ describe('useTemplateOperations', () => {
         it('should add module to new row when rowIndex is undefined', () => {
             const { result } = renderHook(() => useTemplateOperations());
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: undefined,
                 rowSide: 'left',
             };
@@ -79,7 +79,7 @@ describe('useTemplateOperations', () => {
         it('should add module to existing row on the left side', () => {
             const { result } = renderHook(() => useTemplateOperations());
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };
@@ -96,7 +96,7 @@ describe('useTemplateOperations', () => {
         it('should add module to existing row on the right side', () => {
             const { result } = renderHook(() => useTemplateOperations());
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'right',
             };
@@ -113,7 +113,7 @@ describe('useTemplateOperations', () => {
         it('should create new row when rowIndex is out of bounds', () => {
             const { result } = renderHook(() => useTemplateOperations());
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 5,
                 rowSide: 'left',
             };
@@ -143,7 +143,7 @@ describe('useTemplateOperations', () => {
                 },
             };
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: undefined,
                 rowSide: 'left',
             };
@@ -159,7 +159,7 @@ describe('useTemplateOperations', () => {
         it('should return null when template is null', () => {
             const { result } = renderHook(() => useTemplateOperations());
 
-            const position: AddModuleHandlerInput = {
+            const position: ModulePositionInput = {
                 rowIndex: 0,
                 rowSide: 'left',
             };

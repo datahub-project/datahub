@@ -1,4 +1,4 @@
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, PageModuleScope } from '@types';
@@ -9,12 +9,12 @@ export interface CreateModuleInput {
     type: DataHubPageModuleType;
     scope?: PageModuleScope;
     params?: any; // Module-specific parameters
-    position: AddModuleHandlerInput;
+    position: ModulePositionInput;
 }
 
 export interface AddModuleInput {
     module: PageModuleFragment;
-    position: AddModuleHandlerInput;
+    position: ModulePositionInput;
 }
 
 // Context state shape

@@ -9,7 +9,7 @@ import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -38,7 +38,7 @@ const DOMAINS_MODULE: PageModuleFragment = {
 
 export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
-    position: AddModuleHandlerInput,
+    position: ModulePositionInput,
     closeMenu: () => void,
 ): MenuProps {
     const { addModule } = usePageTemplateContext();
