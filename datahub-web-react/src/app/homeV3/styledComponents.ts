@@ -51,6 +51,7 @@ export const ContentDiv = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow-y: auto;
 `;
 
 export const StyledIcon = styled(Icon)`
