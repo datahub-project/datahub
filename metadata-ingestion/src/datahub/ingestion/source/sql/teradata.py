@@ -1579,7 +1579,7 @@ ORDER by DataBaseName, TableName;
                             f"Processed {queries_processed} queries to aggregator"
                         )
 
-                if not entries_processed:
+                if queries_processed > 0:
                     logger.info("No lineage entries found")
                     return
 
