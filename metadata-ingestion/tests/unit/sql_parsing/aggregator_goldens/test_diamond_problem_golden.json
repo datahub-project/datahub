@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_source1,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_1b93bafd07784bf2f7eec56fb803a530b68a9d4535e862495dbd20b6be68a915"
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
                 }
             ],
             "fineGrainedLineages": [
@@ -31,8 +31,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD),col_a)"
                     ],
-                    "confidenceScore": 1.0,
-                    "query": "urn:li:query:composite_1b93bafd07784bf2f7eec56fb803a530b68a9d4535e862495dbd20b6be68a915"
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -43,8 +43,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD),col_b)"
                     ],
-                    "confidenceScore": 1.0,
-                    "query": "urn:li:query:composite_1b93bafd07784bf2f7eec56fb803a530b68a9d4535e862495dbd20b6be68a915"
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -55,8 +55,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD),col_c)"
                     ],
-                    "confidenceScore": 1.0,
-                    "query": "urn:li:query:composite_1b93bafd07784bf2f7eec56fb803a530b68a9d4535e862495dbd20b6be68a915"
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
                 }
             ]
         }

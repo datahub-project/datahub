@@ -1059,361 +1059,53 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         {"col_a": "int", "col_b": "int", "col_c": "int"},
     )
 
-    aggregator.add_preparsed_query(
-        PreparsedQuery(
-            query_id="62375ec02d44aa1fbaa8213ddd8d9e33d5ed80d93bd0e51942aa18f5643979d2",
-            query_text="CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
-            upstreams=[
-                DatasetUrn(
-                    "snowflake",
-                    "diamond_problem.dummy_test.diamond_problem.diamond_source1",
-                ).urn()
-            ],
-            downstream=DatasetUrn(
-                "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-            ).urn(),
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+            default_db="diamond_problem",
+            default_schema="dummy_test.diamond_problem",
             session_id="14774700499701726",
             timestamp=datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-                        ).urn(),
-                        column="col_a",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
-                            ).urn(),
-                            column="col_a",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-                        ).urn(),
-                        column="col_b",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
-                            ).urn(),
-                            column="col_b",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-                        ).urn(),
-                        column="col_c",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.diamond_source1",
-                            ).urn(),
-                            column="col_c",
-                        )
-                    ],
-                ),
-            ],
         )
     )
 
-    aggregator.add_preparsed_query(
-        PreparsedQuery(
-            query_id="b61251c5f21ec2d897955a1324744d661763c88d456c956e5f8a329757ea62ac",
-            query_text="CREATE TEMPORARY TABLE t2 as select * from t1;",
-            upstreams=[
-                DatasetUrn(
-                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-                ).urn()
-            ],
-            downstream=DatasetUrn(
-                "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
-            ).urn(),
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="CREATE TEMPORARY TABLE t2 as select * from t1;",
+            default_db="diamond_problem",
+            default_schema="dummy_test.diamond_problem",
             session_id="14774700499701726",
             timestamp=datetime(2025, 7, 1, 13, 52, 19, 940000, tzinfo=timezone.utc),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
-                        ).urn(),
-                        column="col_a",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_a",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
-                        ).urn(),
-                        column="col_b",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_b",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
-                        ).urn(),
-                        column="col_c",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_c",
-                        )
-                    ],
-                ),
-            ],
         )
     )
 
-    aggregator.add_preparsed_query(
-        PreparsedQuery(
-            query_id="242eba8de494f2cd8cba8806237e68108202e1b9de39cae1b676289a3c9ece50",
-            query_text="CREATE TEMPORARY TABLE t3 as select * from t1;",
-            upstreams=[
-                DatasetUrn(
-                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t1"
-                ).urn()
-            ],
-            downstream=DatasetUrn(
-                "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
-            ).urn(),
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="CREATE TEMPORARY TABLE t3 as select * from t1;",
+            default_db="diamond_problem",
+            default_schema="dummy_test.diamond_problem",
             session_id="14774700499701726",
             timestamp=datetime(2025, 7, 1, 13, 52, 20, 863000, tzinfo=timezone.utc),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
-                        ).urn(),
-                        column="col_a",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_a",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
-                        ).urn(),
-                        column="col_b",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_b",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
-                        ).urn(),
-                        column="col_c",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t1",
-                            ).urn(),
-                            column="col_c",
-                        )
-                    ],
-                ),
-            ],
         )
     )
 
-    aggregator.add_preparsed_query(
-        PreparsedQuery(
-            query_id="fb6fbee45bd6d3131b1158effbf13031a27d7b1941558fa3597471a12b61409f",
-            query_text="CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
-            upstreams=[
-                DatasetUrn(
-                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t2"
-                ).urn(),
-                DatasetUrn(
-                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t3"
-                ).urn(),
-            ],
-            downstream=DatasetUrn(
-                "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
-            ).urn(),
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+            default_db="diamond_problem",
+            default_schema="dummy_test.diamond_problem",
             session_id="14774700499701726",
             timestamp=datetime(2025, 7, 1, 13, 52, 21, 609000, tzinfo=timezone.utc),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
-                        ).urn(),
-                        column="col_a",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t2",
-                            ).urn(),
-                            column="col_a",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
-                        ).urn(),
-                        column="col_b",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t3",
-                            ).urn(),
-                            column="col_b",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
-                        ).urn(),
-                        column="col_c",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t2",
-                            ).urn(),
-                            column="col_c",
-                        )
-                    ],
-                ),
-            ],
         )
     )
 
-    aggregator.add_preparsed_query(
-        PreparsedQuery(
-            query_id="871e19419420f81274c085321111eaefb5b9b3d80992b4c0fb39c61458e58c43",
-            query_text="CREATE TABLE diamond_destination as select * from t4;",
-            upstreams=[
-                DatasetUrn(
-                    "snowflake", "diamond_problem.dummy_test.diamond_problem.t4"
-                ).urn()
-            ],
-            downstream=DatasetUrn(
-                "snowflake",
-                "diamond_problem.dummy_test.diamond_problem.diamond_destination",
-            ).urn(),
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="CREATE TABLE diamond_destination as select * from t4;",
+            default_db="diamond_problem",
+            default_schema="dummy_test.diamond_problem",
             session_id="14774700499701726",
             timestamp=datetime(2025, 7, 1, 13, 52, 22, 651000, tzinfo=timezone.utc),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake",
-                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
-                        ).urn(),
-                        column="col_a",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t4",
-                            ).urn(),
-                            column="col_a",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake",
-                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
-                        ).urn(),
-                        column="col_b",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t4",
-                            ).urn(),
-                            column="col_b",
-                        )
-                    ],
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table=DatasetUrn(
-                            "snowflake",
-                            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
-                        ).urn(),
-                        column="col_c",
-                    ),
-                    upstreams=[
-                        ColumnRef(
-                            table=DatasetUrn(
-                                "snowflake",
-                                "diamond_problem.dummy_test.diamond_problem.t4",
-                            ).urn(),
-                            column="col_c",
-                        )
-                    ],
-                ),
-            ],
         )
     )
 
