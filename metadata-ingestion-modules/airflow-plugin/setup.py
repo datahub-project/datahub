@@ -25,7 +25,7 @@ _self_pin = (
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
     # We require Airflow 2.7.x at minimum, to be comatible with the native Airflow Openlineage provider.
-    "apache-airflow>=2.7.0,<3",
+    "apache-airflow>=2.7.0,<3.1",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -44,7 +44,7 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.30.1",
+        "openlineage-airflow>=1.2.0,<=1.34.0",
     },
 }
 
