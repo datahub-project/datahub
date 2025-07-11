@@ -13,7 +13,6 @@ from typing import (
     List,
     MutableMapping,
     Optional,
-    Set,
     Tuple,
     Union,
 )
@@ -707,7 +706,6 @@ ORDER by DataBaseName, TableName;
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
         self._report_lock = Lock()  # Thread safety for report counters
-        self._failed_views: Set[str] = set()  # Track failed view processing
 
         self.schema_resolver = self._init_schema_resolver()
 
@@ -1462,6 +1460,8 @@ ORDER by DataBaseName, TableName;
     def _check_historical_table_exists(self) -> bool:
         """
         Check if the PDCRINFO.DBQLSqlTbl_Hst table exists and is accessible.
+        DBQL rows are periodically moved to history table and audit queries might not exist in DBC already.
+        There is not guarantee that the historical table exists, so we need to check it.
 
         Returns:
             bool: True if the historical table exists and is accessible, False otherwise.
