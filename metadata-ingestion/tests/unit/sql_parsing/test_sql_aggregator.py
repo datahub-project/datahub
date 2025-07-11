@@ -1079,13 +1079,7 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
             )
         )
 
-    mcpws = [
-        mcp
-        for mcp in aggregator._gen_lineage_for_downstream(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD)",
-            queries_generated=set(),
-        )
-    ]
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
     lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
     out_path = tmp_path / "mcpw.json"
     write_metadata_file(out_path, lineage_mcpws)
