@@ -38,7 +38,6 @@ from datahub.cli.quickstart_versioning import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
-from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -147,8 +146,6 @@ def docker() -> None:
 
 
 @docker.command()
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def check() -> None:
     """Check that the Docker containers are healthy"""
     status = check_docker_quickstart()
@@ -560,7 +557,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
 )
-@upgrade.check_upgrade
 @telemetry.with_telemetry(
     capture_kwargs=[
         "version",
@@ -866,7 +862,6 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
-@telemetry.with_telemetry()
 def ingest_sample_data(token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
