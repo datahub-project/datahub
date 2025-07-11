@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
@@ -184,6 +185,7 @@ class DremioAPIOperations:
             self.session.headers.update(
                 {"Authorization": f"Bearer {connection_args.password}"}
             )
+            logger.debug("Configured Dremio cloud API session to use PAT")
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
@@ -195,6 +197,7 @@ class DremioAPIOperations:
                             "Authorization": f"Bearer {connection_args.password}",
                         }
                     )
+                    logger.debug("Configured Dremio API session to use PAT")
                     return
                 else:
                     assert connection_args.username and connection_args.password, (
@@ -218,10 +221,10 @@ class DremioAPIOperations:
                     response.raise_for_status()
                     token = response.json().get("token")
                     if token:
+                        logger.debug("Exchanged username and password for Dremio token")
                         self.session.headers.update(
                             {"Authorization": f"_dremio{token}"}
                         )
-
                         return
                     else:
                         self.report.failure("Failed to authenticate", login_url)
@@ -261,6 +264,9 @@ class DremioAPIOperations:
             except requests.exceptions.JSONDecodeError as e:
                 logger.info(
                     f"On {method} request to {url}, failed to parse JSON from response (status {response.status_code}): {response.text}"
+                )
+                logger.debug(
+                    f"Request curl equivalent: {make_curl_command(self.session, method, url, data)}"
                 )
                 raise DremioAPIException(
                     f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
