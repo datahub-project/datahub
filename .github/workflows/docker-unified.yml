@@ -189,13 +189,13 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/setup.py', '**/pyproject.toml') }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.npm
@@ -597,14 +597,15 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/acryl-main' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' || matrix.batch == "0" }}
+        # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/acryl-main' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' || matrix.batch == "0" }}
         with:
           path: |
             ~/.npm
