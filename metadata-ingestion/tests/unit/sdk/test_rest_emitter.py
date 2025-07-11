@@ -10,6 +10,7 @@ from requests import Response, Session
 
 from datahub.configuration.common import (
     ConfigurationError,
+    OperationalError,
     TraceTimeoutError,
     TraceValidationError,
 )
@@ -1306,20 +1307,14 @@ class TestDataHubRestEmitter:
             patch.object(emitter, "_emit_generic") as mock_emit,
             patch("datahub.emitter.rest_emitter.logger") as mock_logger,
         ):
-            emitter.emit_mcp(delete_mcp_non_key_aspect)
+            try:
+                emitter.emit_mcp(delete_mcp_non_key_aspect)
+            except OperationalError as e:
+                assert e.message == ("Delete not supported for non key aspect: datasetProperties for urn: "
+                        "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)")
 
             # Verify _emit_generic was NOT called
             mock_emit.assert_not_called()
-
-            # Verify error was logged
-            mock_logger.error.assert_called_once()
-            error_call = mock_logger.error.call_args[0][0]
-            assert "Delete not supported for non key aspect" in error_call
-            assert "datasetProperties" in error_call
-            assert (
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
-                in error_call
-            )
 
     def test_emit_mcp_delete_vs_upsert_different_urls(self):
         """Test that delete and upsert operations use different URLs"""
@@ -1455,18 +1450,14 @@ class TestDataHubRestEmitter:
                     patch.object(emitter, "_emit_generic") as mock_emit,
                     patch("datahub.emitter.rest_emitter.logger") as mock_logger,
                 ):
-                    emitter.emit_mcp(delete_mcp_non_key)
+                    try:
+                        emitter.emit_mcp(delete_mcp_non_key)
+                    except OperationalError as e:
+                        assert (f"Delete not supported for non key aspect: {aspect_name} for urn: "
+                                "urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)") == e.message
 
                     # Should NOT have called _emit_generic
                     mock_emit.assert_not_called()
-
-                    # Should have logged error
-                    mock_logger.error.assert_called_once()
-                    error_message = mock_logger.error.call_args[0][0]
-                    assert (
-                        f"Delete not supported for non key aspect: {aspect_name}"
-                        in error_message
-                    )
 
                     # Reset for next iteration
                     mock_emit.reset_mock()

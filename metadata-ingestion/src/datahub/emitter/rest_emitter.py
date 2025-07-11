@@ -62,7 +62,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 from datahub.metadata.schema_classes import (
-    KEY_ASPECTS,
+    KEY_ASPECT_NAMES,
     ChangeTypeClass,
 )
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
@@ -107,8 +107,6 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
     os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
 )
-
-KEY_ASPECT_NAMES = {cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}
 
 
 def preserve_unicode_escapes(obj: Any) -> Any:
@@ -634,10 +632,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         else:
             if mcp.changeType == ChangeTypeClass.DELETE:
                 if mcp.aspectName not in KEY_ASPECT_NAMES:
-                    logger.error(
-                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: {mcp.entityUrn}"
-                    )
-                    return
+                    raise OperationalError(f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                                           f"{mcp.entityUrn}")
+
                 url = f"{self._gms_server}/entities?action=delete"
                 payload_dict = {
                     "urn": mcp.entityUrn,
