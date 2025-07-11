@@ -176,7 +176,7 @@ def get_schema_columns(
 
     # Update report if available
     if hasattr(self, "report"):
-        self.report.column_extraction_duration_seconds+ = extraction_time
+        self.report.column_extraction_duration_seconds += extraction_time
 
     return columns
 
@@ -517,7 +517,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     include_historical_lineage: bool = Field(
         default=False,
-        description="Whether to include historical lineage data from PDCRDATA.DBQLSqlTbl_Hst in addition to current DBC.QryLogV data. "
+        description="Whether to include historical lineage data from PDCRINFO.DBQLSqlTbl_Hst in addition to current DBC.QryLogV data. "
         "This provides access to historical query logs that may have been archived. "
         "The historical table existence is checked automatically and gracefully falls back to current data only if not available.",
     )
@@ -610,7 +610,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
             h.DefaultDatabase as default_database,
             h.SqlTextInfo as "query_text",
             h.SqlRowNo as "row_no"
-        FROM "PDCRDATA".DBQLSqlTbl_Hst as h
+        FROM "PDCRINFO".DBQLSqlTbl_Hst as h
         WHERE
             h.ErrorCode = 0
             AND h.statementtype not in (
@@ -1392,7 +1392,7 @@ ORDER by DataBaseName, TableName;
 
     def _check_historical_table_exists(self) -> bool:
         """
-        Check if the PDCRDATA.DBQLSqlTbl_Hst table exists and is accessible.
+        Check if the PDCRINFO.DBQLSqlTbl_Hst table exists and is accessible.
 
         Returns:
             bool: True if the historical table exists and is accessible, False otherwise.
@@ -1402,18 +1402,18 @@ ORDER by DataBaseName, TableName;
             # Use a simple query to check if the table exists and is accessible
             check_query = """
                 SELECT TOP 1 QueryID 
-                FROM PDCRDATA.DBQLSqlTbl_Hst 
+                FROM PDCRINFO.DBQLSqlTbl_Hst 
                 WHERE 1=0
             """
             with engine.connect() as conn:
                 conn.execute(text(check_query))
                 logger.info(
-                    "Historical lineage table PDCRDATA.DBQLSqlTbl_Hst is available"
+                    "Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is available"
                 )
                 return True
         except Exception as e:
             logger.info(
-                f"Historical lineage table PDCRDATA.DBQLSqlTbl_Hst is not available: {e}"
+                f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is not available: {e}"
             )
             return False
         finally:
@@ -1455,7 +1455,7 @@ ORDER by DataBaseName, TableName;
         else:
             if self.config.include_historical_lineage:
                 logger.warning(
-                    "Historical lineage was requested but PDCRDATA.DBQLSqlTbl_Hst table is not available. Falling back to current data only."
+                    "Historical lineage was requested but PDCRINFO.DBQLSqlTbl_Hst table is not available. Falling back to current data only."
                 )
 
             # Use current-only query when historical data is not available
@@ -1590,9 +1590,8 @@ ORDER by DataBaseName, TableName;
 
     def close(self) -> None:
         """Clean up resources when source is closed."""
-        if hasattr(self, "aggregator"):
-            logger.info("Closing SqlParsingAggregator")
-            self.aggregator.close()
+        logger.info("Closing SqlParsingAggregator")
+        self.aggregator.close()
 
         # Clean up pooled engine
         with self._pooled_engine_lock:

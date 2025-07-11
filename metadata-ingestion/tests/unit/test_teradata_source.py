@@ -660,7 +660,7 @@ class TestLineageQuerySeparation:
             # Single UNION query should contain both historical and current data
             union_query = queries[0]
             assert '"DBC".QryLogV' in union_query
-            assert '"PDCRDATA".DBQLSqlTbl_Hst' in union_query
+            assert '"PDCRINFO".DBQLSqlTbl_Hst' in union_query
             assert "UNION" in union_query
             assert "combined_results" in union_query
 
@@ -1092,7 +1092,7 @@ class TestQueryConstruction:
                 union_query = queries[0]
 
                 # Verify UNION query contains historical data structure
-                assert 'FROM "PDCRDATA".DBQLSqlTbl_Hst as h' in union_query
+                assert 'FROM "PDCRINFO".DBQLSqlTbl_Hst as h' in union_query
                 assert "h.ErrorCode = 0" in union_query
                 assert "h.StartTime AT TIME ZONE 'GMT'" in union_query
                 assert "h.DefaultDatabase" in union_query
