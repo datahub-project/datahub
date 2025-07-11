@@ -106,11 +106,17 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       if (params.getLinkParams() == null) {
         throw new IllegalArgumentException("Did not provide link params for link module");
       }
+    } else if (type.equals(com.linkedin.module.DataHubPageModuleType.HIERARCHY)) {
+      validateHierarchyModuleInput(params);
     } else {
       // TODO: add more blocks to this check as we support creating more types of modules to this
       // resolver
       // If someone tries to create one of the default modules this error will be thrown
       throw new IllegalArgumentException("Attempted to create an unsupported module type.");
     }
+  }
+
+  private void validateHierarchyModuleInput(@Nonnull final DataHubPageModuleParams params) {
+
   }
 }

@@ -49,7 +49,16 @@ export const DEFAULT_MODULE_LINK: ModuleInfo = {
     key: 'default_module_quick_link',
 };
 
+export const DEFAULT_MODULE_HIERARCHY_VIEW: ModuleInfo = {
+    type: DataHubPageModuleType.Hierarchy,
+    name: 'Hierarchy View',
+    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.Hierarchy),
+    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.Hierarchy) ?? DEFAULT_MODULE_ICON,
+    key: 'default_module_hierarchy_view',
+};
+
 export const DEFAULT_MODULES: ModuleInfo[] = [
+    DEFAULT_MODULE_HIERARCHY_VIEW,
     DEFAULT_MODULE_YOUR_ASSETS,
     DEFAULT_MODULE_TOP_DOMAINS,
     // Links isn't supported yet

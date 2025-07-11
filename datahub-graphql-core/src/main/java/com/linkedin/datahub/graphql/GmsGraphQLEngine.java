@@ -1953,6 +1953,15 @@ public class GmsGraphQLEngine {
                     corpUserType,
                     (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
     builder.type(
+        "CorpUserHomePageSettings",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "pageTemplate",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) ->
+                        ((CorpUserHomePageSettings) env.getSource()).getPageTemplate().getUrn())));
+    builder.type(
         "CorpUserEditableProperties",
         typeWiring ->
             typeWiring.dataFetcher(

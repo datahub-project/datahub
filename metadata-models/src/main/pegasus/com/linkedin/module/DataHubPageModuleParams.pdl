@@ -19,4 +19,15 @@ record DataHubPageModuleParams {
   richTextParams: optional record RichTextModuleParams {
     content: string
   }
+
+  /**
+     * The params required if the module is type HIERARCHY_VIEW
+     */
+    hierarchyViewParams: optional record HierarchyViewParams {
+      assets: optional array[Urn]
+
+      relatedEntitiesFilter: optional Filter
+
+      showRelatedEntities: boolean
+    }
 }
