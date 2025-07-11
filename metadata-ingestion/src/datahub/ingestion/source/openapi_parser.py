@@ -28,6 +28,13 @@ def flatten(d: dict, prefix: str = "") -> Generator:
             yield f"{prefix}.{k}".strip(".")
             # Then yield all nested fields
             yield from flatten(v, f"{prefix}.{k}")
+        elif isinstance(v, list) and len(v) > 0:
+            # Handle arrays by taking the first element as a sample
+            # First yield the parent field (array itself)
+            yield f"{prefix}.{k}".strip(".")
+            # Then yield fields from the first element if it's a dict
+            if isinstance(v[0], dict):
+                yield from flatten(v[0], f"{prefix}.{k}")
         else:
             yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
@@ -199,7 +206,9 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 # Take the first example if it's a dict of examples
                 if isinstance(examples, dict) and examples:
                     first_example_name = next(iter(examples))
-                    data = examples[first_example_name].get("value", {})
+                    example_value = examples[first_example_name].get("value", {})
+                    # Preserve the example name as a wrapper to maintain structure
+                    data = {first_example_name: example_value}
                 # Handle list format (OpenAPI v2 style)
                 elif isinstance(examples, list) and examples:
                     data = examples[0]
@@ -415,12 +424,48 @@ def get_tok(
 
 
 def set_metadata(
-    dataset_name: str, fields: List, platform: str = "api"
+    dataset_name: str,
+    fields: List,
+    platform: str = "api",
+    original_data: Optional[Dict] = None,
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     seen_paths = set()
 
-    # Process all flattened fields
+    # First pass: identify which paths are structs (have children) vs leaf fields vs arrays
+    struct_paths = set()
+    leaf_paths = set()
+    array_paths = set()
+
+    for field_path in fields:
+        parts = field_path.split(".")
+
+        # Check if this path has children (other paths that start with this path + ".")
+        has_children = any(
+            other_path.startswith(field_path + ".") for other_path in fields
+        )
+
+        # Check if this field is an array in the original data
+        is_array = False
+        if original_data:
+            # Navigate to the field in the original data to check if it's an array
+            current_data = original_data
+            for part in parts:
+                if isinstance(current_data, dict) and part in current_data:
+                    current_data = current_data[part]
+                else:
+                    break
+            is_array = isinstance(current_data, list)
+
+        if has_children:
+            if is_array:
+                array_paths.add(field_path)
+            else:
+                struct_paths.add(field_path)
+        else:
+            leaf_paths.add(field_path)
+
+    # Second pass: create schema fields
     for field_path in fields:
         parts = field_path.split(".")
 
@@ -440,16 +485,40 @@ def set_metadata(
                 seen_paths.add(ancestor_path)
             current_path.append(part)
 
-        # Add the leaf field if not already seen
+        # Add the field if not already seen
         if field_path not in seen_paths:
-            leaf_field = SchemaField(
-                fieldPath=field_path,
-                nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                description="",
-                recursive=False,
-            )
-            canonical_schema.append(leaf_field)
+            if field_path in array_paths:
+                # This is an array field
+                from datahub.metadata.schema_classes import ArrayTypeClass
+
+                array_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="array",  # Array type
+                    type=SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(array_field)
+            elif field_path in struct_paths:
+                # This is a struct field (has children)
+                struct_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="object",  # OpenAPI term for struct/record
+                    type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(struct_field)
+            else:
+                # This is a leaf field (no children)
+                leaf_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(leaf_field)
             seen_paths.add(field_path)
 
     schema_metadata = SchemaMetadata(

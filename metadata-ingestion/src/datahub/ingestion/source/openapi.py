@@ -584,8 +584,15 @@ class APISource(Source, ABC):
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema from endpoint data if available."""
         if "data" in endpoint_dets:
-            self.schema_extraction_stats["from_endpoint_data"] += 1
-            return set_metadata(dataset_name, endpoint_dets["data"])
+            # Extract fields from the example data using flatten2list
+            from datahub.ingestion.source.openapi_parser import flatten2list
+
+            fields = flatten2list(endpoint_dets["data"])
+            if fields:
+                self.schema_extraction_stats["from_endpoint_data"] += 1
+                return set_metadata(
+                    dataset_name, fields, original_data=endpoint_dets["data"]
+                )
         return None
 
     def _has_credentials(self) -> bool:
