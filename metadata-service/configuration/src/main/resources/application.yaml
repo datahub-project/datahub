@@ -838,3 +838,10 @@ eventsApi:
 icebergCatalog:
       enablePublicRead: ${ENABLE_PUBLIC_READ:false}
       publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+
+lineageDatasetUrnMutator:
+  platforms: iceberg
+  confidenceScore:
+      urnExists: 1
+      urnResolvedPlatformResource: 0.9
+      urnUnresolved: 0

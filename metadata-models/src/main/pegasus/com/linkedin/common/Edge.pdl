@@ -30,4 +30,9 @@ record Edge {
    * A generic properties bag that allows us to store specific information on this graph edge.
    */
   properties: optional map[string, string]
+
+  /**
+   * Confidence in the correctness of this edge, between 0 (low confidence) and 1 (high confidence)
+   */
+  confidenceScore: optional float
 }

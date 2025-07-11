@@ -230,6 +230,11 @@
             },
             "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
             "optional" : true
+          }, {
+            "name" : "confidenceScore",
+            "type" : "float",
+            "doc" : "Confidence in the correctness of this edge, between 0 (low confidence) and 1 (high confidence)",
+            "optional" : true
           } ]
         }
       },
