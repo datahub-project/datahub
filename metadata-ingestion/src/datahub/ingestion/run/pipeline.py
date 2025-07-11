@@ -368,6 +368,8 @@ class Pipeline:
         if is_server_default_cli_ahead(version_stats):
             server_default_version = (
                 version_stats.server.current_server_default_cli_version.version
+                if version_stats.server.current_server_default_cli_version
+                else None
             )
             current_version = version_stats.client.current.version
 

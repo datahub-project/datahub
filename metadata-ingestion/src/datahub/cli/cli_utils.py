@@ -433,7 +433,7 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     This wraps existing command callback functions to add upgrade and telemetry decorators.
     """
 
-    def has_decorator(func, module_pattern: str, function_pattern: str):
+    def has_decorator(func: Any, module_pattern: str, function_pattern: str) -> bool:
         """Check if function already has a specific decorator"""
         if hasattr(func, "__wrapped__"):
             current_func = func

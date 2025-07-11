@@ -232,8 +232,13 @@ async def _retrieve_version_stats(
             current=VersionStats(
                 version=current_server_version, release_date=current_server_release_date
             ),
-            current_server_default_cli_version=VersionStats(
-                version=Version(current_server_default_cli_version), release_date=None
+            current_server_default_cli_version=(
+                VersionStats(
+                    version=Version(current_server_default_cli_version),
+                    release_date=None,
+                )
+                if current_server_default_cli_version
+                else None
             ),
             latest=(
                 VersionStats(version=last_server_version, release_date=last_server_date)
