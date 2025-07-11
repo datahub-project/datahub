@@ -292,6 +292,10 @@ class ProfileMetadata:
     SourceCapability.CONTAINERS,
     "Enabled by default",
     supported=True,
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
 )
 @capability(
     SourceCapability.DESCRIPTIONS,

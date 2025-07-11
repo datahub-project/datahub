@@ -45,6 +45,7 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -78,7 +79,14 @@ def cleanup(config: BigQueryV2Config) -> None:
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.PROJECT,
+        SourceCapabilityModifier.DATASET,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,

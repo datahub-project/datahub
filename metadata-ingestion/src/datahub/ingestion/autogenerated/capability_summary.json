@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-07T09:06:40.727786+00:00",
+  "generated_at": "2025-07-11T05:30:04.007179+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -33,7 +33,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -245,7 +248,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -343,7 +349,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -675,7 +684,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -871,7 +883,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "GCS bucket",
+            "Folder"
+          ],
           "supported": true
         },
         {
@@ -955,7 +970,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1071,7 +1089,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1143,7 +1164,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1497,7 +1521,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1703,7 +1730,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1783,7 +1813,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1935,7 +1968,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2001,7 +2037,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2199,7 +2238,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2271,7 +2313,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2677,7 +2722,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Sigma Workspace"
+          ],
           "supported": true
         },
         {
@@ -2753,7 +2800,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2859,7 +2909,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -3122,7 +3175,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -3194,7 +3250,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Catalog",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -3288,7 +3347,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
