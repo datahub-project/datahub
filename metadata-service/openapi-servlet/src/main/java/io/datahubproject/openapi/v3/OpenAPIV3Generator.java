@@ -120,9 +120,6 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
-    components.addSchemas(
-        "BatchGet" + ENTITIES + ENTITY_REQUEST_SUFFIX,
-        buildEntitiesBatchGetRequestSchema(filteredAspectSpec, aspectNames));
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
