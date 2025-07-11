@@ -67,7 +67,7 @@ public class SearchTestContainerConfiguration {
   public ESBulkProcessor getBulkProcessor(
       @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
     ESBulkProcessor esBulkProcessor =
-        ESBulkProcessor.builder(searchClient)
+        ESBulkProcessor.builder(searchClient, null)
             .async(true)
             /*
              * Force a refresh as part of this request. This refresh policy does not scale for high indexing or search throughput but is useful

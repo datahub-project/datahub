@@ -2991,6 +2991,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   @Test
   public void testFailedAspectValidation() throws Exception {
+    final OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null) // mocked
+            .buildSystemContext();
+
     try (MockedStatic<Span> mockedStatic = Mockito.mockStatic(Span.class)) {
       Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testFailedAspectValidation");
 
@@ -3019,7 +3024,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                   .auditStamp(TEST_AUDIT_STAMP)
                   // Set invalid version to trigger validation failure
                   .headers(Map.of("If-Version-Match", "-10000"))
-                  .build(opContext.getAspectRetriever()));
+                  .build(testContext.getAspectRetriever()));
 
       // Create a mock Future that completes successfully
       @SuppressWarnings("unchecked")
@@ -3033,11 +3038,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
       // Execute the ingest which should trigger validation failures
       _entityServiceImpl.ingestAspects(
-          opContext,
+          testContext,
           AspectsBatchImpl.builder()
-              .retrieverContext(opContext.getRetrieverContext())
+              .retrieverContext(testContext.getRetrieverContext())
               .items(items)
-              .build(opContext),
+              .build(testContext),
           true,
           true);
 
@@ -3049,7 +3054,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify failed MCP production
       verify(_mockProducer, times(1))
           .produceFailedMetadataChangeProposalAsync(
-              eq(opContext), any(MCPItem.class), any(Set.class));
+              eq(testContext), any(MCPItem.class), any(Set.class));
 
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();

@@ -1,0 +1,224 @@
+"""
+A Page Module used for rendering custom or default layouts in the UI
+"""
+type DataHubPageModule implements Entity {
+  """
+  A primary key associated with the Page Module
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The main properties of a DataHub page module
+  """
+  properties: DataHubPageModuleProperties!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+extend type Mutation {
+  """
+  Create or update a DataHub page module
+  """
+  upsertPageModule(input: UpsertPageModuleInput!): DataHubPageModule!
+}
+
+"""
+Input for creating or updating a DataHub page module
+"""
+input UpsertPageModuleInput {
+  """
+  The URN of the page module to update. If not provided, a new module will be created.
+  """
+  urn: String
+
+  """
+  The display name of this module
+  """
+  name: String!
+
+  """
+  The type of this module
+  """
+  type: DataHubPageModuleType!
+
+  """
+  The scope of this module and who can use/see it
+  """
+  scope: PageModuleScope!
+
+  """
+  The specific parameters stored for this module
+  """
+  params: PageModuleParamsInput!
+}
+
+"""
+Input for the specific parameters stored for a module
+"""
+input PageModuleParamsInput {
+  """
+  The params required if the module is type LINK
+  """
+  linkParams: LinkModuleParamsInput
+
+  """
+  The params required if the module is type RICH_TEXT
+  """
+  richTextParams: RichTextModuleParamsInput
+}
+
+"""
+Input for the params required if the module is type LINK
+"""
+input LinkModuleParamsInput {
+  """
+  The URN of the Post entity containing the link
+  """
+  linkUrn: String!
+}
+
+"""
+Input for the params required if the module is type RICH_TEXT
+"""
+input RichTextModuleParamsInput {
+  """
+  The content of the rich text module
+  """
+  content: String!
+}
+
+"""
+The main properties of a DataHub page module
+"""
+type DataHubPageModuleProperties {
+  """
+  The display name of this module
+  """
+  name: String!
+
+  """
+  Info about the surface area of the product that this module is deployed in
+  """
+  type: DataHubPageModuleType!
+
+  """
+  Info about the visibility of this module
+  """
+  visibility: DataHubPageModuleVisibility!
+
+  """
+  The specific parameters stored for this module
+  """
+  params: DataHubPageModuleParams!
+
+  """
+  Audit stamp for when and by whom this module was created
+  """
+  created: ResolvedAuditStamp!
+
+  """
+  Audit stamp for when and by whom this module was last updated
+  """
+  lastModified: ResolvedAuditStamp!
+}
+
+"""
+Enum containing the types of page modules that there are
+"""
+enum DataHubPageModuleType {
+  """
+  Link type module
+  """
+  LINK
+  """
+  Module containing rich text to be rendered
+  """
+  RICH_TEXT
+  """
+  A module with a collection of assets
+  """
+  ASSET_COLLECTION
+  """
+  A module displaying a hierarchy to navigate
+  """
+  HIERARCHY
+  """
+  Module displaying assets owned by a user
+  """
+  OWNED_ASSETS
+  """
+  Module displaying assets subscribed to by a given user
+  """
+  SUBSCRIBED_ASSETS
+  """
+  Module displaying the top domains
+  """
+  DOMAINS
+}
+
+"""
+Info about the visibility of this module
+"""
+type DataHubPageModuleVisibility {
+  """
+  The scope of this module and who can use/see it
+  """
+  scope: PageModuleScope
+}
+
+"""
+Different scopes for where this module is relevant
+"""
+enum PageModuleScope {
+  """
+  This module is used for individual use only
+  """
+  PERSONAL
+  """
+  This module is used across users
+  """
+  GLOBAL
+}
+
+"""
+The specific parameters stored for a module
+"""
+type DataHubPageModuleParams {
+  """
+  The params required if the module is type LINK
+  """
+  linkParams: LinkModuleParams
+
+  """
+  The params required if the module is type RICH_TEXT
+  """
+  richTextParams: RichTextModuleParams
+}
+
+"""
+The params required if the module is type LINK
+"""
+type LinkModuleParams {
+  """
+  The Post entity containing the link
+  """
+  link: Post!
+}
+
+"""
+The params required if the module is type RICH_TEXT
+"""
+type RichTextModuleParams {
+  """
+  The content of the rich text module
+  """
+  content: String!
+}

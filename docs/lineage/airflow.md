@@ -17,7 +17,7 @@ There's two implementations of the plugin, with different Airflow version suppor
 
 | Approach  | Airflow Versions | Notes                                                                                   |
 | --------- | ---------------- | --------------------------------------------------------------------------------------- |
-| Plugin v2 | 2.5+             | Recommended. Requires Python 3.8+                                                       |
+| Plugin v2 | 2.7+             | Recommended. Requires Python 3.9+                                                       |
 | Plugin v1 | 2.5 - 2.8        | Deprecated. No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.5, it's possible to use the plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
@@ -29,7 +29,7 @@ If you're using Airflow older than 2.5, it's possible to use the plugin with old
 
 ### Installation
 
-The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
+The v2 plugin requires Airflow 2.7+ and Python 3.9+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
@@ -85,7 +85,7 @@ enabled = True  # default
 
 ### Installation
 
-The v1 plugin requires Airflow 2.3 - 2.8 and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
+The v1 plugin requires Airflow 2.3 - 2.8 and Python 3.9+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
 Note that the v1 plugin is less featureful than the v2 plugin, and is overall not actively maintained.
 Since datahub v0.15.0, the v2 plugin has been the default. If you need to use the v1 plugin with `acryl-datahub-airflow-plugin` v0.15.0+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
@@ -346,6 +346,10 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
+### Scheduler stalling
+
+For extremely large Airflow deployments with thousands of tasks, you may see issues where the plugin interferes with the performance of the Airflow scheduler. In those cases, you can set the `DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=0` environment variable. This makes the DataHub plugin run fully in background threads, but can cause us to miss some metadata if the scheduler shuts down soon after processing a task.
+
 ### Disabling the DataHub Plugin v2
 
 There are two ways to disable the DataHub Plugin v2:
@@ -381,13 +385,14 @@ This will immediately disable the plugin without requiring a restart.
 
 We try to support Airflow releases for ~2 years after their release. This is a best-effort guarantee - it's not always possible due to dependency / security issues cropping up in older versions.
 
-We no longer officially support Airflow <2.5. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
-The first two options support Python 3.7+, and the others require Python 3.8+.
+We no longer officially support Airflow <2.7. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
+The first two options support Python 3.7+, and latter three require Python 3.8+.
 
 - Airflow 1.10.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.9.1.0.
 - Airflow 2.0.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.11.0.1.
 - Airflow 2.2.x, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 0.14.1.5.
 - Airflow 2.3 - 2.4.3, use DataHub plugin v2 with acryl-datahub-airflow-plugin <= 1.0.0.
+- Airflow 2.5 and 2.6, use acryl-datahub-airflow-plugin <= 1.1.0.4.
 
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. While the implementation is still in our codebase, it is deprecated and will be removed in a future release.
 Note that the lineage backend did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA.

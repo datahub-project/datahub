@@ -118,7 +118,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 @capability(

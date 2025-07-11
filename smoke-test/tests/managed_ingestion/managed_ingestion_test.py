@@ -20,7 +20,7 @@ def _get_ingestionSources(auth_session):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(
@@ -62,7 +62,7 @@ def _ensure_secret_increased(auth_session, before_count):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(
@@ -205,7 +205,7 @@ def test_create_list_get_remove_secret(auth_session):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(
