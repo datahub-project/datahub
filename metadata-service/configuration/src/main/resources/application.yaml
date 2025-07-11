@@ -837,27 +837,5 @@ eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
-<<<<<<< HEAD
-      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
-      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
-=======
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
   publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
-
-# SaaS only
-aws:
-  eventBridge:
-    eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN:}
-    region: ${AWS_EVENT_BRIDGE_BUS_REGION:}
-    assumeRoleArn: ${AWS_EVENT_BRIDGE_ASSUME_ROLE:}
-    externalId: ${AWS_EVENT_BRIDGE_EXTERNAL_ID:}
-    maxBatchSize: ${AWS_EVENT_BRIDGE_MAX_BATCH_SIZE:5} # Maximum of 10
-    maxRetries: ${AWS_EVENT_BRIDGE_MAX_RETRIES:3}
-    flushIntervalSeconds: ${AWS_EVENT_BRIDGE_FLUSH_INTERVAL_SECONDS:1}
-    auditEventExport:
-      enabled: ${AWS_EVENT_BRIDGE_AUDIT_EVENT_EXPORT_ENABLED:false}
-      consumerGroupSuffix: ${AWS_EVENT_BRIDGE_AUDIT_EVENT_EXPORT_CONSUMER_GROUP:audit-event}
-      usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent,LogInEvent,LogOutEvent,FailedLogInEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
-      aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
-      userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
->>>>>>> 1f91ce2d29 (feat(ui/lineage): Feature flag for lineage redesign (v3) (#5953))
