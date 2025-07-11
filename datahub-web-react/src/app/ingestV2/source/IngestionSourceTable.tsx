@@ -8,12 +8,12 @@ import styled from 'styled-components/macro';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
-import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
     NameColumn,
     OwnerColumn,
     ScheduleColumn,
+    StatusColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
@@ -25,6 +25,11 @@ import { IngestionSource } from '@types';
 
 const StyledTable = styled(Table)`
     table-layout: fixed;
+
+    th,
+    td {
+        border-right: none !important;
+    }
 ` as typeof Table;
 
 interface Props {
@@ -127,18 +132,6 @@ function IngestionSourceTable({
             ),
             width: '20%',
         },
-        {
-            title: 'Status',
-            key: 'status',
-            render: (record) => (
-                <StatusColumn
-                    status={record.lastExecStatus}
-                    onClick={() => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn)}
-                    dataTestId="ingestion-source-table-status"
-                />
-            ),
-            width: '15%',
-        },
 
         {
             title: '',
@@ -156,6 +149,18 @@ function IngestionSourceTable({
                 />
             ),
             width: '10%',
+        },
+        {
+            title: '',
+            key: 'status',
+            render: (record) => (
+                <StatusColumn
+                    status={record.lastExecStatus}
+                    onClick={() => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn)}
+                    dataTestId="ingestion-source-table-status"
+                />
+            ),
+            width: '15%',
         },
     ];
 

@@ -46,7 +46,7 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_RUNNING && 'Running') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'Success') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'Success') ||
-        (status === EXECUTION_REQUEST_STATUS_FAILURE && 'Failed') ||
+        (status === EXECUTION_REQUEST_STATUS_FAILURE && 'Failure') ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'Cancelled') ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'Up for Retry') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && 'Rolled Back') ||
