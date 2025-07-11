@@ -49,16 +49,24 @@ export const DEFAULT_MODULE_LINK: ModuleInfo = {
     key: 'default_module_quick_link',
 };
 
+export const CUSTOM_LARGE_MODULE_ASSET_COLLECTION: ModuleInfo = {
+    type: DataHubPageModuleType.AssetCollection,
+    name: 'Asset Collection',
+    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.AssetCollection),
+    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.AssetCollection) ?? DEFAULT_MODULE_ICON,
+    key: 'custom_large_module_asset_collection',
+};
+
 export const DEFAULT_MODULES: ModuleInfo[] = [
     DEFAULT_MODULE_YOUR_ASSETS,
     DEFAULT_MODULE_TOP_DOMAINS,
+    CUSTOM_LARGE_MODULE_ASSET_COLLECTION,
     // Links isn't supported yet
     // DEFAULT_MODULE_LINK,
 ];
 
 export const ADD_MODULE_MENU_SECTION_CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Link,
-    DataHubPageModuleType.AssetCollection,
     DataHubPageModuleType.RichText,
     DataHubPageModuleType.Hierarchy,
 ];
@@ -66,4 +74,5 @@ export const ADD_MODULE_MENU_SECTION_CUSTOM_MODULE_TYPES: DataHubPageModuleType[
 export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Domains,
     DataHubPageModuleType.OwnedAssets,
+    DataHubPageModuleType.AssetCollection,
 ];
