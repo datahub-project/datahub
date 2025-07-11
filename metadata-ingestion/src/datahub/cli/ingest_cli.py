@@ -24,7 +24,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.ingest_utils import deploy_source_vars
-from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -178,14 +177,7 @@ def run(
         no_progress=no_progress,
         raw_config=raw_pipeline_config,
     )
-    with PerfTimer() as timer:
-        ret = run_pipeline_to_completion(pipeline)
-
-    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-    if ret == 0:
-        upgrade.check_upgrade_post(
-            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
-        )
+    ret = run_pipeline_to_completion(pipeline)
 
     if ret:
         sys.exit(ret)

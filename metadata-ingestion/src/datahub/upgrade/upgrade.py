@@ -36,6 +36,7 @@ class ServerVersionStats(BaseModel):
 
 class ClientVersionStats(BaseModel):
     current: VersionStats
+    current_server_default: Optional[VersionStats] = None
     latest: Optional[VersionStats] = None
 
 
@@ -44,7 +45,9 @@ class DataHubVersionStats(BaseModel):
     client: ClientVersionStats
 
 
-async def get_client_version_stats():
+async def get_client_version_stats(
+    graph: Optional[DataHubGraph] = None,
+) -> ClientVersionStats:
     import aiohttp
 
     current_version_string = __version__
@@ -52,6 +55,20 @@ async def get_client_version_stats():
     client_version_stats: ClientVersionStats = ClientVersionStats(
         current=VersionStats(version=current_version, release_date=None), latest=None
     )
+
+    current_server_default: Optional[VersionStats] = None
+    if graph:
+        try:
+            default_cli_server = (
+                graph.get_config().get("managedIngestion", {}).get("defaultCliVersion")
+            )
+            if default_cli_server:
+                current_server_default = VersionStats(
+                    version=Version(default_cli_server), release_date=None
+                )
+        except Exception as e:
+            log.debug(f"Failed to get server default CLI version: {e}")
+
     async with aiohttp.ClientSession() as session:
         pypi_url = "https://pypi.org/pypi/acryl_datahub/json"
         async with session.get(pypi_url) as resp:
@@ -90,6 +107,7 @@ async def get_client_version_stats():
                     latest=VersionStats(
                         version=latest_cli_release, release_date=latest_version_date
                     ),
+                    current_server_default=current_server_default,
                 )
             except Exception as e:
                 log.debug(f"Failed to determine cli releases from pypi due to {e}")
@@ -200,7 +218,7 @@ async def _retrieve_version_stats(
 ) -> Optional[DataHubVersionStats]:
     try:
         results = await asyncio.gather(
-            get_client_version_stats(),
+            get_client_version_stats(server),
             get_github_stats(),
             get_server_version_stats(server),
             return_exceptions=False,
@@ -255,25 +273,14 @@ def valid_client_version(version: Version) -> bool:
     """Only version strings like 0.4.5 and 0.6.7.8 are valid. 0.8.6.7rc1 is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
-    if version.major == 0 and version.minor in [8, 9, 10, 11, 12, 13, 14, 15]:
-        return True
-    if version.major == 1 and version.minor in [0, 1]:
-        return True
-
-    return False
+    return True
 
 
 def valid_server_version(version: Version) -> bool:
     """Only version strings like 0.8.x, 0.9.x or 0.10.x are valid. 0.1.x is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
-
-    if version.major == 0 and version.minor in [8, 9, 10, 11, 12, 13, 14, 15]:
-        return True
-    if version.major == 1 and version.minor in [0, 1]:
-        return True
-
-    return False
+    return True
 
 
 def is_client_server_compatible(client: VersionStats, server: VersionStats) -> int:
@@ -293,6 +300,27 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
         return server.version.minor - client.version.minor
     else:
         return server.version.micro - client.version.micro
+
+
+def is_server_default_cli_ahead(version_stats: DataHubVersionStats) -> bool:
+    """
+    Check if the server default CLI version is ahead of the current CLI version.
+    Returns True if server default CLI is newer and both versions are valid.
+    """
+    if not version_stats.client.current_server_default:
+        return False
+
+    current_cli = version_stats.client.current
+    server_default_cli = version_stats.client.current_server_default
+
+    is_valid_client_version = valid_client_version(current_cli.version)
+    is_valid_server_version = valid_client_version(server_default_cli.version)
+
+    if not (is_valid_client_version and is_valid_server_version):
+        return False
+
+    compatibility_result = is_client_server_compatible(current_cli, server_default_cli)
+    return compatibility_result > 0
 
 
 def _maybe_print_upgrade_message(
