@@ -6,7 +6,10 @@ import styled from 'styled-components';
 import LookupFoundMultiple from '@app/embed/lookup/LookupFoundMultiple';
 import LookupNotFound from '@app/embed/lookup/LookupNotFound';
 import useGetEntityByUrl from '@app/embed/lookup/useGetEntityByUrl';
+import { urlEncodeUrn } from '@app/entity/shared/utils';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div`
     display: flex;
@@ -25,9 +28,13 @@ type RouteParams = {
 
 const EmbedLookup = () => {
     const history = useHistory();
+    const registry = useEntityRegistry();
     const { url: encodedUrl } = useParams<RouteParams>();
     const decodedUrl = decodeURIComponent(encodedUrl);
-    const { embedUrl, notFound, foundMultiple, error } = useGetEntityByUrl(decodedUrl);
+    const { entity, notFound, foundMultiple, error } = useGetEntityByUrl(decodedUrl);
+    const embedUrl = entity
+        ? `${PageRoutes.EMBED}/${registry.getPathName(entity.type)}/${urlEncodeUrn(entity.urn)}`
+        : null;
 
     useEffect(() => {
         if (embedUrl) history.push(embedUrl);
