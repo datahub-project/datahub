@@ -72,12 +72,15 @@ def test_check_healthy(mock_click, mock_docker_client, click_context):
     mock_docker_client.volumes.list.return_value = [volume]
 
     # Mock compose file
-    with patch(
-        "datahub.cli.docker_check._get_services_from_compose",
-        return_value={"mysql", "frontend"},
-    ), patch(
-        "datahub.cli.docker_check._get_volumes_from_compose",
-        return_value={"datahub_mysqldata"},
+    with (
+        patch(
+            "datahub.cli.docker_check._get_services_from_compose",
+            return_value={"mysql", "frontend"},
+        ),
+        patch(
+            "datahub.cli.docker_check._get_volumes_from_compose",
+            return_value={"datahub_mysqldata"},
+        ),
     ):
         # Execute
         click_context.invoke(check)
@@ -112,11 +115,15 @@ def test_check_unhealthy(mock_click, mock_docker_client, click_context):
     mock_docker_client.volumes.list.return_value = [volume]
 
     # Mock compose file
-    with patch(
-        "datahub.cli.docker_check._get_services_from_compose", return_value={"mysql"}
-    ), patch(
-        "datahub.cli.docker_check._get_volumes_from_compose",
-        return_value={"datahub_mysqldata"},
+    with (
+        patch(
+            "datahub.cli.docker_check._get_services_from_compose",
+            return_value={"mysql"},
+        ),
+        patch(
+            "datahub.cli.docker_check._get_volumes_from_compose",
+            return_value={"datahub_mysqldata"},
+        ),
     ):
         # Execute and verify
         with pytest.raises(Exception) as exc_info:
@@ -141,12 +148,15 @@ def test_check_missing_containers(mock_click, mock_docker_client, click_context)
     mock_docker_client.volumes.list.return_value = [volume]
 
     # Mock compose file
-    with patch(
-        "datahub.cli.docker_check._get_services_from_compose",
-        return_value={"mysql", "frontend"},
-    ), patch(
-        "datahub.cli.docker_check._get_volumes_from_compose",
-        return_value={"datahub_mysqldata"},
+    with (
+        patch(
+            "datahub.cli.docker_check._get_services_from_compose",
+            return_value={"mysql", "frontend"},
+        ),
+        patch(
+            "datahub.cli.docker_check._get_volumes_from_compose",
+            return_value={"datahub_mysqldata"},
+        ),
     ):
         # Execute and verify
         with pytest.raises(Exception) as exc_info:
@@ -183,9 +193,10 @@ def test_download_compose_files_404_error():
     mock_session = MagicMock()
     mock_session.get.return_value = mock_response
 
-    with patch(
-        "datahub.cli.docker_cli.requests.Session", return_value=mock_session
-    ), patch("datahub.cli.docker_cli.tempfile.NamedTemporaryFile") as mock_tempfile:
+    with (
+        patch("datahub.cli.docker_cli.requests.Session", return_value=mock_session),
+        patch("datahub.cli.docker_cli.tempfile.NamedTemporaryFile") as mock_tempfile,
+    ):
         # Setup tempfile mock
         mock_tempfile_instance = MagicMock()
         mock_tempfile_instance.__enter__.return_value = mock_tempfile_instance
@@ -209,13 +220,15 @@ def test_check_upgrade_and_show_instructions_upgrade_not_supported():
         True  # Status is OK, so migration instructions will be shown
     )
 
-    with patch(
-        "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
-    ), patch(
-        "datahub.cli.docker_cli.check_upgrade_supported", return_value=False
-    ), patch(
-        "datahub.cli.docker_cli.show_migration_instructions"
-    ) as mock_show_migration:
+    with (
+        patch(
+            "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
+        ),
+        patch("datahub.cli.docker_cli.check_upgrade_supported", return_value=False),
+        patch(
+            "datahub.cli.docker_cli.show_migration_instructions"
+        ) as mock_show_migration,
+    ):
         # Call the function
         result = _check_upgrade_and_show_instructions([])
 
@@ -234,11 +247,13 @@ def test_check_upgrade_and_show_instructions_upgrade_not_supported_repair():
         False  # Status is not OK, so repair instructions will be shown
     )
 
-    with patch(
-        "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
-    ), patch(
-        "datahub.cli.docker_cli.check_upgrade_supported", return_value=False
-    ), patch("datahub.cli.docker_cli.show_repair_instructions") as mock_show_repair:
+    with (
+        patch(
+            "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
+        ),
+        patch("datahub.cli.docker_cli.check_upgrade_supported", return_value=False),
+        patch("datahub.cli.docker_cli.show_repair_instructions") as mock_show_repair,
+    ):
         # Call the function
         result = _check_upgrade_and_show_instructions([])
 
