@@ -593,6 +593,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         # Generate workunit for aggregated SQL parsing results
+        yield from self._generate_aggregator_workunits()
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
 
