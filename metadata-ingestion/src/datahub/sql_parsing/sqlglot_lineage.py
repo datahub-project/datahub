@@ -56,6 +56,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     QueryTypeProps,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    DialectOrStr,
     get_dialect,
     get_query_fingerprint_debug,
     is_dialect_instance,
@@ -1231,12 +1232,12 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
-    if not default_dialect:
-        dialect = get_dialect(schema_resolver.platform)
+    if override_dialect:
+        dialect = get_dialect(override_dialect)
     else:
-        dialect = get_dialect(default_dialect)
+        dialect = get_dialect(schema_resolver.platform)
 
     default_db = _normalize_db_or_schema(default_db, dialect)
     default_schema = _normalize_db_or_schema(default_schema, dialect)
@@ -1423,7 +1424,7 @@ def _sqlglot_lineage_nocache(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1441,8 +1442,8 @@ def _sqlglot_lineage_nocache(
     can be brittle with respect to missing schema information and complex
     SQL logic like UNNESTs.
 
-    The SQL dialect can be given as an argument called default_dialect or it can
-    be inferred from the schema_resolver's platform.
+    The SQL dialect will be inferred from the schema_resolver's platform.
+    That inference can be overridden by passing an override_dialect argument.
     The set of supported dialects is the same as sqlglot's. See their
     `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
     for the full list.
@@ -1457,7 +1458,7 @@ def _sqlglot_lineage_nocache(
         schema_resolver: The schema resolver to use for resolving table schemas.
         default_db: The default database to use for unqualified table names.
         default_schema: The default schema to use for unqualified table names.
-        default_dialect: A default dialect to override the dialect provided by 'schema_resolver'.
+        override_dialect: Override the dialect provided by 'schema_resolver'.
 
     Returns:
         A SqlParsingResult object containing the parsed lineage information.
@@ -1482,7 +1483,7 @@ def _sqlglot_lineage_nocache(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            default_dialect=default_dialect,
+            override_dialect=override_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -1520,15 +1521,15 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql, schema_resolver, default_db, default_schema, override_dialect
         )
     else:
         return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, default_dialect
+            sql, schema_resolver, default_db, default_schema, override_dialect
         )
 
 
@@ -1580,6 +1581,7 @@ def create_lineage_sql_parsed_result(
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
+    override_dialect: Optional[DialectOrStr] = None,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -1599,6 +1601,7 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            override_dialect=override_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

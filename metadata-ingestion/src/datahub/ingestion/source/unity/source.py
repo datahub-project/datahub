@@ -768,10 +768,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
-        schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
-            schema.catalog.name
-        ).get(f"{schema.catalog.name}.{schema.name}", [])
-        if schema_tags:
+        schema_tags = []
+        if self.config.include_tags:
+            schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
+                schema.catalog.name
+            ).get(f"{schema.catalog.name}.{schema.name}", [])
             logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(schema_tags)
@@ -809,10 +810,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
-        catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog.name).get(
-            catalog.name, []
-        )
-        if catalog_tags:
+        catalog_tags = []
+        if self.config.include_tags:
+            catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(
+                catalog.name
+            ).get(catalog.name, [])
             logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(catalog_tags)

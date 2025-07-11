@@ -4,9 +4,6 @@ import lombok.Data;
 
 @Data
 public class ApplicationConfig {
-  /**
-   * Whether to show the application sidebar section even when empty - will add noise to the UI for
-   * teams that don't use applications.
-   */
+  /** DEPRECATED: This is now controlled via the UI settings. */
   public boolean showSidebarSectionWhenEmpty;
 }

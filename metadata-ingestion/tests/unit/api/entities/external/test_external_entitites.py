@@ -263,13 +263,8 @@ class TestLinkedResourceSet:
         new_urn: Urn = Urn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
         )
-        try:
+        with pytest.raises(InvalidUrnError):
             empty_resource_set._has_conflict(new_urn)
-        except InvalidUrnError:
-            assert True
-            return
-
-        raise AssertionError("Expected InvalidUrnError to be raised")
 
     def test_add_new_urn_string(self, empty_resource_set: LinkedResourceSet) -> None:
         """Test adding a new URN as string."""

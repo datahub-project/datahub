@@ -271,13 +271,36 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
             self.log.warning("No query found in BigQueryInsertJobOperator")
             return None
 
-        return _parse_sql_into_task_metadata(
+        destination_table = operator.configuration.get("query", {}).get(
+            "destinationTable"
+        )
+        destination_table_urn = None
+        if destination_table:
+            project_id = destination_table.get("projectId")
+            dataset_id = destination_table.get("datasetId")
+            table_id = destination_table.get("tableId")
+
+            if project_id and dataset_id and table_id:
+                destination_table_urn = builder.make_dataset_urn(
+                    platform="bigquery",
+                    name=f"{project_id}.{dataset_id}.{table_id}",
+                    env=builder.DEFAULT_ENV,
+                )
+
+        task_metadata = _parse_sql_into_task_metadata(
             self,
             sql,
             platform="bigquery",
             default_database=operator.project_id,
             default_schema=None,
         )
+
+        if destination_table_urn and task_metadata:
+            sql_parsing_result = task_metadata.run_facets.get(SQL_PARSING_RESULT_KEY)
+            if sql_parsing_result and isinstance(sql_parsing_result, SqlParsingResult):
+                sql_parsing_result.out_tables.append(destination_table_urn)
+
+        return task_metadata
 
 
 class AthenaOperatorExtractor(BaseExtractor):

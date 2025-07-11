@@ -99,6 +99,7 @@ public class JavaEntityClient implements EntityClient {
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
+  private final MetricUtils metricUtils;
 
   @Override
   @Nullable
@@ -895,7 +896,8 @@ public class JavaEntityClient implements EntityClient {
       try {
         return block.get();
       } catch (Throwable ex) {
-        MetricUtils.counter(this.getClass(), buildMetricName(ex, counterPrefix)).inc();
+        if (metricUtils != null)
+          metricUtils.increment(this.getClass(), buildMetricName(ex, counterPrefix), 1);
 
         final boolean skipRetry =
             NON_RETRYABLE.contains(ex.getClass().getCanonicalName())

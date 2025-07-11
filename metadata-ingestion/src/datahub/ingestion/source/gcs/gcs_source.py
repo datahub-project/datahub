@@ -112,6 +112,7 @@ class GCSSource(StatefulIngestionSourceBase):
             env=self.config.env,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
         )
         return s3_config
 
@@ -138,7 +139,9 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        s3_source = S3Source(config, PipelineContext(ctx.run_id))
+        # Create a new context for S3 source without graph to avoid duplicate checkpointer registration
+        s3_ctx = PipelineContext(run_id=ctx.run_id, pipeline_name=ctx.pipeline_name)
+        s3_source = S3Source(config, s3_ctx)
         return self.s3_source_overrides(s3_source)
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:

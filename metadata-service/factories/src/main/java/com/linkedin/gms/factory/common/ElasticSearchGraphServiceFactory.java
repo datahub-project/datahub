@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,7 +35,8 @@ public class ElasticSearchGraphServiceFactory {
   @Nonnull
   protected GraphService getInstance(
       final EntityRegistry entityRegistry,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      MetricUtils metricUtils) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
         lineageRegistry,
@@ -50,7 +52,8 @@ public class ElasticSearchGraphServiceFactory {
             lineageRegistry,
             components.getIndexConvention(),
             configurationProvider.getGraphService(),
-            configurationProvider.getElasticSearch()),
+            configurationProvider.getElasticSearch(),
+            metricUtils),
         components.getIndexBuilder(),
         idHashAlgo);
   }

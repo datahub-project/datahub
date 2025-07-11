@@ -80,6 +80,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -148,7 +149,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
     DashboardInfoClass,
@@ -875,10 +875,14 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @capability(
     SourceCapability.USAGE_STATS,
     "Dashboard/Chart view counts, enabled using extract_usage_stats config",
+    subtype_modifier=[
+        SourceCapabilityModifier.DASHBOARD,
+        SourceCapabilityModifier.CHART,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on.",
+    "Enabled by default via stateful ingestion.",
 )
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
@@ -2183,32 +2187,32 @@ class TableauSiteSource:
                     else []
                 )
 
-                # The Tableau SQL parser much worse than our sqlglot based parser,
-                # so relying on metadata parsed by Tableau from SQL queries can be
-                # less accurate. This option allows us to ignore Tableau's parser and
-                # only use our own.
-                if self.config.force_extraction_of_lineage_from_custom_sql_queries:
-                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
+                tableau_table_list = csql.get(c.TABLES, [])
+                if self.config.force_extraction_of_lineage_from_custom_sql_queries or (
+                    not tableau_table_list
+                    and self.config.extract_lineage_from_unsupported_custom_sql_queries
+                ):
+                    if not tableau_table_list:
+                        # custom sql tables may contain unsupported sql, causing incomplete lineage
+                        # we extract the lineage from the raw queries
+                        logger.debug(
+                            "Parsing TLL & CLL from custom sql (tableau metadata incomplete)"
+                        )
+                    else:
+                        # The Tableau SQL parser is much worse than our sqlglot based parser,
+                        # so relying on metadata parsed by Tableau from SQL queries can be
+                        # less accurate. This option allows us to ignore Tableau's parser and
+                        # only use our own.
+                        logger.debug("Parsing TLL & CLL from custom sql (forced)")
+
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql, columns
                     )
                 else:
-                    tables = csql.get(c.TABLES, [])
-
-                    if tables:
-                        # lineage from custom sql -> datasets/tables #
-                        yield from self._create_lineage_to_upstream_tables(
-                            csql_urn, tables, datasource
-                        )
-                    elif (
-                        self.config.extract_lineage_from_unsupported_custom_sql_queries
-                    ):
-                        logger.debug("Extracting TLL & CLL from custom sql")
-                        # custom sql tables may contain unsupported sql, causing incomplete lineage
-                        # we extract the lineage from the raw queries
-                        yield from self._create_lineage_from_unsupported_csql(
-                            csql_urn, csql, columns
-                        )
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tableau_table_list, datasource
+                    )
 
             #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
@@ -2246,7 +2250,6 @@ class TableauSiteSource:
             yield self.get_metadata_change_event(dataset_snapshot)
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
-                aspect_name=c.SUB_TYPES,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
 
@@ -2411,7 +2414,6 @@ class TableauSiteSource:
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
-                aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
             self.report.num_tables_with_upstream_lineage += 1
@@ -2597,7 +2599,6 @@ class TableauSiteSource:
         )
         yield self.get_metadata_change_proposal(
             csql_urn,
-            aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
         self.report.num_tables_with_upstream_lineage += 1
@@ -2643,14 +2644,10 @@ class TableauSiteSource:
     def get_metadata_change_proposal(
         self,
         urn: str,
-        aspect_name: str,
         aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityType=c.DATASET,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn,
-            aspectName=aspect_name,
             aspect=aspect,
         ).as_workunit()
 
@@ -2758,7 +2755,6 @@ class TableauSiteSource:
                 )
                 yield self.get_metadata_change_proposal(
                     datasource_urn,
-                    aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
                 self.report.num_tables_with_upstream_lineage += 1
@@ -2777,7 +2773,6 @@ class TableauSiteSource:
         yield self.get_metadata_change_event(dataset_snapshot)
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
-            aspect_name=c.SUB_TYPES,
             aspect=SubTypesClass(
                 typeNames=(
                     ["Embedded Data Source"]

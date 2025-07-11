@@ -21,7 +21,6 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -128,9 +127,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Incidents',
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, mlFeature, loading) => {
-                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, mlFeature) => {
+                        return mlFeature?.mlFeature?.activeIncidents?.total;
                     },
                 },
             ]}
