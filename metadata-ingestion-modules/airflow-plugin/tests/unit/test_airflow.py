@@ -14,7 +14,6 @@ from datahub_airflow_plugin._airflow_shims import AIRFLOW_PATCHED
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
-from tests.utils import PytestConfig
 
 assert AIRFLOW_PATCHED
 
@@ -66,7 +65,7 @@ def test_airflow_provider_info():
 
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
-def test_dags_load_with_no_errors(pytestconfig: PytestConfig) -> None:
+def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
