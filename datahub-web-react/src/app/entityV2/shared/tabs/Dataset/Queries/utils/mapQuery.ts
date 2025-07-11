@@ -1,7 +1,7 @@
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 
-import { Entity, QueryEntity, SchemaFieldEntity } from '@types';
+import { CorpUser, Entity, QueryEntity, SchemaFieldEntity } from '@types';
 
 interface Props {
     queryEntity: QueryEntity;
@@ -17,6 +17,7 @@ export function mapQuery({ queryEntity, entityUrn, siblingUrn, poweredEntity }: 
         description: queryEntity.properties?.description || undefined,
         query: queryEntity.properties?.statement?.value || '',
         createdTime: queryEntity?.properties?.created?.time,
+        createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
         columns: queryEntity.subjects
             ?.filter((s) => !!s.schemaField)
             ?.filter((s) => {
