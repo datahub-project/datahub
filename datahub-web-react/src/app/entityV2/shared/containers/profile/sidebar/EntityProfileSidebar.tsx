@@ -15,13 +15,19 @@ export const StyledEntitySidebarContainer = styled.div<{
     backgroundColor?: string;
     isFocused?: boolean;
     $isShowNavBarRedesign?: boolean;
+    $contextType?: TabContextType;
 }>`
     flex: 1;
     overflow: auto;
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
+    box-shadow: ${(props) => {
+        if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
+            return 'none';
+        }
+        if (props.$isShowNavBarRedesign) {
+            return props.theme.styles['box-shadow-navbar-redesign'];
+        }
+        return '0px 0px 6px 0px rgba(93, 102, 139, 0.2)';
+    }};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
@@ -31,6 +37,9 @@ export const StyledEntitySidebarContainer = styled.div<{
     }
 
     margin: ${(props) => {
+        if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
+            return '0';
+        }
         if (props.$isShowNavBarRedesign) {
             return '4px 4px 4px 8px';
         }
@@ -149,6 +158,7 @@ export default function EntityProfileSidebar({
             isFocused={focused}
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
+            $contextType={contextType}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
