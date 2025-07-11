@@ -7,6 +7,7 @@ import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvaila
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { wrapRows } from '@app/homeV3/templateRow/utils';
+import CreateModuleModal from '../addModule/modal/CreateModuleModal';
 
 const Wrapper = styled.div`
     display: flex;
@@ -42,6 +43,7 @@ export default function Template({ className }: Props) {
                 $hasRows={hasRows}
                 modulesAvailableToAdd={modulesAvailableToAdd}
             />
+            <CreateModuleModal />
         </Wrapper>
     );
 }

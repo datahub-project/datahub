@@ -6,6 +6,7 @@ import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 import { PageTemplateContextState } from '@app/homeV3/context/types';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
+import { useCreateModuleModalState } from './hooks/useCreateModuleModalState';
 
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
@@ -44,6 +45,8 @@ export const PageTemplateProvider = ({
         upsertTemplate,
     );
 
+    const createModuleModalState = useCreateModuleModalState();
+
     const value = useMemo(
         () => ({
             personalTemplate,
@@ -56,6 +59,7 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             createModule,
+            createModuleModalState,
         }),
         [
             personalTemplate,
@@ -68,6 +72,7 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             createModule,
+            createModuleModalState,
         ],
     );
 

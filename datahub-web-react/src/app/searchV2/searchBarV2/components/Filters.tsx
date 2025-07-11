@@ -64,14 +64,11 @@ export default function Filters({ query, appliedFilters, updateFieldAppliedFilte
     return (
         <SearchFilters
             fields={FILTER_FIELDS}
-            query={query}
-            viewUrn={viewUrn}
+            query=''
             appliedFilters={appliedFilters}
             updateFieldAppliedFilters={updateFieldAppliedFilters}
             filtersRenderer={MemoFiltersRenderer}
             fieldToFacetStateMap={fieldToFacetStateMap}
-            shouldUpdateFacetsForFieldsWithAppliedFilters
-            shouldUpdateFacetsForFieldsWithoutAppliedFilters={fieldToFacetStateMap === undefined}
         />
     );
 }

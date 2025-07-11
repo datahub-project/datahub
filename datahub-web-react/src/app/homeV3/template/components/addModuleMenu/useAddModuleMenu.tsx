@@ -41,7 +41,7 @@ export default function useAddModuleMenu(
     position: ModulePositionInput,
     closeMenu: () => void,
 ): MenuProps {
-    const { addModule } = usePageTemplateContext();
+    const { addModule, createModuleModalState: {open: openModal} } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -66,6 +66,11 @@ export default function useAddModuleMenu(
     //     },
     //     [createModule, position, closeMenu],
     // );
+
+    const handleOpenCreatingNewModuleModal = useCallback((type: DataHubPageModuleType) => {
+        openModal(type, position);
+        closeMenu();
+    }, [openModal, position, closeMenu])
 
     return useMemo(() => {
         const items: MenuProps['items'] = [];
@@ -112,12 +117,21 @@ export default function useAddModuleMenu(
                 handleAddExistingModule(DOMAINS_MODULE);
             },
         };
+        
+        const hierarchyView = {
+            title: 'Hierarchy View',
+            key: 'hierarchyView',
+            label: <MenuItem description="Most used domains in your organization" title="Hierarchy View" icon="Globe" />,
+            onClick: () => {
+                handleOpenCreatingNewModuleModal(DataHubPageModuleType.Hierarchy);
+            },
+        };
 
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Custom Large" />,
             type: 'group',
-            children: [yourAssets, domains],
+            children: [yourAssets, domains, hierarchyView],
         });
 
         // Add admin created modules if available
@@ -147,5 +161,5 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd, handleAddExistingModule]);
+    }, [modulesAvailableToAdd, handleAddExistingModule, handleOpenCreatingNewModuleModal]);
 }
