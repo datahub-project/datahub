@@ -20,9 +20,9 @@ const STATUS_COLORS = {
     red: '#C62828',
 };
 
-const StatusPill = styled(Pill)<{ statusColor: string }>`
+const StatusPill = styled(Pill)<{ statusColor: keyof typeof STATUS_COLORS }>`
     ${({ statusColor }) => {
-        const backgroundColor = STATUS_COLORS[statusColor as keyof typeof STATUS_COLORS];
+        const backgroundColor = STATUS_COLORS[statusColor];
         return (
             backgroundColor &&
             `
