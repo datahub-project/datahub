@@ -1326,7 +1326,7 @@ ORDER by DataBaseName, TableName;
 
         for entry in entries:
             query_id = getattr(entry, "query_id", None)
-            query_text = str(getattr(entry, "query_text", "")).strip()
+            query_text = str(getattr(entry, "query_text", ""))
 
             if query_id != current_query_id:
                 # New query started - yield the previous one if it exists

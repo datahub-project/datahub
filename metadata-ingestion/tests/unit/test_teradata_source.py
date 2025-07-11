@@ -1163,17 +1163,17 @@ class TestStreamingQueryReconstruction:
             entries = [
                 # Query 1: 3 rows
                 self._create_mock_entry(
-                    "Q1", "SELECT a, b, c", 1, "2024-01-01 10:00:00"
+                    "Q1", "SELECT a, b, c ", 1, "2024-01-01 10:00:00"
                 ),
                 self._create_mock_entry(
-                    "Q1", "FROM large_table", 2, "2024-01-01 10:00:00"
+                    "Q1", "FROM large_table ", 2, "2024-01-01 10:00:00"
                 ),
                 self._create_mock_entry(
                     "Q1", "WHERE id > 1000", 3, "2024-01-01 10:00:00"
                 ),
                 # Query 2: 2 rows
                 self._create_mock_entry(
-                    "Q2", "UPDATE table3 SET", 1, "2024-01-01 10:01:00"
+                    "Q2", "UPDATE table3 SET ", 1, "2024-01-01 10:01:00"
                 ),
                 self._create_mock_entry(
                     "Q2", "status = 'active'", 2, "2024-01-01 10:01:00"
@@ -1219,10 +1219,10 @@ class TestStreamingQueryReconstruction:
                 ),
                 # Multi-row query (3 rows)
                 self._create_mock_entry(
-                    "Q2", "SELECT a, b, c", 1, "2024-01-01 10:01:00"
+                    "Q2", "SELECT a, b, c ", 1, "2024-01-01 10:01:00"
                 ),
                 self._create_mock_entry(
-                    "Q2", "FROM large_table", 2, "2024-01-01 10:01:00"
+                    "Q2", "FROM large_table ", 2, "2024-01-01 10:01:00"
                 ),
                 self._create_mock_entry(
                     "Q2", "WHERE id > 1000", 3, "2024-01-01 10:01:00"
@@ -1233,7 +1233,7 @@ class TestStreamingQueryReconstruction:
                 ),
                 # Multi-row query (2 rows)
                 self._create_mock_entry(
-                    "Q4", "UPDATE table3 SET", 1, "2024-01-01 10:03:00"
+                    "Q4", "UPDATE table3 SET ", 1, "2024-01-01 10:03:00"
                 ),
                 self._create_mock_entry(
                     "Q4", "status = 'active'", 2, "2024-01-01 10:03:00"
@@ -1450,9 +1450,7 @@ class TestStreamingQueryReconstruction:
             assert reconstructed_queries[0].query == "SELECT col1, col2 FROM table1"
 
             # Query 2: Should handle existing spaces correctly (may have extra spaces)
-            assert (
-                reconstructed_queries[1].query == "SELECT *  FROM table2  WHERE id > 1"
-            )
+            assert reconstructed_queries[1].query == "SELECT * FROM table2 WHERE id > 1"
 
     def _create_mock_entry(
         self,
