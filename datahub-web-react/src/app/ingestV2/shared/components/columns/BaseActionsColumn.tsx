@@ -23,7 +23,7 @@ const ActionIcons = styled.div`
         border-radius: 200px;
         width: 24px;
         height: 24px;
-        padding: 2px;
+        padding: 4px;
         color: ${colors.gray[1800]};
         :hover {
             cursor: pointer;
