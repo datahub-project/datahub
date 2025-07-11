@@ -62,3 +62,20 @@ mcp_http_app = datahub_fastmcp.http_app(
     stateless_http=True,
     middleware=[Middleware(cls=BaseHTTPMiddleware, dispatch=_parse_token)],
 )
+
+# The SSE transport requires header authentication. As part of the SSE transport,
+# the client makes multiple requests to different endpoints on the server.
+# Most MCP clients, including ChatGPT and FastMCP, do not preserve the
+# query parameters in the subsequent requests.
+# In the case of ChatGPT.com, as of 2025-07-10 there is no way to add request
+# headers, and so we can't really support them until they add streamable-http
+# support.
+# TODO: This was added largely in an attempt to marginally improve our MCP
+# compatibility story. Given that SSE is deprecated and ChatGPT.com is the
+# main straggler requiring SSE, this functionality will probably never be
+# useful and can be removed when most clients have switched to streamable-http.
+mcp_sse_app = datahub_fastmcp.http_app(
+    transport="sse",
+    stateless_http=True,
+    middleware=[Middleware(cls=BaseHTTPMiddleware, dispatch=_parse_token)],
+)

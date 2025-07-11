@@ -1,12 +1,13 @@
 import json
 import pathlib
 from typing import (
+    Annotated,
     Any,
     Literal,
-    TypeAlias,
+    Union,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # This is similar to the base classes from LangChain. The main difference
 # is that LangChain's AIMessage was split into AssistantMessage and
@@ -121,14 +122,17 @@ class ToolResultError(_BaseMessage):
         }
 
 
-Message: TypeAlias = (
-    HumanMessage
-    | AssistantMessage
-    | ReasoningMessage
-    | ToolCallRequest
-    | ToolResult
-    | ToolResultError
-)
+Message = Annotated[
+    Union[
+        HumanMessage,
+        AssistantMessage,
+        ReasoningMessage,
+        ToolCallRequest,
+        ToolResult,
+        ToolResultError,
+    ],
+    Field(discriminator="type"),
+]
 
 
 class ChatHistory(BaseModel):
