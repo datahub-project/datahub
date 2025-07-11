@@ -48,21 +48,73 @@ public class LineageDatasetUrnResolver extends MutationHook {
   @SneakyThrows
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPSColl, @Nonnull RetrieverContext retrieverContext) {
+    Set<Integer> mcpsToCheck = new HashSet<>();
+    Set<Urn> urnsToCheck = new HashSet<>();
+
+    List<ChangeMCP> changeMCPS = new ArrayList<>(changeMCPSColl);
+
+    for (int i = 0; i < changeMCPS.size(); i++) {
+      ChangeMCP mcp = changeMCPS.get(i);
+      if (mcp.getAspectName().equals(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+        DataJobInputOutput dataJobInputOutput = mcp.getAspect(DataJobInputOutput.class);
+        Set<Urn> newUrnsToCheck = new HashSet<>();
+        checkUrns(retrieverContext, dataJobInputOutput.getInputDatasetEdges(), newUrnsToCheck);
+        checkUrns(retrieverContext, dataJobInputOutput.getOutputDatasetEdges(), newUrnsToCheck);
+        checkUrns(retrieverContext, dataJobInputOutput.getFineGrainedLineages(), newUrnsToCheck);
+        if (!newUrnsToCheck.isEmpty()) {
+          mcpsToCheck.add(i);
+        }
+        urnsToCheck.addAll(newUrnsToCheck);
+      }
+    }
+
+    Map<Urn, Boolean> existence = retrieverContext.getAspectRetriever().entityExists(urnsToCheck);
+    Set<DatasetUrn> existentUrns = new HashSet<>();
+    Set<DatasetUrn> urnsToResolve = new HashSet<>();
+    for (Map.Entry<Urn, Boolean> entry : existence.entrySet()) {
+      DatasetUrn datasetUrn = DatasetUrn.createFromUrn(entry.getKey());
+      if (entry.getValue()) {
+        existentUrns.add(datasetUrn);
+      } else {
+        urnsToResolve.add(datasetUrn);
+      }
+    }
+
+    Map<DatasetUrn, DatasetUrn> resolvedUrns = resolve(urnsToResolve, retrieverContext);
+    Set<DatasetUrn> unresolvedUrns = new HashSet<>(urnsToResolve);
+    unresolvedUrns.removeAll(resolvedUrns.keySet());
+
     List<Pair<ChangeMCP, Boolean>> result = new ArrayList<>();
 
-    for (ChangeMCP mcp : changeMCPS) {
+    for (int i = 0; i < changeMCPS.size(); i++) {
+      ChangeMCP mcp = changeMCPS.get(i);
+      if (!mcpsToCheck.contains(i)) {
+        result.add(Pair.of(mcp, false));
+        continue;
+      }
       boolean modified = false;
       if (mcp.getAspectName().equals(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
         DataJobInputOutput dataJobInputOutput = mcp.getAspect(DataJobInputOutput.class);
         boolean inputsDatasetsModified =
-            checkDatasetUrns(retrieverContext, dataJobInputOutput.getInputDatasetEdges());
+            checkDatasetUrns(
+                dataJobInputOutput.getInputDatasetEdges(),
+                existentUrns,
+                resolvedUrns,
+                unresolvedUrns);
         boolean outputDatasetsModified =
-            checkDatasetUrns(retrieverContext, dataJobInputOutput.getOutputDatasetEdges());
+            checkDatasetUrns(
+                dataJobInputOutput.getOutputDatasetEdges(),
+                existentUrns,
+                resolvedUrns,
+                unresolvedUrns);
         boolean fineGrainedModified =
             (inputsDatasetsModified || outputDatasetsModified)
                 && checkFineGrainedLineages(
-                    retrieverContext, dataJobInputOutput.getFineGrainedLineages());
+                    dataJobInputOutput.getFineGrainedLineages(),
+                    existentUrns,
+                    resolvedUrns,
+                    unresolvedUrns);
         modified = inputsDatasetsModified || outputDatasetsModified || fineGrainedModified;
       }
       result.add(Pair.of(mcp, modified));
@@ -70,36 +122,78 @@ public class LineageDatasetUrnResolver extends MutationHook {
     return result.stream();
   }
 
+  private void checkUrns(RetrieverContext retrieverContext, EdgeArray edges, Set<Urn> urnsToCheck) {
+    if (edges == null) {
+      return;
+    }
+    edges.forEach(
+        e -> {
+          try {
+            DatasetUrn urn = DatasetUrn.createFromUrn(e.getDestinationUrn());
+            if (shouldResolve(urn, retrieverContext)) {
+              urnsToCheck.add(urn);
+            }
+          } catch (URISyntaxException ex) {
+            log.error("Ignoring unexpected urn " + e.getDestinationUrn(), ex);
+          }
+        });
+  }
+
   @SneakyThrows
-  private boolean checkDatasetUrns(RetrieverContext retrieverContext, EdgeArray edges) {
+  private boolean checkDatasetUrns(
+      EdgeArray edges,
+      Set<DatasetUrn> existentUrns,
+      Map<DatasetUrn, DatasetUrn> resolvedUrns,
+      Set<DatasetUrn> unresolvedUrns) {
     if (edges == null) {
       return false;
     }
     boolean modified = false;
     for (Edge edge : edges) {
       DatasetUrn urn = DatasetUrn.createFromUrn(edge.getDestinationUrn());
-
-      if (shouldResolve(urn, retrieverContext)) {
-        if (exists(urn, retrieverContext)) {
-          edge.setConfidenceScore(scoreUrnExists, SetMode.IGNORE_NULL);
-        } else {
-          Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-          if (resolvedUrn.isEmpty()) {
-            edge.setConfidenceScore(scoreUrnUnresolved, SetMode.IGNORE_NULL);
-          } else {
-            edge.setDestinationUrn(resolvedUrn.get());
-            edge.setConfidenceScore(scoreUrnResolvedPlatformResource, SetMode.IGNORE_NULL);
-          }
-        }
-        modified = true;
+      if (existentUrns.contains(urn)) {
+        edge.setConfidenceScore(scoreUrnExists, SetMode.IGNORE_NULL);
+      } else if (unresolvedUrns.contains(urn)) {
+        edge.setConfidenceScore(scoreUrnUnresolved, SetMode.IGNORE_NULL);
+      } else if (resolvedUrns.containsKey(urn)) {
+        edge.setDestinationUrn(resolvedUrns.get(urn));
+        edge.setConfidenceScore(scoreUrnResolvedPlatformResource, SetMode.IGNORE_NULL);
+      } else {
+        // no modifications
+        continue;
       }
+      modified = true;
     }
     return modified;
   }
 
+  private void checkUrns(
+      RetrieverContext retrieverContext,
+      FineGrainedLineageArray fineGrainedLineages,
+      Set<Urn> urnsToCheck) {
+    if (fineGrainedLineages == null) {
+      return;
+    }
+    for (FineGrainedLineage fineGrainedLineage : fineGrainedLineages) {
+      checkUrns(
+          fineGrainedLineage.getDownstreams(),
+          Set.of(FIELD, FIELD_SET).contains(fineGrainedLineage.getDownstreamType()),
+          retrieverContext,
+          urnsToCheck);
+      checkUrns(
+          fineGrainedLineage.getUpstreams(),
+          FineGrainedLineageUpstreamType.FIELD_SET == fineGrainedLineage.getUpstreamType(),
+          retrieverContext,
+          urnsToCheck);
+    }
+  }
+
   @SneakyThrows
   private boolean checkFineGrainedLineages(
-      RetrieverContext retrieverContext, FineGrainedLineageArray fineGrainedLineages) {
+      FineGrainedLineageArray fineGrainedLineages,
+      Set<DatasetUrn> existentUrns,
+      Map<DatasetUrn, DatasetUrn> resolvedUrns,
+      Set<DatasetUrn> unresolvedUrns) {
     if (fineGrainedLineages == null) {
       return false;
     }
@@ -109,7 +203,9 @@ public class LineageDatasetUrnResolver extends MutationHook {
           checkFinegrainedUrns(
               fineGrainedLineage.getDownstreams(),
               Set.of(FIELD, FIELD_SET).contains(fineGrainedLineage.getDownstreamType()),
-              retrieverContext);
+              existentUrns,
+              resolvedUrns,
+              unresolvedUrns);
       if (updatedDownstreams.isPresent()) {
         fineGrainedLineage.setDownstreams(updatedDownstreams.get());
         modified = true;
@@ -119,7 +215,9 @@ public class LineageDatasetUrnResolver extends MutationHook {
           checkFinegrainedUrns(
               fineGrainedLineage.getUpstreams(),
               FineGrainedLineageUpstreamType.FIELD_SET == fineGrainedLineage.getUpstreamType(),
-              retrieverContext);
+              existentUrns,
+              resolvedUrns,
+              unresolvedUrns);
       if (updatedUpstreams.isPresent()) {
         fineGrainedLineage.setUpstreams(updatedUpstreams.get());
         modified = true;
@@ -129,8 +227,47 @@ public class LineageDatasetUrnResolver extends MutationHook {
   }
 
   @SneakyThrows
+  private void checkUrns(
+      UrnArray urns,
+      boolean schemaFields,
+      RetrieverContext retrieverContext,
+      Set<Urn> urnsToCheck) {
+    if (schemaFields) {
+      for (Urn fieldUrn : urns) {
+        if (!"schemaField".equals(fieldUrn.getEntityType())) {
+          // strange, but ignoring here
+          continue;
+        }
+        if (fieldUrn.getEntityKey().getParts().size() != 2) {
+          // strange, but ignoring here
+          continue;
+        }
+        DatasetUrn urn = DatasetUrn.createFromString(fieldUrn.getEntityKey().getFirst());
+        if (shouldResolve(urn, retrieverContext)) {
+          urnsToCheck.add(urn);
+        }
+      }
+    } else {
+      for (Urn datasetUrn : urns) {
+        if (!"dataset".equals(datasetUrn.getEntityType())) {
+          // strange, but ignoring here
+          continue;
+        }
+        DatasetUrn urn = DatasetUrn.createFromUrn(datasetUrn);
+        if (shouldResolve(urn, retrieverContext)) {
+          urnsToCheck.add(urn);
+        }
+      }
+    }
+  }
+
+  @SneakyThrows
   private Optional<UrnArray> checkFinegrainedUrns(
-      UrnArray urns, boolean schemaFields, RetrieverContext retrieverContext) {
+      UrnArray urns,
+      boolean schemaFields,
+      Set<DatasetUrn> existentUrns,
+      Map<DatasetUrn, DatasetUrn> resolvedUrns,
+      Set<DatasetUrn> unresolvedUrns) {
     UrnArray result = new UrnArray(urns);
     boolean modified = false;
 
@@ -146,15 +283,12 @@ public class LineageDatasetUrnResolver extends MutationHook {
           continue;
         }
         DatasetUrn urn = DatasetUrn.createFromString(fieldUrn.getEntityKey().getFirst());
-        if (shouldResolve(urn, retrieverContext) && !exists(urn, retrieverContext)) {
-          Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-          if (resolvedUrn.isPresent()) {
-            Urn updatedFieldUrn =
-                Urn.createFromTuple(
-                    "schemaField", resolvedUrn.get(), fieldUrn.getEntityKey().get(1));
-            iter.set(updatedFieldUrn);
-            modified = true;
-          }
+        if (resolvedUrns.containsKey(urn)) {
+          Urn updatedFieldUrn =
+              Urn.createFromTuple(
+                  "schemaField", resolvedUrns.get(urn), fieldUrn.getEntityKey().get(1));
+          iter.set(updatedFieldUrn);
+          modified = true;
         }
       }
     } else {
@@ -165,12 +299,9 @@ public class LineageDatasetUrnResolver extends MutationHook {
           continue;
         }
         DatasetUrn urn = DatasetUrn.createFromUrn(datasetUrn);
-        if (shouldResolve(urn, retrieverContext) && !exists(urn, retrieverContext)) {
-          Optional<DatasetUrn> resolvedUrn = resolve(urn, retrieverContext);
-          if (resolvedUrn.isPresent()) {
-            iter.set(resolvedUrn.get());
-            modified = true;
-          }
+        if (resolvedUrns.containsKey(urn)) {
+          iter.set(resolvedUrns.get(urn));
+          modified = true;
         }
       }
     }
@@ -186,30 +317,45 @@ public class LineageDatasetUrnResolver extends MutationHook {
     return existsMap.get(urn);
   }
 
-  private static Optional<DatasetUrn> resolve(DatasetUrn urn, RetrieverContext retrieverContext) {
-    String platformResourceUrn =
-        String.format(
-            "urn:li:platformResource:%s.%s",
-            urn.getPlatformEntity().getPlatformNameEntity(), urn.getDatasetNameEntity());
+  private static Map<DatasetUrn, DatasetUrn> resolve(
+      Set<DatasetUrn> datasetUrns, RetrieverContext retrieverContext) {
+    Map<Urn, DatasetUrn> resourceUrns = new HashMap<>();
+    for (DatasetUrn datasetUrn : datasetUrns) {
+      Urn resourceUrn =
+          UrnUtils.getUrn(
+              String.format(
+                  "urn:li:platformResource:%s.%s",
+                  datasetUrn.getPlatformEntity().getPlatformNameEntity(),
+                  datasetUrn.getDatasetNameEntity()));
+      resourceUrns.put(resourceUrn, datasetUrn);
+    }
 
-    Aspect resourceInfoAspect =
+    Map<Urn, Map<String, Aspect>> resourceInfoAspects =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(
-                UrnUtils.getUrn(platformResourceUrn), PLATFORM_RESOURCE_INFO_ASPECT_NAME);
+            .getLatestAspectObjects(
+                resourceUrns.keySet(), Set.of(PLATFORM_RESOURCE_INFO_ASPECT_NAME));
 
-    if (resourceInfoAspect == null) {
-      return Optional.empty();
+    Map<DatasetUrn, DatasetUrn> result = new HashMap<>();
+    for (Map.Entry<Urn, Map<String, Aspect>> entry : resourceInfoAspects.entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      Aspect resourceInfoAspect = entry.getValue().get(PLATFORM_RESOURCE_INFO_ASPECT_NAME);
+      if (resourceInfoAspect == null) {
+        continue;
+      }
+      PlatformResourceInfo resourceInfo =
+          RecordUtils.toRecordTemplate(PlatformResourceInfo.class, resourceInfoAspect.data());
+
+      try {
+        DatasetUrn resolvedUrn = DatasetUrn.createFromString(resourceInfo.getPrimaryKey());
+        DatasetUrn originalUrn = resourceUrns.get(entry.getKey());
+        result.put(originalUrn, resolvedUrn);
+      } catch (URISyntaxException e) {
+        log.error("Urn format error", e);
+      }
     }
-
-    PlatformResourceInfo resourceInfo =
-        RecordUtils.toRecordTemplate(PlatformResourceInfo.class, resourceInfoAspect.data());
-
-    try {
-      return Optional.of(DatasetUrn.createFromString(resourceInfo.getPrimaryKey()));
-    } catch (URISyntaxException e) {
-      log.error("Urn format error", e);
-      return Optional.empty();
-    }
+    return result;
   }
 }

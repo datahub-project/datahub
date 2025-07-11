@@ -56,6 +56,8 @@ public class LineageDatasetUrnResolverTest {
       new PlatformResourceInfo().setPrimaryKey(upstreamIcebergUrnResolved.toString());
   private Urn upstreamNonExistentUrn =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:iceberg,nonExistent,PROD)");
+  private Urn upstreamNonExistentResourceUrn =
+      UrnUtils.getUrn("urn:li:platformResource:iceberg.nonExistent");
   private Urn upstreamExistingUrnNoResolution =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:iceberg,existing,PROD)");
   private Urn upstreamIcebergSchemaFieldUrn =
@@ -160,24 +162,35 @@ public class LineageDatasetUrnResolverTest {
                         .setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET)
                         .setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET)));
 
-    when(mockAspectRetriever.entityExists(eq(Set.of(upstreamIcebergUrn))))
-        .thenReturn(Map.of(upstreamIcebergUrn, false));
-    when(mockAspectRetriever.entityExists(eq(Set.of(upstreamNonExistentUrn))))
-        .thenReturn(Map.of(upstreamNonExistentUrn, false));
-    when(mockAspectRetriever.entityExists(eq(Set.of(upstreamExistingUrnNoResolution))))
-        .thenReturn(Map.of(upstreamExistingUrnNoResolution, true));
-    when(mockAspectRetriever.entityExists(eq(Set.of(downstreamIcebergUrn))))
-        .thenReturn(Map.of(downstreamIcebergUrn, false));
+    when(mockAspectRetriever.entityExists(
+            eq(
+                Set.of(
+                    upstreamIcebergUrn,
+                    upstreamNonExistentUrn,
+                    upstreamExistingUrnNoResolution,
+                    downstreamIcebergUrn))))
+        .thenReturn(
+            Map.of(
+                upstreamIcebergUrn,
+                false,
+                upstreamNonExistentUrn,
+                false,
+                upstreamExistingUrnNoResolution,
+                true,
+                downstreamIcebergUrn,
+                false));
 
-    when(mockAspectRetriever.getLatestAspectObject(
-            eq(upstreamResourceUrn), eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME)))
-        .thenReturn(new Aspect(upstreamResourceInfo.data()));
-    when(mockAspectRetriever.getLatestAspectObject(
-            eq(upstreamNonExistentUrn), eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME)))
-        .thenReturn(null);
-    when(mockAspectRetriever.getLatestAspectObject(
-            eq(downstreamResourceUrn), eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME)))
-        .thenReturn(new Aspect(downstreamResourceInfo.data()));
+    when(mockAspectRetriever.getLatestAspectObjects(
+            eq(Set.of(upstreamResourceUrn, downstreamResourceUrn, upstreamNonExistentResourceUrn)),
+            eq(Set.of(PLATFORM_RESOURCE_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                upstreamResourceUrn,
+                Map.of(PLATFORM_RESOURCE_INFO_ASPECT_NAME, new Aspect(upstreamResourceInfo.data())),
+                downstreamResourceUrn,
+                Map.of(
+                    PLATFORM_RESOURCE_INFO_ASPECT_NAME,
+                    new Aspect(downstreamResourceInfo.data()))));
 
     LineageDatasetUrnResolver test =
         new LineageDatasetUrnResolver()
