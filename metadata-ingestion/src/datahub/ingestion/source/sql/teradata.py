@@ -591,7 +591,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
         and s.CollectTimeStamp >= TIMESTAMP '{start_time}'
         and default_database not in ('DEMONOW_MONITOR')
         {databases_filter}
-    ORDER BY "query_id", "row_no"
+    ORDER BY "timestamp", "query_id", "row_no"
     """.strip()
 
     QUERY_TEXT_HISTORICAL_UNION: str = """
@@ -670,7 +670,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
             and l.DefaultDatabase not in ('DEMONOW_MONITOR')
             {databases_filter}
     ) as combined_results
-    ORDER BY "query_id", "row_no"
+    ORDER BY "timestamp", "query_id", "row_no"
     """.strip()
 
     TABLES_AND_VIEWS_QUERY: str = f"""
@@ -1312,8 +1312,77 @@ ORDER by DataBaseName, TableName;
             finally:
                 engine.dispose()
 
+    def _reconstruct_queries_streaming(
+        self, entries: Iterable[Any]
+    ) -> Iterable[ObservedQuery]:
+        """Reconstruct complete queries from database entries in streaming fashion.
+
+        This method processes entries in order and reconstructs multi-row queries
+        by concatenating rows with the same query_id.
+        """
+        current_query_id = None
+        current_query_parts = []
+        current_query_metadata = None
+
+        for entry in entries:
+            query_id = getattr(entry, "query_id", None)
+            query_text = str(getattr(entry, "query_text", "")).strip()
+
+            if query_id != current_query_id:
+                # New query started - yield the previous one if it exists
+                if current_query_id is not None and current_query_parts:
+                    yield self._create_observed_query_from_parts(
+                        current_query_parts, current_query_metadata
+                    )
+
+                # Start new query
+                current_query_id = query_id
+                current_query_parts = [query_text] if query_text else []
+                current_query_metadata = entry
+            else:
+                # Same query - append the text
+                if query_text:
+                    current_query_parts.append(query_text)
+
+        # Yield the last query if it exists
+        if current_query_id is not None and current_query_parts:
+            yield self._create_observed_query_from_parts(
+                current_query_parts, current_query_metadata
+            )
+
+    def _create_observed_query_from_parts(
+        self, query_parts: List[str], metadata_entry: Any
+    ) -> ObservedQuery:
+        """Create ObservedQuery from reconstructed query parts and metadata."""
+        # Join all parts to form the complete query
+        # Teradata fragments are split at fixed lengths without artificial breaks
+        full_query_text = "".join(query_parts)
+
+        # Extract metadata
+        session_id = getattr(metadata_entry, "session_id", None)
+        timestamp = getattr(metadata_entry, "timestamp", None)
+        user = getattr(metadata_entry, "user", None)
+        default_database = getattr(metadata_entry, "default_database", None)
+
+        # Apply Teradata-specific query transformations
+        cleaned_query = full_query_text.replace("(NOT CASESPECIFIC)", "")
+
+        return ObservedQuery(
+            query=cleaned_query,
+            session_id=session_id,
+            timestamp=timestamp,
+            user=CorpUserUrn(user) if user else None,
+            default_db=default_database,
+            default_schema=default_database,  # Teradata uses database as schema
+        )
+
     def _convert_entry_to_observed_query(self, entry: Any) -> ObservedQuery:
-        """Convert database query entry to ObservedQuery for SqlParsingAggregator."""
+        """Convert database query entry to ObservedQuery for SqlParsingAggregator.
+
+        DEPRECATED: This method is deprecated in favor of _reconstruct_queries_streaming
+        which properly handles multi-row queries. This method does not handle queries
+        that span multiple rows correctly and should not be used.
+        """
         # Extract fields from database result
         query_text = str(entry.query_text).strip()
         session_id = getattr(entry, "session_id", None)
@@ -1549,13 +1618,15 @@ ORDER by DataBaseName, TableName;
 
         if self.config.include_table_lineage or self.config.include_usage_statistics:
             # Step 1: Stream query entries from database with memory-efficient processing
-            with self.report.new_stage("Fecthing lineage entries from Audit Logs"):
+            with self.report.new_stage("Fetching lineage entries from Audit Logs"):
                 queries_processed = 0
                 entries_processed = False
 
-                for entry in self._fetch_lineage_entries_chunked():
+                # Use streaming query reconstruction for memory efficiency
+                for observed_query in self._reconstruct_queries_streaming(
+                    self._fetch_lineage_entries_chunked()
+                ):
                     entries_processed = True
-                    observed_query = self._convert_entry_to_observed_query(entry)
                     self.aggregator.add(observed_query)
 
                     queries_processed += 1
@@ -1564,7 +1635,7 @@ ORDER by DataBaseName, TableName;
                             f"Processed {queries_processed} queries to aggregator"
                         )
 
-                if queries_processed > 0:
+                if not entries_processed:
                     logger.info("No lineage entries found")
                     return
 

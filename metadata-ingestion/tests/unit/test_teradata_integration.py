@@ -654,7 +654,3 @@ class TestResourceManagement:
 
                     # Engine should still be disposed
                     mock_engine.dispose.assert_called_once()
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])

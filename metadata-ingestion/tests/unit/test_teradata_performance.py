@@ -9,8 +9,6 @@ from datetime import datetime
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
@@ -585,7 +583,3 @@ class TestQueryOptimizations:
         mock_self.get_schema_columns.assert_called_with(
             mock_connection, "columnsQV", "test_schema"
         )
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])

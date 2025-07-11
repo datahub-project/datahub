@@ -1,8 +1,6 @@
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -1061,7 +1059,7 @@ class TestQueryConstruction:
             assert "l.ErrorCode = 0" in current_query
             assert "2024-01-01" in current_query
             assert "2024-01-02" in current_query
-            assert 'ORDER BY "query_id", "row_no"' in current_query
+            assert 'ORDER BY "timestamp", "query_id", "row_no"' in current_query
 
     def test_historical_query_construction(self):
         """Test that the UNION query contains historical data correctly."""
@@ -1098,9 +1096,381 @@ class TestQueryConstruction:
                 assert "h.DefaultDatabase" in union_query
                 assert "2024-01-01" in union_query
                 assert "2024-01-02" in union_query
-                assert 'ORDER BY "query_id", "row_no"' in union_query
+                assert 'ORDER BY "timestamp", "query_id", "row_no"' in union_query
                 assert "UNION" in union_query
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+class TestStreamingQueryReconstruction:
+    """Test the streaming query reconstruction functionality."""
+
+    def test_reconstruct_queries_streaming_single_row_queries(self):
+        """Test streaming reconstruction with single-row queries."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entries for single-row queries
+            entries = [
+                self._create_mock_entry(
+                    "Q1", "SELECT * FROM table1", 1, "2024-01-01 10:00:00"
+                ),
+                self._create_mock_entry(
+                    "Q2", "SELECT * FROM table2", 1, "2024-01-01 10:01:00"
+                ),
+                self._create_mock_entry(
+                    "Q3", "SELECT * FROM table3", 1, "2024-01-01 10:02:00"
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 3
+            assert reconstructed_queries[0].query == "SELECT * FROM table1"
+            assert reconstructed_queries[1].query == "SELECT * FROM table2"
+            assert reconstructed_queries[2].query == "SELECT * FROM table3"
+
+            # Verify metadata preservation
+            assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+            assert reconstructed_queries[2].timestamp == "2024-01-01 10:02:00"
+
+    def test_reconstruct_queries_streaming_multi_row_queries(self):
+        """Test streaming reconstruction with multi-row queries."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entries for multi-row queries
+            entries = [
+                # Query 1: 3 rows
+                self._create_mock_entry(
+                    "Q1", "SELECT a, b, c", 1, "2024-01-01 10:00:00"
+                ),
+                self._create_mock_entry(
+                    "Q1", "FROM large_table", 2, "2024-01-01 10:00:00"
+                ),
+                self._create_mock_entry(
+                    "Q1", "WHERE id > 1000", 3, "2024-01-01 10:00:00"
+                ),
+                # Query 2: 2 rows
+                self._create_mock_entry(
+                    "Q2", "UPDATE table3 SET", 1, "2024-01-01 10:01:00"
+                ),
+                self._create_mock_entry(
+                    "Q2", "status = 'active'", 2, "2024-01-01 10:01:00"
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 2
+            assert (
+                reconstructed_queries[0].query
+                == "SELECT a, b, c FROM large_table WHERE id > 1000"
+            )
+            assert (
+                reconstructed_queries[1].query == "UPDATE table3 SET status = 'active'"
+            )
+
+            # Verify metadata preservation (should use metadata from first row of each query)
+            assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+
+    def test_reconstruct_queries_streaming_mixed_queries(self):
+        """Test streaming reconstruction with mixed single and multi-row queries."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entries mixing single and multi-row queries
+            entries = [
+                # Single-row query
+                self._create_mock_entry(
+                    "Q1", "SELECT * FROM table1", 1, "2024-01-01 10:00:00"
+                ),
+                # Multi-row query (3 rows)
+                self._create_mock_entry(
+                    "Q2", "SELECT a, b, c", 1, "2024-01-01 10:01:00"
+                ),
+                self._create_mock_entry(
+                    "Q2", "FROM large_table", 2, "2024-01-01 10:01:00"
+                ),
+                self._create_mock_entry(
+                    "Q2", "WHERE id > 1000", 3, "2024-01-01 10:01:00"
+                ),
+                # Single-row query
+                self._create_mock_entry(
+                    "Q3", "SELECT COUNT(*) FROM table2", 1, "2024-01-01 10:02:00"
+                ),
+                # Multi-row query (2 rows)
+                self._create_mock_entry(
+                    "Q4", "UPDATE table3 SET", 1, "2024-01-01 10:03:00"
+                ),
+                self._create_mock_entry(
+                    "Q4", "status = 'active'", 2, "2024-01-01 10:03:00"
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 4
+            assert reconstructed_queries[0].query == "SELECT * FROM table1"
+            assert (
+                reconstructed_queries[1].query
+                == "SELECT a, b, c FROM large_table WHERE id > 1000"
+            )
+            assert reconstructed_queries[2].query == "SELECT COUNT(*) FROM table2"
+            assert (
+                reconstructed_queries[3].query == "UPDATE table3 SET status = 'active'"
+            )
+
+    def test_reconstruct_queries_streaming_empty_entries(self):
+        """Test streaming reconstruction with empty entries."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Test with empty entries
+            entries: List[Any] = []
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+            assert len(reconstructed_queries) == 0
+
+    def test_reconstruct_queries_streaming_teradata_specific_transformations(self):
+        """Test that Teradata-specific transformations are applied."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entry with Teradata-specific syntax
+            entries = [
+                self._create_mock_entry(
+                    "Q1",
+                    "SELECT * FROM table1 (NOT CASESPECIFIC)",
+                    1,
+                    "2024-01-01 10:00:00",
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            # Should remove (NOT CASESPECIFIC)
+            assert reconstructed_queries[0].query == "SELECT * FROM table1 "
+
+    def test_reconstruct_queries_streaming_metadata_preservation(self):
+        """Test that all metadata fields are preserved correctly."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entry with all metadata fields
+            entries: List[Any] = [
+                self._create_mock_entry(
+                    "Q1",
+                    "SELECT * FROM table1",
+                    1,
+                    "2024-01-01 10:00:00",
+                    user="test_user",
+                    default_database="test_db",
+                    session_id="session123",
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            query = reconstructed_queries[0]
+
+            # Verify all metadata fields
+            assert query.query == "SELECT * FROM table1"
+            assert query.timestamp == "2024-01-01 10:00:00"
+            assert isinstance(query.user, CorpUserUrn)
+            assert str(query.user) == "urn:li:corpuser:test_user"
+            assert query.default_db == "test_db"
+            assert query.default_schema == "test_db"  # Teradata uses database as schema
+            assert query.session_id == "session123"
+
+    def test_reconstruct_queries_streaming_with_none_user(self):
+        """Test streaming reconstruction handles None user correctly."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entry with None user
+            entries = [
+                self._create_mock_entry(
+                    "Q1", "SELECT * FROM table1", 1, "2024-01-01 10:00:00", user=None
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            assert reconstructed_queries[0].user is None
+
+    def test_reconstruct_queries_streaming_empty_query_text(self):
+        """Test streaming reconstruction handles empty query text correctly."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Create entries with empty query text
+            entries = [
+                self._create_mock_entry("Q1", "", 1, "2024-01-01 10:00:00"),
+                self._create_mock_entry(
+                    "Q2", "SELECT * FROM table1", 1, "2024-01-01 10:01:00"
+                ),
+            ]
+
+            # Test streaming reconstruction
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            # Should only get one query (the non-empty one)
+            assert len(reconstructed_queries) == 1
+            assert reconstructed_queries[0].query == "SELECT * FROM table1"
+
+    def test_reconstruct_queries_streaming_space_joining_behavior(self):
+        """Test that query parts are joined directly without adding spaces."""
+        config = TeradataConfig.parse_obj(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # Test case 1: Parts that include their own spacing
+            entries1 = [
+                self._create_mock_entry("Q1", "SELECT ", 1, "2024-01-01 10:00:00"),
+                self._create_mock_entry("Q1", "col1, ", 2, "2024-01-01 10:00:00"),
+                self._create_mock_entry("Q1", "col2 ", 3, "2024-01-01 10:00:00"),
+                self._create_mock_entry("Q1", "FROM ", 4, "2024-01-01 10:00:00"),
+                self._create_mock_entry("Q1", "table1", 5, "2024-01-01 10:00:00"),
+            ]
+
+            # Test case 2: Parts that already have trailing/leading spaces
+            entries2 = [
+                self._create_mock_entry("Q2", "SELECT * ", 1, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "FROM table2 ", 2, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "WHERE id > 1", 3, "2024-01-01 10:01:00"),
+            ]
+
+            # Test streaming reconstruction
+            all_entries = entries1 + entries2
+            reconstructed_queries = list(
+                source._reconstruct_queries_streaming(all_entries)
+            )
+
+            assert len(reconstructed_queries) == 2
+
+            # Query 1: Should be joined directly without adding spaces
+            assert reconstructed_queries[0].query == "SELECT col1, col2 FROM table1"
+
+            # Query 2: Should handle existing spaces correctly (may have extra spaces)
+            assert (
+                reconstructed_queries[1].query == "SELECT *  FROM table2  WHERE id > 1"
+            )
+
+    def _create_mock_entry(
+        self,
+        query_id,
+        query_text,
+        row_no,
+        timestamp,
+        user="test_user",
+        default_database="test_db",
+        session_id=None,
+    ):
+        """Create a mock database entry for testing."""
+        entry = MagicMock()
+        entry.query_id = query_id
+        entry.query_text = query_text
+        entry.row_no = row_no
+        entry.timestamp = timestamp
+        entry.user = user
+        entry.default_database = default_database
+        entry.session_id = session_id or f"session_{query_id}"
+        return entry
