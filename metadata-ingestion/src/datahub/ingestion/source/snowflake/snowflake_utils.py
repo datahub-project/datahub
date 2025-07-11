@@ -188,9 +188,7 @@ class SnowflakeFilter:
         return self.filter_config.procedure_pattern.allowed(procedure_name)
 
 
-def _combine_identifier_parts(
-    *, table_name: str, schema_name: str, db_name: str
-) -> str:
+def combine_identifier_parts(*, table_name: str, schema_name: str, db_name: str) -> str:
     return f"{db_name}.{schema_name}.{table_name}"
 
 
@@ -257,7 +255,7 @@ def _cleanup_qualified_name(
                 context=f"{qualified_name} has {len(name_parts)} parts",
             )
         return qualified_name.replace('"', "")
-    return _combine_identifier_parts(
+    return combine_identifier_parts(
         db_name=name_parts[0],
         schema_name=name_parts[1],
         table_name=name_parts[2],
@@ -285,7 +283,7 @@ class SnowflakeIdentifierBuilder:
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
         return self.snowflake_identifier(
-            _combine_identifier_parts(
+            combine_identifier_parts(
                 table_name=table_name, schema_name=schema_name, db_name=db_name
             )
         )
