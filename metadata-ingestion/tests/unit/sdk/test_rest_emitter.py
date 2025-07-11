@@ -37,8 +37,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
 )
 from datahub.metadata.schema_classes import (
-    KEY_ASPECTS,
     KEY_ASPECT_NAMES,
+    KEY_ASPECTS,
     ChangeTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
