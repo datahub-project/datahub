@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import {
     EXECUTION_REQUEST_STATUS_LOADING,
     EXECUTION_REQUEST_STATUS_RUNNING,
-    EXECUTION_REQUEST_STATUS_SUCCESS,
+    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
 } from '@app/ingestV2/executions/constants';
 import {
     getExecutionRequestStatusDisplayColor,
@@ -18,13 +18,14 @@ import {
 const STATUS_COLORS = {
     green: '#2F7D32',
     red: '#C62828',
-} as const;
+};
 
 const StatusPill = styled(Pill)<{ statusColor: string }>`
     ${({ statusColor }) => {
         const backgroundColor = STATUS_COLORS[statusColor as keyof typeof STATUS_COLORS];
-        return backgroundColor
-            ? `
+        return (
+            backgroundColor &&
+            `
             background-color: ${backgroundColor} !important;
             color: white !important;
             border-radius: 4px !important;
@@ -35,7 +36,7 @@ const StatusPill = styled(Pill)<{ statusColor: string }>`
                 border-radius: 4px !important;
             }
         `
-            : '';
+        );
     }}
 `;
 
@@ -47,17 +48,17 @@ interface StatusColumnProps {
 
 export function StatusColumn({ status, onClick, dataTestId }: StatusColumnProps) {
     const icon = getExecutionRequestStatusIcon(status);
-    const statusText = getExecutionRequestStatusDisplayText(status) || 'Pending';
-    const statusColor = getExecutionRequestStatusDisplayColor(status);
+    const text = getExecutionRequestStatusDisplayText(status) || 'Pending';
+    const color = getExecutionRequestStatusDisplayColor(status);
 
     const iconRenderer = () => {
         if (status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING) {
             return <LoadingOutlined />;
         }
-        if (status === EXECUTION_REQUEST_STATUS_SUCCESS) {
-            return <span />;
+        if (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) {
+            return <Icon icon={icon} source="phosphor" size="md" />;
         }
-        return <Icon icon={icon} source="phosphor" size="md" />;
+        return <span />;
     };
 
     return (
@@ -70,13 +71,7 @@ export function StatusColumn({ status, onClick, dataTestId }: StatusColumnProps)
             style={{ padding: 0, margin: 0 }}
             data-testid={dataTestId}
         >
-            <StatusPill
-                customIconRenderer={iconRenderer}
-                label={statusText}
-                color={statusColor}
-                size="md"
-                statusColor={statusColor}
-            />
+            <StatusPill customIconRenderer={iconRenderer} label={text} color={color} size="md" statusColor={color} />
         </Button>
     );
 }
