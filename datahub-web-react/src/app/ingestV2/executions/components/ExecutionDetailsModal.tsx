@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { Button, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import YAML from 'yamljs';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReport } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import {
+    EXECUTION_REQUEST_STATUS_LOADING,
     EXECUTION_REQUEST_STATUS_RUNNING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
@@ -96,10 +97,6 @@ const DetailsContainer = styled.div<DetailsContainerProps>`
     `}
 `;
 
-const modalStyle = {
-    top: 100,
-};
-
 const modalBodyStyle = {
     padding: 0,
 };
@@ -144,7 +141,13 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && (
                 <Pill
-                    customIconRenderer={() => <Icon icon={ResultIcon} source="phosphor" size="lg" />}
+                    customIconRenderer={() =>
+                        status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
+                            <LoadingOutlined />
+                        ) : (
+                            <Icon icon={ResultIcon} source="phosphor" size="lg" />
+                        )
+                    }
                     label={getExecutionRequestStatusDisplayText(status)}
                     color={resultColor}
                     size="md"
@@ -174,7 +177,6 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            style={modalStyle}
             bodyStyle={modalBodyStyle}
             title="Execution Run Details"
             open={open}

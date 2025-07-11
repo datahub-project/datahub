@@ -5,8 +5,10 @@ import styled from 'styled-components';
 
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { Entity } from '@types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -46,7 +48,7 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: PendingOwner[]) => {
+    const setOwners = (newOwners: Entity[]) => {
         const newState: SourceBuilderState = {
             ...state,
             owners: newOwners,
@@ -212,6 +214,7 @@ export const NameSourceStep = ({
                     onChange={setOwners}
                     sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
+                    shouldSetOwnerEntities
                 />
 
                 <Collapse ghost>

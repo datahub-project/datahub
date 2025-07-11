@@ -9,9 +9,10 @@ import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -21,13 +22,42 @@ import { Owner } from '@types';
 const PreviewImage = styled(Image)`
     max-height: 20px;
     width: auto;
+    max-width: 28px;
     object-fit: contain;
     margin: 0px;
     background-color: transparent;
 `;
 
-const TextContainer = styled(Typography.Text)`
+const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     color: ${colors.gray[1700]};
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
+`;
+
+const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
+    font-size: 14px;
+    font-weight: 600;
+    color: ${colors.gray[600]};
+    line-height: normal;
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
+`;
+
+const SourceTypeText = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 400;
+    color: ${colors.gray[1700]};
+    line-height: normal;
 `;
 
 const NameContainer = styled.div`
@@ -43,31 +73,27 @@ const DisplayNameContainer = styled.div`
     max-width: calc(100% - 50px);
 `;
 
-const TruncatedText = styled(Text)`
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-interface TypeColumnProps {
+interface NameColumnProps {
     type: string;
     record: any;
+    onNameClick?: () => void;
 }
 
-export function NameColumn({ type, record }: TypeColumnProps) {
+export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
     return (
         <NameContainer>
-            {iconUrl && (
+            {iconUrl && !record.cliIngestion ? (
                 <Tooltip overlay={typeDisplayName}>
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
+            ) : (
+                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
             )}
             <DisplayNameContainer>
-                <TextContainer
+                <SourceNameText
                     ellipsis={{
                         tooltip: {
                             title: record.name,
@@ -76,10 +102,17 @@ export function NameColumn({ type, record }: TypeColumnProps) {
                             showArrow: false,
                         },
                     }}
+                    onClick={(e) => {
+                        if (onNameClick) {
+                            e.stopPropagation();
+                            onNameClick();
+                        }
+                    }}
+                    $shouldUnderline={!!onNameClick}
                 >
                     {record.name || ''}
-                </TextContainer>
-                {!iconUrl && typeDisplayName && <TruncatedText color="gray">{typeDisplayName}</TruncatedText>}
+                </SourceNameText>
+                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
@@ -94,6 +127,7 @@ export function NameColumn({ type, record }: TypeColumnProps) {
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
     let scheduleText: string;
+
     try {
         const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
         const cleanedText = text.replace(/^at /, '');
@@ -161,9 +195,11 @@ interface ActionsColumnProps {
     record: any;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
+    onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
+    navigateToRunHistory: (record: IngestionSourceTableData) => void;
 }
 
 type MenuOption = {
@@ -177,7 +213,9 @@ export function ActionsColumn({
     setFocusExecutionUrn,
     onView,
     onExecute,
+    onCancel,
     onDelete,
+    navigateToRunHistory,
 }: ActionsColumnProps) {
     const items: MenuOption[] = [];
 
@@ -207,9 +245,22 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    if (navigator.clipboard)
+    if (record.execCount)
         items.push({
             key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigateToRunHistory(record);
+                    }}
+                >
+                    View Run History
+                </MenuItem>
+            ),
+        });
+    if (navigator.clipboard)
+        items.push({
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -222,7 +273,7 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '3',
+            key: '4',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -234,7 +285,7 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '4',
+        key: '5',
         label: (
             <MenuItem
                 onClick={() => {
@@ -246,21 +297,36 @@ export function ActionsColumn({
         ),
     });
 
-    return (
-        <BaseActionsColumn
-            dropdownItems={items}
-            extraActions={
-                !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <Icon
-                        icon="Play"
-                        source="phosphor"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onExecute(record.urn);
-                        }}
-                    />
-                ) : null
-            }
-        />
-    );
+    const renderRunStopButton = () => {
+        if (record.cliIngestion || record.lastExecStatus === EXECUTION_REQUEST_STATUS_LOADING) return null;
+
+        if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
+            return (
+                <Icon
+                    icon="Stop"
+                    source="phosphor"
+                    // weight="fill"
+                    color="primary"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onCancel(record.lastExecUrn, record.urn);
+                    }}
+                />
+            );
+        }
+        return (
+            <Icon
+                icon="Play"
+                source="phosphor"
+                // weight="fill"
+                color="violet"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onExecute(record.urn);
+                }}
+            />
+        );
+    };
+
+    return <BaseActionsColumn dropdownItems={items} extraActions={renderRunStopButton()} />;
 }

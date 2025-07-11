@@ -16,7 +16,7 @@ import {
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
-import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -31,6 +31,7 @@ interface Props {
     sources: IngestionSource[];
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
+    onCancelExecution: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
@@ -38,12 +39,16 @@ interface Props {
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
+    sourcesToRefetch: Set<string>;
+    executedUrns: Set<string>;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 function IngestionSourceTable({
     sources,
     setFocusExecutionUrn,
     onExecute,
+    onCancelExecution,
     onEdit,
     onView,
     onDelete,
@@ -51,6 +56,9 @@ function IngestionSourceTable({
     isLoading,
     shouldPreserveParams,
     isLastPage,
+    sourcesToRefetch,
+    executedUrns,
+    setSelectedTab,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -65,12 +73,29 @@ function IngestionSourceTable({
         execCount: source.executions?.total || 0,
         lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
         lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
-        lastExecStatus:
-            source.executions?.executionRequests?.[0]?.result &&
-            getIngestionSourceStatus(source.executions.executionRequests[0].result),
+        lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
     }));
+
+    const navigateToRunHistory = (record) => {
+        setSelectedTab(TabType.RunHistory);
+        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+        const preserveParams = shouldPreserveParams;
+        preserveParams.current = true;
+
+        const search = QueryString.stringify(
+            {
+                ...filtersToQueryStringParams(selectedSourceNameFilter),
+            },
+            { arrayFormat: 'comma' },
+        );
+
+        history.replace({
+            pathname: tabUrlMap[TabType.RunHistory],
+            search,
+        });
+    };
 
     const tableColumns: Column<IngestionSourceTableData>[] = [
         {
@@ -89,9 +114,17 @@ function IngestionSourceTable({
             width: '20%',
         },
         {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '20%',
+        },
+        {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <DateTimeColumn time={record.lastExecTime} />,
+            render: (record) => (
+                <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
+            ),
             width: '20%',
         },
         {
@@ -106,12 +139,6 @@ function IngestionSourceTable({
             ),
             width: '15%',
         },
-        {
-            title: 'Owner',
-            key: 'owner',
-            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-            width: '20%',
-        },
 
         {
             title: '',
@@ -121,35 +148,19 @@ function IngestionSourceTable({
                     record={record}
                     setFocusExecutionUrn={setFocusExecutionUrn}
                     onExecute={onExecute}
+                    onCancel={onCancelExecution}
                     onDelete={onDelete}
                     onView={onView}
                     onEdit={onEdit}
+                    navigateToRunHistory={navigateToRunHistory}
                 />
             ),
-            width: '100px',
+            width: '10%',
         },
     ];
 
     const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
         onChangeSort(sortColumn, sortOrder);
-    };
-
-    const onRowClick = (record) => {
-        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
-        const preserveParams = shouldPreserveParams;
-        preserveParams.current = true;
-
-        const search = QueryString.stringify(
-            {
-                ...filtersToQueryStringParams(selectedSourceNameFilter),
-            },
-            { arrayFormat: 'comma' },
-        );
-
-        history.replace({
-            pathname: tabUrlMap[TabType.ExecutionLog],
-            search,
-        });
     };
 
     return (
@@ -159,7 +170,7 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
-            onRowClick={onRowClick}
+            onRowClick={(record) => onEdit(record.urn)}
             footer={
                 isLastPage ? (
                     <TableFooter
