@@ -61,7 +61,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamClass,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
@@ -433,11 +433,8 @@ class DremioSource(StatefulIngestionSourceBase):
             ]
         )
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName=lineage.ASPECT_NAME,
             aspect=lineage,
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         for upstream_urn in upstream_urns:

@@ -152,7 +152,7 @@ public class MetricUtilsTest {
     String metricName = "test.gauge";
     Supplier<Number> valueSupplier = () -> 42.5;
 
-    metricUtils.gauge(testClass, metricName, valueSupplier);
+    metricUtils.setGaugeValue(testClass, metricName, 42.5);
 
     String expectedName = MetricRegistry.name(testClass, metricName);
     Gauge gauge =
@@ -160,28 +160,6 @@ public class MetricUtilsTest {
 
     assertNotNull(gauge);
     assertEquals(gauge.value(), 42.5);
-  }
-
-  @Test
-  public void testGaugeWithChangingValue() {
-    Class<?> testClass = this.getClass();
-    String metricName = "dynamic.gauge";
-
-    // Use a mutable value
-    final double[] value = {10.0};
-    Supplier<Number> valueSupplier = () -> value[0];
-
-    metricUtils.gauge(testClass, metricName, valueSupplier);
-
-    String expectedName = MetricRegistry.name(testClass, metricName);
-    Gauge gauge =
-        meterRegistry.find(expectedName).tag(MetricUtils.DROPWIZARD_METRIC, "true").gauge();
-
-    assertEquals(gauge.value(), 10.0);
-
-    // Change the value
-    value[0] = 20.0;
-    assertEquals(gauge.value(), 20.0);
   }
 
   @Test
@@ -247,7 +225,7 @@ public class MetricUtilsTest {
     utilsWithNullRegistry.increment(this.getClass(), "counter", 1);
     utilsWithNullRegistry.increment("counter", 1);
     utilsWithNullRegistry.exceptionIncrement(this.getClass(), "error", new RuntimeException());
-    utilsWithNullRegistry.gauge(this.getClass(), "gauge", () -> 42);
+    utilsWithNullRegistry.setGaugeValue(this.getClass(), "gauge", 42);
     utilsWithNullRegistry.histogram(this.getClass(), "histogram", 100);
   }
 
@@ -256,7 +234,7 @@ public class MetricUtilsTest {
     // Test that all metric types are properly tagged
     metricUtils.time("timer.metric", 1000);
     metricUtils.increment("counter.metric", 1);
-    metricUtils.gauge(this.getClass(), "gauge.metric", () -> 42);
+    metricUtils.setGaugeValue(this.getClass(), "gauge.metric", 42);
     metricUtils.histogram(this.getClass(), "histogram.metric", 100);
 
     // Verify all metrics have the dropwizard tag
