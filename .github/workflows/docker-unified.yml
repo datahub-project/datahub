@@ -199,7 +199,7 @@ jobs:
         with:
           path: |
             ~/.npm
-            ~/.cache/Cypress            
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -235,6 +235,8 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
@@ -317,7 +319,7 @@ jobs:
         with:
           path: |
             ~/.npm
-            ~/.cache/Cypress            
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -597,7 +599,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/acryl-main' || matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
@@ -605,11 +607,11 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/acryl-main' || matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' && matrix.batch == '0' }}
         with:
           path: |
             ~/.npm
-            ~/.cache/Cypress            
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
