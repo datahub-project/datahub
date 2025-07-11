@@ -198,6 +198,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress            
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -314,6 +316,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress            
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -603,6 +607,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress            
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
