@@ -531,7 +531,7 @@ plugins: Dict[str, Set[str]] = {
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
     "s3": {*s3_base, *data_lake_profiling},
-    "gcs": {*s3_base, *data_lake_profiling},
+    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce", *cachetools_lib},
@@ -917,7 +917,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
     },
-    license="Apache License 2.0",
+    license="Apache-2.0",
     description="A CLI to work with DataHub metadata",
     long_description="""\
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
@@ -934,8 +934,6 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",

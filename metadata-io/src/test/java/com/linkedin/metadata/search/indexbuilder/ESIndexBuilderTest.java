@@ -17,6 +17,7 @@ import com.linkedin.metadata.version.GitVersion;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -112,6 +113,7 @@ public class ESIndexBuilderTest {
     when(buildIndicesConfig.getRetentionUnit()).thenReturn(ChronoUnit.DAYS.name());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
     when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(true);
 
     indexBuilder =
         new ESIndexBuilder(
@@ -832,6 +834,116 @@ public class ESIndexBuilderTest {
     // Verify codec is set for OpenSearch 2.9+
     Map<String, Object> indexSettings = (Map<String, Object>) result.targetSettings().get("index");
     assertEquals(indexSettings.get("codec"), "zstd_no_dict");
+  }
+
+  @Test
+  void testReindexWithOptimizationDisabled() throws Exception {
+    // Setup zone awareness enabled configuration
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+
+    // Create index builder with zone awareness enabled
+    ESIndexBuilder optimizationDisabledIndexBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            NUM_SHARDS,
+            NUM_REPLICAS,
+            NUM_RETRIES,
+            REFRESH_INTERVAL_SECONDS,
+            new HashMap<>(),
+            true,
+            true,
+            true,
+            elasticSearchConfiguration,
+            gitVersion);
+
+    // Setup index state that requires reindexing
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    // Setup target settings with index structure
+    Map<String, Object> indexSettings = new HashMap<>();
+    indexSettings.put(ESIndexBuilder.NUMBER_OF_SHARDS, 6);
+    indexSettings.put(ESIndexBuilder.NUMBER_OF_REPLICAS, 1);
+    indexSettings.put(ESIndexBuilder.REFRESH_INTERVAL, "1s");
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", indexSettings);
+    when(indexState.targetSettings()).thenReturn(targetSettings);
+
+    // Mock index creation
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(indicesClient.create(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(createResponse);
+
+    // Mock document count to be 0 to trigger REINDEXED_SKIPPED_0DOCS path
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(0L);
+    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(countResponse);
+
+    // Mock TasksClient to avoid null pointer exception
+    org.opensearch.client.TasksClient tasksClient = mock(org.opensearch.client.TasksClient.class);
+    when(searchClient.tasks()).thenReturn(tasksClient);
+
+    // Mock task list response - return empty list (no previous tasks)
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(tasksClient.list(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+
+    // Mock refresh response
+    org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
+        mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
+    when(indicesClient.refresh(any(), eq(RequestOptions.DEFAULT))).thenReturn(refreshResponse);
+
+    // Mock settings operations for reindex optimization
+    GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
+    when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
+        .thenReturn("512mb");
+    when(indicesClient.getSettings(any(GetSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(getSettingsResponse);
+
+    AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
+    when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
+    when(indicesClient.putSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(settingsUpdateResponse);
+
+    // Mock alias operations for final rename
+    GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
+    when(getAliasesResponse.getAliases()).thenReturn(Map.of());
+    when(indicesClient.getAlias(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(getAliasesResponse);
+
+    AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
+    when(aliasResponse.isAcknowledged()).thenReturn(true);
+    when(indicesClient.updateAliases(any(IndicesAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(aliasResponse);
+
+    // Execute the reindex
+    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(indexState);
+
+    // Verify the result
+    assertEquals(result, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+
+    // Verify that replica settings were NOT modified during reindexing
+    // When zone awareness is enabled, the number of replicas should not be set to 0
+    verify(indicesClient, never())
+        .putSettings(
+            argThat(
+                request ->
+                    request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && // temp index name pattern
+                        request.settings().get("index.number_of_replicas") != null
+                        && request.settings().get("index.number_of_replicas").equals("0")),
+            eq(RequestOptions.DEFAULT));
   }
 
   // Helper methods

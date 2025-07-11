@@ -4,7 +4,7 @@ import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import { Announcements } from '@app/homeV3/announcements/Announcements';
 import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
-import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
+import Template from '@app/homeV3/template/Template';
 
 const HomePageContent = () => {
     const { settings } = useGlobalSettings();
@@ -17,10 +17,7 @@ const HomePageContent = () => {
             <CenteredContainer>
                 <ContentDiv>
                     <Announcements />
-                    {template?.properties.rows.map((row, i) => {
-                        const key = `templateRow-${i}`;
-                        return <TemplateRow key={key} row={row} />;
-                    })}
+                    <Template template={template} />
                 </ContentDiv>
             </CenteredContainer>
         </ContentContainer>

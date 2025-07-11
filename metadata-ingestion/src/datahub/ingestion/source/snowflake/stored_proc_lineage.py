@@ -65,7 +65,7 @@ class StoredProcLineageTracker(Closeable):
         # { root_query_id -> StoredProcExecutionLineage }
         self._stored_proc_execution_lineage: FileBackedDict[
             StoredProcExecutionLineage
-        ] = FileBackedDict(shared_connection)
+        ] = FileBackedDict(shared_connection, tablename="stored_proc_lineage")
 
     def add_stored_proc_call(self, call: StoredProcCall) -> None:
         """Add a stored procedure call to track."""
