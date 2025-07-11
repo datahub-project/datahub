@@ -83,8 +83,8 @@ def cleanup(config: BigQueryV2Config) -> None:
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[
-        SourceCapabilityModifier.PROJECT,
-        SourceCapabilityModifier.DATASET,
+        SourceCapabilityModifier.BIGQUERY_PROJECT,
+        SourceCapabilityModifier.BIGQUERY_DATASET,
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
