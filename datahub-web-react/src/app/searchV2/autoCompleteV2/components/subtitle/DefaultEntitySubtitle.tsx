@@ -5,7 +5,7 @@ import { EntitySubtitleProps } from '@app/searchV2/autoCompleteV2/components/sub
 import ContextPath from '@src/app/previewV2/ContextPath';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
-export default function DefaultEntitySubtitle({ entity, color, colorLevel }: EntitySubtitleProps) {
+export default function DefaultEntitySubtitle({ entity }: EntitySubtitleProps) {
     const entityRegistry = useEntityRegistryV2();
     const genericEntityProperties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const parentEntities = getParentEntities(genericEntityProperties);
