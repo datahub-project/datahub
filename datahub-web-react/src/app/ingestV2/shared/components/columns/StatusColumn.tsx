@@ -15,34 +15,28 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
 
-const StatusPill = styled(Pill)<{ statusColor: string }>`
-    ${({ statusColor }) =>
-        statusColor === 'green' &&
-        `
-        background-color: #2F7D32 !important;
-        color: white !important;
-        border-radius: 4px !important;
-        
-        > div {
-            background-color: #2F7D32 !important;
-            color: white !important;
-            border-radius: 4px !important;
-        }
-    `}
+const STATUS_COLORS = {
+    green: '#2F7D32',
+    red: '#C62828',
+} as const;
 
-    ${({ statusColor }) =>
-        statusColor === 'red' &&
-        `
-        background-color: #C62828 !important;
-        color: white !important;
-        border-radius: 4px !important;
-        
-        > div {
-            background-color: #C62828 !important;
+const StatusPill = styled(Pill)<{ statusColor: string }>`
+    ${({ statusColor }) => {
+        const backgroundColor = STATUS_COLORS[statusColor as keyof typeof STATUS_COLORS];
+        return backgroundColor
+            ? `
+            background-color: ${backgroundColor} !important;
             color: white !important;
             border-radius: 4px !important;
-        }
-    `}
+            
+            > div {
+                background-color: ${backgroundColor} !important;
+                color: white !important;
+                border-radius: 4px !important;
+            }
+        `
+            : '';
+    }}
 `;
 
 interface StatusColumnProps {
