@@ -452,7 +452,6 @@ def check_upgrade_post(
         _maybe_print_upgrade_message(version_stats=version_stats)
     except Exception as e:
         log.debug(f"Failed to check for upgrades due to {e}")
-        print(e)
 
 
 def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
