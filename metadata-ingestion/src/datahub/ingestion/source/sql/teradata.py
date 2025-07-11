@@ -1265,7 +1265,6 @@ ORDER by DataBaseName, TableName;
         with self.report.new_stage("Cache tables and views"):
             engine = self.get_metadata_engine()
             try:
-                start_time = time.time()
                 database_counts: Dict[str, Dict[str, int]] = defaultdict(
                     lambda: {"tables": 0, "views": 0}
                 )
@@ -1298,10 +1297,6 @@ ORDER by DataBaseName, TableName;
                         if table.database not in self._tables_cache:
                             self._tables_cache[table.database] = []
                         self._tables_cache[table.database].append(table)
-
-                # Update database-level metrics
-                extraction_time = time.time() - start_time
-                self.report.metadata_extraction_total_sec = extraction_time
 
                 for database, counts in database_counts.items():
                     self.report.num_database_tables_to_scan[database] = counts["tables"]
