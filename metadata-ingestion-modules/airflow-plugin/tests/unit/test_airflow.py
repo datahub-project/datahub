@@ -14,9 +14,6 @@ from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
-# TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
-
-
 lineage_mce = builder.make_lineage_mce(
     [
         builder.make_dataset_urn("bigquery", "upstream1"),
