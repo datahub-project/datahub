@@ -240,7 +240,7 @@ class DremioAPIOperations:
             "Credentials cannot be refreshed. Please check your username and password."
         )
 
-    def _request(self, method: str, url: str, data: str | None = None) -> Dict:
+    def _request(self, method: str, url: str, data: Union[str, None] = None) -> Dict:
         """Send a request to the Dremio API."""
 
         logger.debug(f"{method} request to {self.base_url + url}")
