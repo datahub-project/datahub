@@ -489,11 +489,12 @@ class TestStageTracking:
         config = TeradataConfig.parse_obj(_base_config())
 
         # Create source without mocking to test the actual stage tracking during init
-        with patch(
-            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
-        ), patch(
-            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
-        ) as mock_cache:
+        with (
+            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ) as mock_cache,
+        ):
             TeradataSource(config, PipelineContext(run_id="test"))
 
             # Verify cache_tables_and_views was called during init (stage tracking happens there)
@@ -775,11 +776,14 @@ class TestLineageQuerySeparation:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback"
-                ) as mock_execute:
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source, "_execute_with_cursor_fallback"
+                    ) as mock_execute,
+                ):
                     mock_execute.side_effect = [mock_result1, mock_result2]
 
                     entries = list(source._fetch_lineage_entries_chunked())
@@ -826,11 +830,16 @@ class TestLineageQuerySeparation:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback", return_value=mock_result
-                ) as mock_execute:
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source,
+                        "_execute_with_cursor_fallback",
+                        return_value=mock_result,
+                    ) as mock_execute,
+                ):
                     entries = list(source._fetch_lineage_entries_chunked())
 
                     # Should have executed only one query
@@ -878,10 +887,15 @@ class TestLineageQuerySeparation:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback", return_value=mock_result
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source,
+                        "_execute_with_cursor_fallback",
+                        return_value=mock_result,
+                    ),
                 ):
                     entries = list(source._fetch_lineage_entries_chunked())
 
@@ -1005,11 +1019,19 @@ class TestLineageQuerySeparation:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback", return_value=mock_result
-                ), patch("datahub.ingestion.source.sql.teradata.logger") as mock_logger:
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source,
+                        "_execute_with_cursor_fallback",
+                        return_value=mock_result,
+                    ),
+                    patch(
+                        "datahub.ingestion.source.sql.teradata.logger"
+                    ) as mock_logger,
+                ):
                     list(source._fetch_lineage_entries_chunked())
 
                     # Verify progress logging for multiple queries

@@ -315,11 +315,12 @@ class TestConfigurationIntegration:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             # Test database filtering logic
-            with patch(
-                "datahub.ingestion.source.sql.teradata.create_engine"
-            ) as mock_create_engine, patch(
-                "datahub.ingestion.source.sql.teradata.inspect"
-            ) as mock_inspect:
+            with (
+                patch(
+                    "datahub.ingestion.source.sql.teradata.create_engine"
+                ) as mock_create_engine,
+                patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect,
+            ):
                 mock_engine = MagicMock()
                 mock_create_engine.return_value = mock_engine
 
@@ -464,10 +465,15 @@ class TestComplexQueryScenarios:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback", return_value=mock_result
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source,
+                        "_execute_with_cursor_fallback",
+                        return_value=mock_result,
+                    ),
                 ):
                     entries = list(source._fetch_lineage_entries_chunked())
 
@@ -640,11 +646,14 @@ class TestResourceManagement:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback"
-                ) as mock_execute:
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source, "_execute_with_cursor_fallback"
+                    ) as mock_execute,
+                ):
                     # Raise exception during query execution
                     mock_execute.side_effect = Exception("Database error")
 
