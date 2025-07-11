@@ -366,8 +366,9 @@ class Pipeline:
             return
 
         if is_server_default_cli_ahead(version_stats):
-            assert version_stats.client.current_server_default is not None
-            server_default_version = version_stats.client.current_server_default.version
+            server_default_version = (
+                version_stats.server.current_server_default_cli_version.version
+            )
             current_version = version_stats.client.current.version
 
             logger.debug(f"""
