@@ -1305,13 +1305,14 @@ class TestDataHubRestEmitter:
 
         with (
             patch.object(emitter, "_emit_generic") as mock_emit,
-            patch("datahub.emitter.rest_emitter.logger") as mock_logger,
         ):
             try:
                 emitter.emit_mcp(delete_mcp_non_key_aspect)
             except OperationalError as e:
-                assert e.message == ("Delete not supported for non key aspect: datasetProperties for urn: "
-                        "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)")
+                assert e.message == (
+                    "Delete not supported for non key aspect: datasetProperties for urn: "
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+                )
 
             # Verify _emit_generic was NOT called
             mock_emit.assert_not_called()
@@ -1448,20 +1449,20 @@ class TestDataHubRestEmitter:
 
                 with (
                     patch.object(emitter, "_emit_generic") as mock_emit,
-                    patch("datahub.emitter.rest_emitter.logger") as mock_logger,
                 ):
                     try:
                         emitter.emit_mcp(delete_mcp_non_key)
                     except OperationalError as e:
-                        assert (f"Delete not supported for non key aspect: {aspect_name} for urn: "
-                                "urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)") == e.message
+                        assert (
+                            f"Delete not supported for non key aspect: {aspect_name} for urn: "
+                            "urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)"
+                        ) == e.message
 
                     # Should NOT have called _emit_generic
                     mock_emit.assert_not_called()
 
                     # Reset for next iteration
                     mock_emit.reset_mock()
-                    mock_logger.reset_mock()
                 break  # Only need to test one non-key aspect
 
 

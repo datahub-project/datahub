@@ -632,8 +632,10 @@ class DataHubRestEmitter(Closeable, Emitter):
         else:
             if mcp.changeType == ChangeTypeClass.DELETE:
                 if mcp.aspectName not in KEY_ASPECT_NAMES:
-                    raise OperationalError(f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
-                                           f"{mcp.entityUrn}")
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
                 url = f"{self._gms_server}/entities?action=delete"
                 payload_dict = {
