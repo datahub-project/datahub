@@ -20,7 +20,6 @@ from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     INGEST_MAX_PAYLOAD_BYTES,
-    KEY_ASPECT_NAMES,
     DataHubRestEmitter,
     DatahubRestEmitter,
     EmitMode,
@@ -39,6 +38,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
+    KEY_ASPECT_NAMES,
     ChangeTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
