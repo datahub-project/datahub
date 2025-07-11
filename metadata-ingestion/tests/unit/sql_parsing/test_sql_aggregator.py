@@ -1037,24 +1037,22 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         generate_operations=False,
         is_temp_table=lambda x: x.lower()
         in [
-            "diamond_problem.dummy_test.diamond_problem.t1",
-            "diamond_problem.dummy_test.diamond_problem.t2",
-            "diamond_problem.dummy_test.diamond_problem.t3",
-            "diamond_problem.dummy_test.diamond_problem.t4",
+            "dummy_test.diamond_problem.t1",
+            "dummy_test.diamond_problem.t2",
+            "dummy_test.diamond_problem.t3",
+            "dummy_test.diamond_problem.t4",
         ],
     )
 
     aggregator._schema_resolver.add_raw_schema_info(
-        DatasetUrn(
-            "snowflake", "diamond_problem.dummy_test.diamond_problem.diamond_source1"
-        ).urn(),
+        DatasetUrn("snowflake", "dummy_test.diamond_problem.diamond_source1").urn(),
         {"col_a": "int", "col_b": "int", "col_c": "int"},
     )
 
     aggregator._schema_resolver.add_raw_schema_info(
         DatasetUrn(
             "snowflake",
-            "diamond_problem.dummy_test.diamond_problem.diamond_destination",
+            "dummy_test.diamond_problem.diamond_destination",
         ).urn(),
         {"col_a": "int", "col_b": "int", "col_c": "int"},
     )
@@ -1074,8 +1072,8 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         aggregator.add(
             ObservedQuery(
                 query=query,
-                default_db="diamond_problem",
-                default_schema="dummy_test.diamond_problem",
+                default_db="dummy_test",
+                default_schema="diamond_problem",
                 session_id="14774700499701726",
                 timestamp=base_timestamp + timedelta(seconds=i),
             )
@@ -1084,7 +1082,7 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
     mcpws = [
         mcp
         for mcp in aggregator._gen_lineage_for_downstream(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,diamond_problem.dummy_test.diamond_problem.diamond_destination,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD)",
             queries_generated=set(),
         )
     ]
