@@ -1,5 +1,5 @@
 import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
-import { Button, Image, Typography } from 'antd';
+import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -10,10 +10,6 @@ import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStack
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import {
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-} from '@app/ingestV2/executions/utils';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
@@ -62,36 +58,6 @@ const SourceTypeText = styled(Typography.Text)`
     font-weight: 400;
     color: ${colors.gray[1700]};
     line-height: normal;
-`;
-
-const StatusPill = styled(Pill)<{ statusColor: string }>`
-    ${({ statusColor }) =>
-        statusColor === 'green' &&
-        `
-        background-color: #2F7D32 !important;
-        color: white !important;
-        border-radius: 4px !important;
-        
-        > div {
-            background-color: #2F7D32 !important;
-            color: white !important;
-            border-radius: 4px !important;
-        }
-    `}
-
-    ${({ statusColor }) =>
-        statusColor === 'red' &&
-        `
-        background-color: #C62828 !important;
-        color: white !important;
-        border-radius: 4px !important;
-        
-        > div {
-            background-color: #C62828 !important;
-            color: white !important;
-            border-radius: 4px !important;
-        }
-    `}
 `;
 
 const NameContainer = styled.div`
@@ -363,29 +329,4 @@ export function ActionsColumn({
     };
 
     return <BaseActionsColumn dropdownItems={items} extraActions={renderRunStopButton()} />;
-}
-
-interface StatusColumnProps {
-    status: any;
-    onClick?: () => void;
-    dataTestId?: string;
-}
-
-export function StatusColumn({ status, onClick, dataTestId }: StatusColumnProps) {
-    const statusText = getExecutionRequestStatusDisplayText(status) || 'Pending';
-    const statusColor = getExecutionRequestStatusDisplayColor(status);
-
-    return (
-        <Button
-            type="link"
-            onClick={(e) => {
-                e.stopPropagation();
-                onClick?.();
-            }}
-            style={{ padding: 0, margin: 0 }}
-            data-testid={dataTestId}
-        >
-            <StatusPill label={statusText} color={statusColor} size="md" statusColor={statusColor} />
-        </Button>
-    );
 }

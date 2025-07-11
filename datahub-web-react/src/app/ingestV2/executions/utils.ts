@@ -64,7 +64,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === EXECUTION_REQUEST_STATUS_RUNNING && 'blue') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'green') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'yellow') ||
+        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'green') ||
         (status === EXECUTION_REQUEST_STATUS_FAILURE && 'red') ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'yellow') ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'gray') ||

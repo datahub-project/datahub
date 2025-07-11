@@ -16,10 +16,9 @@ export const MenuItem = styled.div`
 const ActionIcons = styled.div`
     display: flex;
     justify-content: end;
-    align-items: center;
     gap: 12px;
 
-    > div:not([data-testid]) {
+    div {
         border: 1px solid ${colors.gray[100]};
         border-radius: 200px;
         width: 24px;

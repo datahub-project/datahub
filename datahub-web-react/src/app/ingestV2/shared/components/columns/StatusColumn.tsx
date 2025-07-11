@@ -4,65 +4,85 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_RUNNING,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
 
-const StatusContainer = styled.div`
-    display: flex;
-    justify-content: left;
-    align-items: center;
+const StatusPill = styled(Pill)<{ statusColor: string }>`
+    ${({ statusColor }) =>
+        statusColor === 'green' &&
+        `
+        background-color: #2F7D32 !important;
+        color: white !important;
+        border-radius: 4px !important;
+        
+        > div {
+            background-color: #2F7D32 !important;
+            color: white !important;
+            border-radius: 4px !important;
+        }
+    `}
+
+    ${({ statusColor }) =>
+        statusColor === 'red' &&
+        `
+        background-color: #C62828 !important;
+        color: white !important;
+        border-radius: 4px !important;
+        
+        > div {
+            background-color: #C62828 !important;
+            color: white !important;
+            border-radius: 4px !important;
+        }
+    `}
 `;
 
-const AllStatusWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
-
-const StatusButton = styled(Button)`
-    padding: 0px;
-    margin: 0px;
-`;
-
-interface StatusProps {
+interface StatusColumnProps {
     status: any;
     onClick?: () => void;
     dataTestId?: string;
 }
 
-export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
+export function StatusColumn({ status, onClick, dataTestId }: StatusColumnProps) {
     const icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status) || 'Pending';
-    const color = getExecutionRequestStatusDisplayColor(status);
+    const statusText = getExecutionRequestStatusDisplayText(status) || 'Pending';
+    const statusColor = getExecutionRequestStatusDisplayColor(status);
+
+    const iconRenderer = () => {
+        if (status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING) {
+            return <LoadingOutlined />;
+        }
+        if (status === EXECUTION_REQUEST_STATUS_SUCCESS) {
+            return <span />;
+        }
+        return <Icon icon={icon} source="phosphor" size="md" />;
+    };
+
     return (
-        <AllStatusWrapper>
-            <StatusContainer>
-                <StatusButton
-                    data-testid={dataTestId}
-                    type="link"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onClick?.();
-                    }}
-                >
-                    <Pill
-                        customIconRenderer={() =>
-                            status === EXECUTION_REQUEST_STATUS_LOADING ||
-                            status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                                <LoadingOutlined />
-                            ) : (
-                                <Icon icon={icon} source="phosphor" size="md" />
-                            )
-                        }
-                        label={text}
-                        color={color}
-                        size="md"
-                    />
-                </StatusButton>
-            </StatusContainer>
-        </AllStatusWrapper>
+        <Button
+            type="link"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+            }}
+            style={{ padding: 0, margin: 0 }}
+            data-testid={dataTestId}
+        >
+            <StatusPill
+                customIconRenderer={iconRenderer}
+                label={statusText}
+                color={statusColor}
+                size="md"
+                statusColor={statusColor}
+            />
+        </Button>
     );
 }

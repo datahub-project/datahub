@@ -8,12 +8,12 @@ import styled from 'styled-components/macro';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
     NameColumn,
     OwnerColumn,
     ScheduleColumn,
-    StatusColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
