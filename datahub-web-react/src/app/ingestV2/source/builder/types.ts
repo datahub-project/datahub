@@ -1,7 +1,6 @@
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 
-import { IngestionSource } from '@types';
+import { Entity, IngestionSource } from '@types';
 
 /**
  * The size of the builder modal
@@ -119,5 +118,5 @@ export interface SourceBuilderState {
     /**
      * Owners of the Ingestion source
      */
-    owners?: PendingOwner[];
+    owners?: Entity[];
 }

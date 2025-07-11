@@ -89,6 +89,11 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory
 
+### Commits
+
+- Follow Conventional Commits format for commit messages
+- Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+
 ## Key Documentation
 
 **Essential reading:**
@@ -107,4 +112,3 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
-- Follow Conventional Commits format for commit messages

@@ -112,6 +112,19 @@ public class ListIngestionSourceResolverTest {
   }
 
   @Test
+  void testDefaultBuildSortCriteria() {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+
+    List<SortCriterion> result = resolver.buildSortCriteria(null);
+
+    assertEquals(1, result.size());
+    assertEquals("type", result.get(0).getField());
+    assertEquals(SortOrder.ASCENDING, result.get(0).getOrder());
+  }
+
+  @Test
   void testBuildSortCriteriaForNameField() {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
@@ -120,32 +133,12 @@ public class ListIngestionSourceResolverTest {
     com.linkedin.datahub.graphql.generated.SortCriterion input =
         new com.linkedin.datahub.graphql.generated.SortCriterion();
     input.setField("name");
-    input.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.ASCENDING);
-
-    List<SortCriterion> result = resolver.buildSortCriteria(input);
-
-    assertEquals(2, result.size());
-    assertEquals("type", result.get(0).getField());
-    assertEquals(SortOrder.ASCENDING, result.get(0).getOrder());
-    assertEquals("name", result.get(1).getField());
-    assertEquals(SortOrder.ASCENDING, result.get(1).getOrder());
-  }
-
-  @Test
-  void testBuildSortCriteriaForNonNameField() {
-    // Create resolver
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
-
-    com.linkedin.datahub.graphql.generated.SortCriterion input =
-        new com.linkedin.datahub.graphql.generated.SortCriterion();
-    input.setField("createdAt");
     input.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.DESCENDING);
 
     List<SortCriterion> result = resolver.buildSortCriteria(input);
 
     assertEquals(1, result.size());
-    assertEquals("createdAt", result.get(0).getField());
+    assertEquals("name", result.get(0).getField());
     assertEquals(SortOrder.DESCENDING, result.get(0).getOrder());
   }
 }
