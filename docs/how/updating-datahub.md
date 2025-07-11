@@ -37,6 +37,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - `acryl-datahub-gx-plugin`
   - `acryl-datahub-dagster-plugin` (already required Python 3.9+)
 - #13619: The `acryl-datahub-airflow-plugin` has dropped support for Airflow versions less than 2.7.
+- #14015: In the sql-queries source, the `default_dialect` configuration parameter has been renamed to `override_dialect`. This also affects the Python SDK methods:
+  - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
+  - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
 
 ### Known Issues
 
