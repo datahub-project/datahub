@@ -994,28 +994,48 @@ public class OpenLineageToDataHub {
     return null;
   }
 
+  // Some rdd map operation generate inputs that are equal to outputs even though it doesn't come
+  // from
+  // the spark job. We try to handle it by checking if the job is a non-materializing RDD
+  // transformation.
+  // This logic might not be perfect, but it should cover most cases.
   private static boolean checkInputsEqualOutputs(
       OpenLineage.RunEvent event, OpenLineage.Job job, DatahubOpenlineageConfig datahubConf) {
-    boolean inputsEqualOutputs = false;
-    if ((datahubConf.isSpark())
-        && ((event.getInputs() != null && event.getOutputs() != null)
-            && (event.getInputs().size() == event.getOutputs().size()))) {
-      inputsEqualOutputs =
-          event.getInputs().stream()
-              .map(OpenLineage.Dataset::getName)
-              .collect(Collectors.toSet())
-              .equals(
-                  event.getOutputs().stream()
-                      .map(OpenLineage.Dataset::getName)
-                      .collect(Collectors.toSet()));
-      if ((inputsEqualOutputs)
-          && ("RDD_JOB".equals(job.getFacets().getJobType().getJobType()))
-          && isNonMaterializingRddTransformation(job.getName())) {
-        log.info(
-            "Inputs equals Outputs: {}. This is most probably because of an rdd map operation and we only process Inputs",
-            inputsEqualOutputs);
-      }
+    if (!datahubConf.isSpark()) {
+      return false;
     }
+
+    if (job.getFacets() == null
+        || job.getFacets().getJobType() == null
+        || !"RDD_JOB".equals(job.getFacets().getJobType().getJobType())) {
+      return false;
+    }
+
+    if (!isNonMaterializingRddTransformation(job.getName())) {
+      return false;
+    }
+
+    if (event.getInputs() == null
+        || event.getOutputs() == null
+        || event.getInputs().size() != event.getOutputs().size()) {
+      return false;
+    }
+
+    boolean inputsEqualOutputs =
+        event.getInputs().stream()
+            .map(OpenLineage.Dataset::getName)
+            .collect(Collectors.toSet())
+            .equals(
+                event.getOutputs().stream()
+                    .map(OpenLineage.Dataset::getName)
+                    .collect(Collectors.toSet()));
+
+    if (inputsEqualOutputs) {
+      log.info(
+          "Inputs equals Outputs: {}. This is most probably because of an rdd map operation and we only process Inputs",
+          inputsEqualOutputs);
+    }
+
     return inputsEqualOutputs;
   }
 
