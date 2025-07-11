@@ -188,24 +188,30 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     if "content" in base_res:
         res_cont = base_res["content"]
         if "application/json" in res_cont:
-            ex_field = None
-            if "example" in res_cont["application/json"]:
-                ex_field = "example"
-            elif "examples" in res_cont["application/json"]:
-                ex_field = "examples"
+            json_content = res_cont["application/json"]
 
-            if ex_field:
-                if isinstance(res_cont["application/json"][ex_field], dict):
-                    data = res_cont["application/json"][ex_field]
-                elif isinstance(res_cont["application/json"][ex_field], list):
-                    # taking the first example
-                    data = res_cont["application/json"][ex_field][0]
+            # Check for single example (OpenAPI v3)
+            if "example" in json_content:
+                data = json_content["example"]
+            # Check for multiple examples (OpenAPI v3)
+            elif "examples" in json_content:
+                examples = json_content["examples"]
+                # Take the first example if it's a dict of examples
+                if isinstance(examples, dict) and examples:
+                    first_example_name = next(iter(examples))
+                    data = examples[first_example_name].get("value", {})
+                # Handle list format (OpenAPI v2 style)
+                elif isinstance(examples, list) and examples:
+                    data = examples[0]
             else:
-                logger.warning(
-                    f"Field in swagger file does not give consistent data --- {key}"
+                # Only warn if we're in debug mode or if this is a critical endpoint
+                # Most OpenAPI v3 specs don't include examples, so this is normal
+                logger.debug(
+                    f"No example data found for endpoint --- {key} (this is normal for OpenAPI v3)"
                 )
         elif "text/csv" in res_cont:
             data = res_cont["text/csv"]["schema"]
+    # Handle OpenAPI v2 format
     elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
 
