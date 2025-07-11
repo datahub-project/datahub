@@ -733,7 +733,7 @@ graphQL:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
     enabled: ${GRAPHQL_METRICS_ENABLED:true}
-    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.95,0.99,0.9995}
+    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.75,0.95,0.98,0.99,0.999} # set to legacy percentiles by default
 
     # Enable field-level resolver metrics collection
     # When true, timing metrics are collected for individual GraphQL field resolvers
