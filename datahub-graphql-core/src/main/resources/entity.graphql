@@ -12545,7 +12545,6 @@ type QueryProperties {
   """
   createdOn: ResolvedAuditStamp!
 
-
   """
   An Audit Stamp corresponding to the update of this resource
   """
