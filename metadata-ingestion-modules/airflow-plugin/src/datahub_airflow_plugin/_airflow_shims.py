@@ -2,24 +2,16 @@ from typing import List
 
 import airflow.version
 import packaging.version
-import pluggy
-from airflow.models.mappedoperator import MappedOperator
 from airflow.models.operator import Operator
-from airflow.operators.empty import EmptyOperator
-
-from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 
 try:
     from airflow.sensors.external_task import ExternalTaskSensor
 except ImportError:
     from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
 
-assert AIRFLOW_PATCHED
-
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
-PLUGGY_VERSION = packaging.version.parse(pluggy.__version__)
-HAS_AIRFLOW_DAG_LISTENER_API = True
+HAS_AIRFLOW_DAG_LISTENER_API = True  # this is in Airflow 2.5+
 HAS_AIRFLOW_DATASET_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse(
     "2.8.0.dev0"
 )
@@ -46,8 +38,5 @@ def get_task_outlets(operator: "Operator") -> List:
 
 __all__ = [
     "AIRFLOW_VERSION",
-    "Operator",
-    "MappedOperator",
-    "EmptyOperator",
     "ExternalTaskSensor",
 ]

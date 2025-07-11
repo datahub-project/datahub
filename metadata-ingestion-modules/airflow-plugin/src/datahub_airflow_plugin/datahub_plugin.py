@@ -1,18 +1,5 @@
 import contextlib
-import logging
 import os
-
-from airflow.plugins_manager import AirflowPlugin
-from openlineage.airflow.utils import try_import_from_string  # noqa: F401
-
-from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
-
-assert AIRFLOW_PATCHED
-logger = logging.getLogger(__name__)
-
-if os.getenv("DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false").lower() in ("true", "1"):
-    raise RuntimeError("The DataHub Airflow v1 plugin was removed in v1.1.0.5.")
-
 
 with contextlib.suppress(Exception):
     if os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() not in (
@@ -32,20 +19,15 @@ with contextlib.suppress(Exception):
 
         _get_proxy_settings()
 
+from airflow.plugins_manager import AirflowPlugin
+
+from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+if os.getenv("DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN", "false").lower() in ("true", "1"):
+    raise RuntimeError("The DataHub Airflow v1 plugin was removed in v1.1.0.5.")
+
 
 class DatahubPlugin(AirflowPlugin):
     name = "datahub_plugin"
 
-    try:
-        from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
-            get_airflow_plugin_listener,
-        )
-
-        listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
-
-    except Exception as e:
-        logger.warning(
-            f"Failed to load the DataHub plugin's event listener: {e}",
-            exc_info=True,
-        )
-        listeners = []
+    listeners: list = list(filter(None, [get_airflow_plugin_listener()]))

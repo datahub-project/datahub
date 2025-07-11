@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 from airflow.models import Variable
+from airflow.models.operator import Operator
 from airflow.models.serialized_dag import SerializedDagModel
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
@@ -42,7 +43,6 @@ from datahub.telemetry import telemetry
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
-    Operator,
     get_task_inlets,
     get_task_outlets,
 )
@@ -109,6 +109,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "airflow-version": airflow.__version__,
                     "datahub-airflow-plugin": "v2",
                     "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "datahub-airflow-plugin-dataset-events": HAS_AIRFLOW_DATASET_LISTENER_API,
                     "capture_executions": plugin_config.capture_executions,
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
