@@ -97,7 +97,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import Urn
 
 
 def make_generic_dataset(
@@ -134,9 +133,6 @@ def make_generic_container_mcp(
         aspect = models.StatusClass(removed=False)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.from_string(entity_urn).entity_type,
-        aspectName=aspect_name,
-        changeType="UPSERT",
         aspect=aspect,
     )
 

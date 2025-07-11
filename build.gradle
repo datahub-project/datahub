@@ -37,7 +37,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.65.7'
   ext.mavenVersion = '3.6.3'
-  ext.versionGradle = '8.11.1'
+  ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.5'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.6'
@@ -118,7 +118,6 @@ project.ext.externalDependency = [
     'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
     'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
     'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
-    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -397,6 +396,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'javax.json'
     exclude group: 'org.glassfish', module: 'jakarta.json'
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
+    exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
     
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -567,6 +567,7 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
+  distributionSha256Sum = 'ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c'
 }
 
 tasks.register('format') {

@@ -157,8 +157,8 @@ public class KafkaThrottleSensor implements ThrottleSensor {
         log.info("Throttle exponential backoff reset.");
         backoffMap.remove(mclType);
         if (metricUtils != null)
-          metricUtils.gauge(
-              this.getClass(), String.format("%s_throttled", getTopicName(mclType)), () -> 0);
+          metricUtils.setGaugeValue(
+              this.getClass(), String.format("%s_throttled", getTopicName(mclType)), 0);
       } else {
         throttled.put(mclType, backoffWaitMs);
       }
@@ -177,10 +177,8 @@ public class KafkaThrottleSensor implements ThrottleSensor {
           .forEach(
               mclType -> {
                 if (metricUtils != null)
-                  metricUtils.gauge(
-                      this.getClass(),
-                      String.format("%s_throttled", getTopicName(mclType)),
-                      () -> 1);
+                  metricUtils.setGaugeValue(
+                      this.getClass(), String.format("%s_throttled", getTopicName(mclType)), 1);
                 if (metricUtils != null)
                   metricUtils.increment(
                       this.getClass(),

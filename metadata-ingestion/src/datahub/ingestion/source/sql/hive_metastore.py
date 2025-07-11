@@ -52,7 +52,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
     ViewPropertiesClass,
@@ -601,10 +600,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 yield dpi_aspect
 
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.table_subtype]),
             ).as_workunit()
 
@@ -810,10 +806,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
             # Add views subtype
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.view_subtype]),
             ).as_workunit()
 
@@ -824,10 +817,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="viewProperties",
                 aspect=view_properties_aspect,
             ).as_workunit()
 
