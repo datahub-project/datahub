@@ -2179,32 +2179,32 @@ class TableauSiteSource:
                     else []
                 )
 
-                # The Tableau SQL parser much worse than our sqlglot based parser,
-                # so relying on metadata parsed by Tableau from SQL queries can be
-                # less accurate. This option allows us to ignore Tableau's parser and
-                # only use our own.
-                if self.config.force_extraction_of_lineage_from_custom_sql_queries:
-                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
+                tableau_table_list = csql.get(c.TABLES, [])
+                if self.config.force_extraction_of_lineage_from_custom_sql_queries or (
+                    not tableau_table_list
+                    and self.config.extract_lineage_from_unsupported_custom_sql_queries
+                ):
+                    if not tableau_table_list:
+                        # custom sql tables may contain unsupported sql, causing incomplete lineage
+                        # we extract the lineage from the raw queries
+                        logger.debug(
+                            "Parsing TLL & CLL from custom sql (tableau metadata incomplete)"
+                        )
+                    else:
+                        # The Tableau SQL parser is much worse than our sqlglot based parser,
+                        # so relying on metadata parsed by Tableau from SQL queries can be
+                        # less accurate. This option allows us to ignore Tableau's parser and
+                        # only use our own.
+                        logger.debug("Parsing TLL & CLL from custom sql (forced)")
+
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql, columns
                     )
                 else:
-                    tables = csql.get(c.TABLES, [])
-
-                    if tables:
-                        # lineage from custom sql -> datasets/tables #
-                        yield from self._create_lineage_to_upstream_tables(
-                            csql_urn, tables, datasource
-                        )
-                    elif (
-                        self.config.extract_lineage_from_unsupported_custom_sql_queries
-                    ):
-                        logger.debug("Extracting TLL & CLL from custom sql")
-                        # custom sql tables may contain unsupported sql, causing incomplete lineage
-                        # we extract the lineage from the raw queries
-                        yield from self._create_lineage_from_unsupported_csql(
-                            csql_urn, csql, columns
-                        )
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tableau_table_list, datasource
+                    )
 
             #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
