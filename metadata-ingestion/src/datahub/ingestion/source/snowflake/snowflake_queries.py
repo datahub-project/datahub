@@ -118,6 +118,20 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_query_usage_statistics: bool = True
     include_operations: bool = True
 
+    push_down_database_pattern_access_history: bool = pydantic.Field(
+        default=True,
+        description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
+        "This filters on the accessed objects in access_history.",
+    )
+
+    additional_database_names_allowlist: List[str] = pydantic.Field(
+        default=[],
+        description="Additional database names (no pattern matching) to be included in the access_history filter. "
+        "Only applies if push_down_database_pattern_access_history=True. "
+        "These databases will be included in the filter being pushed down regardless of database_pattern settings."
+        "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
+    )
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -379,6 +393,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
+            database_pattern=self.filters.filter_config.database_pattern
+            if self.config.push_down_database_pattern_access_history
+            else None,
+            additional_database_names=self.config.additional_database_names_allowlist
+            if self.config.push_down_database_pattern_access_history
+            else None,
         )
 
         with self.structured_reporter.report_exc(
@@ -714,11 +734,115 @@ class SnowflakeQueriesSource(Source):
 _MAX_TABLES_PER_QUERY = 20
 
 
+def _build_access_history_database_filter_condition(
+    database_pattern: Optional[AllowDenyPattern],
+    additional_database_names: Optional[List[str]] = None,
+) -> str:
+    """
+    Build a SQL WHERE condition for database filtering in access_history based on AllowDenyPattern.
+
+    IMPORTANT: This function handles the fundamental difference between DML and DDL operations in Snowflake's
+    access_history table:
+
+    - DML Operations (SELECT, INSERT, UPDATE, DELETE, etc.): Store accessed/modified objects in the
+      `direct_objects_accessed` and `objects_modified` arrays
+    - DDL Operations (CREATE, ALTER, DROP, RENAME, etc.): Store modified objects in the
+      `object_modified_by_ddl` field (single object, not an array)
+
+    Without checking `object_modified_by_ddl`, DDL operations like "ALTER TABLE person_info RENAME TO person_info_final"
+    would be incorrectly filtered out because they don't populate the DML arrays, causing missing lineage
+    and operational metadata.
+
+    Args:
+        database_pattern: The AllowDenyPattern configuration for database filtering
+        additional_database_names: Additional database names to always include (no pattern matching)
+
+    Returns:
+        A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+
+    Examples:
+        >>> from datahub.configuration.common import AllowDenyPattern
+        >>> pattern = AllowDenyPattern(allow=["^PROD_.*"], deny=[".*_TEMP$"])
+        >>> _build_access_history_database_filter_condition(pattern)
+        '(ARRAY_SIZE(FILTER(direct_objects_accessed, o -> (SPLIT_PART(UPPER(o:objectName), \'.\', 1) RLIKE \'^PROD_.*\') AND (SPLIT_PART(UPPER(o:objectName), \'.\', 1) NOT RLIKE \'.*_TEMP$\'))) > 0 OR ARRAY_SIZE(FILTER(objects_modified, o -> (SPLIT_PART(UPPER(o:objectName), \'.\', 1) RLIKE \'^PROD_.*\') AND (SPLIT_PART(UPPER(o:objectName), \'.\', 1) NOT RLIKE \'.*_TEMP$\'))) > 0 OR ((SPLIT_PART(UPPER(object_modified_by_ddl:objectName), \'.\', 1) RLIKE \'^PROD_.*\') AND (SPLIT_PART(UPPER(object_modified_by_ddl:objectName), \'.\', 1) NOT RLIKE \'.*_TEMP$\')))'
+    """
+    if not database_pattern and not additional_database_names:
+        return "TRUE"
+
+    # Build the database filter conditions for pattern matching
+    # Note: Using UPPER() + RLIKE for case-insensitive matching is more performant than REGEXP_LIKE with 'i' flag
+    database_filter_parts = []
+
+    if database_pattern:
+        allow_patterns = database_pattern.allow
+        deny_patterns = database_pattern.deny
+
+        # Add allow patterns (if not the default "allow all")
+        if allow_patterns and allow_patterns != [".*"]:
+            allow_conditions = []
+            for pattern in allow_patterns:
+                # Escape single quotes that might be present in the regex pattern
+                escaped_pattern = pattern.replace("'", "''")
+                allow_conditions.append(
+                    f"SPLIT_PART(UPPER(o:objectName), '.', 1) RLIKE '{escaped_pattern}'"
+                )
+            if allow_conditions:
+                database_filter_parts.append(f"({' OR '.join(allow_conditions)})")
+
+        # Add deny patterns
+        if deny_patterns:
+            deny_conditions = []
+            for pattern in deny_patterns:
+                # Escape single quotes that might be present in the regex pattern
+                escaped_pattern = pattern.replace("'", "''")
+                deny_conditions.append(
+                    f"SPLIT_PART(UPPER(o:objectName), '.', 1) NOT RLIKE '{escaped_pattern}'"
+                )
+            if deny_conditions:
+                database_filter_parts.append(f"({' AND '.join(deny_conditions)})")
+
+    # Add additional database names (exact matches)
+    if additional_database_names:
+        additional_db_conditions = []
+        for db_name in additional_database_names:
+            # Escape single quotes
+            escaped_db_name = db_name.replace("'", "''")
+            additional_db_conditions.append(
+                f"SPLIT_PART(UPPER(o:objectName), '.', 1) = '{escaped_db_name.upper()}'"
+            )
+        if additional_db_conditions:
+            database_filter_parts.append(f"({' OR '.join(additional_db_conditions)})")
+
+    if database_filter_parts:
+        database_filter_condition = " AND ".join(database_filter_parts)
+
+        # Build a condition that checks if any objects in the arrays match the database pattern
+        # This implements "at least one" matching behavior: queries are allowed if they touch
+        # at least one database that matches the pattern, even if they also touch other databases
+        # Use ARRAY_SIZE with FILTER which is more compatible with Snowflake
+        direct_objects_condition = f"ARRAY_SIZE(FILTER(direct_objects_accessed, o -> {database_filter_condition})) > 0"
+        objects_modified_condition = f"ARRAY_SIZE(FILTER(objects_modified, o -> {database_filter_condition})) > 0"
+
+        # CRITICAL: Handle DDL operations by checking object_modified_by_ddl field
+        # DDL operations like ALTER TABLE RENAME store their data here instead of in the arrays
+        # We need to adapt the filter condition for a single object rather than an array
+        ddl_filter_condition = database_filter_condition.replace(
+            "o:objectName", "object_modified_by_ddl:objectName"
+        )
+        object_modified_by_ddl_condition = f"({ddl_filter_condition})"
+
+        return f"({direct_objects_condition} OR {objects_modified_condition} OR {object_modified_by_ddl_condition})"
+    else:
+        return "TRUE"
+
+
 def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
     bucket_duration: BucketDuration,
     deny_usernames: Optional[List[str]],
+    database_pattern: Optional[AllowDenyPattern] = None,
+    additional_database_names: Optional[List[str]] = None,
 ) -> str:
     start_time_millis = int(start_time.timestamp() * 1000)
     end_time_millis = int(end_time.timestamp() * 1000)
@@ -727,6 +851,10 @@ def _build_enriched_query_log_query(
     if deny_usernames:
         user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
         users_filter = f"user_name NOT IN ({user_not_in})"
+
+    access_history_database_filter = _build_access_history_database_filter_condition(
+        database_pattern, additional_database_names
+    )
 
     time_bucket_size = bucket_duration.value
     assert time_bucket_size in ("HOUR", "DAY", "MONTH")
@@ -786,6 +914,7 @@ fingerprinted_queries as (
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
+        AND {access_history_database_filter}
 )
 , filtered_access_history AS (
     -- TODO: Add table filter clause.
