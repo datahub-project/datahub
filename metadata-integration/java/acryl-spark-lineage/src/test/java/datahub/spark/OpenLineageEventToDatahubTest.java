@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import junit.framework.TestCase;
@@ -841,5 +842,102 @@ public class OpenLineageEventToDatahubTest extends TestCase {
           dataset.getUrn().toString());
     }
     assertEquals(0, datahubJob.getOutSet().size());
+  }
+
+  public void testCaptureTransformOption() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_transformation.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/people.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
+          dataset.getUrn().toString());
+      assertEquals(
+          "DIRECT:IDENTITY,INDIRECT:FILTER",
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation());
+    }
+  }
+
+  public void testFlinkJobEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/flink_job_test.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,lineage-test-topic-json,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,lineage-test-topic-json-flinkoutput,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  public void testDebeziumJobEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(false);
+    builder.usePatch(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/debezium_event.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(0, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.public.product,DEV)",
+          dataset.getUrn().toString());
+    }
   }
 }
