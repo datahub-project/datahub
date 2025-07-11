@@ -256,7 +256,7 @@ class SnowflakeV2Config(
 
     query_dedup_strategy: QueryDedupStrategyType = Field(
         default=QueryDedupStrategyType.STANDARD,
-        description="Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it).",
+        description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
