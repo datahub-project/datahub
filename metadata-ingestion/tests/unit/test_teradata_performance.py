@@ -251,10 +251,15 @@ class TestMemoryOptimizations:
                     mock_connection
                 )
 
-                with patch.object(
-                    source, "get_metadata_engine", return_value=mock_engine
-                ), patch.object(
-                    source, "_execute_with_cursor_fallback", return_value=mock_result
+                with (
+                    patch.object(
+                        source, "get_metadata_engine", return_value=mock_engine
+                    ),
+                    patch.object(
+                        source,
+                        "_execute_with_cursor_fallback",
+                        return_value=mock_result,
+                    ),
                 ):
                     # Process entries
                     entries = list(source._fetch_lineage_entries_chunked())
