@@ -90,6 +90,7 @@ public class ESGraphQueryDAO {
   private final IndexConvention indexConvention;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
   @Getter private final ElasticSearchConfiguration config;
+  private final MetricUtils metricUtils;
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
@@ -148,7 +149,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -589,7 +591,7 @@ public class ESGraphQueryDAO {
    */
   SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
     try {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+      if (metricUtils != null) metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
       return client.search(searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
@@ -1275,7 +1277,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -1872,7 +1875,8 @@ public class ESGraphQueryDAO {
         "esLineageGroupByQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(request, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);

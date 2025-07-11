@@ -9,9 +9,9 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
-import static io.datahubproject.metadata.context.TraceContext.EVENT_SOURCE_KEY;
-import static io.datahubproject.metadata.context.TraceContext.SOURCE_IP_KEY;
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SOURCE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.SOURCE_IP_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -92,7 +92,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -954,7 +954,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         () -> {
           if (inputBatch.containsDuplicateAspects()) {
             log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
-            MetricUtils.counter(EntityServiceImpl.class, "batch_with_duplicate").inc();
+            opContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(EntityServiceImpl.class, "batch_with_duplicate", 1));
           }
 
           return aspectDao
@@ -1039,7 +1043,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // No changes, return
                     if (changeMCPs.isEmpty()) {
-                      MetricUtils.counter(EntityServiceImpl.class, "batch_empty").inc();
+                      opContext
+                          .getMetricUtils()
+                          .ifPresent(
+                              metricUtils ->
+                                  metricUtils.increment(EntityServiceImpl.class, "batch_empty", 1));
                       return TransactionResult.ingestAspectsRollback();
                     }
 
@@ -1052,17 +1060,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (exceptions.hasFatalExceptions()) {
                       // IF this is a client request/API request we fail the `transaction batch`
                       if (opContext.getRequestContext() != null) {
-                        MetricUtils.counter(
-                                EntityServiceImpl.class, "batch_request_validation_exception")
-                            .inc();
-                        collectMetrics(exceptions);
+                        opContext
+                            .getMetricUtils()
+                            .ifPresent(
+                                metricUtils ->
+                                    metricUtils.increment(
+                                        EntityServiceImpl.class,
+                                        "batch_request_validation_exception",
+                                        1));
+                        collectMetrics(opContext.getMetricUtils().orElse(null), exceptions);
                         throw new ValidationException(exceptions);
                       }
 
-                      MetricUtils.counter(
-                              EntityServiceImpl.class, "batch_consumer_validation_exception")
-                          .inc();
-                      log.error("mce-consumer batch exceptions: {}", collectMetrics(exceptions));
+                      opContext
+                          .getMetricUtils()
+                          .ifPresent(
+                              metricUtils ->
+                                  metricUtils.increment(
+                                      EntityServiceImpl.class,
+                                      "batch_consumer_validation_exception",
+                                      1));
+                      log.error(
+                          "mce-consumer batch exceptions: {}",
+                          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
                       failedUpsertResults =
                           exceptions
                               .streamExceptions(changeMCPs.stream())
@@ -1139,7 +1159,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           if (e.getMessage() != null
                               && e.getMessage().contains("No rows updated")) {
                             log.warn("Ignoring no rows updated condition for metadata update", e);
-                            MetricUtils.counter(EntityServiceImpl.class, "no_rows_updated").inc();
+                            opContext
+                                .getMetricUtils()
+                                .ifPresent(
+                                    metricUtils ->
+                                        metricUtils.increment(
+                                            EntityServiceImpl.class, "no_rows_updated", 1));
                             return TransactionResult.rollback();
                           }
                           throw e;
@@ -1191,7 +1216,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         log.warn("Retention service is missing!");
                       }
                     } else {
-                      MetricUtils.counter(EntityServiceImpl.class, "batch_empty_transaction").inc();
+                      opContext
+                          .getMetricUtils()
+                          .ifPresent(
+                              metricUtils ->
+                                  metricUtils.increment(
+                                      EntityServiceImpl.class, "batch_empty_transaction", 1));
                       // This includes no-op batches. i.e. patch removing non-existent items
                       log.debug("Empty transaction detected");
                       if (txContext != null) {
@@ -1200,8 +1230,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
 
                     // Force flush span processing for DUE Exports
-                    Optional.ofNullable(opContext.getTraceContext())
-                        .map(TraceContext::getUsageSpanExporter)
+                    Optional.ofNullable(opContext.getSystemTelemetryContext())
+                        .map(SystemTelemetryContext::getUsageSpanExporter)
                         .ifPresent(SpanProcessor::forceFlush);
 
                     return TransactionResult.of(
@@ -2012,8 +2042,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         });
   }
 
-  protected Attributes mapEventAttributes(
-      MetadataChangeLog metadataChangeLog, OperationContext opContext) {
+  @VisibleForTesting
+  Attributes mapEventAttributes(MetadataChangeLog metadataChangeLog, OperationContext opContext) {
     AttributesBuilder attributesBuilder = Attributes.builder();
 
     Optional.ofNullable(metadataChangeLog.getSystemMetadata())
@@ -2055,7 +2085,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * Right now this is limited to target use cases so the logic is simplified, might make sense to
    * make this entity registry & model driven
    */
-  protected void mapAspectToUsageEvent(
+  @VisibleForTesting
+  void mapAspectToUsageEvent(
       AttributesBuilder attributesBuilder, MetadataChangeLog metadataChangeLog) {
     String aspectName =
         Optional.ofNullable(metadataChangeLog.getAspectName()).orElse(StringUtils.EMPTY);
@@ -2099,6 +2130,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       switch (aspectName) {
         case ACCESS_TOKEN_KEY_ASPECT_NAME:
           eventType = DataHubUsageEventType.REVOKE_ACCESS_TOKEN_EVENT.getType();
+          break;
+        case DATAHUB_POLICY_KEY_ASPECT_NAME:
+          eventType = DataHubUsageEventType.DELETE_POLICY_EVENT.getType();
           break;
         default:
           eventType = DataHubUsageEventType.DELETE_ENTITY_EVENT.getType();
@@ -2524,8 +2558,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (future != null) {
         try {
           future.get();
-          Optional.ofNullable(opContext.getTraceContext())
-              .map(TraceContext::getUsageSpanExporter)
+          Optional.ofNullable(opContext.getSystemTelemetryContext())
+              .map(SystemTelemetryContext::getUsageSpanExporter)
               .ifPresent(SpanProcessor::forceFlush);
         } catch (InterruptedException | ExecutionException e) {
           throw new RuntimeException(e);
@@ -2619,7 +2653,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         AspectsBatch.validateProposed(
             List.of(deleteItem), opContext.getRetrieverContext(), opContext);
     if (!exceptions.isEmpty()) {
-      throw new ValidationException(collectMetrics(exceptions).toString());
+      throw new ValidationException(
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
     final RollbackResult result =
@@ -2634,7 +2669,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
                   } catch (EntityNotFoundException e) {
                     log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
-                    MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting").inc();
+                    opContext
+                        .getMetricUtils()
+                        .ifPresent(
+                            metricUtils ->
+                                metricUtils.increment(
+                                    EntityServiceImpl.class, "delete_nonexisting", 1));
                   }
 
                   // 1.1 If no latest exists, skip this aspect
@@ -2697,7 +2737,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               .collect(Collectors.toList()),
                           opContext.getRetrieverContext());
                   if (!preCommitExceptions.isEmpty()) {
-                    throw new ValidationException(collectMetrics(preCommitExceptions).toString());
+                    throw new ValidationException(
+                        collectMetrics(opContext.getMetricUtils().orElse(null), preCommitExceptions)
+                            .toString());
                   }
 
                   // 5. Apply deletes and fix up latest row
@@ -2721,6 +2763,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // metrics
                     aspectDao.incrementWriteMetrics(
+                        opContext,
                         aspectName,
                         1,
                         survivingResult.map(r -> r.getMetadata().getBytes().length).orElse(0));
@@ -2932,6 +2975,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               // metrics
               aspectDao.incrementWriteMetrics(
+                  opContext,
                   writeItem.getAspectName(),
                   1,
                   updatedAspect.getMetadata().getBytes().length

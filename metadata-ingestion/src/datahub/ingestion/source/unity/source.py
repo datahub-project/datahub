@@ -768,10 +768,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
-        schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
-            schema.catalog.name
-        ).get(f"{schema.catalog.name}.{schema.name}", [])
-        if schema_tags:
+        schema_tags = []
+        if self.config.include_tags:
+            schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
+                schema.catalog.name
+            ).get(f"{schema.catalog.name}.{schema.name}", [])
             logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(schema_tags)
@@ -809,10 +810,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
-        catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog.name).get(
-            catalog.name, []
-        )
-        if catalog_tags:
+        catalog_tags = []
+        if self.config.include_tags:
+            catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(
+                catalog.name
+            ).get(catalog.name, [])
             logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(catalog_tags)
@@ -1020,29 +1022,45 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
-                platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
-                    platform_instance=self.platform_instance_name,
-                    platform_resource_repository=self.platform_resource_repository,
-                    tag=tag,
-                )
-                logger.debug(f"Created platform resource {platform_resource_id}")
-
-                unity_catalog_tag = UnityCatalogTagPlatformResource.get_from_datahub(
-                    platform_resource_id, self.platform_resource_repository, False
-                )
-                if (
-                    tag.to_datahub_tag_urn().urn()
-                    not in unity_catalog_tag.datahub_linked_resources().urns
-                ):
-                    unity_catalog_tag.datahub_linked_resources().add(
-                        tag.to_datahub_tag_urn().urn()
+                try:
+                    platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
+                        platform_instance=self.platform_instance_name,
+                        platform_resource_repository=self.platform_resource_repository,
+                        tag=tag,
                     )
-                    platform_resource = unity_catalog_tag.as_platform_resource()
-                    for mcp in platform_resource.to_mcps():
-                        yield MetadataWorkUnit(
-                            id=f"platform_resource-{platform_resource.id}",
-                            mcp=mcp,
+                    logger.debug(f"Created platform resource {platform_resource_id}")
+
+                    unity_catalog_tag = (
+                        UnityCatalogTagPlatformResource.get_from_datahub(
+                            platform_resource_id,
+                            self.platform_resource_repository,
+                            False,
                         )
+                    )
+                    if (
+                        tag.to_datahub_tag_urn().urn()
+                        not in unity_catalog_tag.datahub_linked_resources().urns
+                    ):
+                        unity_catalog_tag.datahub_linked_resources().add(
+                            tag.to_datahub_tag_urn().urn()
+                        )
+                        platform_resource = unity_catalog_tag.as_platform_resource()
+                        for mcp in platform_resource.to_mcps():
+                            yield MetadataWorkUnit(
+                                id=f"platform_resource-{platform_resource.id}",
+                                mcp=mcp,
+                            )
+                except Exception as e:
+                    logger.exception(
+                        f"Error processing platform resource for tag {tag}"
+                    )
+                    self.report.report_warning(
+                        message="Error processing platform resource for tag",
+                        context=str(tag),
+                        title="Error processing platform resource for tag",
+                        exc=e,
+                    )
+                    continue
 
     def _create_schema_metadata_aspect(
         self, table: Table

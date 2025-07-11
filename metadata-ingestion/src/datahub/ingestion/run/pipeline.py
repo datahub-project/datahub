@@ -171,7 +171,10 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        with contextlib.ExitStack() as exit_stack, contextlib.ExitStack() as inner_exit_stack:
+        with (
+            contextlib.ExitStack() as exit_stack,
+            contextlib.ExitStack() as inner_exit_stack,
+        ):
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
@@ -578,11 +581,17 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().get_aspects_dict()
+        source_aspects_by_subtype = (
+            self.source.get_report().get_aspects_by_subtypes_dict()
+        )
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
+                "source_aspects_by_subtype": source_aspects_by_subtype,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []

@@ -34,9 +34,12 @@ sample_values = ["abc@xyz.com" for _ in range(NUM_SAMPLE_VALUES)]
     [(w, c, t) for w in [1, 2, 4, 6, 8] for c in [5, 10, 40, 80] for t in [1]],
 )
 def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tables):
-    with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
-    ) as mock_sample_values:
+    with (
+        mock.patch("snowflake.connector.connect") as mock_connect,
+        mock.patch(
+            "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+        ) as mock_sample_values,
+    ):
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
