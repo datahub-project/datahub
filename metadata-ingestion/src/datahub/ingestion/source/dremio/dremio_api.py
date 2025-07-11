@@ -7,7 +7,7 @@ from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Deque, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
@@ -22,6 +23,9 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +185,7 @@ class DremioAPIOperations:
             self.session.headers.update(
                 {"Authorization": f"Bearer {connection_args.password}"}
             )
+            logger.debug("Configured Dremio cloud API session to use PAT")
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
@@ -192,6 +197,7 @@ class DremioAPIOperations:
                             "Authorization": f"Bearer {connection_args.password}",
                         }
                     )
+                    logger.debug("Configured Dremio API session to use PAT")
                     return
                 else:
                     assert connection_args.username and connection_args.password, (
@@ -215,10 +221,10 @@ class DremioAPIOperations:
                     response.raise_for_status()
                     token = response.json().get("token")
                     if token:
+                        logger.debug("Exchanged username and password for Dremio token")
                         self.session.headers.update(
                             {"Authorization": f"_dremio{token}"}
                         )
-
                         return
                     else:
                         self.report.failure("Failed to authenticate", login_url)
@@ -234,42 +240,45 @@ class DremioAPIOperations:
             "Credentials cannot be refreshed. Please check your username and password."
         )
 
-    def get(self, url: str) -> Dict:
-        """execute a get request on dremio"""
-        logger.debug(f"GET request to {self.base_url + url}")
+    def _request(self, method: str, url: str, data: Union[str, None] = None) -> Dict:
+        """Send a request to the Dremio API."""
+
+        logger.debug(f"{method} request to {self.base_url + url}")
         self.report.api_calls_total += 1
-        self.report.api_calls_by_method_and_path["GET " + url] += 1
+        self.report.api_calls_by_method_and_path[f"{method} {url}"] += 1
 
         with PerfTimer() as timer:
-            response = self.session.get(
-                url=(self.base_url + url),
-                verify=self._verify,
-                timeout=self._timeout,
-            )
-            self.report.api_call_secs_by_method_and_path["GET " + url] += (
-                timer.elapsed_seconds()
-            )
-            # response.raise_for_status()  # Enabling this line, makes integration tests to fail
-            return response.json()
-
-    def post(self, url: str, data: str) -> Dict:
-        """execute a get request on dremio"""
-        logger.debug(f"POST request to {self.base_url + url}")
-        self.report.api_calls_total += 1
-        self.report.api_calls_by_method_and_path["POST " + url] += 1
-
-        with PerfTimer() as timer:
-            response = self.session.post(
+            response = self.session.request(
+                method=method,
                 url=(self.base_url + url),
                 data=data,
                 verify=self._verify,
                 timeout=self._timeout,
             )
-            self.report.api_call_secs_by_method_and_path["POST " + url] += (
+            self.report.api_call_secs_by_method_and_path[f"{method} {url}"] += (
                 timer.elapsed_seconds()
             )
             # response.raise_for_status()  # Enabling this line, makes integration tests to fail
-            return response.json()
+            try:
+                return response.json()
+            except requests.exceptions.JSONDecodeError as e:
+                logger.info(
+                    f"On {method} request to {url}, failed to parse JSON from response (status {response.status_code}): {response.text}"
+                )
+                logger.debug(
+                    f"Request curl equivalent: {make_curl_command(self.session, method, url, data)}"
+                )
+                raise DremioAPIException(
+                    f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
+                ) from e
+
+    def get(self, url: str) -> Dict:
+        """Send a GET request to the Dremio API."""
+        return self._request("GET", url)
+
+    def post(self, url: str, data: str) -> Dict:
+        """Send a POST request to the Dremio API."""
+        return self._request("POST", url, data=data)
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
@@ -489,7 +498,9 @@ class DremioAPIOperations:
         pattern_str = "|".join(f"({p})" for p in patterns)
         return f"AND {operator}({field}, '{pattern_str}')"
 
-    def get_all_tables_and_columns(self, containers: Deque) -> List[Dict]:
+    def get_all_tables_and_columns(
+        self, containers: Deque["DremioContainer"]
+    ) -> List[Dict]:
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
         elif self.edition == DremioEdition.CLOUD:

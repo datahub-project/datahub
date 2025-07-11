@@ -4,7 +4,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union, Set
 
 import avro.schema
 import click
@@ -323,7 +323,7 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
-from typing import Literal
+from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
@@ -333,6 +333,8 @@ class AspectBag(TypedDict, total=False):
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+KEY_ASPECT_NAMES: Set[str] = {{cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}}
 
 ENTITY_TYPE_NAMES: List[str] = [
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}

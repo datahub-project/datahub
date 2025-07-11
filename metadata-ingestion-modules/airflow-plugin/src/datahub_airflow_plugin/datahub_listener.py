@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 from airflow.models import Variable
+from airflow.models.operator import Operator
 from airflow.models.serialized_dag import SerializedDagModel
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
@@ -42,7 +43,6 @@ from datahub.telemetry import telemetry
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
-    Operator,
     get_task_inlets,
     get_task_outlets,
 )
@@ -109,6 +109,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "airflow-version": airflow.__version__,
                     "datahub-airflow-plugin": "v2",
                     "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "datahub-airflow-plugin-dataset-events": HAS_AIRFLOW_DATASET_LISTENER_API,
                     "capture_executions": plugin_config.capture_executions,
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
@@ -429,13 +430,6 @@ class DataHubListener:
         if task_instance.next_method is not None:  # type: ignore[attr-defined]
             return
 
-        # If we don't have the DAG listener API, we just pretend that
-        # the start of the task is the start of the DAG.
-        # This generates duplicate events, but it's better than not
-        # generating anything.
-        if not HAS_AIRFLOW_DAG_LISTENER_API:
-            self.on_dag_start(dagrun)
-
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
             task=task,
@@ -749,27 +743,25 @@ class DataHubListener:
             logger.debug(f"total pipelines removed = {len(obsolete_pipelines)}")
             logger.debug(f"total tasks removed = {len(obsolete_tasks)}")
 
-    if HAS_AIRFLOW_DAG_LISTENER_API:
+    @hookimpl
+    @run_in_thread
+    def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+        if self.check_kill_switch():
+            return
 
-        @hookimpl
-        @run_in_thread
-        def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
-            if self.check_kill_switch():
-                return
+        self._set_log_level()
 
-            self._set_log_level()
+        logger.debug(
+            f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
+        )
 
-            logger.debug(
-                f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
-            )
+        assert dag_run.dag_id
+        if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
+            logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+            return
 
-            assert dag_run.dag_id
-            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
-                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
-                return
-
-            self.on_dag_start(dag_run)
-            self.emitter.flush()
+        self.on_dag_start(dag_run)
+        self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 

@@ -26,7 +26,6 @@ default_args = {
     start_date=days_ago(2),
     tags=["example_tag"],
     catchup=False,
-    default_view="tree",
 )
 def datahub_lineage_backend_taskflow_demo():
     @task(

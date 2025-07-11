@@ -14,8 +14,6 @@ from datahub.metadata.schema_classes import (
     PlatformTypeClass,
     SystemMetadataClass,
 )
-from datahub.telemetry import telemetry
-from datahub.upgrade import upgrade
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -44,8 +42,6 @@ def put() -> None:
     required=False,
     help="Run ID into which we should log the aspect.",
 )
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> None:
     """Update a single aspect of an entity"""
 
@@ -75,8 +71,6 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> No
 
 @put.command()
 @click.pass_context
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 @click.option(
     "--name",
     type=str,

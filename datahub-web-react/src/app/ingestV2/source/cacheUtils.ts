@@ -1,4 +1,21 @@
+import deepmerge from 'deepmerge';
+
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
+
+/**
+ * Deeply merges or adds a source to the list by urn
+ */
+export const mergeSources = (updatedSource, existingSources, shouldReplace = false) => {
+    let found = false;
+    const merged = existingSources.map((source) => {
+        if (source.urn === updatedSource.urn) {
+            found = true;
+            return shouldReplace ? updatedSource : deepmerge(source, updatedSource);
+        }
+        return source;
+    });
+    return found ? merged : [updatedSource, ...merged];
+};
 
 /**
  * Add an entry to the ListIngestionSources cache.
@@ -13,7 +30,7 @@ export const addToListIngestionSourcesCache = (client, newSource, queryInputs) =
     });
 
     // Add our new source into the existing list.
-    const newSources = [newSource, ...(currData?.listIngestionSources?.ingestionSources || [])];
+    const newSources = mergeSources(newSource, currData?.listIngestionSources?.ingestionSources, true);
 
     // Write our data back to the cache.
     client.writeQuery({
@@ -35,7 +52,7 @@ export const addToListIngestionSourcesCache = (client, newSource, queryInputs) =
 /**
  * Update an entry in the ListIngestionSources cache.
  */
-export const updateListIngestionSourcesCache = (client, updatedSource, queryInputs) => {
+export const updateListIngestionSourcesCache = (client, updatedSource, queryInputs, shouldReplace = false) => {
     // Read the data from our cache for this query
     const currData: ListIngestionSourcesQuery | null = client.readQuery({
         query: ListIngestionSourcesDocument,
@@ -46,10 +63,7 @@ export const updateListIngestionSourcesCache = (client, updatedSource, queryInpu
 
     if (!currData?.listIngestionSources?.ingestionSources) return;
 
-    // Update the given source in the existing list
-    const newSources = currData.listIngestionSources.ingestionSources.map((source) =>
-        source.urn === updatedSource.urn ? updatedSource : source,
-    );
+    const newSources = mergeSources(updatedSource, currData.listIngestionSources.ingestionSources, shouldReplace);
 
     // Write our data back to the cache
     client.writeQuery({

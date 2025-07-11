@@ -207,11 +207,8 @@ def test_check_mce_schema_failure(
 ) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    try:
+    with pytest.raises(Exception, match="is missing required field: active"):
         check_mce_file(str(json_file_path))
-        raise AssertionError("MCE File validated successfully when it should not have")
-    except Exception as e:
-        assert "is missing required field: active" in str(e)
 
 
 def test_field_discriminator() -> None:

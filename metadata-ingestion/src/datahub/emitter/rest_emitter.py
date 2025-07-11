@@ -61,6 +61,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    ChangeTypeClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -626,15 +630,27 @@ class DataHubRestEmitter(Closeable, Emitter):
                     trace_data = extract_trace_data(response) if response else None
 
         else:
-            url = f"{self._gms_server}/aspects?action=ingestProposal"
+            if mcp.changeType == ChangeTypeClass.DELETE:
+                if mcp.aspectName not in KEY_ASPECT_NAMES:
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
-            mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
-            payload_dict = {
-                "proposal": mcp_obj,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
-            }
+                url = f"{self._gms_server}/entities?action=delete"
+                payload_dict = {
+                    "urn": mcp.entityUrn,
+                }
+            else:
+                url = f"{self._gms_server}/aspects?action=ingestProposal"
+
+                mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
+                payload_dict = {
+                    "proposal": mcp_obj,
+                    "async": "true"
+                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+                    else "false",
+                }
 
             payload = json.dumps(payload_dict)
 

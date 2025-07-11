@@ -56,6 +56,7 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -152,7 +153,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
     SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"

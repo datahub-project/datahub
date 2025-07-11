@@ -19,6 +19,7 @@ from datahub.sdk.search_filters import (
     _OrFilters,
     _StatusFilter,
 )
+from datahub.utilities.ordered_set import OrderedSet
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -80,7 +81,7 @@ def compute_entity_types(
 ) -> Optional[List[str]]:
     found_filters = False
     found_positive_filters = False
-    entity_types: List[str] = []
+    entity_types: OrderedSet[str] = OrderedSet()
     for ands in filters:
         for clause in ands["and"]:
             if clause.field == _EntityTypeFilter.ENTITY_TYPE_FIELD:
@@ -88,7 +89,7 @@ def compute_entity_types(
                 if not clause.negated:
                     found_positive_filters = True
 
-                entity_types.extend(clause.values)
+                entity_types.update(clause.values)
 
     if not found_filters:
         # If we didn't find any filters, use None so we use the default set.
@@ -100,7 +101,7 @@ def compute_entity_types(
         # still want to use the default set.
         return None
 
-    return entity_types
+    return list(entity_types)
 
 
 class SearchClient:

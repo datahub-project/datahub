@@ -1,4 +1,10 @@
 import React from 'react';
+import styled from 'styled-components';
+
+const StyledWrapper = styled.span`
+    width: max-content;
+    display: flex;
+`;
 
 interface Props {
     children: React.ReactNode;
@@ -6,7 +12,7 @@ interface Props {
 
 const StopPropagationWrapper = ({ children }: Props) => {
     return (
-        <span
+        <StyledWrapper
             onClick={(e) => e.stopPropagation()}
             role="button"
             tabIndex={0}
@@ -17,7 +23,7 @@ const StopPropagationWrapper = ({ children }: Props) => {
             }}
         >
             {children}
-        </span>
+        </StyledWrapper>
     );
 };
 

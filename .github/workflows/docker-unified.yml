@@ -163,15 +163,17 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -207,6 +209,8 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
@@ -262,6 +266,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
@@ -289,7 +295,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@0.32.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -516,16 +522,19 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
+            ~/.npm
+            ~/.cache/Cypress
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
