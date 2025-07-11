@@ -276,23 +276,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
-    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -396,15 +379,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                }
-            ]
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -416,12 +394,17 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -559,15 +542,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                }
-            ]
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -579,12 +557,17 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -701,15 +684,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                }
-            ]
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -721,12 +699,17 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -830,6 +813,23 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -10379,7 +10379,6 @@
                             "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1640200234000,
@@ -10492,7 +10491,6 @@
                             "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10603,7 +10601,6 @@
                         "description": "",
                         "charts": [],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10728,7 +10725,6 @@
                             "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639768450000,
@@ -34261,60 +34257,6 @@
                 {
                     "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
                     "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
-                    "type": "TRANSFORMED"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD),seller_city)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD),price)"
-                    ],
-                    "confidenceScore": 1.0
                 }
             ]
         }
