@@ -77,7 +77,7 @@ DataHub Cloud offers comprehensive features designed to optimize data pipelines:
   <i style={{color:"grey"}}>Lineage Tracking</i>
 </p>
 
-- **[Lineage Tracking](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide) and [Impact Analysis](https://docs.datahub.com/docs/act-on-metadata/impact-analysis):** Understand the flow of data through your pipelines to identify and resolve inefficiencies quickly. Easily see which assets are consumed and produced by which pipelines.
+- **[Lineage Tracking](https://docs.datahub.com/docs/features/feature-guides/lineage) and [Impact Analysis](https://docs.datahub.com/docs/act-on-metadata/impact-analysis):** Understand the flow of data through your pipelines to identify and resolve inefficiencies quickly. Easily see which assets are consumed and produced by which pipelines.
 - **Freshness Monitoring:** Track the freshness using Freshness Assertions of your data to ensure SLAs are met consistently.
 - **Cost Management Tooling:** Monitor and optimize cloud costs associated with your data pipelines to improve cost-efficiency.
 
