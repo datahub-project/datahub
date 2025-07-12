@@ -136,7 +136,7 @@ query getDocPropagationSettings {
 query getHomePageSettings {
     globalHomePageSettings {
         defaultTemplate {
-            ...pageTemplateFields
+            ...PageTemplate
         }
     }
 }
