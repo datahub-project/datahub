@@ -47,6 +47,7 @@ const ItemHeader = styled.div`
     align-items: center;
     margin-bottom: 3px;
     gap: 8px;
+    font-size: 12px;
 `;
 
 const Divider = styled.div`

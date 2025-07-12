@@ -626,6 +626,7 @@ featureFlags:
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -836,5 +837,5 @@ eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
-      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
-      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+  enablePublicRead: ${ENABLE_PUBLIC_READ:false}
+  publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}

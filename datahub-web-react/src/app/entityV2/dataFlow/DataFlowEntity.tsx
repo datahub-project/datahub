@@ -1,5 +1,5 @@
 import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, WarningCircle } from '@phosphor-icons/react';
+import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -23,6 +23,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
+import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -96,6 +97,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Documentation',
                     component: DocumentationTab,
                     icon: FileText,
+                },
+                {
+                    name: 'Lineage',
+                    component: DAGTab,
+                    icon: TreeStructure,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Tasks',
@@ -233,6 +240,15 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 subTypes={genericProperties?.subTypes}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataFlow) => {
+        return {
+            urn: entity?.urn,
+            type: EntityType.DataFlow,
+            name: this.displayName(entity),
+            icon: entity?.platform?.properties?.logoUrl || undefined,
+        };
     };
 
     displayName = (data: DataFlow) => {
