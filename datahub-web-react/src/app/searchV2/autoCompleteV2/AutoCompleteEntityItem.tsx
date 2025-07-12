@@ -44,7 +44,6 @@ const ContentContainer = styled.div`
     flex-direction: row;
     gap: 16px;
     overflow: hidden;
-    width: 100%;
 `;
 
 const DescriptionContainer = styled.div`
@@ -80,6 +79,7 @@ interface EntityAutocompleteItemProps {
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
+    customDetailsRenderer?: (entity: Entity) => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -88,6 +88,7 @@ export default function AutoCompleteEntityItem({
     siblings,
     matchedFields,
     variant,
+    customDetailsRenderer,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -153,9 +154,13 @@ export default function AutoCompleteEntityItem({
             </ContentContainer>
 
             <TypeContainer>
-                <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                    {displayType}
-                </Text>
+                {customDetailsRenderer ? (
+                    customDetailsRenderer(entity)
+                ) : (
+                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                        {displayType}
+                    </Text>
+                )}
             </TypeContainer>
         </Container>
     );

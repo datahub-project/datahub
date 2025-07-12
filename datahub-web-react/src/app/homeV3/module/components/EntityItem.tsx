@@ -8,14 +8,15 @@ import { Entity } from '@types';
 
 interface Props {
     entity: Entity;
+    customDetailsRenderer?: (entity: Entity) => void;
 }
 
-export default function EntityItem({ entity }: Props) {
+export default function EntityItem({ entity, customDetailsRenderer }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     return (
         <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-            <AutoCompleteEntityItem entity={entity} key={entity.urn} />
+            <AutoCompleteEntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
         </Link>
     );
 }
