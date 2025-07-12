@@ -4,7 +4,6 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StyledRightOutlined } from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { ContainerView } from '@app/lineage/manage/ContainerView';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -62,6 +61,10 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                     {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
+                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
+                {platformLogoUrl && (
+                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
+                )}
                 <span>{platformName}</span>
                 <ContainerView remainingContainers={remainingContainers} directContainer={directContainer} />
             </PlatformContent>
