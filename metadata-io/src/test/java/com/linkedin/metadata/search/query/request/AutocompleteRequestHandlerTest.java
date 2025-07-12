@@ -5,11 +5,16 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -18,11 +23,17 @@ import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.FieldConfiguration;
+import com.linkedin.metadata.config.search.custom.HighlightFields;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -31,7 +42,9 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -180,15 +194,23 @@ public class AutocompleteRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<HighlightBuilder.Field> highlightedFields = highlightBuilder.fields();
     assertEquals(highlightedFields.size(), 9);
-    assertEquals(highlightedFields.get(0).name(), "keyPart1");
-    assertEquals(highlightedFields.get(1).name(), "keyPart1.*");
-    assertEquals(highlightedFields.get(2).name(), "keyPart1.ngram");
-    assertEquals(highlightedFields.get(3).name(), "keyPart1.delimited");
-    assertEquals(highlightedFields.get(4).name(), "keyPart1.keyword");
-    assertEquals(highlightedFields.get(5).name(), "urn");
-    assertEquals(highlightedFields.get(6).name(), "urn.*");
-    assertEquals(highlightedFields.get(7).name(), "urn.ngram");
-    assertEquals(highlightedFields.get(8).name(), "urn.delimited");
+
+    Set<String> expectedFields =
+        Set.of(
+            "keyPart1",
+            "keyPart1.*",
+            "keyPart1.ngram",
+            "keyPart1.delimited",
+            "keyPart1.keyword",
+            "urn",
+            "urn.*",
+            "urn.ngram",
+            "urn.delimited");
+
+    Set<String> highlightFieldNames =
+        highlightedFields.stream().map(HighlightBuilder.Field::name).collect(Collectors.toSet());
+
+    assertEquals(expectedFields, highlightFieldNames);
   }
 
   @Test
@@ -739,5 +761,395 @@ public class AutocompleteRequestHandlerTest {
       // Expected exception
       assertTrue(e.getMessage().contains("Result count exceeds limit of 50"));
     }
+  }
+
+  @Test
+  public void testAutocompleteWithFieldConfiguration() {
+    // Create custom configuration with field configurations
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "minimal",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder().replace(List.of("keyPart1", "urn")).build())
+                        .build()))
+            .build();
+
+    AutocompleteRequestHandler configHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Create operation context with field configuration
+    OperationContext opContextWithConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFieldConfiguration("minimal");
+
+    when(opContextWithConfig.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
+    when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    SearchRequest autocompleteRequest =
+        configHandler.getSearchRequest(opContextWithConfig, "input", null, null, 10);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) sourceBuilder.query()).query();
+    BoolQueryBuilder query = (BoolQueryBuilder) extractNestedQuery(wrapper);
+
+    // Should only have keyPart1 fields (urn doesn't have autocomplete fields in the test spec)
+    boolean hasKeyPart1 = false;
+    boolean hasOtherFields = false;
+
+    for (QueryBuilder shouldQuery : query.should()) {
+      if (shouldQuery instanceof MatchQueryBuilder) {
+        MatchQueryBuilder match = (MatchQueryBuilder) shouldQuery;
+        if (match.fieldName().startsWith("keyPart1")) {
+          hasKeyPart1 = true;
+        } else if (!match.fieldName().startsWith("urn")) {
+          hasOtherFields = true;
+        }
+      } else if (shouldQuery instanceof MultiMatchQueryBuilder) {
+        MultiMatchQueryBuilder multiMatch = (MultiMatchQueryBuilder) shouldQuery;
+        for (String field : multiMatch.fields().keySet()) {
+          if (field.startsWith("keyPart1")) {
+            hasKeyPart1 = true;
+          } else if (!field.startsWith("urn")) {
+            hasOtherFields = true;
+          }
+        }
+      }
+    }
+
+    assertTrue(hasKeyPart1, "Should have keyPart1 fields");
+    assertFalse(hasOtherFields, "Should not have other fields");
+  }
+
+  @Test
+  public void testAutocompleteFieldConfigurationWithAddRemove() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "custom",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder()
+                                .add(List.of("textFieldOverride"))
+                                .remove(List.of("keyPart1"))
+                                .build())
+                        .build()))
+            .build();
+
+    AutocompleteRequestHandler configHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    OperationContext opContextWithConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFieldConfiguration("custom");
+
+    when(opContextWithConfig.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
+    when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Note: textFieldOverride is not in the default autocomplete fields, so it won't be added
+    // This test verifies that remove works correctly
+    SearchRequest autocompleteRequest =
+        configHandler.getSearchRequest(opContextWithConfig, "input", null, null, 10);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) sourceBuilder.query()).query();
+    BoolQueryBuilder query = (BoolQueryBuilder) extractNestedQuery(wrapper);
+
+    // Verify keyPart1 was removed
+    for (QueryBuilder shouldQuery : query.should()) {
+      if (shouldQuery instanceof MatchQueryBuilder) {
+        MatchQueryBuilder match = (MatchQueryBuilder) shouldQuery;
+        assertFalse(
+            match.fieldName().startsWith("keyPart1"),
+            "keyPart1 should be removed from autocomplete fields");
+      } else if (shouldQuery instanceof MultiMatchQueryBuilder) {
+        MultiMatchQueryBuilder multiMatch = (MultiMatchQueryBuilder) shouldQuery;
+        for (String field : multiMatch.fields().keySet()) {
+          assertFalse(
+              field.startsWith("keyPart1"), "keyPart1 should be removed from autocomplete fields");
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testAutocompleteHighlightFieldConfiguration() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "no-highlight",
+                        FieldConfiguration.builder()
+                            .highlightFields(HighlightFields.builder().enabled(false).build())
+                            .build(),
+                    "custom-highlight",
+                        FieldConfiguration.builder()
+                            .highlightFields(
+                                HighlightFields.builder()
+                                    .enabled(true)
+                                    .replace(List.of("keyPart1", "keyPart1.ngram"))
+                                    .build())
+                            .build()))
+            .build();
+
+    AutocompleteRequestHandler configHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test disabled highlighting
+    OperationContext opContextNoHighlight = mock(OperationContext.class);
+    SearchContext searchContextNoHighlight = mock(SearchContext.class);
+    SearchFlags searchFlagsNoHighlight = new SearchFlags().setFieldConfiguration("no-highlight");
+
+    when(opContextNoHighlight.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextNoHighlight.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextNoHighlight.getSearchContext()).thenReturn(searchContextNoHighlight);
+    when(opContextNoHighlight.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContextNoHighlight.getSearchFlags()).thenReturn(searchFlagsNoHighlight);
+
+    SearchRequest noHighlightRequest =
+        configHandler.getSearchRequest(opContextNoHighlight, "input", null, null, 10);
+    assertNull(noHighlightRequest.source().highlighter(), "Highlighting should be disabled");
+
+    // Test custom highlighting
+    OperationContext opContextCustomHighlight = mock(OperationContext.class);
+    SearchContext searchContextCustom = mock(SearchContext.class);
+    SearchFlags searchFlagsCustom = new SearchFlags().setFieldConfiguration("custom-highlight");
+
+    when(opContextCustomHighlight.getEntityRegistry())
+        .thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextCustomHighlight.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextCustomHighlight.getSearchContext()).thenReturn(searchContextCustom);
+    when(opContextCustomHighlight.getAspectRetriever())
+        .thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContextCustom.getSearchFlags()).thenReturn(searchFlagsCustom);
+
+    SearchRequest customHighlightRequest =
+        configHandler.getSearchRequest(opContextCustomHighlight, "input", null, null, 10);
+    HighlightBuilder highlightBuilder = customHighlightRequest.source().highlighter();
+    assertNotNull(highlightBuilder);
+
+    List<String> highlightFieldNames =
+        highlightBuilder.fields().stream()
+            .map(HighlightBuilder.Field::name)
+            .collect(Collectors.toList());
+
+    assertEquals(highlightFieldNames.size(), 2);
+    assertTrue(highlightFieldNames.contains("keyPart1"));
+    assertTrue(highlightFieldNames.contains("keyPart1.ngram"));
+  }
+
+  @Test
+  public void testAutocompleteFieldConfigurationWithSpecificField() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "minimal",
+                    FieldConfiguration.builder()
+                        .searchFields(SearchFields.builder().replace(List.of("keyPart1")).build())
+                        .build()))
+            .build();
+
+    AutocompleteRequestHandler configHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    OperationContext opContextWithConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFieldConfiguration("minimal");
+
+    when(opContextWithConfig.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
+    when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // When a specific field is provided, field configuration should still be applied
+    // but only to that specific field if it's in the configuration
+    SearchRequest autocompleteRequest =
+        configHandler.getSearchRequest(opContextWithConfig, "input", "keyPart1", null, 10);
+
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) sourceBuilder.query()).query();
+    BoolQueryBuilder query = (BoolQueryBuilder) extractNestedQuery(wrapper);
+
+    // Should have keyPart1 queries since it's in the replace list
+    assertTrue(query.should().size() > 0, "Should have queries for keyPart1");
+  }
+
+  @Test
+  public void testAutocompleteFieldConfigurationNullSafety() {
+    // Test with null configuration
+    AutocompleteRequestHandler nullConfigHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    OperationContext opContextNullConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFieldConfiguration("any-label");
+
+    when(opContextNullConfig.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextNullConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextNullConfig.getSearchContext()).thenReturn(searchContext);
+    when(opContextNullConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Should not throw and should use default behavior
+    SearchRequest request =
+        nullConfigHandler.getSearchRequest(opContextNullConfig, "input", null, null, 10);
+    assertNotNull(request);
+
+    // Test with null config
+    when(searchFlags.getFieldConfiguration()).thenReturn(null);
+    SearchRequest requestNullFlags =
+        nullConfigHandler.getSearchRequest(opContextNullConfig, "input", null, null, 10);
+    assertNotNull(requestNullFlags);
+  }
+
+  @Test
+  public void testAutocompleteBoostPreservation() {
+    // Create mock entity spec with specific boost values
+    EntitySpec mockSpec = mock(EntitySpec.class);
+    SearchableFieldSpec fieldSpec1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec fieldSpec2 = mock(SearchableFieldSpec.class);
+
+    SearchableAnnotation annotation1 = mock(SearchableAnnotation.class);
+    when(annotation1.getFieldName()).thenReturn("field1");
+    when(annotation1.getBoostScore()).thenReturn(3.0);
+    when(annotation1.isEnableAutocomplete()).thenReturn(true);
+    when(fieldSpec1.getSearchableAnnotation()).thenReturn(annotation1);
+
+    SearchableAnnotation annotation2 = mock(SearchableAnnotation.class);
+    when(annotation2.getFieldName()).thenReturn("field2");
+    when(annotation2.getBoostScore()).thenReturn(1.5);
+    when(annotation2.isEnableAutocomplete()).thenReturn(true);
+    when(fieldSpec2.getSearchableAnnotation()).thenReturn(annotation2);
+
+    when(mockSpec.getSearchableFieldSpecs()).thenReturn(List.of(fieldSpec1, fieldSpec2));
+
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "reorder",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder()
+                                .replace(List.of("field2", "field1")) // Different order
+                                .build())
+                        .build()))
+            .build();
+
+    // Verify boost scores are preserved through CustomizedQueryHandler
+    CustomizedQueryHandler handler =
+        CustomizedQueryHandler.builder(new CustomConfiguration(), customConfig).build();
+    List<Pair<String, String>> baseFields =
+        List.of(Pair.of("field1", "3.0"), Pair.of("field2", "1.5"), Pair.of("urn", "1.0"));
+
+    List<Pair<String, String>> configuredFields =
+        handler.applyAutocompleteFieldConfiguration(baseFields, "reorder");
+
+    // Should be sorted by boost (descending)
+    assertEquals(configuredFields.size(), 2);
+    assertEquals(configuredFields.get(0), Pair.of("field1", "3.0"));
+    assertEquals(configuredFields.get(1), Pair.of("field2", "1.5"));
+  }
+
+  @Test
+  public void testAutocompleteWithInvalidFieldConfiguration() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "valid",
+                    FieldConfiguration.builder()
+                        .searchFields(SearchFields.builder().replace(List.of("keyPart1")).build())
+                        .build()))
+            .build();
+
+    AutocompleteRequestHandler configHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            customConfig,
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    OperationContext opContextInvalidConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFieldConfiguration("nonexistent");
+
+    when(opContextInvalidConfig.getEntityRegistry()).thenReturn(mockOpContext.getEntityRegistry());
+    when(opContextInvalidConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
+    when(opContextInvalidConfig.getSearchContext()).thenReturn(searchContext);
+    when(opContextInvalidConfig.getAspectRetriever())
+        .thenReturn(mockOpContext.getAspectRetriever());
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Should use default fields when configuration label doesn't exist
+    SearchRequest request =
+        configHandler.getSearchRequest(opContextInvalidConfig, "input", null, null, 10);
+
+    SearchSourceBuilder sourceBuilder = request.source();
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) sourceBuilder.query()).query();
+    BoolQueryBuilder query = (BoolQueryBuilder) extractNestedQuery(wrapper);
+
+    // Should have default fields
+    boolean hasKeyPart1 =
+        query.should().stream()
+            .anyMatch(
+                q -> {
+                  if (q instanceof MatchQueryBuilder) {
+                    return ((MatchQueryBuilder) q).fieldName().startsWith("keyPart1");
+                  } else if (q instanceof MultiMatchQueryBuilder) {
+                    return ((MultiMatchQueryBuilder) q)
+                        .fields().keySet().stream().anyMatch(f -> f.startsWith("keyPart1"));
+                  }
+                  return false;
+                });
+
+    assertTrue(hasKeyPart1, "Should have default keyPart1 field when config doesn't exist");
   }
 }
