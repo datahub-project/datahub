@@ -1,10 +1,11 @@
 import { spacing } from '@components';
-import React, { useCallback } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
+import AssetCollectionModal from '@app/homeV3/modules/assetCollection/AssetCollectionModal';
+import useHandleAddModule from '@app/homeV3/modules/hooks/useHandleAddModule';
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 
 import { DataHubPageTemplate } from '@types';
@@ -27,33 +28,35 @@ interface Props {
 
 export default function Template({ template, className }: Props) {
     const hasRows = !!template?.properties?.rows?.length;
-    const onAddModule = useCallback((input: AddModuleHandlerInput) => {
-        // TODO: implement the real handler
-        console.log('onAddModule handled with input', input);
-    }, []);
 
     const modulesAvailableToAdd = useModulesAvailableToAdd();
+    const { showAddAssetCollectionModal, setShowAddAssetCollectionModal, onAddModule } = useHandleAddModule();
 
     return (
-        <Wrapper className={className}>
-            {template?.properties?.rows.map((row, i) => {
-                const key = `templateRow-${i}`;
-                return (
-                    <TemplateRow
-                        key={key}
-                        row={row}
-                        rowIndex={i}
-                        modulesAvailableToAdd={modulesAvailableToAdd}
-                        onAddModule={onAddModule}
-                    />
-                );
-            })}
-            <StyledAddModulesButton
-                orientation="horizontal"
-                $hasRows={hasRows}
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                onAddModule={onAddModule}
-            />
-        </Wrapper>
+        <>
+            <Wrapper className={className}>
+                {template?.properties?.rows.map((row, i) => {
+                    const key = `templateRow-${i}`;
+                    return (
+                        <TemplateRow
+                            key={key}
+                            row={row}
+                            rowIndex={i}
+                            modulesAvailableToAdd={modulesAvailableToAdd}
+                            onAddModule={onAddModule}
+                        />
+                    );
+                })}
+                <StyledAddModulesButton
+                    orientation="horizontal"
+                    $hasRows={hasRows}
+                    modulesAvailableToAdd={modulesAvailableToAdd}
+                    onAddModule={onAddModule}
+                />
+            </Wrapper>
+            {showAddAssetCollectionModal && (
+                <AssetCollectionModal setShowAddAssetCollectionModal={setShowAddAssetCollectionModal} />
+            )}
+        </>
     );
 }
