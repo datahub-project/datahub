@@ -6,6 +6,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StyledRightOutlined } from '@app/entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { ContainerView } from '@app/lineage/manage/ContainerView';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -61,24 +62,8 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                     {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
-                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
-                {platformLogoUrl && (
-                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
-                )}
                 <span>{platformName}</span>
-                {remainingContainers &&
-                    remainingContainers.map((container) => (
-                        <>
-                            <StyledRightOutlined data-testid="right-arrow" />
-                            <span>{container?.properties?.name}</span>
-                        </>
-                    ))}
-                {directContainer && (
-                    <>
-                        <StyledRightOutlined data-testid="right-arrow" />
-                        <span>{directContainer?.properties?.name}</span>
-                    </>
-                )}
+                <ContainerView remainingContainers={remainingContainers} directContainer={directContainer} />
             </PlatformContent>
             <EntityName shrinkSize={displaySearchResult}>
                 {entityRegistry.getDisplayName(entity.type, entity)}
