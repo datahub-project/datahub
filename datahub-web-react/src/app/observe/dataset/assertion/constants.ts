@@ -64,7 +64,12 @@ export const ASSERTION_TYPE_OPTIONS = [
     },
 ];
 
+// NOTE: this is either of the following:
 export const ASSERTION_SOURCES_OPTIONS = [
+    {
+        value: 'All',
+        name: 'All',
+    },
     {
         value: AssertionSourceType.Native,
         name: 'Traditional (Manually Defined)',
@@ -74,6 +79,8 @@ export const ASSERTION_SOURCES_OPTIONS = [
         name: 'Smart (AI Anomaly Detection)',
     },
     {
+        // NOTE: If source is null, it also means it's a 3rd party assertion
+        // So when searching, we should actually query External or Null
         value: AssertionSourceType.External,
         name: 'External (3rd Party)',
     },

@@ -5,6 +5,18 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
+import {
+    AssetFilterOptions,
+    DEFAULT_FILTER_OPTIONS,
+    DEFAULT_PAGE_SIZE,
+    DEFAULT_STATUS_OPTIONS,
+    FILTER_OPTIONS_DECODER,
+    FILTER_OPTIONS_ENCODER,
+    FitlerOptions,
+    STATUS_OPTIONS_TO_LABEL,
+    TIME_RANGE_OPTIONS,
+    TimeRange,
+} from '@app/observe/dataset/assertion/AssertionsByAssertionSummary.utils';
 import { AssertionsByAssertionSummaryTable } from '@app/observe/dataset/assertion/AssertionsByAssertionSummaryTable';
 import {
     ASSERTION_RESULT_TYPE_OPTIONS_TO_RUN_SUMMARY_FILTER_FIELD,
@@ -14,7 +26,7 @@ import {
     LAST_ASSERTION_RUN_AT_SORT_FIELD,
     RUN_EVENTS_PREVIEW_LIMIT,
 } from '@app/observe/dataset/assertion/constants';
-import { compareListItems } from '@app/observe/dataset/assertion/util';
+import { compareListItems, useSyncFiltersWithQueryParams } from '@app/observe/dataset/assertion/util';
 import { Header } from '@app/observe/dataset/shared/shared';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
@@ -33,6 +45,7 @@ import { useSearchAssertionsQuery } from '@graphql/monitor.generated';
 import {
     AndFilterInput,
     Assertion,
+    AssertionSourceType,
     Dataset,
     Entity,
     EntityType,
@@ -63,50 +76,6 @@ const FilterOptionsWrapper = styled.div`
     align-items: center;
 `;
 
-const DEFAULT_PAGE_SIZE = 25;
-
-const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing'];
-
-const STATUS_OPTIONS_TO_LABEL: Record<AssertionResultTypeOptions, string> = {
-    Failing: 'At least one failure',
-    Error: 'At least one error',
-    Passing: 'At least one success',
-};
-
-type TimeRange = {
-    start: number;
-    end: number;
-    label: 'Last 24 hours' | 'Last 7 days' | 'Last 30 days' | 'Last 1 year';
-};
-
-const getTimeRangeOptions = (): TimeRange[] => {
-    const now = new Date().getTime();
-    const oneDayAgo = new Date(now - 1 * 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const oneYearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
-    return [
-        { start: oneDayAgo.getTime(), end: now, label: 'Last 24 hours' },
-        { start: oneWeekAgo.getTime(), end: now, label: 'Last 7 days' },
-        { start: oneMonthAgo.getTime(), end: now, label: 'Last 30 days' },
-        { start: oneYearAgo.getTime(), end: now, label: 'Last 1 year' },
-    ];
-};
-
-type AssetFilterOptions = {
-    platform: string[];
-    domain: string[];
-    owner: string[];
-    term: string[];
-    tag: string[];
-};
-
-const DEFAULT_TIME_RANGE_LABEL: TimeRange['label'] = 'Last 7 days';
-
-const getDefaultTimeRange = (timeRangeOptions: TimeRange[]): TimeRange => {
-    return timeRangeOptions.find((option) => option.label === DEFAULT_TIME_RANGE_LABEL) || timeRangeOptions[0];
-};
-
 export const AssertionsByAssertionSummary = () => {
     const entityRegistry = useEntityRegistry();
     const tryGetDisplayName = (entity?: Maybe<Entity>): string | undefined => {
@@ -120,40 +89,85 @@ export const AssertionsByAssertionSummary = () => {
         }
     };
 
-    const timeRangeOptions = getTimeRangeOptions();
+    const { getFilterFromQueryParams, setFilterToQueryParams } = useSyncFiltersWithQueryParams();
+
+    const [filterOptions, setFilterOptions] = useState<FitlerOptions>(
+        getFilterFromQueryParams(FILTER_OPTIONS_DECODER, DEFAULT_FILTER_OPTIONS),
+    );
+    useEffect(() => {
+        setFilterToQueryParams(filterOptions, FILTER_OPTIONS_ENCODER);
+    }, [filterOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // pagination
-    const [page, setPage] = useState(1);
+    const { page } = filterOptions;
     const start = (page - 1) * DEFAULT_PAGE_SIZE;
+    const setPage = (newPage: number) => {
+        setFilterOptions({ ...filterOptions, page: newPage });
+    };
 
     // together these two filters are used to filter assertions by status and time range
     // i.e., failed assertions in the last 7 days
-    const [statuses, setStatuses] = useState<AssertionResultTypeOptions[]>(DEFAULT_STATUS_OPTIONS);
-    const [timeRange, setTimeRange] = useState<TimeRange>(getDefaultTimeRange(timeRangeOptions));
+    const { statuses, timeRange } = filterOptions;
+    const setStatuses = (newStatuses: AssertionResultTypeOptions[]) => {
+        setFilterOptions({ ...filterOptions, statuses: newStatuses });
+    };
+    const setTimeRange = (newTimeRange: TimeRange) => {
+        setFilterOptions({ ...filterOptions, timeRange: newTimeRange });
+    };
 
     // Filters
-    const [searchQuery, setSearchQuery] = useState('');
-    const [assertionTypes, setAssertionTypes] = useState<string[]>(
-        ASSERTION_TYPE_OPTIONS.map((option) => option.value),
-    );
-    const [assertionSources, setAssertionSources] = useState<string[]>(
-        ASSERTION_SOURCES_OPTIONS.map((option) => option.value),
-    );
-    const [assertionTags, setAssertionTags] = useState<string[]>([]);
+    const { query: searchQuery, types: assertionTypes, source: assertionSource, tags: assertionTags } = filterOptions;
+    const setSearchQuery = (query: string) => {
+        setFilterOptions({ ...filterOptions, query });
+    };
+    const setAssertionTypes = (types: string[]) => {
+        setFilterOptions({ ...filterOptions, types });
+    };
+    const setAssertionSource = (source: string) => {
+        setFilterOptions({ ...filterOptions, source });
+    };
+    const setAssertionTags = (tags: string[]) => {
+        setFilterOptions({ ...filterOptions, tags });
+    };
 
     // Asset Filters
-    const [assetFilterOptions, setAssetFilterOptions] = useState<AssetFilterOptions>({
-        platform: [],
-        domain: [],
-        owner: [],
-        term: [],
-        tag: [],
-    });
+    const assetFilterOptions: AssetFilterOptions = {
+        platform: filterOptions.asset_platform,
+        domain: filterOptions.asset_domain,
+        owner: filterOptions.asset_owner,
+        term: filterOptions.asset_term,
+        tag: filterOptions.asset_tag,
+    };
+    const setAssetFilterOptions = (asset: AssetFilterOptions) => {
+        setFilterOptions({
+            ...filterOptions,
+            asset_platform: asset.platform,
+            asset_domain: asset.domain,
+            asset_owner: asset.owner,
+            asset_term: asset.term,
+            asset_tag: asset.tag,
+        });
+    };
 
     // Reset page when filters change
-    useEffect(() => {
-        setPage(1);
-    }, [searchQuery, statuses, assertionTypes, assertionTags, assetFilterOptions]);
+    useEffect(
+        () => {
+            setPage(1);
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [
+            searchQuery,
+            statuses,
+            assertionTypes,
+            assertionSource,
+            assertionTags,
+            assetFilterOptions.platform,
+            assetFilterOptions.domain,
+            assetFilterOptions.owner,
+            assetFilterOptions.term,
+            assetFilterOptions.tag,
+        ],
+    );
 
     // Has Filters
     const hasFilters =
@@ -174,11 +188,22 @@ export const AssertionsByAssertionSummary = () => {
 
         filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionTypes });
 
-        if (assertionSources.length > 0 && assertionSources.length !== ASSERTION_SOURCES_OPTIONS.length) {
-            filters.push({
-                field: ASSERTION_SOURCE_FILTER_NAME,
-                values: assertionSources,
-            });
+        if (assertionSource !== 'All') {
+            // NOTE: for external assertions, sometimes source is just not set
+            // So for simplicity of building the query, we filter out native and inferred assertions
+            if (assertionSource === AssertionSourceType.External) {
+                filters.push({
+                    field: ASSERTION_SOURCE_FILTER_NAME,
+                    values: [AssertionSourceType.Native, AssertionSourceType.Inferred],
+                    condition: FilterOperator.In,
+                    negated: true,
+                });
+            } else {
+                filters.push({
+                    field: ASSERTION_SOURCE_FILTER_NAME,
+                    values: [assertionSource],
+                });
+            }
         }
 
         if (assertionTags.length > 0) {
@@ -330,14 +355,15 @@ export const AssertionsByAssertionSummary = () => {
                     {/* ************************* Time Range Selector ************************* */}
                     <SimpleSelect
                         width="fit-content"
-                        options={timeRangeOptions.map((option) => ({
+                        options={TIME_RANGE_OPTIONS.map((option) => ({
                             value: option.label,
                             label: option.label,
                         }))}
                         values={[timeRange.label]}
                         onUpdate={(values) => {
                             setTimeRange(
-                                timeRangeOptions.find((option) => option.label === values[0]) || timeRangeOptions[0],
+                                TIME_RANGE_OPTIONS.find((option) => option.label === values[0]) ||
+                                    TIME_RANGE_OPTIONS[0],
                             );
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
@@ -399,10 +425,10 @@ export const AssertionsByAssertionSummary = () => {
                             value: option.value,
                             label: option.name,
                         }))}
-                        values={assertionSources}
+                        values={[assertionSource]}
                         onUpdate={(values) => {
                             if (values.length !== 0) {
-                                setAssertionSources(values);
+                                setAssertionSource(values[0] || 'All');
                                 analytics.event({
                                     type: EventType.DatasetHealthFilterEvent,
                                     tabType: 'AssertionsByAssertion',
@@ -415,7 +441,7 @@ export const AssertionsByAssertionSummary = () => {
                             }
                         }}
                         placeholder="Source"
-                        isMultiSelect
+                        isMultiSelect={false}
                         selectLabelProps={{
                             variant: 'labeled',
                             label: 'Source',
