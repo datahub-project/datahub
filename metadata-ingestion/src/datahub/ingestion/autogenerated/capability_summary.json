@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-11T05:33:33.512319+00:00",
+  "generated_at": "2025-07-11T10:30:52.695807+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -1628,6 +1628,14 @@
     },
     "mlflow": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Extract ML experiments",
+          "subtype_modifier": [
+            "ML Experiment"
+          ],
+          "supported": true
+        },
         {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for MLflow Registered Models and Model Versions",
