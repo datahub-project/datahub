@@ -22,6 +22,14 @@ fragment query on QueryEntity {
             time
             actor
         }
+        createdOn {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
         lastModified {
             time
             actor
