@@ -4350,3 +4350,25 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
         },
     ],
 };
+
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
+};
