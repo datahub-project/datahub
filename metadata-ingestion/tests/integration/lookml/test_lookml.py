@@ -1232,3 +1232,37 @@ def test_unreachable_views(pytestconfig):
         "The Looker view file was skipped because it may not be referenced by any models."
         in [failure.message for failure in source.get_report().warnings]
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_view_file_between_models_same_connection(
+    pytestconfig, tmp_path, mock_time
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "view_file_between_models_same_connection_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_view_file_between_models_same_connection",
+    )
+    new_recipe["source"]["config"]["process_refinements"] = True
+    new_recipe["source"]["config"]["project_name"] = (
+        "lkml_view_file_between_models_same_connection"
+    )
+    new_recipe["source"]["config"]["view_naming_pattern"] = {
+        "pattern": "{project}.{model}.view.{name}"
+    }
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+    # assert pipeline.source.get_report().warnings.total_elements == 1
+
+    golden_path = (
+        test_resources_dir / "view_file_between_models_same_connection_golden.json"
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
