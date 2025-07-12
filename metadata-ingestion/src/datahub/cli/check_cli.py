@@ -21,6 +21,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.upgrade import upgrade
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -230,6 +231,7 @@ def sql_format(sql: str, platform: str) -> None:
     default=True,
     help="Run in offline mode and disable schema-aware parsing.",
 )
+@upgrade.check_upgrade
 def sql_lineage(
     sql: Optional[str],
     sql_file: Optional[str],
@@ -464,6 +466,7 @@ WHERE
 
 
 @check.command()
+@upgrade.check_upgrade
 def server_config() -> None:
     """Print the server config."""
     graph = get_default_graph(ClientMode.CLI)
@@ -488,6 +491,7 @@ def server_config() -> None:
     type=click.Path(exists=True, dir_okay=True, readable=True),
     help="File absolute path containing URNs (one per line) to restore indices",
 )
+@upgrade.check_upgrade
 def restore_indices(
     urn: Optional[str],
     aspect: Optional[str],
@@ -510,6 +514,7 @@ def restore_indices(
 
 
 @check.command()
+@upgrade.check_upgrade
 def get_kafka_consumer_offsets() -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
