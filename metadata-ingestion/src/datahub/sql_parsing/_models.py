@@ -4,7 +4,6 @@ from typing import Any, Optional
 import sqlglot
 from pydantic import BaseModel
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 
 
@@ -16,10 +15,8 @@ class _ParserBaseModel(
     },
 ):
     def json(self, *args: Any, **kwargs: Any) -> str:
-        if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)  # type: ignore
-        else:
-            return super().json(*args, **kwargs)
+        # TODO: Remove this method and migrate to model_dump_json.
+        return super().model_dump_json(*args, **kwargs)
 
 
 @functools.total_ordering

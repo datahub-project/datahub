@@ -26,7 +26,7 @@ from datahub.utilities.search_utils import LogicalOperator
 
 class OutboundSharePlatformResource(BaseModel):
     namespace: str
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     env: str
     source_database: str
     share_name: str

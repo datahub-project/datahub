@@ -651,10 +651,12 @@ HiveDialect.get_view_definition = get_view_definition_patched
 
 class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
-    scheme: str = Field(default="hive", hidden_from_docs=True)
+    scheme: str = Field(default="hive", json_schema_extra={"hidden_from_docs": True})
 
     # Overriding as table location lineage is richer implementation here than with include_table_location_lineage
-    include_table_location_lineage: bool = Field(default=False, hidden_from_docs=True)
+    include_table_location_lineage: bool = Field(
+        default=False, json_schema_extra={"hidden_from_docs": True}
+    )
 
     emit_storage_lineage: bool = Field(
         default=False,

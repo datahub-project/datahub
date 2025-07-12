@@ -85,7 +85,9 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
-    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
+    flags: FlagsConfig = Field(
+        default=FlagsConfig(), json_schema_extra={"hidden_from_docs": True}
+    )
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None

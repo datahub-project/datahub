@@ -11,7 +11,6 @@ from datahub.configuration.common import (
     ConfigurationError,
     DynamicTypedConfig,
 )
-from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -58,22 +57,22 @@ class StatefulIngestionConfig(ConfigModel):
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     ignore_old_state: bool = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     ignore_new_state: bool = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     @pydantic.root_validator(skip_on_failure=True)
@@ -89,7 +88,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
+class StatefulIngestionConfigBase(ConfigModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
