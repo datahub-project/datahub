@@ -35,7 +35,7 @@ import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
-import { DataJob, EntityType, SearchResult } from '@types';
+import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -196,6 +196,8 @@ export class DataJobEntity implements Entity<DataJob> {
             name,
             externalUrl,
             platform: dataJob?.dataFlow?.platform,
+            lastRun: ((dataJob as any).lastRun as DataProcessInstanceResult)?.runs?.[0],
+            lastRunEvent: ((dataJob as any).lastRun as DataProcessInstanceResult)?.runs?.[0]?.state?.[0],
         };
     };
 

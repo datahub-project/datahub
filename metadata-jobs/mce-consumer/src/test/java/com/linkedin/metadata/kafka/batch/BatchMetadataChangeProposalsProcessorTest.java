@@ -4,10 +4,14 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +53,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.ArgumentCaptor;
@@ -542,6 +547,100 @@ public class BatchMetadataChangeProposalsProcessorTest {
     MetadataChangeProposal mcpWithAspect = createMcpWithAspectSize(500);
     Long withAspectSize = (Long) calculateMCPSizeMethod.invoke(processor, mcpWithAspect);
     assertTrue(withAspectSize >= 1500); // Base size + aspect size
+  }
+
+  @Test
+  public void testConsumeWithTelemetryMetrics() throws Exception {
+    // Mock the metric utils
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+
+    // Create a mock operation context
+    OperationContext opContextWithMetrics = spy(opContext);
+
+    // Mock the metric utils to be present
+    when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
+
+    // Mock the withQueueSpan to execute the runnable directly
+    // The method signature in OperationContext is:
+    // public void withQueueSpan(String name, List<SystemMetadata> systemMetadata, String topicName,
+    // Runnable task, String... attributes)
+    doAnswer(
+            invocation -> {
+              Runnable runnable = invocation.getArgument(3);
+              runnable.run();
+              return null;
+            })
+        .when(opContextWithMetrics)
+        .withQueueSpan(
+            anyString(), // operation name
+            anyList(), // system metadata list
+            anyString(), // topic name
+            any(Runnable.class), // task
+            anyString(),
+            anyString(), // BATCH_SIZE_ATTR and its value
+            anyString(),
+            anyString() // MetricUtils.DROPWIZARD_NAME and metric name
+            );
+
+    BatchMetadataChangeProposalsProcessor processorWithTelemetry =
+        new BatchMetadataChangeProposalsProcessor(
+            opContextWithMetrics,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockRegistry,
+            mockProvider);
+
+    // Set required fields via reflection
+    try {
+      java.lang.reflect.Field field =
+          BatchMetadataChangeProposalsProcessor.class.getDeclaredField("fmcpTopicName");
+      field.setAccessible(true);
+      field.set(processorWithTelemetry, Topics.FAILED_METADATA_CHANGE_PROPOSAL);
+
+      field = BatchMetadataChangeProposalsProcessor.class.getDeclaredField("mceConsumerGroupId");
+      field.setAccessible(true);
+      field.set(processorWithTelemetry, "MetadataChangeProposal-Consumer");
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to set field via reflection", e);
+    }
+
+    // Setup minimal configuration
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(
+            new MetadataChangeProposalConfig()
+                .setConsumer(
+                    new MetadataChangeProposalConfig.ConsumerBatchConfig()
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
+
+    // Create a simple MCP
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setSystemMetadata(new SystemMetadata());
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testMetrics,PROD)"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+    mcp.setEntityType("dataset");
+    mcp.setAspectName("status");
+
+    // Mock conversion
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp);
+
+    // Create a single consumer record with a timestamp
+    when(mockConsumerRecord1.timestamp())
+        .thenReturn(System.currentTimeMillis() - 1000); // 1 second ago
+    List<ConsumerRecord<String, GenericRecord>> records = List.of(mockConsumerRecord1);
+
+    // Execute test - this should trigger the metricUtils.ifPresent line
+    processorWithTelemetry.consume(records);
+
+    // Verify that the metricUtils.histogram was called for kafka lag
+    verify(mockMetricUtils, times(1))
+        .histogram(eq(BatchMetadataChangeProposalsProcessor.class), eq("kafkaLag"), anyLong());
+
+    // Verify that the processing completed successfully
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
   }
 
   // Helper method to create an MCP with a specific aspect value size

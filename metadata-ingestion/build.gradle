@@ -279,6 +279,8 @@ clean {
   delete '.mypy_cache'
   delete '.pytest_cache'
   delete '.preflight_sentinel'
+  delete '.coverage'
+  delete 'scripts/cov_html'
 }
 clean.dependsOn cleanPythonCache
 

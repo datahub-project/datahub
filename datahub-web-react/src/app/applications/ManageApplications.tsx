@@ -159,7 +159,7 @@ const ManageApplications = () => {
                     <Pagination
                         currentPage={currentPage}
                         itemsPerPage={PAGE_SIZE}
-                        totalPages={totalApplications}
+                        total={totalApplications}
                         loading={searchLoading}
                         onPageChange={(page) => setCurrentPage(page)}
                     />

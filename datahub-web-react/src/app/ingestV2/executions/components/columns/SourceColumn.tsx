@@ -12,11 +12,12 @@ const TextContainer = styled(Typography.Text)`
 
 interface Props {
     record: ExecutionRequestRecord;
+    navigateToSource: () => void;
 }
 
-export default function SourceColumn({ record }: Props) {
+export default function SourceColumn({ record, navigateToSource }: Props) {
     if (record.type && record.name) {
-        return <NameColumn type={record.type} record={record} />;
+        return <NameColumn type={record.type} record={record} onNameClick={navigateToSource} />;
     }
 
     return (

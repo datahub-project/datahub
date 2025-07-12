@@ -1,14 +1,16 @@
 package com.linkedin.metadata.utils.metrics;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.util.concurrent.AtomicDouble;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,6 +38,13 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   private final MeterRegistry registry;
+  private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
+  private static final Map<String, DistributionSummary> legacyHistogramCache =
+      new ConcurrentHashMap<>();
+  private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
+  // For state-based gauges (like throttled state)
+  private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
   public Optional<MeterRegistry> getRegistry() {
     return Optional.ofNullable(registry);
@@ -45,12 +54,16 @@ public class MetricUtils {
   public void time(String dropWizardMetricName, long durationNanos) {
     getRegistry()
         .ifPresent(
-            meterRegistry ->
-                Timer.builder(dropWizardMetricName)
-                    .tags(DROPWIZARD_METRIC, "true")
-                    .publishPercentiles(0.5, 0.75, 0.95, 0.98, 0.99, 0.999) // Dropwizard defaults
-                    .register(meterRegistry)
-                    .record(durationNanos, TimeUnit.NANOSECONDS));
+            meterRegistry -> {
+              Timer timer =
+                  legacyTimeCache.computeIfAbsent(
+                      dropWizardMetricName,
+                      name ->
+                          Timer.builder(name)
+                              .tags(DROPWIZARD_METRIC, "true")
+                              .register(meterRegistry));
+              timer.record(durationNanos, TimeUnit.NANOSECONDS);
+            });
   }
 
   @Deprecated
@@ -73,24 +86,46 @@ public class MetricUtils {
   public void increment(String metricName, double increment) {
     getRegistry()
         .ifPresent(
-            meterRegistry ->
-                Counter.builder(MetricRegistry.name(metricName))
-                    .tag(DROPWIZARD_METRIC, "true")
-                    .register(meterRegistry)
-                    .increment(increment));
+            meterRegistry -> {
+              Counter counter =
+                  legacyCounterCache.computeIfAbsent(
+                      metricName,
+                      name ->
+                          Counter.builder(MetricRegistry.name(name))
+                              .tag(DROPWIZARD_METRIC, "true")
+                              .register(meterRegistry));
+              counter.increment(increment);
+            });
   }
 
+  /**
+   * Set a state-based gauge value (e.g., for binary states like throttled/not throttled). This is
+   * more efficient than repeatedly calling gauge() with different suppliers.
+   *
+   * @param clazz The class for namespacing
+   * @param metricName The metric name
+   * @param value The gauge value to set
+   */
   @Deprecated
-  public void gauge(Class<?> clazz, String metricName, Supplier<? extends Number> valueSupplier) {
+  public void setGaugeValue(Class<?> clazz, String metricName, double value) {
+    String name = MetricRegistry.name(clazz, metricName);
 
     getRegistry()
         .ifPresent(
             meterRegistry -> {
-              String name = com.codahale.metrics.MetricRegistry.name(clazz, metricName);
+              // Get or create the state holder
+              AtomicDouble state = gaugeStates.computeIfAbsent(name, k -> new AtomicDouble(0));
 
-              Gauge.builder(name, valueSupplier, supplier -> supplier.get().doubleValue())
-                  .tag(DROPWIZARD_METRIC, "true")
-                  .register(meterRegistry);
+              // Register the gauge if not already registered
+              legacyGaugeCache.computeIfAbsent(
+                  name,
+                  key ->
+                      Gauge.builder(key, state, AtomicDouble::get)
+                          .tag(DROPWIZARD_METRIC, "true")
+                          .register(meterRegistry));
+
+              // Update the value
+              state.set(value);
             });
   }
 
@@ -98,11 +133,17 @@ public class MetricUtils {
   public void histogram(Class<?> clazz, String metricName, long value) {
     getRegistry()
         .ifPresent(
-            meterRegistry ->
-                DistributionSummary.builder(MetricRegistry.name(clazz, metricName))
-                    .tag(DROPWIZARD_METRIC, "true")
-                    .register(meterRegistry)
-                    .record(value));
+            meterRegistry -> {
+              String name = MetricRegistry.name(clazz, metricName);
+              DistributionSummary summary =
+                  legacyHistogramCache.computeIfAbsent(
+                      name,
+                      key ->
+                          DistributionSummary.builder(key)
+                              .tag(DROPWIZARD_METRIC, "true")
+                              .register(meterRegistry));
+              summary.record(value);
+            });
   }
 
   @Deprecated
