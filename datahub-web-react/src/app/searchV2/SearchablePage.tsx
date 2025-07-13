@@ -22,8 +22,6 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@graphql/search.generated';
 
-// DataHub Cloud Only (For Now)
-
 const Body = styled.div`
     display: flex;
     flex-direction: row;
@@ -144,7 +142,6 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 </Navigation>
                 <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
-            {/** DataHub Cloud Only (For Now) */}
             <ProductUpdates />
         </>
     );
