@@ -280,7 +280,7 @@ describe('useModuleOperations', () => {
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
-            expect(consoleSpy).toHaveBeenCalledWith('Failed to update template:', error);
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to add module:', error);
 
             consoleSpy.mockRestore();
         });
