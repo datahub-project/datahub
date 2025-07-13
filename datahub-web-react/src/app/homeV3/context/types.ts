@@ -17,6 +17,11 @@ export interface AddModuleInput {
     position: ModulePositionInput;
 }
 
+export interface RemoveModuleInput {
+    moduleUrn: string;
+    position: ModulePositionInput;
+}
+
 // Context state shape
 export type PageTemplateContextState = {
     personalTemplate: PageTemplateFragment | null;
@@ -29,4 +34,5 @@ export type PageTemplateContextState = {
     setTemplate: (template: PageTemplateFragment | null) => void;
     addModule: (input: AddModuleInput) => void;
     createModule: (input: CreateModuleInput) => void;
+    removeModule: (input: RemoveModuleInput) => void;
 };

@@ -78,6 +78,7 @@ const mockModule: PageModuleFragment = {
 const mockSetPersonalTemplate = vi.fn();
 const mockSetGlobalTemplate = vi.fn();
 const mockUpdateTemplateWithModule = vi.fn();
+const mockRemoveModuleFromTemplate = vi.fn();
 const mockUpsertTemplate = vi.fn();
 
 describe('useModuleOperations', () => {
@@ -96,6 +97,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -141,6 +143,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -186,6 +189,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -232,6 +236,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -253,23 +258,25 @@ describe('useModuleOperations', () => {
                 },
             };
 
+            const error = new Error('Upsert failed');
             mockUpdateTemplateWithModule.mockReturnValue(updatedTemplate);
-            const error = new Error('Template upsert failed');
             mockUpsertTemplate.mockRejectedValue(error);
 
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            await act(async () => {
-                try {
-                    result.current.addModule({
-                        module: mockModule,
-                        position,
-                    });
-                } catch (e) {
-                    // Expected to throw
-                }
+            act(() => {
+                result.current.addModule({
+                    module: mockModule,
+                    position,
+                });
             });
 
+            // Wait for the promise to resolve
+            await new Promise((resolve) => {
+                setTimeout(resolve, 0);
+            });
+
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockPersonalTemplate, mockModule, position);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
@@ -289,6 +296,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -388,6 +396,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -443,6 +452,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -496,6 +506,7 @@ describe('useModuleOperations', () => {
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                 ),
             );
@@ -597,6 +608,7 @@ describe('useModuleOperations', () => {
                         mockSetPersonalTemplate,
                         mockSetGlobalTemplate,
                         mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                     ),
                 {
@@ -629,6 +641,7 @@ describe('useModuleOperations', () => {
                         mockSetPersonalTemplate,
                         mockSetGlobalTemplate,
                         mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                     ),
                 {

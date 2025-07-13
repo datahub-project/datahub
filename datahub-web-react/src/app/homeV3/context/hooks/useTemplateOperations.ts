@@ -60,6 +60,54 @@ export function useTemplateOperations() {
         [],
     );
 
+    // Helper function to remove a module from template
+    const removeModuleFromTemplate = useCallback(
+        (
+            templateToUpdate: PageTemplateFragment | null,
+            moduleUrn: string,
+            position: ModulePositionInput,
+        ): PageTemplateFragment | null => {
+            if (!templateToUpdate) return null;
+
+            const newTemplate = { ...templateToUpdate };
+            const newRows = [...(newTemplate.properties?.rows || [])];
+
+            if (position.rowIndex === undefined || position.rowIndex >= newRows.length) {
+                // Invalid position, return original template
+                return templateToUpdate;
+            }
+
+            const { rowIndex } = position;
+            const row = { ...newRows[rowIndex] };
+            const newModules = [...(row.modules || [])];
+
+            // Find and remove the module by URN
+            const moduleIndex = newModules.findIndex((module) => module.urn === moduleUrn);
+            if (moduleIndex === -1) {
+                // Module not found, return original template
+                return templateToUpdate;
+            }
+
+            newModules.splice(moduleIndex, 1);
+
+            // If the row is now empty, remove the entire row
+            if (newModules.length === 0) {
+                newRows.splice(rowIndex, 1);
+            } else {
+                row.modules = newModules;
+                newRows[rowIndex] = row;
+            }
+
+            newTemplate.properties = {
+                ...newTemplate.properties,
+                rows: newRows,
+            };
+
+            return newTemplate;
+        },
+        [],
+    );
+
     // Helper function to upsert template
     const upsertTemplate = useCallback(
         (
@@ -97,6 +145,7 @@ export function useTemplateOperations() {
 
     return {
         updateTemplateWithModule,
+        removeModuleFromTemplate,
         upsertTemplate,
     };
 }

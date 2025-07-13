@@ -20,6 +20,11 @@ export interface AddModuleInput {
     position: ModulePositionInput;
 }
 
+export interface RemoveModuleInput {
+    moduleUrn: string;
+    position: ModulePositionInput;
+}
+
 export function useModuleOperations(
     isEditingGlobalTemplate: boolean,
     personalTemplate: PageTemplateFragment | null,
@@ -29,6 +34,11 @@ export function useModuleOperations(
     updateTemplateWithModule: (
         templateToUpdate: PageTemplateFragment | null,
         module: PageModuleFragment,
+        position: ModulePositionInput,
+    ) => PageTemplateFragment | null,
+    removeModuleFromTemplate: (
+        templateToUpdate: PageTemplateFragment | null,
+        moduleUrn: string,
         position: ModulePositionInput,
     ) => PageTemplateFragment | null,
     upsertTemplate: (
@@ -82,6 +92,53 @@ export function useModuleOperations(
             setPersonalTemplate,
             setGlobalTemplate,
             updateTemplateWithModule,
+            upsertTemplate,
+        ],
+    );
+
+    // Removes a module from the template state and updates the appropriate template on the backend
+    const removeModule = useCallback(
+        (input: RemoveModuleInput) => {
+            const { moduleUrn, position } = input;
+
+            // Determine which template to update
+            const isPersonal = !isEditingGlobalTemplate;
+            const templateToUpdate = isPersonal ? personalTemplate || globalTemplate : globalTemplate;
+
+            if (!templateToUpdate) {
+                console.error('No template provided to update');
+                return;
+            }
+
+            // Update template state
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, moduleUrn, position);
+
+            // Update local state immediately for optimistic UI
+            if (isPersonal) {
+                setPersonalTemplate(updatedTemplate);
+            } else {
+                setGlobalTemplate(updatedTemplate);
+            }
+
+            // Persist changes
+            upsertTemplate(updatedTemplate, isPersonal, personalTemplate).catch((error) => {
+                // Revert on error
+                if (isPersonal) {
+                    setPersonalTemplate(personalTemplate);
+                } else {
+                    setGlobalTemplate(globalTemplate);
+                }
+                console.error('Failed to remove module from template:', error);
+                message.error('Failed to remove module from template', error);
+            });
+        },
+        [
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            removeModuleFromTemplate,
             upsertTemplate,
         ],
     );
@@ -141,6 +198,7 @@ export function useModuleOperations(
 
     return {
         addModule,
+        removeModule,
         createModule,
     };
 }
