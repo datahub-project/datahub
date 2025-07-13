@@ -36,7 +36,7 @@ const DisplayNameWithHover = styled(DisplayName)<{ $decorationColor?: string }>`
 `;
 
 const DisplayNameWrapper = styled.div`
-    width: fit-content;
+    white-space: nowrap;
 `;
 
 const ContentContainer = styled.div`
@@ -131,6 +131,7 @@ export default function AutoCompleteEntityItem({
                                     color={variantProps?.nameColor}
                                     colorLevel={variantProps?.nameColorLevel}
                                     weight={variantProps?.nameWeight}
+                                    showNameTooltipIfTruncated
                                 />
                             )}
                         </DisplayNameWrapper>
