@@ -78,6 +78,11 @@ jobs:
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
       test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -175,6 +180,29 @@ jobs:
           echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
           echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
 
+      - name: Compute UV Cache Key
+        id: uv-cache-key
+        run: |
+          echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
+            './datahub-actions/pyproject.toml',
+            './datahub-actions/setup.py',
+            './smoke-test/requirements.txt',
+            './smoke-test/pyproject.toml',
+            './metadata-integration/java/spark-lineage-legacy/spark-smoke-test/requirements.txt',
+            './datahub-integrations-service/requirements.txt',
+            './datahub-integrations-service/pyproject.toml',
+            './metadata-ingestion/pyproject.toml',
+            './metadata-ingestion/setup.py',
+            './datahub-executor/requirements.txt',
+            './datahub-executor/pyproject.toml') }}" >> "$GITHUB_OUTPUT"
+          echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Yarn Cache Key
+        id: yarn-cache-key
+        run: |
+          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
+
   smoke_test_lint:
     name: Lint on smoke tests
     runs-on: depot-ubuntu-24.04
@@ -193,15 +221,17 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/setup.py', '**/pyproject.toml') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
       - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Run lint on smoke test
         run: |
@@ -228,19 +258,17 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
       - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -312,16 +340,14 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   scan_images:
     permissions:
@@ -443,19 +469,17 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
       - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -604,16 +628,14 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' && matrix.batch == '0' }}
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   smoke_test_cleanup:
     name: Smoke Tests Cleanup Items
