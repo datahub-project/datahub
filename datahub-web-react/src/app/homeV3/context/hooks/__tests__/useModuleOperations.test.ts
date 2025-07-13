@@ -286,6 +286,369 @@ describe('useModuleOperations', () => {
         });
     });
 
+    describe('removeModule', () => {
+        it('should remove module from personal template when not editing global', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:1',
+                position,
+            };
+
+            const updatedTemplate: PageTemplateFragment = {
+                ...mockPersonalTemplate,
+                properties: {
+                    ...mockPersonalTemplate.properties!,
+                    rows: [],
+                },
+            };
+
+            mockRemoveModuleFromTemplate.mockReturnValue(updatedTemplate);
+            mockUpsertTemplate.mockResolvedValue({});
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                'urn:li:pageModule:1',
+                position,
+            );
+            expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
+            expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
+        });
+
+        it('should remove module from global template when editing global', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    true, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'right',
+                moduleIndex: 1,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:2',
+                position,
+            };
+
+            const updatedTemplate: PageTemplateFragment = {
+                ...mockGlobalTemplate,
+                properties: {
+                    ...mockGlobalTemplate.properties!,
+                    rows: [],
+                },
+            };
+
+            mockRemoveModuleFromTemplate.mockReturnValue(updatedTemplate);
+            mockUpsertTemplate.mockResolvedValue({});
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                mockGlobalTemplate,
+                'urn:li:pageModule:2',
+                position,
+            );
+            expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
+            expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
+        });
+
+        it('should use global template when personal template is null', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    null, // personalTemplate
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:2',
+                position,
+            };
+
+            const updatedTemplate: PageTemplateFragment = {
+                ...mockGlobalTemplate,
+                properties: {
+                    ...mockGlobalTemplate.properties!,
+                    rows: [],
+                },
+            };
+
+            mockRemoveModuleFromTemplate.mockReturnValue(updatedTemplate);
+            mockUpsertTemplate.mockResolvedValue({});
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                mockGlobalTemplate,
+                'urn:li:pageModule:2',
+                position,
+            );
+            expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
+            expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
+        });
+
+        it('should revert state on template upsert error', async () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const error = new Error('Upsert failed');
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:1',
+                position,
+            };
+
+            const updatedTemplate: PageTemplateFragment = {
+                ...mockPersonalTemplate,
+                properties: {
+                    ...mockPersonalTemplate.properties!,
+                    rows: [],
+                },
+            };
+
+            mockRemoveModuleFromTemplate.mockReturnValue(updatedTemplate);
+            mockUpsertTemplate.mockRejectedValue(error);
+
+            await act(async () => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                'urn:li:pageModule:1',
+                position,
+            );
+            expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
+            expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
+            expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to remove module:', error);
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should validate input and show error for missing moduleUrn', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: '', // Invalid empty URN
+                position,
+            };
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Module URN is required for removal');
+            expect(messageSpy).toHaveBeenCalledWith('Module URN is required for removal');
+            expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+            messageSpy.mockRestore();
+        });
+
+        it('should validate input and show error for missing position', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:1',
+                position: null as any, // Invalid null position
+            };
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Module position is required for removal');
+            expect(messageSpy).toHaveBeenCalledWith('Module position is required for removal');
+            expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+            messageSpy.mockRestore();
+        });
+
+        it('should validate input and show error for invalid rowIndex', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: -1, // Invalid negative rowIndex
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:1',
+                position,
+            };
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Valid row index is required for removal');
+            expect(messageSpy).toHaveBeenCalledWith('Valid row index is required for removal');
+            expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+            messageSpy.mockRestore();
+        });
+
+        it('should handle case when no template is available', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false, // isEditingGlobalTemplate
+                    null, // personalTemplate
+                    null, // globalTemplate
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const removeModuleInput = {
+                moduleUrn: 'urn:li:pageModule:1',
+                position,
+            };
+
+            act(() => {
+                result.current.removeModule(removeModuleInput);
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
+            expect(messageSpy).toHaveBeenCalledWith('No template available to update');
+            expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+            messageSpy.mockRestore();
+        });
+    });
+
     describe('createModule', () => {
         it('should create module and add it to template', async () => {
             const { result } = renderHook(() =>

@@ -128,4 +128,152 @@ describe('ModuleMenu', () => {
         expect(deleteButton).toBeInTheDocument();
         // Note: Testing exact color styles in this test setup is challenging, but the component should work
     });
+
+    it('should handle moduleIndex in position when deleting', () => {
+        const positionWithModuleIndex: ModulePositionInput = {
+            rowIndex: 1,
+            rowSide: 'right',
+            moduleIndex: 2,
+        };
+
+        render(<ModuleMenu module={mockModule} position={positionWithModuleIndex} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Click the delete option
+        const deleteButton = screen.getByText('Delete');
+        fireEvent.click(deleteButton);
+
+        // Verify that removeModule was called with moduleIndex
+        expect(mockRemoveModule).toHaveBeenCalledWith({
+            moduleUrn: 'urn:li:dataHubPageModule:test',
+            position: positionWithModuleIndex,
+        });
+    });
+
+    it('should handle module with long name', () => {
+        const moduleWithLongName: PageModuleFragment = {
+            urn: 'urn:li:dataHubPageModule:veryLongName',
+            type: EntityType.DatahubPageModule,
+            properties: {
+                name: 'This is a very long module name that might cause rendering issues in the UI',
+                type: DataHubPageModuleType.OwnedAssets,
+                visibility: { scope: PageModuleScope.Personal },
+                params: {},
+            },
+        };
+
+        render(<ModuleMenu module={moduleWithLongName} position={mockPosition} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Click the delete option
+        const deleteButton = screen.getByText('Delete');
+        fireEvent.click(deleteButton);
+
+        // Verify that removeModule was called with correct URN
+        expect(mockRemoveModule).toHaveBeenCalledWith({
+            moduleUrn: 'urn:li:dataHubPageModule:veryLongName',
+            position: mockPosition,
+        });
+    });
+
+    it('should handle position with undefined optional fields', () => {
+        const minimalPosition: ModulePositionInput = {
+            rowIndex: 0,
+            // rowSide and moduleIndex are optional/undefined
+        };
+
+        render(<ModuleMenu module={mockModule} position={minimalPosition} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Click the delete option
+        const deleteButton = screen.getByText('Delete');
+        fireEvent.click(deleteButton);
+
+        // Verify that removeModule was called with minimal position
+        expect(mockRemoveModule).toHaveBeenCalledWith({
+            moduleUrn: 'urn:li:dataHubPageModule:test',
+            position: minimalPosition,
+        });
+    });
+
+    it('should handle module with special characters in URN', () => {
+        const moduleWithSpecialChars: PageModuleFragment = {
+            urn: 'urn:li:dataHubPageModule:test-module_with.special+chars',
+            type: EntityType.DatahubPageModule,
+            properties: {
+                name: 'Module with Special Characters',
+                type: DataHubPageModuleType.Link,
+                visibility: { scope: PageModuleScope.Personal },
+                params: {},
+            },
+        };
+
+        render(<ModuleMenu module={moduleWithSpecialChars} position={mockPosition} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Click the delete option
+        const deleteButton = screen.getByText('Delete');
+        fireEvent.click(deleteButton);
+
+        // Verify that removeModule was called with special character URN
+        expect(mockRemoveModule).toHaveBeenCalledWith({
+            moduleUrn: 'urn:li:dataHubPageModule:test-module_with.special+chars',
+            position: mockPosition,
+        });
+    });
+
+    it('should handle edit and duplicate options (placeholder functionality)', () => {
+        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Check that edit and duplicate options are present
+        const editButton = screen.getByText('Edit');
+        const duplicateButton = screen.getByText('Duplicate');
+        
+        expect(editButton).toBeInTheDocument();
+        expect(duplicateButton).toBeInTheDocument();
+
+        // Click edit and duplicate (should not throw errors)
+        fireEvent.click(editButton);
+        fireEvent.click(duplicateButton);
+
+        // These are placeholder implementations, so we just verify they don't crash
+        expect(mockRemoveModule).not.toHaveBeenCalled();
+    });
+
+    it('should handle multiple rapid clicks on delete', () => {
+        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+
+        // Click to open the dropdown
+        const menuButton = screen.getByTestId('icon');
+        fireEvent.click(menuButton);
+
+        // Click the delete option multiple times rapidly
+        const deleteButton = screen.getByText('Delete');
+        fireEvent.click(deleteButton);
+        fireEvent.click(deleteButton);
+        fireEvent.click(deleteButton);
+
+        // Verify that removeModule was called multiple times (as expected)
+        expect(mockRemoveModule).toHaveBeenCalledTimes(3);
+        expect(mockRemoveModule).toHaveBeenCalledWith({
+            moduleUrn: 'urn:li:dataHubPageModule:test',
+            position: mockPosition,
+        });
+    });
 }); 
