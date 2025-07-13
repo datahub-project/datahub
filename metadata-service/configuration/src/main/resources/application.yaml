@@ -608,7 +608,7 @@ featureFlags:
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
-  themeV2Default: ${THEME_V2_DEFAULT:false} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
@@ -626,6 +626,7 @@ featureFlags:
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -733,7 +734,7 @@ graphQL:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
     enabled: ${GRAPHQL_METRICS_ENABLED:true}
-    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.95,0.99,0.9995}
+    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.75,0.95,0.98,0.99,0.999} # set to legacy percentiles by default
 
     # Enable field-level resolver metrics collection
     # When true, timing metrics are collected for individual GraphQL field resolvers
@@ -836,5 +837,5 @@ eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
-      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
-      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+  enablePublicRead: ${ENABLE_PUBLIC_READ:false}
+  publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
