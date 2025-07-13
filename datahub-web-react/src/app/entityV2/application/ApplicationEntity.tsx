@@ -22,7 +22,6 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 
 import { useGetApplicationQuery } from '@graphql/application.generated';
@@ -106,9 +105,8 @@ export class ApplicationEntity implements Entity<Application> {
                 },
                 {
                     name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.children?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    getCount: (entityData, _, loading) => {
+                        return !loading ? entityData?.children?.total : undefined;
                     },
                     component: ApplicationEntitiesTab,
                     icon: AppstoreOutlined,

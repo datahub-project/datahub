@@ -30,6 +30,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sigma.config import (
     PlatformDetail,
@@ -95,7 +96,11 @@ logger = logging.getLogger(__name__)
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[SourceCapabilityModifier.SIGMA_WORKSPACE],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

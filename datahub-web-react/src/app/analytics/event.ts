@@ -571,12 +571,14 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
     interval?: string;
+    numOwners?: number;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
     interval?: string;
+    numOwners?: number;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {

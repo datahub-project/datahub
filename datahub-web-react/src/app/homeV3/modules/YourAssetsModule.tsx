@@ -6,13 +6,15 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 
 export default function YourAssetsModule(props: ModuleProps) {
     const { user } = useUserContext();
     const { originEntities, loading } = useGetAssetsYouOwn(user);
+    const searchForYourAssets = useSearchYourAssets();
 
     return (
-        <LargeModule {...props} loading={loading}>
+        <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets}>
             {originEntities.length === 0 ? (
                 <EmptyContent
                     icon="User"

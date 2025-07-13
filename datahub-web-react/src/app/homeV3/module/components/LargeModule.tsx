@@ -1,12 +1,10 @@
-import { Loader, borders, colors, radius, spacing } from '@components';
+import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
-import ModuleDescription from '@app/homeV3/module/components/ModuleDescription';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
-import PublicModuleBadge from '@app/homeV3/module/components/PublicModuleBadge';
 import { ModuleProps } from '@app/homeV3/module/types';
 
 const ModuleHeader = styled.div`
@@ -36,10 +34,10 @@ const FloatingRightHeaderSection = styled.div`
     height: 100%;
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ $hasViewAll: boolean }>`
     margin: 16px;
     overflow-y: auto;
-    height: 222px;
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '210px' : '222px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -47,28 +45,30 @@ const LoaderContainer = styled.div`
     height: 100%;
 `;
 
+const ViewAllButton = styled(Button)`
+    margin-left: auto;
+    margin-right: 16px;
+    margin: 0 16px 0 auto;
+`;
+
 interface Props extends ModuleProps {
     loading?: boolean;
+    onClickViewAll?: () => void;
 }
 
-export default function LargeModule({
-    children,
-    name,
-    description,
-    visibility,
-    loading,
-}: React.PropsWithChildren<Props>) {
+export default function LargeModule({ children, module, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+    const { name } = module.properties;
     return (
         <ModuleContainer $height="316px">
             <ModuleHeader>
                 <ModuleName text={name} />
-                <ModuleDescription text={description} />
+                {/* TODO: implement description for modules CH-548 */}
+                {/* <ModuleDescription text={description} /> */}
                 <FloatingRightHeaderSection>
-                    <PublicModuleBadge isPublic={visibility === 'global'} />
                     <ModuleMenu />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
-            <Content>
+            <Content $hasViewAll={!!onClickViewAll}>
                 {loading ? (
                     <LoaderContainer>
                         <Loader />
@@ -77,6 +77,11 @@ export default function LargeModule({
                     children
                 )}
             </Content>
+            {onClickViewAll && (
+                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} data-testid="view-all">
+                    View all
+                </ViewAllButton>
+            )}
         </ModuleContainer>
     );
 }

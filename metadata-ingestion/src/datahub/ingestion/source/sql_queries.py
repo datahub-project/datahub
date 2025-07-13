@@ -66,7 +66,7 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="The default schema to use for unqualified table names",
         default=None,
     )
-    default_dialect: Optional[str] = Field(
+    override_dialect: Optional[str] = Field(
         description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
         default=None,
     )
@@ -181,7 +181,7 @@ class SqlQueriesSource(Source):
             schema_resolver=self.schema_resolver,
             default_db=self.config.default_db,
             default_schema=self.config.default_schema,
-            default_dialect=self.config.default_dialect,
+            override_dialect=self.config.override_dialect,
         )
         if result.debug_info.table_error:
             logger.info(f"Error parsing table lineage, {result.debug_info.table_error}")
