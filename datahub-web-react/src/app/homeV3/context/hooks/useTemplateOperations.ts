@@ -77,18 +77,34 @@ export function useTemplateOperations() {
                 return templateToUpdate;
             }
 
-            const { rowIndex } = position;
+            const { rowIndex, moduleIndex } = position;
             const row = { ...newRows[rowIndex] };
             const newModules = [...(row.modules || [])];
 
-            // Find and remove the module by URN
-            const moduleIndex = newModules.findIndex((module) => module.urn === moduleUrn);
-            if (moduleIndex === -1) {
-                // Module not found, return original template
-                return templateToUpdate;
+            // Use moduleIndex for precise removal if available, otherwise fall back to URN search
+            if (moduleIndex !== undefined && moduleIndex >= 0 && moduleIndex < newModules.length) {
+                // Verify the module at this index matches the expected URN as a safety check
+                if (newModules[moduleIndex].urn === moduleUrn) {
+                    newModules.splice(moduleIndex, 1);
+                } else {
+                    // Safety check failed, fall back to URN search
+                    const foundIndex = newModules.findIndex((module) => module.urn === moduleUrn);
+                    if (foundIndex !== -1) {
+                        newModules.splice(foundIndex, 1);
+                    } else {
+                        // Module not found, return original template
+                        return templateToUpdate;
+                    }
+                }
+            } else {
+                // Fall back to URN search for backwards compatibility
+                const foundIndex = newModules.findIndex((module) => module.urn === moduleUrn);
+                if (foundIndex === -1) {
+                    // Module not found, return original template
+                    return templateToUpdate;
+                }
+                newModules.splice(foundIndex, 1);
             }
-
-            newModules.splice(moduleIndex, 1);
 
             // If the row is now empty, remove the entire row
             if (newModules.length === 0) {

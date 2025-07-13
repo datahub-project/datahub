@@ -56,7 +56,7 @@ interface Props extends ModuleProps {
     onClickViewAll?: () => void;
 }
 
-export default function LargeModule({ children, module, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+export default function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
     return (
         <ModuleContainer $height="316px">
@@ -65,7 +65,7 @@ export default function LargeModule({ children, module, loading, onClickViewAll 
                 {/* TODO: implement description for modules CH-548 */}
                 {/* <ModuleDescription text={description} /> */}
                 <FloatingRightHeaderSection>
-                    <ModuleMenu />
+                    <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
             <Content $hasViewAll={!!onClickViewAll}>
