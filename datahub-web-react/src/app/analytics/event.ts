@@ -992,5 +992,5 @@ export type Event =
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
     | HomePageClickEvent
-    | SearchBarFilterEvent;
-    | ClickProductUpdateEvent
+    | SearchBarFilterEvent
+    | ClickProductUpdateEvent;
