@@ -110,9 +110,18 @@ type Props = {
     page: number;
     setPage: (page: number) => void;
     pageSize: number;
+    setPageSize: (size: number) => void;
     total: number;
 };
-export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPage, pageSize, total }: Props) => {
+export const AssertionsByTableSummaryTable = ({
+    datasets,
+    isLoading,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     const hasCustomAssertions = checkHasAssertionsOfType(AssertionType.Custom, datasets);
@@ -438,7 +447,9 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                 currentPage={page}
                 total={total}
                 itemsPerPage={pageSize}
+                showSizeChanger
                 onPageChange={(newPage) => setPage(newPage)}
+                onShowSizeChange={(_, newSize) => setPageSize(newSize)}
                 loading={isLoading}
             />
         </Container>

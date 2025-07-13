@@ -1,5 +1,6 @@
 import { PageTitle, colors } from '@components';
 import React from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties/styledComponents';
@@ -34,6 +35,8 @@ export const DatasetHealthPage = () => {
     const appConfig = useAppConfig();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
+    const history = useHistory();
+
     const [selectedTab, setSelectedTab] = React.useState<string>(ASSERTIONS_TAB_ID);
     const [selectedSubTab, setSelectedSubTab] = React.useState<string>(BY_ASSERTIONS_TAB_ID);
 
@@ -50,18 +53,18 @@ export const DatasetHealthPage = () => {
     const handleMainTabChange = (tabKey: string) => {
         setSelectedTab(tabKey);
         if (tabKey === INCIDENTS_TAB_ID) {
-            window.history.replaceState({}, '', INCIDENTS_URL);
+            history.replace(INCIDENTS_URL);
         } else if (tabKey === ASSERTIONS_TAB_ID) {
             // When switching to assertions, preserve the current subtab
             const targetUrl = selectedSubTab === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
-            window.history.replaceState({}, '', targetUrl);
+            history.replace(targetUrl);
         }
     };
 
     const handleSubTabChange = (subtabKey: string) => {
         setSelectedSubTab(subtabKey);
         const targetUrl = subtabKey === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
-        window.history.replaceState({}, '', targetUrl);
+        history.replace(targetUrl);
     };
 
     const assertionsTabs = (

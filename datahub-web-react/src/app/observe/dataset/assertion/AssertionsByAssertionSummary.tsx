@@ -8,7 +8,6 @@ import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineL
 import {
     AssetFilterOptions,
     DEFAULT_FILTER_OPTIONS,
-    DEFAULT_PAGE_SIZE,
     DEFAULT_STATUS_OPTIONS,
     FILTER_OPTIONS_DECODER,
     FILTER_OPTIONS_ENCODER,
@@ -26,8 +25,8 @@ import {
     LAST_ASSERTION_RUN_AT_SORT_FIELD,
     RUN_EVENTS_PREVIEW_LIMIT,
 } from '@app/observe/dataset/assertion/constants';
-import { compareListItems, useSyncFiltersWithQueryParams } from '@app/observe/dataset/assertion/util';
 import { Header } from '@app/observe/dataset/shared/shared';
+import { compareListItems, useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
     ASSERTEE_DOMAINS_FILTER_NAME,
@@ -99,35 +98,39 @@ export const AssertionsByAssertionSummary = () => {
     }, [filterOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // pagination
-    const { page } = filterOptions;
-    const start = (page - 1) * DEFAULT_PAGE_SIZE;
+    const { page, size } = filterOptions;
+
+    const start = (page - 1) * size;
     const setPage = (newPage: number) => {
-        setFilterOptions({ ...filterOptions, page: newPage });
+        setFilterOptions((options) => ({ ...options, page: newPage }));
+    };
+    const setPageSize = (newSize: number) => {
+        setFilterOptions((options) => ({ ...options, size: newSize }));
     };
 
     // together these two filters are used to filter assertions by status and time range
     // i.e., failed assertions in the last 7 days
     const { statuses, timeRange } = filterOptions;
     const setStatuses = (newStatuses: AssertionResultTypeOptions[]) => {
-        setFilterOptions({ ...filterOptions, statuses: newStatuses });
+        setFilterOptions((options) => ({ ...options, statuses: newStatuses }));
     };
     const setTimeRange = (newTimeRange: TimeRange) => {
-        setFilterOptions({ ...filterOptions, timeRange: newTimeRange });
+        setFilterOptions((options) => ({ ...options, timeRange: newTimeRange }));
     };
 
     // Filters
     const { query: searchQuery, types: assertionTypes, source: assertionSource, tags: assertionTags } = filterOptions;
     const setSearchQuery = (query: string) => {
-        setFilterOptions({ ...filterOptions, query });
+        setFilterOptions((options) => ({ ...options, query }));
     };
     const setAssertionTypes = (types: string[]) => {
-        setFilterOptions({ ...filterOptions, types });
+        setFilterOptions((options) => ({ ...options, types }));
     };
     const setAssertionSource = (source: string) => {
-        setFilterOptions({ ...filterOptions, source });
+        setFilterOptions((options) => ({ ...options, source }));
     };
     const setAssertionTags = (tags: string[]) => {
-        setFilterOptions({ ...filterOptions, tags });
+        setFilterOptions((options) => ({ ...options, tags }));
     };
 
     // Asset Filters
@@ -139,14 +142,14 @@ export const AssertionsByAssertionSummary = () => {
         tag: filterOptions.asset_tag,
     };
     const setAssetFilterOptions = (asset: AssetFilterOptions) => {
-        setFilterOptions({
-            ...filterOptions,
+        setFilterOptions((options) => ({
+            ...options,
             asset_platform: asset.platform,
             asset_domain: asset.domain,
             asset_owner: asset.owner,
             asset_term: asset.term,
             asset_tag: asset.tag,
-        });
+        }));
     };
 
     // Reset page when filters change
@@ -259,7 +262,7 @@ export const AssertionsByAssertionSummary = () => {
                 types: [EntityType.Assertion],
                 query: searchQuery || '*',
                 start,
-                count: DEFAULT_PAGE_SIZE,
+                count: size,
                 orFilters,
                 sortInput: {
                     sortCriterion: {
@@ -663,7 +666,8 @@ export const AssertionsByAssertionSummary = () => {
                 loading={loading}
                 page={page}
                 setPage={setPage}
-                pageSize={DEFAULT_PAGE_SIZE}
+                pageSize={size}
+                setPageSize={setPageSize}
                 hasModifiedDefaultFilters={hasFilters}
             />
         </Container>

@@ -9,7 +9,7 @@ import {
     compareListItems,
     getFilterFromQueryParams,
     setFilterToQueryParams,
-} from '@app/observe/dataset/assertion/util';
+} from '@app/observe/dataset/shared/util';
 import { UnionType } from '@app/search/utils/constants';
 
 // Mock History and Location objects

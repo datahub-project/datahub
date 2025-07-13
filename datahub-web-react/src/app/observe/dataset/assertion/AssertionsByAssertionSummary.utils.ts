@@ -3,7 +3,7 @@ import {
     ASSERTION_TYPE_OPTIONS,
     AssertionResultTypeOptions,
 } from '@app/observe/dataset/assertion/constants';
-import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/assertion/util';
+import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/shared/util';
 
 export const DEFAULT_PAGE_SIZE = 25;
 
@@ -53,6 +53,7 @@ export type AssetFilterOptions = {
 export type FitlerOptions = {
     query: string;
     page: number;
+    size: number;
     statuses: AssertionResultTypeOptions[];
     timeRange: TimeRange;
     // assertion filters
@@ -70,6 +71,7 @@ export type FitlerOptions = {
 export const DEFAULT_FILTER_OPTIONS: FitlerOptions = {
     // pagination
     page: 1,
+    size: DEFAULT_PAGE_SIZE,
 
     // search
     query: '',
@@ -95,6 +97,7 @@ export const DEFAULT_FILTER_OPTIONS: FitlerOptions = {
 // Decodes url query params to filter options
 export const FILTER_OPTIONS_DECODER: QueryParamDecoder<FitlerOptions> = {
     page: (value: string) => parseInt(value, 10),
+    size: (value: string) => parseInt(value, 10),
     query: (value: string) => decodeURIComponent(value),
     statuses: (value: string) =>
         value.split(',').map((element) => decodeURIComponent(element) as AssertionResultTypeOptions),
@@ -112,6 +115,7 @@ export const FILTER_OPTIONS_DECODER: QueryParamDecoder<FitlerOptions> = {
 // Encodes filter options to url query params
 export const FILTER_OPTIONS_ENCODER: QueryParamEncoder<FitlerOptions> = {
     page: (value: number) => value.toString(),
+    size: (value: number) => value.toString(),
     query: (value: string) => encodeURIComponent(value),
     statuses: (value: AssertionResultTypeOptions[]) => value.map((element) => encodeURIComponent(element)).join(','),
     timeRange: (value: TimeRange) => encodeURIComponent(value.urlParam),

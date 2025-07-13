@@ -94,6 +94,7 @@ type Props = {
     page: number;
     setPage: (page: number) => void;
     pageSize: number;
+    setPageSize: (size: number) => void;
     loading: boolean;
     hasModifiedDefaultFilters: boolean;
 };
@@ -103,6 +104,7 @@ export const AssertionsByAssertionSummaryTable = ({
     page,
     setPage,
     pageSize,
+    setPageSize,
     loading,
     hasModifiedDefaultFilters,
 }: Props) => {
@@ -338,6 +340,7 @@ export const AssertionsByAssertionSummaryTable = ({
                 currentPage={page}
                 total={total}
                 itemsPerPage={pageSize}
+                onShowSizeChange={(_, newSize) => setPageSize(newSize)}
                 onPageChange={(newPage) => setPage(newPage)}
                 loading={loading}
             />

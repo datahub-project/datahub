@@ -5,6 +5,13 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
+import {
+    DEFAULT_FILTER_OPTIONS,
+    DEFAULT_STATUS_OPTIONS,
+    FILTER_OPTIONS_DECODER,
+    FILTER_OPTIONS_ENCODER,
+    FilterOptions,
+} from '@app/observe/dataset/assertion/AssertionsByTableSummary.utils';
 import { AssertionsByTableSummaryTable } from '@app/observe/dataset/assertion/AssertionsByTableSummaryTable';
 import {
     ASSERTIONS_DOCS_LINK,
@@ -13,6 +20,7 @@ import {
     LAST_ASSERTION_RESULT_AT_SORT_FIELD,
 } from '@app/observe/dataset/assertion/constants';
 import { Header } from '@app/observe/dataset/shared/shared';
+import { useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
     DOMAINS_FILTER_NAME,
@@ -56,10 +64,6 @@ const EmptyStateContainer = styled.div`
     height: 80%;
 `;
 
-const DEFAULT_PAGE_SIZE = 15;
-
-const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passing', 'Error'];
-
 /**
  * A component which displays a summary of the datasets that are failing some assertions
  */
@@ -79,17 +83,59 @@ export const AssertionsByTableSummary = () => {
     };
     const viewUrn = userContext.localState?.selectedViewUrn;
 
-    const [page, setPage] = useState(1);
-    const start = (page - 1) * DEFAULT_PAGE_SIZE;
+    const { getFilterFromQueryParams, setFilterToQueryParams } = useSyncFiltersWithQueryParams();
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState<AssertionResultTypeOptions[]>(DEFAULT_STATUS_OPTIONS);
-    const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
-    const [selectedOwnership, setSelectedOwnership] = useState<string[]>([]);
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-    const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    // Filters state
+    const [filterOptions, setFilterOptions] = useState<FilterOptions>(
+        getFilterFromQueryParams(FILTER_OPTIONS_DECODER, DEFAULT_FILTER_OPTIONS),
+    );
+    useEffect(() => {
+        setFilterToQueryParams(filterOptions, FILTER_OPTIONS_ENCODER);
+    }, [filterOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Pagination
+    const { page, size } = filterOptions;
+    const start = (page - 1) * size;
+    const setPage = (newPage: number) => {
+        setFilterOptions((options) => ({ ...options, page: newPage }));
+    };
+    const setPageSize = (newSize: number) => {
+        setFilterOptions((options) => ({ ...options, size: newSize }));
+    };
+
+    // Filters decomposition
+    const {
+        query: searchQuery,
+        statuses: selectedStatus,
+        domains: selectedDomains,
+        owners: selectedOwnership,
+        platforms: selectedPlatforms,
+        terms: selectedTerms,
+        tags: selectedTags,
+    } = filterOptions;
+    const setSearchQuery = (query: string) => {
+        setFilterOptions((options) => ({ ...options, query }));
+    };
+    const setSelectedStatus = (statuses: AssertionResultTypeOptions[]) => {
+        setFilterOptions((options) => ({ ...options, statuses }));
+    };
+    const setSelectedDomains = (domains: string[]) => {
+        setFilterOptions((options) => ({ ...options, domains }));
+    };
+    const setSelectedOwnership = (owners: string[]) => {
+        setFilterOptions((options) => ({ ...options, owners }));
+    };
+    const setSelectedPlatforms = (platforms: string[]) => {
+        setFilterOptions((options) => ({ ...options, platforms }));
+    };
+    const setSelectedTerms = (terms: string[]) => {
+        setFilterOptions((options) => ({ ...options, terms }));
+    };
+    const setSelectedTags = (tags: string[]) => {
+        setFilterOptions((options) => ({ ...options, tags }));
+    };
+
+    // Has Filters
     const hasFilters =
         searchQuery.length > 0 ||
         selectedStatus.length !== DEFAULT_STATUS_OPTIONS.length ||
@@ -100,18 +146,23 @@ export const AssertionsByTableSummary = () => {
         selectedTags.length > 0;
 
     // Reset page when filters change
-    useEffect(() => {
-        setPage(1);
-    }, [
-        searchQuery,
-        selectedStatus,
-        selectedDomains,
-        selectedOwnership,
-        selectedPlatforms,
-        selectedTerms,
-        selectedTags,
-    ]);
+    useEffect(
+        () => {
+            setPage(1);
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [
+            searchQuery,
+            selectedStatus,
+            selectedDomains,
+            selectedOwnership,
+            selectedPlatforms,
+            selectedTerms,
+            selectedTags,
+        ],
+    );
 
+    // Build orFilters
     const orFilters: AndFilterInput[] = [];
     selectedStatus.forEach((status) => {
         const andFilters: Array<FacetFilterInput> = [
@@ -141,13 +192,14 @@ export const AssertionsByTableSummary = () => {
         orFilters.push({ and: andFilters });
     });
 
+    // Search
     const { data: searchResults, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: [EntityType.Dataset],
                 query: searchQuery || '*',
                 start,
-                count: DEFAULT_PAGE_SIZE,
+                count: size,
                 orFilters,
                 viewUrn,
                 sortInput: {
@@ -164,6 +216,7 @@ export const AssertionsByTableSummary = () => {
         fetchPolicy: 'cache-first',
     });
 
+    // Search results decomposition
     const total = searchResults?.searchAcrossEntities?.total ?? 0;
     const facets = searchResults?.searchAcrossEntities?.facets;
 
@@ -423,7 +476,8 @@ export const AssertionsByTableSummary = () => {
                 isLoading={loading}
                 page={page}
                 setPage={setPage}
-                pageSize={DEFAULT_PAGE_SIZE}
+                pageSize={size}
+                setPageSize={setPageSize}
                 total={total}
             />
         </Container>

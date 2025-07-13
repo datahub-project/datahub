@@ -50,9 +50,10 @@ type Props = {
     page: number;
     setPage: (page: number) => void;
     pageSize: number;
+    setPageSize: (size: number) => void;
     total: number;
 };
-export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, pageSize, total }: Props) => {
+export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, pageSize, setPageSize, total }: Props) => {
     const entityRegistry = useEntityRegistry();
 
     const getIncidentsLink = (record: Dataset) =>
@@ -196,8 +197,10 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
                 currentPage={page}
                 total={total}
                 itemsPerPage={pageSize}
+                showSizeChanger
                 onPageChange={(newPage) => setPage(newPage)}
                 loading={isLoading}
+                onShowSizeChange={(_, newSize) => setPageSize(newSize)}
             />
         </Container>
     );

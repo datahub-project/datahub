@@ -6,10 +6,18 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
+import {
+    DEFAULT_FILTER_OPTIONS,
+    FILTER_OPTIONS_DECODER,
+    FILTER_OPTIONS_ENCODER,
+    FilterOptions,
+    INCIDENTS_DOCS_LINK,
+} from '@app/observe/dataset/incident/IncidentsSummary.utils';
 import { IncidentsSummaryTable } from '@app/observe/dataset/incident/IncidentsSummaryTable';
 import { HAS_ACTIVE_INCIDENTS_FILTER_FIELD } from '@app/observe/dataset/incident/constants';
 import { LAST_INCIDENT_CREATED_TIME_SORT_FIELD } from '@app/observe/dataset/incident/util';
 import { Header } from '@app/observe/dataset/shared/shared';
+import { useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
     DOMAINS_FILTER_NAME,
@@ -45,9 +53,6 @@ const EmptyStateContainer = styled.div`
     height: 80%;
 `;
 
-const DEFAULT_PAGE_SIZE = 10;
-const INCIDENTS_DOCS_LINK = 'https://docs.datahub.com/docs/incidents/incidents';
-
 /**
  * A component which displays a summary of the datasets that have active incidents globally
  */
@@ -68,16 +73,55 @@ export const IncidentsSummary = () => {
 
     const viewUrn = userContext.localState?.selectedViewUrn;
 
-    const [page, setPage] = useState(1);
-    const start = (page - 1) * DEFAULT_PAGE_SIZE;
+    const { getFilterFromQueryParams, setFilterToQueryParams } = useSyncFiltersWithQueryParams();
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
-    const [selectedOwnership, setSelectedOwnership] = useState<string[]>([]);
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-    const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    // Filters state
+    const [filterOptions, setFilterOptions] = useState<FilterOptions>(
+        getFilterFromQueryParams(FILTER_OPTIONS_DECODER, DEFAULT_FILTER_OPTIONS),
+    );
+    useEffect(() => {
+        setFilterToQueryParams(filterOptions, FILTER_OPTIONS_ENCODER);
+    }, [filterOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Pagination
+    const { page, size } = filterOptions;
+    const start = (page - 1) * size;
+    const setPageSize = (newSize: number) => {
+        setFilterOptions((options) => ({ ...options, size: newSize }));
+    };
+    const setPage = (newPage: number) => {
+        setFilterOptions((options) => ({ ...options, page: newPage }));
+    };
+
+    // Filters decomposition
+    const {
+        query: searchQuery,
+        domains: selectedDomains,
+        owners: selectedOwnership,
+        platforms: selectedPlatforms,
+        terms: selectedTerms,
+        tags: selectedTags,
+    } = filterOptions;
+    const setSearchQuery = (query: string) => {
+        setFilterOptions((options) => ({ ...options, query }));
+    };
+    const setSelectedDomains = (domains: string[]) => {
+        setFilterOptions((options) => ({ ...options, domains }));
+    };
+    const setSelectedOwnership = (owners: string[]) => {
+        setFilterOptions((options) => ({ ...options, owners }));
+    };
+    const setSelectedPlatforms = (platforms: string[]) => {
+        setFilterOptions((options) => ({ ...options, platforms }));
+    };
+    const setSelectedTerms = (terms: string[]) => {
+        setFilterOptions((options) => ({ ...options, terms }));
+    };
+    const setSelectedTags = (tags: string[]) => {
+        setFilterOptions((options) => ({ ...options, tags }));
+    };
+
+    // Has Filters
     const hasFilters =
         searchQuery.length > 0 ||
         selectedDomains.length > 0 ||
@@ -87,9 +131,13 @@ export const IncidentsSummary = () => {
         selectedTags.length > 0;
 
     // Reset page when filters change
-    useEffect(() => {
-        setPage(1);
-    }, [searchQuery, selectedDomains, selectedOwnership, selectedPlatforms, selectedTerms, selectedTags]);
+    useEffect(
+        () => {
+            setPage(1);
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [searchQuery, selectedDomains, selectedOwnership, selectedPlatforms, selectedTerms, selectedTags],
+    );
 
     const orFilters: AndFilterInput[] = [{ and: [{ field: HAS_ACTIVE_INCIDENTS_FILTER_FIELD, value: 'true' }] }];
 
@@ -119,7 +167,7 @@ export const IncidentsSummary = () => {
                 types: [EntityType.Dataset],
                 query: searchQuery || '*',
                 start,
-                count: DEFAULT_PAGE_SIZE,
+                count: size,
                 orFilters,
                 viewUrn,
                 sortInput: {
@@ -354,7 +402,8 @@ export const IncidentsSummary = () => {
                 isLoading={loading}
                 page={page}
                 setPage={setPage}
-                pageSize={DEFAULT_PAGE_SIZE}
+                pageSize={size}
+                setPageSize={setPageSize}
                 total={total}
             />
         </Container>
