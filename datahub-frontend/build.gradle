@@ -105,6 +105,7 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+  debugBuildArgs = [APP_ENV:  'dev']
 }
 
 

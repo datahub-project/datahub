@@ -147,5 +147,7 @@ docker {
     }
 
     buildArgs(dockerBuildArgs)
+    debugBuildArgs = [APP_ENV:  'dev']
+
 }
 

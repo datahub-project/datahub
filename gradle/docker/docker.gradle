@@ -280,10 +280,9 @@ project.afterEvaluate {
             ext.isDebug ||  !tag.contains("debug")  //Add the debug tag only if this is this is a debug build.
           }).toList()
         }
+        bake_spec_target.args = [:]
         if (extension.buildArgs.get()) {
-          bake_spec_target.args = extension.buildArgs.get()
-        } else {
-          bake_spec_target.args = [:]
+          bake_spec_target.args.putAll(extension.buildArgs.get())
         }
 
         if (extension.debugBuildArgs.get() && bake_spec_target.tags.findAll { tag -> tag.contains("debug") }.size() > 0) {
