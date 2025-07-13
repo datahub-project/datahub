@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,7 +18,7 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
 
 // Mock the Icon component
 vi.mock('@components', () => ({
-    Icon: React.forwardRef(({ icon, source, size, ...props }: any, ref: any) => (
+    Icon: React.forwardRef(({ icon, _source, _size, ...props }: any, ref: any) => (
         <div ref={ref} data-testid="icon" data-icon={icon} {...props}>
             {icon}
         </div>
@@ -244,7 +244,7 @@ describe('ModuleMenu', () => {
         // Check that edit and duplicate options are present
         const editButton = screen.getByText('Edit');
         const duplicateButton = screen.getByText('Duplicate');
-        
+
         expect(editButton).toBeInTheDocument();
         expect(duplicateButton).toBeInTheDocument();
 
@@ -276,4 +276,4 @@ describe('ModuleMenu', () => {
             position: mockPosition,
         });
     });
-}); 
+});

@@ -56,7 +56,13 @@ interface Props extends ModuleProps {
     onClickViewAll?: () => void;
 }
 
-export default function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+export default function LargeModule({
+    children,
+    module,
+    position,
+    loading,
+    onClickViewAll,
+}: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
     return (
         <ModuleContainer $height="316px">

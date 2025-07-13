@@ -40,15 +40,15 @@ interface TemplateUpdateContext {
 }
 
 // Helper functions for shared template operations
-const getTemplateToUpdate = (context: TemplateUpdateContext): { 
-    template: PageTemplateFragment | null; 
+const getTemplateToUpdate = (
+    context: TemplateUpdateContext,
+): {
+    template: PageTemplateFragment | null;
     isPersonal: boolean;
 } => {
     const isPersonal = !context.isEditingGlobalTemplate;
-    const template = isPersonal 
-        ? context.personalTemplate || context.globalTemplate 
-        : context.globalTemplate;
-    
+    const template = isPersonal ? context.personalTemplate || context.globalTemplate : context.globalTemplate;
+
     return { template, isPersonal };
 };
 

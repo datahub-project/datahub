@@ -13,7 +13,7 @@ const removeModuleFromArray = (
     moduleIndex?: number,
 ): PageModuleFragment[] => {
     const newModules = [...modules];
-    
+
     // Use moduleIndex for precise removal if available
     if (moduleIndex !== undefined && moduleIndex >= 0 && moduleIndex < newModules.length) {
         // Verify the module at this index matches the expected URN as a safety check
@@ -22,26 +22,23 @@ const removeModuleFromArray = (
             return newModules;
         }
     }
-    
+
     // Fall back to URN search
     const foundIndex = newModules.findIndex((module) => module.urn === moduleUrn);
     if (foundIndex !== -1) {
         newModules.splice(foundIndex, 1);
     }
-    
+
     return newModules;
 };
 
 // Helper function to validate position for removal
-const isValidRemovalPosition = (
-    template: PageTemplateFragment | null,
-    position: ModulePositionInput,
-): boolean => {
+const isValidRemovalPosition = (template: PageTemplateFragment | null, position: ModulePositionInput): boolean => {
     if (!template) return false;
-    
+
     const rows = template.properties?.rows || [];
-    const rowIndex = position.rowIndex;
-    
+    const { rowIndex } = position;
+
     return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
 };
 
@@ -116,10 +113,10 @@ export function useTemplateOperations() {
 
             const row = { ...newRows[rowIndex!] };
             const originalModules = row.modules || [];
-            
+
             // Remove the module using the helper function
             const updatedModules = removeModuleFromArray(originalModules, moduleUrn, moduleIndex);
-            
+
             // Check if module was actually removed
             if (updatedModules.length === originalModules.length) {
                 // Module not found, return original template

@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react-hooks';
+import { message } from 'antd';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -9,6 +10,13 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 
 // Mock GraphQL hooks
 vi.mock('@graphql/template.generated');
+
+// Mock antd message
+vi.mock('antd', () => ({
+    message: {
+        error: vi.fn(() => ({ key: 'test-message' })),
+    },
+}));
 
 const mockUpsertPageModuleMutation = vi.fn();
 
@@ -492,7 +500,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing moduleUrn', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -522,7 +530,10 @@ describe('useModuleOperations', () => {
                 result.current.removeModule(removeModuleInput);
             });
 
-            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Module URN is required for removal');
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Invalid removeModule input:',
+                'Module URN is required for removal',
+            );
             expect(messageSpy).toHaveBeenCalledWith('Module URN is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
@@ -533,7 +544,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing position', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -557,7 +568,10 @@ describe('useModuleOperations', () => {
                 result.current.removeModule(removeModuleInput);
             });
 
-            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Module position is required for removal');
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Invalid removeModule input:',
+                'Module position is required for removal',
+            );
             expect(messageSpy).toHaveBeenCalledWith('Module position is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
@@ -568,7 +582,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for invalid rowIndex', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -598,7 +612,10 @@ describe('useModuleOperations', () => {
                 result.current.removeModule(removeModuleInput);
             });
 
-            expect(consoleSpy).toHaveBeenCalledWith('Invalid removeModule input:', 'Valid row index is required for removal');
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Invalid removeModule input:',
+                'Valid row index is required for removal',
+            );
             expect(messageSpy).toHaveBeenCalledWith('Valid row index is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
@@ -609,7 +626,7 @@ describe('useModuleOperations', () => {
 
         it('should handle case when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(require('antd').message, 'error').mockImplementation(() => {});
+            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(

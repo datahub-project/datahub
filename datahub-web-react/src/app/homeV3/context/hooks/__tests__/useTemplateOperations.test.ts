@@ -519,11 +519,7 @@ describe('useTemplateOperations', () => {
                 moduleIndex: 0,
             };
 
-            const updatedTemplate = result.current.removeModuleFromTemplate(
-                null,
-                'urn:li:pageModule:1',
-                position,
-            );
+            const updatedTemplate = result.current.removeModuleFromTemplate(null, 'urn:li:pageModule:1', position);
 
             expect(updatedTemplate).toBeNull();
         });
