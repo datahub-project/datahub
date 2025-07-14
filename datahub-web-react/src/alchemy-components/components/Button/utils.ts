@@ -104,6 +104,19 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         };
     }
 
+    // Override styles for secondary variant
+    if (variant === 'link') {
+        return {
+            ...base,
+            textColor: color500,
+            bgColor: colors.transparent,
+            borderColor: colors.transparent,
+            activeBgColor: colors.transparent,
+            disabledBgColor: colors.transparent,
+            disabledBorderColor: colors.transparent,
+        };
+    }
+
     // Filled variable is the base style
     return base;
 };
@@ -171,6 +184,18 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
                 color: colorStyles.disabledTextColor,
             },
         },
+        link: {
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: colorStyles.textColor,
+            padding: 0,
+            '&:hover': {
+                textDecoration: 'underline',
+            },
+            '&:disabled': {
+                color: colorStyles.disabledTextColor,
+            },
+        },
     };
 
     return variantStyles[variant];
@@ -194,9 +219,10 @@ const getButtonRadiiStyles = (isCircle: boolean) => {
 };
 
 // Generate padding styles for button
-const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean) => {
+const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean, variant: ButtonVariant) => {
     if (isCircle) return { padding: spacing.xsm };
     if (!hasChildren) return { padding: spacing.xsm };
+    if (variant === 'link') return { padding: 0 };
 
     const paddingStyles = {
         xs: {
@@ -253,7 +279,7 @@ export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
     const variantStyles = getButtonVariantStyles(variant, colorStyles, color);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
-    const paddingStyles = getButtonPadding(size, hasChildren, isCircle);
+    const paddingStyles = getButtonPadding(size, hasChildren, isCircle, variant);
 
     // Base of all generated styles
     let styles: CSSObject = {

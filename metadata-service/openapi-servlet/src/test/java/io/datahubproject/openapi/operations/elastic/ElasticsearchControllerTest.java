@@ -23,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -30,7 +31,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.OpenTelemetry;
@@ -395,6 +396,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     @MockBean public TimeseriesAspectService timeseriesAspectService;
     @MockBean public EntitySearchService searchService;
     @MockBean public EntityService<?> entityService;
+    @MockBean public GraphService graphService;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -413,7 +415,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
             // Create a tracer
             Tracer tracer = openTelemetry.getTracer("test-tracer");
-            return TraceContext.builder().tracer(tracer).build();
+            return SystemTelemetryContext.builder().tracer(tracer).build();
           });
     }
 
@@ -425,9 +427,9 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
     }
 
     @Bean
@@ -442,6 +444,12 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
+    }
+
+    @Bean
+    @Primary
+    public GraphService graphService() {
+      return graphService;
     }
   }
 }

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -68,7 +69,9 @@ public class TimeseriesAspectServiceUnitTest {
   private final IndexConvention indexConvention = mock(IndexConvention.class);
   private final ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
   private final RestClient restClient = mock(RestClient.class);
-  private final EntityRegistry entityRegistry = mock(EntityRegistry.class);
+  private final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
+  private final EntityRegistry entityRegistry = opContext.getEntityRegistry();
   private final ESIndexBuilder indexBuilder = mock(ESIndexBuilder.class);
   private final TimeseriesAspectService _timeseriesAspectService =
       new ElasticSearchTimeseriesAspectService(
@@ -79,15 +82,14 @@ public class TimeseriesAspectServiceUnitTest {
           TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
           entityRegistry,
           indexConvention,
-          indexBuilder);
-  private final OperationContext opContext =
-      TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
+          indexBuilder,
+          null);
 
   private static final String INDEX_PATTERN = "indexPattern";
 
   @BeforeMethod
   public void resetMocks() {
-    reset(searchClient, indexConvention, bulkProcessor, restClient, entityRegistry, indexBuilder);
+    reset(searchClient, indexConvention, bulkProcessor, restClient, indexBuilder);
   }
 
   @Test
@@ -506,5 +508,285 @@ public class TimeseriesAspectServiceUnitTest {
     } catch (RuntimeException e) {
       Assert.assertTrue(e.getCause() instanceof ExecutionException);
     }
+  }
+
+  @Test
+  public void testRawWithNullUrnAspects() {
+    // Test with null input
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, null);
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithEmptyUrnAspects() {
+    // Test with empty input
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, Collections.emptyMap());
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithNonTimeseriesAspects() {
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put("urn:li:dataset:123", new HashSet<>(Arrays.asList("status")));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify - should be empty since no timeseries aspects
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithValidTimeseriesAspect() throws IOException {
+    // Setup
+    String urnString = "urn:li:dataset:123";
+    String aspectName = "datasetProfile";
+    String indexName = "dataset_datasetProfile_index_v1";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn(indexName);
+
+    // Mock search response
+    SearchHit mockHit = mock(SearchHit.class);
+    Map<String, Object> sourceMap = new HashMap<>();
+    sourceMap.put(MappingsBuilder.URN_FIELD, urnString);
+    sourceMap.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567890L);
+    sourceMap.put("field1", "value1");
+    sourceMap.put("field2", "value2");
+    when(mockHit.getSourceAsMap()).thenReturn(sourceMap);
+
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit});
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify
+    Assert.assertEquals(result.size(), 1);
+    Urn expectedUrn = UrnUtils.getUrn(urnString);
+    Assert.assertTrue(result.containsKey(expectedUrn));
+    Assert.assertTrue(result.get(expectedUrn).containsKey(aspectName));
+    Assert.assertEquals(result.get(expectedUrn).get(aspectName), sourceMap);
+  }
+
+  @Test
+  public void testRawWithMultipleAspects() throws IOException {
+    // Setup
+    String urnString = "urn:li:dataset:123";
+    String aspectName1 = "datasetProfile";
+    String aspectName2 = "operation";
+
+    // Mock aspect specs
+    AspectSpec mockSpec1 = mock(AspectSpec.class);
+    when(mockSpec1.isTimeseries()).thenReturn(true);
+    AspectSpec mockSpec2 = mock(AspectSpec.class);
+    when(mockSpec2.isTimeseries()).thenReturn(true);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName1)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName2)))
+        .thenReturn("dataset_operation_index_v1");
+
+    // Mock search responses for both aspects
+    Map<String, Object> sourceMap1 = new HashMap<>();
+    sourceMap1.put(MappingsBuilder.URN_FIELD, urnString);
+    sourceMap1.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567890L);
+    sourceMap1.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD, 1234567890L);
+    sourceMap1.put("profileField", "profileValue");
+
+    Map<String, Object> sourceMap2 = new HashMap<>();
+    sourceMap2.put(MappingsBuilder.URN_FIELD, urnString);
+    sourceMap2.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567891L);
+    sourceMap2.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD, 1234567891L);
+    sourceMap2.put("operationField", "operationValue");
+
+    SearchHit mockHit1 = mock(SearchHit.class);
+    when(mockHit1.getSourceAsMap()).thenReturn(sourceMap1);
+    SearchHits mockHits1 = mock(SearchHits.class);
+    when(mockHits1.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+    when(mockHits1.getHits()).thenReturn(new SearchHit[] {mockHit1});
+    SearchResponse mockResponse1 = mock(SearchResponse.class);
+    when(mockResponse1.getHits()).thenReturn(mockHits1);
+
+    SearchHit mockHit2 = mock(SearchHit.class);
+    when(mockHit2.getSourceAsMap()).thenReturn(sourceMap2);
+    SearchHits mockHits2 = mock(SearchHits.class);
+    when(mockHits2.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+    when(mockHits2.getHits()).thenReturn(new SearchHit[] {mockHit2});
+    SearchResponse mockResponse2 = mock(SearchResponse.class);
+    when(mockResponse2.getHits()).thenReturn(mockHits2);
+
+    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify
+    Assert.assertEquals(result.size(), 1);
+    Urn expectedUrn = UrnUtils.getUrn(urnString);
+    Assert.assertTrue(result.containsKey(expectedUrn));
+    Assert.assertEquals(result.get(expectedUrn).size(), 2);
+    Assert.assertTrue(result.get(expectedUrn).containsKey(aspectName1));
+    Assert.assertTrue(result.get(expectedUrn).containsKey(aspectName2));
+    Assert.assertEquals(result.get(expectedUrn).get(aspectName1), sourceMap1);
+    Assert.assertEquals(result.get(expectedUrn).get(aspectName2), sourceMap2);
+  }
+
+  @Test
+  public void testRawWithNoResults() throws IOException {
+    // Setup
+    String urnString = "urn:li:dataset:123";
+    String aspectName = "datasetProfile";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    // Mock empty search response
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {});
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify - should be empty since no documents found
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithSearchException() throws IOException {
+    // Setup
+    String urnString = "urn:li:dataset:123";
+    String aspectName = "datasetProfile";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    // Mock search to throw IOException
+    when(searchClient.search(any(), any())).thenThrow(new IOException("Search failed"));
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify - should return empty map and not throw exception
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithInvalidUrn() {
+    // Setup
+    String invalidUrnString = "invalid:urn:format";
+    String aspectName = "datasetProfile";
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(invalidUrnString, new HashSet<>(Arrays.asList(aspectName)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify - should return empty map due to URN parsing error
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithNullAspectSet() throws IOException {
+    // Setup
+    String urnString = "urn:li:dataset:123";
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString, null); // null aspect set
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify - should handle null gracefully and return empty map
+    Assert.assertEquals(result, Collections.emptyMap());
+  }
+
+  @Test
+  public void testRawWithMultipleUrns() throws IOException {
+    // Setup
+    String urnString1 = "urn:li:dataset:123";
+    String urnString2 = "urn:li:dataset:456";
+    String aspectName = "datasetProfile";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    // Mock search responses for both URNs
+    Map<String, Object> sourceMap1 = new HashMap<>();
+    sourceMap1.put(MappingsBuilder.URN_FIELD, urnString1);
+    sourceMap1.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567890L);
+    sourceMap1.put("data", "value1");
+
+    Map<String, Object> sourceMap2 = new HashMap<>();
+    sourceMap2.put(MappingsBuilder.URN_FIELD, urnString2);
+    sourceMap2.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567891L);
+    sourceMap2.put("data", "value2");
+
+    SearchHit mockHit1 = mock(SearchHit.class);
+    when(mockHit1.getSourceAsMap()).thenReturn(sourceMap1);
+    SearchHits mockHits1 = mock(SearchHits.class);
+    when(mockHits1.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+    when(mockHits1.getHits()).thenReturn(new SearchHit[] {mockHit1});
+    SearchResponse mockResponse1 = mock(SearchResponse.class);
+    when(mockResponse1.getHits()).thenReturn(mockHits1);
+
+    SearchHit mockHit2 = mock(SearchHit.class);
+    when(mockHit2.getSourceAsMap()).thenReturn(sourceMap2);
+    SearchHits mockHits2 = mock(SearchHits.class);
+    when(mockHits2.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+    when(mockHits2.getHits()).thenReturn(new SearchHit[] {mockHit2});
+    SearchResponse mockResponse2 = mock(SearchResponse.class);
+    when(mockResponse2.getHits()).thenReturn(mockHits2);
+
+    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put(urnString1, new HashSet<>(Arrays.asList(aspectName)));
+    urnAspects.put(urnString2, new HashSet<>(Arrays.asList(aspectName)));
+
+    // Execute
+    Map<Urn, Map<String, Map<String, Object>>> result =
+        _timeseriesAspectService.raw(opContext, urnAspects);
+
+    // Verify
+    Assert.assertEquals(result.size(), 2);
+    Urn expectedUrn1 = UrnUtils.getUrn(urnString1);
+    Urn expectedUrn2 = UrnUtils.getUrn(urnString2);
+    Assert.assertTrue(result.containsKey(expectedUrn1));
+    Assert.assertTrue(result.containsKey(expectedUrn2));
+    Assert.assertEquals(result.get(expectedUrn1).get(aspectName), sourceMap1);
+    Assert.assertEquals(result.get(expectedUrn2).get(aspectName), sourceMap2);
   }
 }

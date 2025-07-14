@@ -116,7 +116,7 @@ The frontend will be available at `http://localhost:3000` and will automatically
 
 ### Refreshing components of quickStart
 
-To refresh any of the running system stared by `./gradlew quickStartDebug`, run
+To refresh any of the running system started by `./gradlew quickStartDebug`, run
 
 ```shell
 ./gradlew debugReload
@@ -220,7 +220,7 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 #### Various errors related to `generateDataTemplate` or other `generate` tasks
 
-As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue.
+As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should resolve the issue.
 
 #### `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 
@@ -250,10 +250,10 @@ To be able to create symbolic links in Windows 10/11 the [Developer Mode](https:
 # enable core.symlinks config
 git config --global core.symlinks true
 
-# check the current core.sysmlinks config and scope
+# check the current core.symlinks config and scope
 git config --show-scope --show-origin core.symlinks
 
-# in case the core.sysmlinks config is still set locally to false, remove the local config
+# in case the core.symlinks config is still set locally to false, remove the local config
 git config --unset core.symlinks
 
 # reset the current branch to recreate the missing symbolic links (alternatively it is also possibly to switch branches away and back)

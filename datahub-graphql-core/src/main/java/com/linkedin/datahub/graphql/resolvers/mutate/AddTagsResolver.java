@@ -38,7 +38,8 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!LabelUtils.isAuthorizedToUpdateTags(context, targetUrn, input.getSubResource())) {
+          if (!LabelUtils.isAuthorizedToUpdateTags(
+              context, targetUrn, input.getSubResource(), tagUrns)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

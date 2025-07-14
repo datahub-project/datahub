@@ -217,6 +217,22 @@ def test_compute_entity_types() -> None:
     ) == ["DATASET", "CHART"]
 
 
+def test_compute_entity_types_deduplication() -> None:
+    types, _ = compile_filters(
+        load_filters(
+            {
+                "and": [
+                    {"entity_type": ["DATASET"]},
+                    {"entity_type": ["DATASET"]},
+                    {"entity_subtype": "Table"},
+                    {"not": {"platform": ["snowflake"]}},
+                ]
+            }
+        )
+    )
+    assert types == ["DATASET"]
+
+
 def test_compile_filters() -> None:
     filter = F.and_(F.env("PROD"), F.platform("snowflake"))
     expected_filters = [
@@ -387,5 +403,6 @@ def test_get_urns() -> None:
                 ],
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
+                "skipCache": False,
             },
         )

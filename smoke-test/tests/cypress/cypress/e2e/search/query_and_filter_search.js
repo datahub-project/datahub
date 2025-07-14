@@ -8,8 +8,15 @@ const selectFilteredEntity = (textToClick, entity, url) => {
   cy.get(`[data-testid="filter-option-${entity}"]`).click({ force: true });
   cy.get("[data-testid=update-filters]").click({ force: true });
   cy.url().should("include", `${url}`);
-  cy.get("[data-testid=update-filters]").should("not.be.visible");
   cy.get(".ant-pagination-next").scrollIntoView().should("be.visible");
+
+  // Assert that update-filters is either not present or not visible
+  cy.get("body").then(($body) => {
+    if ($body.find("[data-testid=update-filters]").length > 0) {
+      cy.get("[data-testid=update-filters]").should("not.be.visible");
+    }
+    // If element doesn't exist, assertion passes (element not present = test passes)
+  });
 };
 
 const verifyFilteredEntity = (text) => {
@@ -31,6 +38,7 @@ const clickAndVerifyEntity = (entity) => {
 
 describe("auto-complete dropdown, filter plus query search test", () => {
   beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.visit("/");
   });

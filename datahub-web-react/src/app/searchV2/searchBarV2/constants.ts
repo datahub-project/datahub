@@ -2,10 +2,14 @@ import { AutocompleteDropdownAlign } from '@src/alchemy-components/components/Au
 
 // Adjusted aligning to show dropdown in the correct place
 export const AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR: AutocompleteDropdownAlign = {
-    // bottom-center of input (search) and top-center of dropdown
-    points: ['bl', 'tl'],
-    // additional offset
-    offset: [0, 6],
+    // top-left of dropdown and bottom-left of input (search)
+    points: ['tl', 'bl'],
+    overflow: {
+        adjustX: 1,
+        adjustY: 1,
+    },
+    offset: [0, -6],
+    targetOffset: [0, 0],
 };
 export const AUTOCOMPLETE_DROPDOWN_ALIGN: AutocompleteDropdownAlign = {
     // bottom-center of input (search) and top-center of dropdown

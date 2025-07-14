@@ -28,8 +28,8 @@ def removeUser(session, urn):
 
 def listUsers(session):
     input = {
-        "start": "0",
-        "count": "20",
+        "start": 0,
+        "count": 20,
     }
 
     # list users

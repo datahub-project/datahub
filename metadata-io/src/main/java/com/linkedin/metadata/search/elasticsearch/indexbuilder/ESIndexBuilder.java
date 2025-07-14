@@ -644,7 +644,11 @@ public class ESIndexBuilder {
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
     createIndex(nextIndexName, config);
     renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName, false);
-    int targetshards = (Integer) config.targetSettings().get(NUMBER_OF_SHARDS);
+    int targetShards =
+        Optional.ofNullable(config.targetSettings().get(NUMBER_OF_SHARDS))
+            .map(Object::toString)
+            .map(Integer::parseInt)
+            .orElseThrow(() -> new IllegalArgumentException("Number of shards not specified"));
 
     Map<String, Object> reinfo =
         submitReindex(
@@ -653,7 +657,7 @@ public class ESIndexBuilder {
             options.getBatchSize(),
             TimeValue.timeValueSeconds(options.getTimeoutSeconds()),
             filterQuery,
-            targetshards);
+            targetShards);
     return (String) reinfo.get("taskId");
   }
 
@@ -675,8 +679,14 @@ public class ESIndexBuilder {
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
 
-      int targetshards =
-          (Integer) ((Map) indexState.targetSettings().get("index")).get(NUMBER_OF_SHARDS);
+      int targetShards =
+          Optional.ofNullable(indexState.targetSettings().get("index"))
+              .filter(Map.class::isInstance)
+              .map(Map.class::cast)
+              .map(indexMap -> indexMap.get(NUMBER_OF_SHARDS))
+              .map(Object::toString)
+              .map(Integer::parseInt)
+              .orElseThrow(() -> new IllegalArgumentException("Number of shards not specified"));
       String parentTaskId = "";
       boolean reindexTaskCompleted = false;
       if (previousTaskInfo.isPresent()) {
@@ -706,7 +716,7 @@ public class ESIndexBuilder {
                   REINDEX_BATCHSIZE,
                   null,
                   null,
-                  targetshards);
+                  targetShards);
           parentTaskId = (String) reinfo.get("taskId");
           result = ReindexResult.REINDEXING;
         }
@@ -779,7 +789,7 @@ public class ESIndexBuilder {
                       REINDEX_BATCHSIZE,
                       null,
                       null,
-                      targetshards);
+                      targetShards);
               reindexCount = reindexCount + 1;
               documentCountsLastUpdated = System.currentTimeMillis(); // reset timer
             } else {
@@ -933,7 +943,9 @@ public class ESIndexBuilder {
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
-    setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
+      setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
+    }
     setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
     // these depend on jvm max heap...
     // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
@@ -975,7 +987,9 @@ public class ESIndexBuilder {
       Map<String, Object> reinfo)
       throws IOException {
     // set the original values
-    setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
+      setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
+    }
     setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);
     // reinfo could be emtpy (if reindex was already ongoing...)
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;

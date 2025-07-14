@@ -315,6 +315,9 @@ public class ApplicationTest extends WithBrowser {
     testHappyPathOidc();
     int requestCount = gmsServer.getRequestCount();
 
+    // Enqueue a mock response for the /api/v2/graphql/ call
+    gmsServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"data\":\"ok\"}"));
+
     browser.goTo("/api/v2/graphql/");
     assertEquals(++requestCount, gmsServer.getRequestCount());
   }

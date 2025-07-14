@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -60,6 +61,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    ChangeTypeClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -102,6 +107,22 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
     os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
 )
+
+
+def preserve_unicode_escapes(obj: Any) -> Any:
+    """Recursively convert unicode characters back to escape sequences"""
+    if isinstance(obj, dict):
+        return {k: preserve_unicode_escapes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [preserve_unicode_escapes(item) for item in obj]
+    elif isinstance(obj, str):
+        # Convert non-ASCII characters back to \u escapes
+        def escape_unicode(match: Any) -> Any:
+            return f"\\u{ord(match.group(0)):04x}"
+
+        return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
+    else:
+        return obj
 
 
 class EmitMode(ConfigEnum):
@@ -609,15 +630,27 @@ class DataHubRestEmitter(Closeable, Emitter):
                     trace_data = extract_trace_data(response) if response else None
 
         else:
-            url = f"{self._gms_server}/aspects?action=ingestProposal"
+            if mcp.changeType == ChangeTypeClass.DELETE:
+                if mcp.aspectName not in KEY_ASPECT_NAMES:
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
-            mcp_obj = pre_json_transform(mcp.to_obj())
-            payload_dict = {
-                "proposal": mcp_obj,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
-            }
+                url = f"{self._gms_server}/entities?action=delete"
+                payload_dict = {
+                    "urn": mcp.entityUrn,
+                }
+            else:
+                url = f"{self._gms_server}/aspects?action=ingestProposal"
+
+                mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
+                payload_dict = {
+                    "proposal": mcp_obj,
+                    "async": "true"
+                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+                    else "false",
+                }
 
             payload = json.dumps(payload_dict)
 

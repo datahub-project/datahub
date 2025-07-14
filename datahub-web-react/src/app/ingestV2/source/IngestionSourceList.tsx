@@ -1,8 +1,8 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
-import { InputRef, Modal, message } from 'antd';
+import { InputRef, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -11,6 +11,10 @@ import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
+import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
+import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
+import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -18,12 +22,17 @@ import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
-import { addToListIngestionSourcesCache, removeFromListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
-import { getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import {
+    addToListIngestionSourcesCache,
+    removeFromListIngestionSourcesCache,
+    updateListIngestionSourcesCache,
+} from '@app/ingestV2/source/cacheUtils';
+import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
@@ -34,7 +43,16 @@ import {
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import {
+    Entity,
+    EntityType,
+    IngestionSource,
+    OwnerEntityType,
+    OwnershipTypeEntity,
+    SortCriterion,
+    UpdateIngestionSourceInput,
+} from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -52,7 +70,7 @@ const HeaderContainer = styled.div`
 const StyledTabToolbar = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 0 0 16px 0;
+    padding: 1px 0 16px 0; // 1px at the top to prevent Select's border outline from cutting-off
     height: auto;
     z-index: unset;
     box-shadow: none;
@@ -116,6 +134,8 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
+    selectedTab: TabType | undefined | null;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 export const IngestionSourceList = ({
@@ -124,11 +144,15 @@ export const IngestionSourceList = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
+    selectedTab,
+    setSelectedTab,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
+    const history = useHistory();
+
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
@@ -143,13 +167,34 @@ export const IngestionSourceList = ({
         }
     }, [paramsQuery]);
 
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+
+        // Clear query param if user changes the search input
+        if (paramsQuery && value !== paramsQuery) {
+            const newParams = { ...params };
+            delete newParams.query;
+
+            history.replace({
+                pathname: location.pathname,
+                search: QueryString.stringify(newParams, { arrayFormat: 'comma' }),
+            });
+        }
+    };
+
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [sourcesToRefetch, setSourcesToRefetch] = useState<Set<string>>(new Set());
+    const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
+    const [totalSources, setTotalSources] = useState<number>(0);
+    const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
+    const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
+    const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
+    const [isModalWaiting, setIsModalWaiting] = useState<boolean>(false);
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -199,9 +244,23 @@ export const IngestionSourceList = ({
         variables: {
             input: queryInputs,
         },
-        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-and-network',
+        fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
     });
+
+    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+    });
+
+    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
+    useEffect(() => {
+        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
+        setFinalSources(sources);
+        setTotalSources(data?.listIngestionSources?.total || 0);
+    }, [data?.listIngestionSources]);
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -211,28 +270,45 @@ export const IngestionSourceList = ({
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
-    const totalSources = data?.listIngestionSources?.total || 0;
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
         setFinalSources(sources);
-    }, [data?.listIngestionSources?.ingestionSources]);
+        setTotalSources(data?.listIngestionSources?.total || 0);
+    }, [data?.listIngestionSources]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
     }, [removedUrns]);
 
+    // Add active sources to polling on initial load and refetch
+    useEffect(() => {
+        const activeSourceUrns = finalSources
+            .filter((source) => source.executions?.executionRequests?.some(isExecutionRequestActive))
+            .map((source) => source.urn);
+
+        setSourcesToRefetch((prev) => new Set([...prev, ...activeSourceUrns]));
+    }, [finalSources, refetch]);
+
+    // Remove the sources from polling which are not displayed
+    useEffect(() => {
+        const displayedUrns = finalSources.map((source) => source.urn);
+        setExecutedUrns((prev) => new Set([...prev].filter((urn) => displayedUrns.includes(urn))));
+        setSourcesToRefetch((prev) => new Set([...prev].filter((urn) => displayedUrns.includes(urn))));
+    }, [finalSources, setExecutedUrns, setSourcesToRefetch]);
+
     const executeIngestionSource = useCallback(
         (urn: string) => {
-            setSourcesToRefetch((prev) => new Set(prev).add(urn));
+            setExecutedUrns((prev) => new Set(prev).add(urn));
             createExecutionRequestMutation({
                 variables: {
                     input: { ingestionSourceUrn: urn },
                 },
             })
                 .then(() => {
+                    setSourcesToRefetch((prev) => new Set(prev).add(urn));
                     analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
                     message.success({
                         content: `Successfully submitted ingestion execution request!`,
@@ -244,6 +320,11 @@ export const IngestionSourceList = ({
                     message.error({
                         content: `Failed to submit ingestion execution request!: \n ${e.message || ''}`,
                         duration: 3,
+                    });
+                    setExecutedUrns((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.delete(urn);
+                        return newSet;
                     });
                 });
         },
@@ -266,27 +347,52 @@ export const IngestionSourceList = ({
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
+        owners?: Entity[],
     ) => {
+        setIsModalWaiting(true);
+        const ownerInputs = owners?.map((owner) => {
+            return {
+                ownerUrn: owner.urn,
+                ownerEntityType:
+                    owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
+                ownershipTypeUrn: defaultOwnerType?.urn,
+            };
+        });
         if (focusSourceUrn) {
-            // Update:
+            // Update
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
+                    if (ownerInputs?.length) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: owners || [],
+                                    owners: ownerInputs,
                                     resources: [{ resourceUrn: focusSourceUrn }],
                                 },
                             },
                         });
                     }
 
+                    const updatedSource = {
+                        config: {
+                            ...input.config,
+                            version: null,
+                        },
+                        name: input.name,
+                        type: input.type,
+                        schedule: input.schedule || null,
+                        urn: focusSourceUrn,
+                        ownership: {
+                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnerType) || [],
+                        },
+                    };
+                    updateListIngestionSourcesCache(client, updatedSource, queryInputs, false);
+
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
                         interval: input.schedule?.interval,
+                        numOwners: owners?.length,
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
@@ -294,8 +400,9 @@ export const IngestionSourceList = ({
                     });
                     if (shouldRun) executeIngestionSource(focusSourceUrn);
                     else setSourcesToRefetch((prev) => new Set(prev).add(focusSourceUrn));
-                    resetState();
+
                     onCreateOrUpdateIngestionSourceSuccess();
+                    resetState();
                 })
                 .catch((e) => {
                     message.destroy();
@@ -303,30 +410,40 @@ export const IngestionSourceList = ({
                         content: `Failed to update ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
+                })
+                .finally(() => {
+                    setIsModalWaiting(false);
                 });
         } else {
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
-                    const ownersToAdd = owners?.filter((owner) => owner.ownerUrn !== me.urn);
+                    const ownersToAdd = ownerInputs?.filter((owner) => owner.ownerUrn !== me.urn);
+                    const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
-                    const newSource = {
-                        urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
+                    const newSource: IngestionSource = {
+                        urn: newUrn,
                         name: input.name,
                         type: input.type,
-                        config: null,
+                        config: { executorId: '', recipe: '', version: null, debugMode: null, extraArgs: null },
                         schedule: {
-                            interval: input.schedule?.interval || null,
+                            interval: input.schedule?.interval || '',
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
                         executions: null,
-                        ownership: null,
-                        __typename: 'IngestionSource',
+                        ownership: {
+                            owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
+                            lastModified: {
+                                time: 0,
+                            },
+                            __typename: 'Ownership' as const,
+                        },
+                        __typename: 'IngestionSource' as const,
                     };
 
-                    if (ownersToAdd && ownersToAdd.length > 0) {
+                    if (ownersToAdd?.length) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
@@ -337,23 +454,24 @@ export const IngestionSourceList = ({
                         });
                     }
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
-                    setTimeout(() => {
-                        analytics.event({
-                            type: EventType.CreateIngestionSourceEvent,
-                            sourceType: input.type,
-                            interval: input.schedule?.interval,
-                        });
-                        message.success({
-                            content: `Successfully created ingestion source!`,
-                            duration: 3,
-                        });
-                        if (result.data?.createIngestionSource)
-                            if (shouldRun) {
-                                executeIngestionSource(result.data.createIngestionSource);
-                            } else setSourcesToRefetch((prev) => new Set(prev).add(newSource.urn));
-                    }, 2000);
-                    setShowCreateModal(false);
-                    setFocusSourceUrn(undefined);
+                    setFinalSources((currSources) => [newSource, ...currSources]);
+
+                    analytics.event({
+                        type: EventType.CreateIngestionSourceEvent,
+                        sourceType: input.type,
+                        interval: input.schedule?.interval,
+                        numOwners: ownersToAdd?.length,
+                    });
+                    message.success({
+                        content: `Successfully created ingestion source!`,
+                        duration: 3,
+                    });
+                    if (result.data?.createIngestionSource) {
+                        if (shouldRun) {
+                            executeIngestionSource(result.data.createIngestionSource);
+                        } else setSourcesToRefetch((prev) => new Set(prev).add(newSource.urn));
+                    }
+                    onCreateOrUpdateIngestionSourceSuccess();
                     resetState();
                 })
                 .catch((e) => {
@@ -362,6 +480,9 @@ export const IngestionSourceList = ({
                         content: `Failed to create ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
+                })
+                .finally(() => {
+                    setIsModalWaiting(false);
                 });
         }
     };
@@ -371,35 +492,37 @@ export const IngestionSourceList = ({
         setPage(newPage);
     };
 
-    const deleteIngestionSource = useCallback(
-        (urn: string) => {
-            removeFromListIngestionSourcesCache(client, urn, page, pageSize, query);
-            removeIngestionSourceMutation({
-                variables: { urn },
-            })
-                .then(() => {
-                    analytics.event({
-                        type: EventType.DeleteIngestionSourceEvent,
-                    });
-                    message.success({ content: 'Removed ingestion source.', duration: 2 });
-                    const newRemovedUrns = [...removedUrns, urn];
-                    setRemovedUrns(newRemovedUrns);
-                    setTimeout(() => {
-                        refetch?.();
-                    }, 3000);
-                })
-                .catch((e: unknown) => {
-                    message.destroy();
-                    if (e instanceof Error) {
-                        message.error({
-                            content: `Failed to remove ingestion source: \n ${e.message || ''}`,
-                            duration: 3,
-                        });
-                    }
+    const handleConfirmDelete = useCallback(() => {
+        if (!sourceUrnToDelete) return;
+
+        removeFromListIngestionSourcesCache(client, sourceUrnToDelete, page, pageSize, query);
+        removeIngestionSourceMutation({
+            variables: { urn: sourceUrnToDelete },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.DeleteIngestionSourceEvent,
                 });
-        },
-        [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns],
-    );
+                message.success({ content: 'Removed ingestion source.', duration: 2 });
+                const newRemovedUrns = [...removedUrns, sourceUrnToDelete];
+                setRemovedUrns(newRemovedUrns);
+                setTimeout(() => {
+                    refetch?.();
+                }, 3000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: `Failed to remove ingestion source: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                }
+            })
+            .finally(() => {
+                setSourceUrnToDelete(null);
+            });
+    }, [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns, sourceUrnToDelete]);
 
     const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
         createOrUpdateIngestionSource(
@@ -443,40 +566,39 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(urn);
     }, []);
 
-    const onExecute = useCallback(
-        (urn: string) => {
-            Modal.confirm({
-                title: `Confirm Source Execution`,
-                content: "Click 'Execute' to run this ingestion source.",
-                onOk() {
-                    executeIngestionSource(urn);
-                },
-                onCancel() {},
-                okText: 'Execute',
-                maskClosable: true,
-                closable: true,
-            });
-        },
-        [executeIngestionSource],
-    );
+    const onExecute = useCallback((urn: string) => {
+        setSourceUrnToExecute(urn);
+    }, []);
 
-    const onDelete = useCallback(
-        (urn: string) => {
-            Modal.confirm({
-                title: `Confirm Ingestion Source Removal`,
-                content: `Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs.`,
-                onOk() {
-                    deleteIngestionSource(urn);
-                },
-                onCancel() {},
-                okText: 'Yes',
-                okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
-                maskClosable: true,
-                closable: true,
-            });
-        },
-        [deleteIngestionSource],
-    );
+    const handleConfirmExecute = useCallback(() => {
+        if (sourceUrnToExecute) {
+            executeIngestionSource(sourceUrnToExecute);
+        }
+        setSourceUrnToExecute(null);
+    }, [sourceUrnToExecute, executeIngestionSource]);
+
+    const onCancelExecution = useCallback((executionUrn: string | undefined, sourceUrn: string) => {
+        if (!executionUrn) {
+            console.error(`Can't cancel execution as it's urn is undefined. Source: ${sourceUrn}`);
+            return;
+        }
+
+        setExecutionInfoToCancel({ executionUrn, sourceUrn });
+    }, []);
+
+    const cancelExecution = useCancelExecution();
+
+    const onConfirmCancelExecution = useCallback(() => {
+        if (executionInfoToCancel && executionInfoToCancel.executionUrn) {
+            cancelExecution(executionInfoToCancel.executionUrn, executionInfoToCancel.sourceUrn);
+            setSourcesToRefetch((prev) => new Set(prev).add(executionInfoToCancel.sourceUrn));
+        }
+        setExecutionInfoToCancel(undefined);
+    }, [executionInfoToCancel, cancelExecution]);
+
+    const onDelete = useCallback((urn: string) => {
+        setSourceUrnToDelete(urn);
+    }, []);
 
     const onCancel = () => {
         setShowCreateModal(false);
@@ -502,11 +624,9 @@ export const IngestionSourceList = ({
                             <StyledSearchBar
                                 placeholder="Search..."
                                 value={searchInput || ''}
-                                onChange={(value) => setSearchInput(value)}
+                                onChange={(value) => handleSearchInputChange(value)}
                                 ref={searchInputRef}
                             />
-                        </SearchContainer>
-                        <FilterButtonsContainer>
                             <StyledSimpleSelect
                                 options={[
                                     { label: 'All', value: '0' },
@@ -517,12 +637,15 @@ export const IngestionSourceList = ({
                                 onUpdate={(values) => setSourceFilter(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
+                                size="lg"
                             />
+                        </SearchContainer>
+                        <FilterButtonsContainer>
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-                {!loading && totalSources === 0 ? (
+                {!loading && data?.listIngestionSources?.total === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
                 ) : (
                     <>
@@ -531,6 +654,7 @@ export const IngestionSourceList = ({
                                 sources={finalSources}
                                 setFocusExecutionUrn={handleSetFocusExecutionUrn}
                                 onExecute={onExecute}
+                                onCancelExecution={onCancelExecution}
                                 onEdit={onEdit}
                                 onView={onView}
                                 onDelete={onDelete}
@@ -540,13 +664,16 @@ export const IngestionSourceList = ({
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
+                                sourcesToRefetch={sourcesToRefetch}
+                                executedUrns={executedUrns}
+                                setSelectedTab={setSelectedTab}
                             />
                         </TableContainer>
                         <PaginationContainer>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
-                                totalPages={totalSources}
+                                total={totalSources}
                                 showLessItems
                                 onPageChange={onChangePage}
                                 showSizeChanger={false}
@@ -568,21 +695,48 @@ export const IngestionSourceList = ({
                     return Promise.resolve();
                 }}
                 selectedSource={focusSource}
+                loading={isModalWaiting}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
                 <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
+            <CancelExecutionConfirmation
+                isOpen={!!executionInfoToCancel}
+                onCancel={() => setExecutionInfoToCancel(undefined)}
+                onConfirm={onConfirmCancelExecution}
+            />
+            <ConfirmationModal
+                isOpen={!!sourceUrnToExecute}
+                handleConfirm={handleConfirmExecute}
+                handleClose={() => setSourceUrnToExecute(null)}
+                modalTitle="Confirm Source Execution"
+                modalText="Click 'Execute' to run this ingestion source."
+                closeButtonText="Cancel"
+                confirmButtonText="Execute"
+            />
+            <ConfirmationModal
+                isOpen={!!sourceUrnToDelete}
+                handleConfirm={handleConfirmDelete}
+                handleClose={() => setSourceUrnToDelete(null)}
+                modalTitle="Confirm Ingestion Source Removal"
+                modalText="Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs."
+                closeButtonText="Cancel"
+                confirmButtonText="Yes"
+            />
             {/* For refetching and polling */}
-            {Array.from(sourcesToRefetch).map((urn) => (
-                <IngestionSourceRefetcher
-                    key={urn}
-                    urn={urn}
-                    setFinalSources={setFinalSources}
-                    setSourcesToRefetch={setSourcesToRefetch}
-                    queryInputs={queryInputs}
-                />
-            ))}
+            {selectedTab === TabType.Sources &&
+                Array.from(sourcesToRefetch).map((urn) => (
+                    <IngestionSourceRefetcher
+                        key={urn}
+                        urn={urn}
+                        setFinalSources={setFinalSources}
+                        setSourcesToRefetch={setSourcesToRefetch}
+                        setExecutedUrns={setExecutedUrns}
+                        queryInputs={queryInputs}
+                        isExecutedNow={executedUrns.has(urn)}
+                    />
+                ))}
         </>
     );
 };

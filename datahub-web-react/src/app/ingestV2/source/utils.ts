@@ -1,3 +1,8 @@
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -10,13 +15,31 @@ import {
     StructuredReportLogEntry,
 } from '@app/ingestV2/executions/components/reporting/types';
 import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
-import { EntityType, ExecutionRequestResult, FacetFilterInput, FacetMetadata, SortCriterion, SortOrder } from '@types';
+import {
+    Entity,
+    EntityType,
+    ExecutionRequestResult,
+    FacetFilterInput,
+    FacetMetadata,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortCriterion,
+    SortOrder,
+} from '@types';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(advancedFormat);
+dayjs.extend(localizedFormat);
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -171,26 +194,6 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
-/**
- * This function is used to get the total number of entities ingested from the structured report.
- *
- * @param result - The result of the execution request.
- * @returns {number | null}
- */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const structuredReportObject = extractStructuredReportPOJO(result);
-    if (!structuredReportObject) {
-        return null;
-    }
-
-    try {
-        return structuredReportObject.sink.report.total_records_written;
-    } catch (e) {
-        console.error(`Caught exception while parsing structured report!`, e);
-        return null;
-    }
-};
-
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -262,14 +265,19 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         const entities = structuredReportObject.source.report.aspects;
         const entitiesIngestedByType: { [key: string]: number } = {};
         Object.entries(entities).forEach(([entityName, aspects]) => {
-            // Get the max count of all the sub-aspects for this entity type.
-            entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            // Use the status aspect count instead of max count
+            const statusCount = (aspects as any)?.status;
+            if (statusCount !== undefined) {
+                entitiesIngestedByType[entityName] = statusCount;
+            } else {
+                // Get the max count of all the sub-aspects for this entity type if status is not present.
+                entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            }
         });
 
         if (Object.keys(entitiesIngestedByType).length === 0) {
             return null;
         }
-
         return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
             count,
             displayName: entityName,
@@ -278,6 +286,21 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         console.error(`Caught exception while parsing structured report!`, e);
         return null;
     }
+};
+
+/**
+ * This function is used to get the total number of entities ingested from the structured report.
+ *
+ * @param result - The result of the execution request.
+ * @returns {number | null}
+ */
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
+    const entityTypeCounts = getEntitiesIngestedByType(result);
+    if (!entityTypeCounts) {
+        return null;
+    }
+
+    return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
@@ -371,4 +394,81 @@ export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): Face
     return hideSystemSources
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
         : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
+};
+
+export function formatTimezone(timezoneVal: string | null | undefined): string | undefined {
+    return timezoneVal ? dayjs().tz(timezoneVal).format('z') : undefined;
+}
+
+export function capitalizeMonthsAndDays(scheduleText: string): string {
+    const dayNames = Array.from({ length: 7 }, (_, i) => dayjs().day(i).format('dddd').toLowerCase());
+    const monthNames = Array.from({ length: 12 }, (_, i) => dayjs().month(i).format('MMMM').toLowerCase());
+
+    const capitalizableWords = new Set([...dayNames, ...monthNames]);
+
+    return scheduleText.replace(/\b[a-z]+\b/g, (word) =>
+        capitalizableWords.has(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+    );
+}
+
+export const getSourceStatus = (
+    source: IngestionSource,
+    sourcesToRefetch: Set<string>,
+    executedUrns: Set<string>,
+): string => {
+    const isPolling = sourcesToRefetch.has(source.urn);
+    const hasRequests = !!source.executions?.executionRequests?.length;
+    const hasActiveRequest = source.executions?.executionRequests?.some(isExecutionRequestActive);
+    const executedNow = executedUrns.has(source.urn);
+
+    if (executedNow && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
+    if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
+
+    return (
+        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
+    );
+};
+
+export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerType?: OwnershipTypeEntity) => {
+    return (
+        owners?.map((owner: any) => ({
+            owner: {
+                ...owner,
+                editableProperties: {
+                    email: '',
+                    displayName: '',
+                    title: '',
+                    pictureLink: '',
+                    ...owner.editableProperties,
+                },
+                properties: {
+                    displayName: '',
+                    email: '',
+                    active: true,
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.properties,
+                },
+                info: {
+                    email: '',
+                    admins: [],
+                    members: [],
+                    groups: [],
+                    active: true,
+                    displayName: '',
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.info,
+                },
+            },
+            associatedUrn: urn,
+            type: owner.type,
+            ownershipType: defaultOwnerType ?? null,
+            __typename: 'Owner' as const,
+        })) || []
+    );
 };
