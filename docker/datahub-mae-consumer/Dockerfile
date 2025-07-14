@@ -50,7 +50,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
-COPY mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
+COPY metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
 COPY docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
