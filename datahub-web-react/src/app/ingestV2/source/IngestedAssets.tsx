@@ -120,7 +120,6 @@ const IngestionBoxesContainer = styled.div`
     width: 100%;
 `;
 
-// Make the width dynamic based on the number of boxes
 const IngestionBox = styled.div<{ boxCount: number }>`
     display: flex;
     flex-direction: column;
