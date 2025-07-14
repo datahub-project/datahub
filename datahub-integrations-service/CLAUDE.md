@@ -37,6 +37,8 @@ uvicorn datahub_integrations.server:app --host 0.0.0.0 --port 9003 --reload
 Run formatting / linting / type checking / relevant tests after all changes
 
 ```bash
+source venv/bin/activate
+
 # Run tests
 pytest
 
@@ -126,15 +128,16 @@ This is a **FastAPI-based microservice** that provides integrations between Data
 - Actions: `src/datahub_integrations/actions/`
 - Tests: `tests/` (mirrors `src/` structure)
 
-### Environment Variables
-
-Key environment variables for different deployment scenarios:
-
-- `DATAHUB_GMS_PROTOCOL`, `DATAHUB_GMS_HOST`, `DATAHUB_GMS_PORT`
-- `DATAHUB_GMS_API_TOKEN` (for authenticated access)
-- `EXTRA_UVICORN_ARGS` (additional server arguments)
-
 ## Code Quality and Development Guidelines
+
+### Conventions
+
+- We use `loguru` for logging and never use `print` statements.
+- Imports go at the top of the file. The only exception is for dealing with circular dependencies.
+- All methods should have type annotations. Pydantic and dataclasses are good.
+- If you find yourself copying code around, you're probably doing something wrong.
+- Code should be self-documenting to the degree possible. We never do module-level docstrings, and typically use `# ` comments only to explain tricky details or edge cases.
+- All code must pass formatting, linting, and type checking.
 
 ### Understanding Existing Code
 
@@ -161,6 +164,7 @@ Before making changes, always understand why current implementations exist:
 ### Writing Tests
 
 - We use `pytest` for testing and prefer pytest-style tests instead of unittest
+- Tests should not have docstrings - the test name should be clear enough that you can immediately understand what the test is doing. It's still ok to include comments to explain tricky details.
 - Tests should be reasonably comprehensive, but our goal is not 100% coverage. Instead, focus on testing the core functionality and important edge cases while ensuring that the test suite is simple, readable, and maintainable.
 - Good code is easy to test - if the tests are super complex or require tons of mocks, it's a sign that the code is not well-designed
 

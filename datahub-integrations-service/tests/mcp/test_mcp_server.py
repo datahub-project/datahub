@@ -1,10 +1,12 @@
 from typing import AsyncIterator
+from unittest.mock import patch
 
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
 
 from datahub_integrations.server import app
+from datahub_integrations.telemetry.mcp_events import MCPServerRequestEvent
 
 pytestmark = pytest.mark.anyio
 _mcp_route = "/public/ai/mcp"
@@ -68,3 +70,22 @@ async def test_ping_header_auth(client: httpx.AsyncClient) -> None:
         response.text
         == 'event: message\r\ndata: {"jsonrpc":"2.0","id":123,"result":{}}\r\n\r\n'
     )
+
+
+async def test_telemetry_middleware_tracks_calls(client: httpx.AsyncClient) -> None:
+    with patch("datahub_integrations.mcp.mcp_telemetry.track_saas_event") as mock_track:
+        # The ping method bypasses FastMCP middleware, so we use tools/list instead.
+        response = await client.post(
+            f"{_mcp_route}?token=test",
+            json={"jsonrpc": "2.0", "id": "123", "method": "tools/list"},
+        )
+        assert response.status_code == 200
+
+        mock_track.assert_called_once()
+        call_args = mock_track.call_args[0][0]
+        assert isinstance(call_args, MCPServerRequestEvent)
+        assert call_args.source == "client"
+        assert call_args.request_type == "request"
+        assert call_args.method == "tools/list"
+        assert call_args.duration_seconds >= 0
+        assert call_args.tool_name is None

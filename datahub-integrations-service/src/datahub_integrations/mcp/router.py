@@ -12,6 +12,7 @@ from datahub_integrations.mcp.mcp_server import (
     mcp as datahub_fastmcp,
     with_datahub_client,
 )
+from datahub_integrations.mcp.mcp_telemetry import MCPTelemetryMiddleware
 
 
 async def _parse_token(
@@ -57,6 +58,8 @@ async def _parse_token(
     with with_datahub_client(client):
         return await call_next(request)
 
+
+datahub_fastmcp.add_middleware(MCPTelemetryMiddleware())
 
 mcp_http_app = datahub_fastmcp.http_app(
     stateless_http=True,
