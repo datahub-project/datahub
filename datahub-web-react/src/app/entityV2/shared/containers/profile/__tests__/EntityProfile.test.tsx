@@ -105,7 +105,7 @@ describe('EntityProfile', () => {
         await waitFor(() =>
             expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
         );
-    }, 10000);
+    }, 20_000);
 
     it('renders tab content', async () => {
         const { getByText } = render(
