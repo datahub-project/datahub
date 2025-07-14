@@ -871,7 +871,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.CONTAINERS,
-    "Extract ML experiments",
+    "Enabled by default",
     subtype_modifier=[
         SourceCapabilityModifier.TABLEAU_PROJECT,
         SourceCapabilityModifier.TABLEAU_SITE,

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-14T08:49:50.466916+00:00",
+  "generated_at": "2025-07-14T08:57:19.878293+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -3034,7 +3034,7 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Extract ML experiments",
+          "description": "Enabled by default",
           "subtype_modifier": [
             "Project",
             "Site"
