@@ -249,7 +249,7 @@ project.ext.externalDependency = [
     'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
     'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.1.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.7',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
@@ -405,6 +405,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
+    resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"

@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import click
+from tabulate import tabulate
 
 from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
@@ -21,6 +22,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.upgrade import upgrade
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -230,6 +232,7 @@ def sql_format(sql: str, platform: str) -> None:
     default=True,
     help="Run in offline mode and disable schema-aware parsing.",
 )
+@upgrade.check_upgrade
 def sql_lineage(
     sql: Optional[str],
     sql_file: Optional[str],
@@ -464,6 +467,7 @@ WHERE
 
 
 @check.command()
+@upgrade.check_upgrade
 def server_config() -> None:
     """Print the server config."""
     graph = get_default_graph(ClientMode.CLI)
@@ -488,6 +492,7 @@ def server_config() -> None:
     type=click.Path(exists=True, dir_okay=True, readable=True),
     help="File absolute path containing URNs (one per line) to restore indices",
 )
+@upgrade.check_upgrade
 def restore_indices(
     urn: Optional[str],
     aspect: Optional[str],
@@ -510,8 +515,47 @@ def restore_indices(
 
 
 @check.command()
+@upgrade.check_upgrade
 def get_kafka_consumer_offsets() -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
-    pprint.pprint(result)
+
+    table_data = []
+    headers = [
+        "Topic",
+        "Consumer Group",
+        "Schema",
+        "Partition",
+        "Offset",
+        "Lag",
+        "Avg Lag",
+        "Max Lag",
+        "Total Lag",
+    ]
+
+    for topic, consumers in result.items():
+        for consumer_group, schemas in consumers.items():
+            for schema, data in schemas.items():
+                metrics = data.get("metrics", {})
+                partitions = data.get("partitions", {})
+
+                for partition, partition_data in partitions.items():
+                    table_data.append(
+                        [
+                            topic,
+                            consumer_group,
+                            schema,
+                            partition,
+                            partition_data.get("offset", "N/A"),
+                            partition_data.get("lag", "N/A"),
+                            metrics.get("avgLag", "N/A"),
+                            metrics.get("maxLag", "N/A"),
+                            metrics.get("totalLag", "N/A"),
+                        ]
+                    )
+
+    if table_data:
+        click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+    else:
+        click.echo("No Kafka consumer offset data found.")

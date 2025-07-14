@@ -38,12 +38,13 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   private final MeterRegistry registry;
-  private final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
-  private final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
-  private final Map<String, DistributionSummary> legacyHistogramCache = new ConcurrentHashMap<>();
-  private final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
+  private static final Map<String, DistributionSummary> legacyHistogramCache =
+      new ConcurrentHashMap<>();
+  private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
   // For state-based gauges (like throttled state)
-  private final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
+  private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
   public Optional<MeterRegistry> getRegistry() {
     return Optional.ofNullable(registry);
@@ -60,7 +61,6 @@ public class MetricUtils {
                       name ->
                           Timer.builder(name)
                               .tags(DROPWIZARD_METRIC, "true")
-                              .publishPercentiles(0.5, 0.75, 0.95, 0.98, 0.99, 0.999)
                               .register(meterRegistry));
               timer.record(durationNanos, TimeUnit.NANOSECONDS);
             });

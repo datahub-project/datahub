@@ -37,9 +37,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - `acryl-datahub-gx-plugin`
   - `acryl-datahub-dagster-plugin` (already required Python 3.9+)
 - #13619: The `acryl-datahub-airflow-plugin` has dropped support for Airflow versions less than 2.7.
+- #14054: The v1 plugin in `acryl-datahub-airflow-plugin` has been removed. The v2 plugin has been the default for a while already, so this should not impact most users. Users who were explicitly setting `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true` will need to either upgrade or pin to an older version to continue using the v1 plugin.
 - #14015: In the sql-queries source, the `default_dialect` configuration parameter has been renamed to `override_dialect`. This also affects the Python SDK methods:
   - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
   - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
+- #14059: The `acryl-datahub-gx-plugin` now requires pydantic v2, which means the effective minimum supported version of GX is 0.17.15 (from Sept 2023).
 
 ### Known Issues
 
