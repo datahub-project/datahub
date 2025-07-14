@@ -21,31 +21,39 @@ import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
-const MainContainer = styled.div`
+// Base flex container with common spacing
+const FlexContainer = styled.div`
     display: flex;
-    align-items: stretch;
     gap: 16px;
-    margin-top: 16px;
 `;
 
-const CardContainer = styled.div`
+// Base card styling
+const BaseCard = styled.div`
     display: flex;
     padding: 16px;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 16px;
-    flex: 1 0 0;
     background-color: ${ANTD_GRAY[1]};
     border: 1px solid ${ANTD_GRAY[4]};
     border-radius: 12px;
     min-height: 80px;
 `;
 
-const TotalContainer = styled(CardContainer)`
+const MainContainer = styled(FlexContainer)`
+    align-items: stretch;
+    margin-top: 16px;
+`;
+
+const CardContainer = styled(BaseCard)`
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1 0 0;
+`;
+
+const TotalContainer = styled(BaseCard)`
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    flex: 1 0 0;
 `;
 
 const TotalInfo = styled.div`
@@ -64,14 +72,16 @@ const TypesSection = styled.div`
     width: 100%;
 `;
 
-const EntityCountsContainer = styled.div`
-    display: flex;
-    justify-content: flex-start;
-    align-items: stretch;
+const IngestionBoxesContainer = styled(FlexContainer)`
     width: 100%;
-    flex-wrap: wrap;
-    gap: 16px;
+`;
+
+const EntityCountsContainer = styled(FlexContainer)`
     flex: 1;
+    width: 100%;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
 `;
 
 const EntityCountsHeader = styled(Text)`
@@ -90,12 +100,6 @@ const VerticalDivider = styled.div`
 
 const IngestionContentsContainer = styled.div`
     margin-top: 10px;
-`;
-
-const IngestionBoxesContainer = styled.div`
-    display: flex;
-    gap: 16px;
-    width: 100%;
 `;
 
 const IngestionBoxTopRow = styled.div`
@@ -202,7 +206,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     return (
         <>
             {error && <Message type="error" content="" />}
-            <Heading type="h5" size="lg" weight="medium">
+            <Heading type="h4" size="lg" weight="bold">
                 Ingested Assets
             </Heading>
             {(loading && (
@@ -261,15 +265,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <Text color="gray" colorLevel={600}>
                                 Breakdown of assets containing recommended ingestion data.
                             </Text>
-                            <Text
-                                weight="medium"
-                                size="sm"
-                                style={{
-                                    marginTop: 16,
-                                    marginBottom: 8,
-                                    display: 'block',
-                                }}
-                            >
+                            <Text weight="semiBold" size="md">
                                 Lineage Types
                             </Text>
                             {renderIngestionContents({
@@ -279,15 +275,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             })}
                             {otherIngestionContents && (
                                 <>
-                                    <Text
-                                        weight="medium"
-                                        size="sm"
-                                        style={{
-                                            marginTop: 24,
-                                            marginBottom: 8,
-                                            display: 'block',
-                                        }}
-                                    >
+                                    <Text weight="semiBold" size="md">
                                         Other Ingestion Contents
                                     </Text>
                                     {renderIngestionContents({
