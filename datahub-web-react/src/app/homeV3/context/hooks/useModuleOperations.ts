@@ -96,9 +96,6 @@ export function useModuleOperations(
                 name,
                 type,
                 scope,
-                visibility: {
-                    scope,
-                },
                 params,
             };
 

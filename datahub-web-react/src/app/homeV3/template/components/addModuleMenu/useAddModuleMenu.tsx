@@ -12,7 +12,7 @@ import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/compon
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleParamsInput, PageModuleScope } from '@types';
 
 const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
@@ -40,8 +40,9 @@ export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
     position: ModulePositionInput,
     closeMenu: () => void,
-): MenuProps {
-    const { addModule } = usePageTemplateContext();
+    handleNewModuleModals: (type: DataHubPageModuleType) => void,
+) {
+    const { addModule, createModule } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -54,20 +55,20 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    // TODO: use this commented out code later once we implement creating new modules
-    // const handleCreateNewModule = useCallback(
-    //     (type: DataHubPageModuleType, name: string) => {
-    //         createModule({
-    //             name,
-    //             type,
-    //             position,
-    //         });
-    //         closeMenu();
-    //     },
-    //     [createModule, position, closeMenu],
-    // );
+    const handleCreateNewModule = useCallback(
+        (type: DataHubPageModuleType, name: string, params?: PageModuleParamsInput) => {
+            createModule({
+                name,
+                type,
+                position,
+                params,
+            });
+            closeMenu();
+        },
+        [createModule, position, closeMenu],
+    );
 
-    return useMemo(() => {
+    const menu = useMemo(() => {
         const items: MenuProps['items'] = [];
 
         const quickLink = {
@@ -113,11 +114,27 @@ export default function useAddModuleMenu(
             },
         };
 
+        const assetCollection = {
+            title: 'Asset Collection',
+            key: 'asset-collection',
+            label: (
+                <MenuItem
+                    description="A curated list of assets of your choosing"
+                    title="Asset Collection"
+                    icon="Stack"
+                />
+            ),
+            onClick: () => {
+                handleNewModuleModals(DataHubPageModuleType.AssetCollection);
+                closeMenu();
+            },
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Custom Large" />,
             type: 'group',
-            children: [yourAssets, domains],
+            children: [yourAssets, domains, assetCollection],
         });
 
         // Add admin created modules if available
@@ -147,5 +164,7 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd, handleAddExistingModule]);
+    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleNewModuleModals, closeMenu]);
+
+    return { menu, handleCreateNewModule };
 }

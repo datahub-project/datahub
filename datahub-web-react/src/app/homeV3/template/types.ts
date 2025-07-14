@@ -6,3 +6,8 @@ export interface ModulePositionInput {
     rowIndex?: number; // Row index after wrapping
     rowSide?: RowSide;
 }
+
+export interface CreateNewModuleInput {
+    name: string;
+    description?: string;
+}

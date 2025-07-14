@@ -1,23 +1,35 @@
 import { Modal } from '@components';
 import { Form } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 
 import ModuleDetailsForm from '@app/homeV3/modules/assetCollection/ModuleDetailsForm';
 import SelectAssetsSection from '@app/homeV3/modules/assetCollection/SelectAssetsSection';
 
+import { DataHubPageModuleType, PageModuleParamsInput } from '@types';
+
 interface Props {
     setShowAddAssetCollectionModal: React.Dispatch<React.SetStateAction<boolean>>;
+    handleCreateNewModule: (type: DataHubPageModuleType, name: string, params: PageModuleParamsInput) => void;
 }
 
-const AssetCollectionModal = ({ setShowAddAssetCollectionModal }: Props) => {
+const AssetCollectionModal = ({ setShowAddAssetCollectionModal, handleCreateNewModule }: Props) => {
     const [form] = Form.useForm();
+    const [selectedAssetUrns, setSelectedAssetUrns] = useState<string[]>([]);
 
     const handleModalClose = () => {
         setShowAddAssetCollectionModal(false);
     };
 
     const handleCreateAssetCollectionModule = () => {
-        setShowAddAssetCollectionModal(false);
+        form.validateFields().then((values) => {
+            const { name } = values;
+            handleCreateNewModule(DataHubPageModuleType.AssetCollection, name, {
+                assetCollectionParams: {
+                    assetUrns: selectedAssetUrns,
+                },
+            });
+            setShowAddAssetCollectionModal(false);
+        });
     };
 
     return (
@@ -32,7 +44,7 @@ const AssetCollectionModal = ({ setShowAddAssetCollectionModal }: Props) => {
             width="800px"
         >
             <ModuleDetailsForm form={form} />
-            <SelectAssetsSection />
+            <SelectAssetsSection selectedAssetUrns={selectedAssetUrns} setSelectedAssetUrns={setSelectedAssetUrns} />
         </Modal>
     );
 };

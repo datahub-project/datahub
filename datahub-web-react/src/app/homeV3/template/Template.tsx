@@ -3,9 +3,6 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-
-import AssetCollectionModal from '@app/homeV3/modules/assetCollection/AssetCollectionModal';
-import useHandleAddModule from '@app/homeV3/modules/hooks/useHandleAddModule';
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
@@ -33,24 +30,22 @@ export default function Template({ className }: Props) {
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
 
     const modulesAvailableToAdd = useModulesAvailableToAdd();
-    const { showAddAssetCollectionModal, setShowAddAssetCollectionModal, onAddModule } = useHandleAddModule();
 
     return (
         <>
-        <Wrapper className={className}>
-            {wrappedRows.map((row, i) => {
-                const key = `templateRow-${i}`;
-                return <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />;
-            })}
-            <StyledAddModulesButton
-                orientation="horizontal"
-                $hasRows={hasRows}
-                modulesAvailableToAdd={modulesAvailableToAdd}
-            />
-        </Wrapper>
-        {showAddAssetCollectionModal && (
-                <AssetCollectionModal setShowAddAssetCollectionModal={setShowAddAssetCollectionModal} />
-            )}
+            <Wrapper className={className}>
+                {wrappedRows.map((row, i) => {
+                    const key = `templateRow-${i}`;
+                    return (
+                        <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />
+                    );
+                })}
+                <StyledAddModulesButton
+                    orientation="horizontal"
+                    $hasRows={hasRows}
+                    modulesAvailableToAdd={modulesAvailableToAdd}
+                />
+            </Wrapper>
         </>
     );
 }
