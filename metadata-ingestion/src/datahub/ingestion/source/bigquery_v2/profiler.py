@@ -1492,7 +1492,7 @@ LIMIT 100"""
         if not required_columns:
             return []
 
-        logger.info(f"Finding real partition values for columns: {required_columns}")
+        logger.info(f"Determining partition values for columns: {required_columns}")
 
         # Get column data types first
         column_data_types = self._get_partition_column_types(
@@ -1537,20 +1537,48 @@ LIMIT 100"""
                     )
                     individual_filters.append(filter_str)
                 else:
-                    # If we can't find a value for any required column, we can't proceed
+                    # Log the missing column but continue to try other columns and fallbacks
                     logger.warning(
                         f"Could not find value for required partition column: {col_name}"
                     )
-                    return None
 
             # Verify all individual filters together return data
             if individual_filters and self._verify_partition_has_data(
                 table, project, schema, individual_filters
             ):
                 return individual_filters
+            else:
+                if individual_filters:
+                    logger.warning(
+                        "Individual filters generated but verification failed"
+                    )
+                else:
+                    logger.warning("No individual filters could be generated")
 
         except Exception as e:
             logger.warning(f"Error finding real partition values: {e}")
+
+        # If unified methods failed, try fallback approach before giving up
+        logger.info(
+            f"Unified methods failed for {table.name}, trying fallback approach"
+        )
+        try:
+            fallback_filters = self._get_fallback_partition_filters(
+                table, project, schema, required_columns
+            )
+
+            if fallback_filters:
+                # Verify fallback filters return data
+                if self._verify_partition_has_data(
+                    table, project, schema, fallback_filters
+                ):
+                    logger.info(f"Fallback filters successful: {fallback_filters}")
+                    return fallback_filters
+                else:
+                    logger.warning("Fallback filters generated but verification failed")
+
+        except Exception as fallback_e:
+            logger.warning(f"Fallback approach also failed: {fallback_e}")
 
         return None
 
@@ -3182,6 +3210,23 @@ SELECT val, record_count FROM PartitionStats"""
 
         except Exception as e:
             logger.warning(f"Error finding partition value for {col_name}: {e}")
+
+            # Try to extract partition information from the error message
+            try:
+                error_info = self._extract_partition_info_from_error(str(e))
+                if error_info.get("partition_values"):
+                    partition_values = error_info["partition_values"]
+                    if col_name in partition_values:
+                        val = partition_values[col_name]
+                        logger.info(
+                            f"Extracted partition value for {col_name} from error: {val}"
+                        )
+                        return val
+            except Exception as extract_e:
+                logger.debug(
+                    f"Could not extract partition info from error: {extract_e}"
+                )
+
             return None
 
     def _get_multi_column_partition_values(
@@ -3253,4 +3298,32 @@ LIMIT 10"""
 
         except Exception as e:
             logger.warning(f"Error finding multi-column partition values: {e}")
+
+            # Try to extract partition information from the error message
+            try:
+                error_info = self._extract_partition_info_from_error(str(e))
+                if error_info.get("partition_values"):
+                    partition_values = error_info["partition_values"]
+                    # Check if we have values for all required columns
+                    if all(col in partition_values for col in required_columns):
+                        logger.info(
+                            f"Extracted multi-column partition values from error: {partition_values}"
+                        )
+                        return partition_values
+                    # Or return partial values if we have some
+                    elif any(col in partition_values for col in required_columns):
+                        partial_values = {
+                            col: partition_values[col]
+                            for col in required_columns
+                            if col in partition_values
+                        }
+                        logger.info(
+                            f"Extracted partial partition values from error: {partial_values}"
+                        )
+                        return partial_values
+            except Exception as extract_e:
+                logger.debug(
+                    f"Could not extract partition info from error: {extract_e}"
+                )
+
             return None
