@@ -62,18 +62,20 @@ const TypesSection = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     position: relative;
     padding-top: 20px;
+    width: 100%;
 `;
 
 const EntityCountsContainer = styled.div`
     display: flex;
-    justify-content: left;
+    justify-content: flex-start;
     align-items: stretch;
-    max-width: 100%;
+    width: 100%;
     flex-wrap: wrap;
     gap: 16px;
+    flex: 1;
 `;
 
 const EntityCountsHeader = styled(Typography.Text)`
@@ -88,7 +90,7 @@ const EntityCountsHeader = styled(Typography.Text)`
 const EntityCount = styled.div`
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     background-color: ${ANTD_GRAY[1]};
     border: 1px solid ${ANTD_GRAY[4]};
@@ -96,6 +98,17 @@ const EntityCount = styled.div`
     border-radius: 4px;
     min-width: 70px;
     min-height: 80px;
+    flex: 1;
+`;
+
+const EntityCountNumber = styled(Typography.Text)`
+    font-size: 16px;
+    color: ${ANTD_GRAY[8]};
+    font-weight: bold;
+`;
+
+const EntityCountLabel = styled(Typography.Text)`
+    font-size: 12px;
 `;
 
 const ViewAllButton = styled(Button)`
@@ -123,7 +136,7 @@ const IngestionBoxesContainer = styled.div`
 const IngestionBox = styled.div`
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     background: ${ANTD_GRAY[1]};
     border: 1px solid ${ANTD_GRAY[4]};
@@ -138,13 +151,24 @@ const IngestionBoxTopRow = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     width: 100%;
+`;
+
+const IngestionBoxNumber = styled(Typography.Text)`
+    font-size: 16px;
+    color: ${ANTD_GRAY[8]};
+    font-weight: bold;
 `;
 
 const IngestionBoxPercent = styled(Typography.Text)`
     margin-left: 8px;
     font-size: 12px;
+`;
+
+const IngestionBoxLabel = styled(Typography.Text)`
+    font-size: 12px;
+    margin-top: 4px;
 `;
 
 type Props = {
@@ -242,14 +266,12 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <EntityCountsContainer>
                                 {countsByEntityType.map((entityCount) => (
                                     <EntityCount key={entityCount.displayName}>
-                                        <Typography.Text
-                                            style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}
-                                        >
+                                        <EntityCountNumber>
                                             {formatNumber(entityCount.count)}
-                                        </Typography.Text>
-                                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                        </EntityCountNumber>
+                                        <EntityCountLabel type="secondary">
                                             {casingForTypes(entityCount.displayName)}
-                                        </Typography.Text>
+                                        </EntityCountLabel>
                                     </EntityCount>
                                 ))}
                             </EntityCountsContainer>
@@ -265,18 +287,16 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                 {ingestionContents.map((item) => (
                                     <IngestionBox key={item.title}>
                                         <IngestionBoxTopRow>
-                                            <Typography.Text
-                                                style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}
-                                            >
+                                            <IngestionBoxNumber>
                                                 {formatNumber(item.count)}
-                                            </Typography.Text>
+                                            </IngestionBoxNumber>
                                             <IngestionBoxPercent type="secondary">
                                                 {item.percent} of Total
                                             </IngestionBoxPercent>
                                         </IngestionBoxTopRow>
-                                        <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                                        <IngestionBoxLabel type="secondary">
                                             {item.title}
-                                        </Typography.Text>
+                                        </IngestionBoxLabel>
                                     </IngestionBox>
                                 ))}
                             </IngestionBoxesContainer>
@@ -289,18 +309,16 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                 {otherIngestionContents.map((item) => (
                                     <IngestionBox key={item.type}>
                                         <IngestionBoxTopRow>
-                                            <Typography.Text
-                                                style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}
-                                            >
+                                            <IngestionBoxNumber>
                                                 {formatNumber(item.count)}
-                                            </Typography.Text>
+                                            </IngestionBoxNumber>
                                             <IngestionBoxPercent type="secondary">
                                                 {item.percent} of Total
                                             </IngestionBoxPercent>
                                         </IngestionBoxTopRow>
-                                        <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                                        <IngestionBoxLabel type="secondary">
                                             {item.type}
-                                        </Typography.Text>
+                                        </IngestionBoxLabel>
                                     </IngestionBox>
                                 ))}
                             </IngestionBoxesContainer>
