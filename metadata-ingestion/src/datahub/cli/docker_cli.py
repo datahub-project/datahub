@@ -38,6 +38,7 @@ from datahub.cli.quickstart_versioning import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -862,6 +863,7 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
+@upgrade.check_upgrade
 def ingest_sample_data(token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 

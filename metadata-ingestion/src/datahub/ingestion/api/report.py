@@ -108,7 +108,7 @@ class SourceReportSubtypes:
     urn: str
     entity_type: str
     subType: str = field(default="unknown")
-    aspects: Set[str] = field(default_factory=set)
+    aspects: Dict[str, int] = field(default_factory=dict)
 
 
 class ReportAttribute(BaseModel):
@@ -156,7 +156,7 @@ class ExamplesReport(Report, Closeable):
                 "urn": lambda val: val.urn,
                 "entityType": lambda val: val.entity_type,
                 "subTypes": lambda val: val.subType,
-                "aspects": lambda val: json.dumps(sorted(list(val.aspects))),
+                "aspects": lambda val: json.dumps(val.aspects),
             },
         )
 
@@ -295,20 +295,26 @@ class ExamplesReport(Report, Closeable):
         if urn in self._file_based_dict:
             if sub_type != "unknown":
                 self._file_based_dict[urn].subType = sub_type
-            self._file_based_dict[urn].aspects.add(aspectName)
+            aspects_dict = self._file_based_dict[urn].aspects
+            if aspectName in aspects_dict:
+                aspects_dict[aspectName] += 1
+            else:
+                aspects_dict[aspectName] = 1
             if has_fine_grained_lineage:
-                self._file_based_dict[urn].aspects.add(
-                    self._fine_grained_lineage_special_case_name
-                )
+                if self._fine_grained_lineage_special_case_name in aspects_dict:
+                    aspects_dict[self._fine_grained_lineage_special_case_name] += 1
+                else:
+                    aspects_dict[self._fine_grained_lineage_special_case_name] = 1
             self._file_based_dict.mark_dirty(urn)
         else:
+            aspects_dict = {aspectName: 1}
+            if has_fine_grained_lineage:
+                aspects_dict[self._fine_grained_lineage_special_case_name] = 1
             self._file_based_dict[urn] = SourceReportSubtypes(
                 urn=urn,
                 entity_type=entityType,
                 subType=sub_type,
-                aspects={aspectName}
-                if not has_fine_grained_lineage
-                else {aspectName, self._fine_grained_lineage_special_case_name},
+                aspects=aspects_dict,
             )
 
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
@@ -348,8 +354,10 @@ class ExamplesReport(Report, Closeable):
             aspects_raw = row["aspects"] or "[]"
 
             aspects = json.loads(aspects_raw)
-            for aspect in aspects:
-                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += count
+            for aspect, aspect_count in aspects.items():
+                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += (
+                    aspect_count * count
+                )
 
         self.aspects.clear()
         self.aspects_by_subtypes.clear()

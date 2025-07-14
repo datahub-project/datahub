@@ -869,6 +869,15 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLEAU_PROJECT,
+        SourceCapabilityModifier.TABLEAU_SITE,
+        SourceCapabilityModifier.TABLEAU_WORKBOOK,
+    ],
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -3671,7 +3680,7 @@ class TableauSiteSource:
                 container_key=project_key,
                 name=project_.name,
                 description=project_.description,
-                sub_types=[c.PROJECT],
+                sub_types=[BIContainerSubTypes.TABLEAU_PROJECT],
                 parent_container_key=parent_project_key,
             )
 
@@ -3689,7 +3698,7 @@ class TableauSiteSource:
         yield from gen_containers(
             container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
-            sub_types=[c.SITE],
+            sub_types=[BIContainerSubTypes.TABLEAU_SITE],
         )
 
     def _fetch_groups(self):
