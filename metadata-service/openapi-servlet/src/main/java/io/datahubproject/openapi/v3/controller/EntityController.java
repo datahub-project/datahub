@@ -396,6 +396,134 @@ public class EntityController
     }
   }
 
+  /* ===================================================================================== */
+  /*  CROSS-ENTITY  POST  /entity/generic                                                   */
+  /* ===================================================================================== */
+  @Tag(name = "Generic Entities")
+  @PostMapping(
+      value = "/generic",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Create / replace aspects on multiple entity types in one call.")
+  public ResponseEntity<Map<String, List<GenericEntityV3>>> createGenericEntities(
+      HttpServletRequest request,
+      @RequestParam(value = "async", defaultValue = "true") boolean async,
+      @RequestParam(value = "systemMetadata", defaultValue = "false") boolean withSystemMetadata,
+      @RequestBody String jsonBody)
+      throws Exception {
+
+    ObjectNode root = (ObjectNode) objectMapper.readTree(jsonBody);
+    Map<String, List<GenericEntityV3>> response = new LinkedHashMap<>();
+
+    for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
+      String entityName = it.next();
+      JsonNode array = root.get(entityName);
+
+      if (!array.isArray()) {
+        throw new IllegalArgumentException(
+            "Value of property '" + entityName + "' must be an array");
+      }
+
+      ResponseEntity<List<GenericEntityV3>> part =
+          super.createEntity(
+              request,
+              entityName,
+              async,
+              withSystemMetadata,
+              objectMapper.writeValueAsString(array));
+
+      response.put(entityName, part.getBody() == null ? List.of() : part.getBody());
+    }
+
+    return async ? ResponseEntity.accepted().body(response) : ResponseEntity.ok(response);
+  }
+
+  /* ===================================================================================== */
+  /*  CROSS-ENTITY  PATCH  /entity/generic                                                  */
+  /* ===================================================================================== */
+  @Tag(name = "Generic Entities")
+  @PatchMapping(
+      value = "/generic",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Patch aspects on multiple entity types in one call.")
+  public ResponseEntity<Map<String, List<GenericEntityV3>>> patchGenericEntities(
+      HttpServletRequest request,
+      @RequestParam(value = "async", defaultValue = "true") boolean async,
+      @RequestParam(value = "systemMetadata", defaultValue = "false") boolean withSystemMetadata,
+      @RequestBody String jsonBody)
+      throws Exception {
+
+    ObjectNode root = (ObjectNode) objectMapper.readTree(jsonBody);
+    Map<String, List<GenericEntityV3>> response = new LinkedHashMap<>();
+
+    for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
+      String entityName = it.next();
+      JsonNode array = root.get(entityName);
+
+      if (!array.isArray()) {
+        throw new IllegalArgumentException(
+            "Value of property '" + entityName + "' must be an array");
+      }
+
+      ResponseEntity<List<GenericEntityV3>> part =
+          patchEntity(
+              request,
+              entityName,
+              async,
+              withSystemMetadata,
+              objectMapper.writeValueAsString(array));
+
+      // 202 (Accepted) has no body in the original method; preserve that semantics
+      response.put(
+          entityName,
+          part.getStatusCode().is2xxSuccessful() && part.getBody() != null
+              ? part.getBody()
+              : List.of());
+    }
+
+    return async ? ResponseEntity.accepted().body(response) : ResponseEntity.ok(response);
+  }
+
+  /* ===================================================================================== */
+  /*  CROSS-ENTITY  batchGet  /entity/generic/batchGet                                      */
+  /* ===================================================================================== */
+  @Tag(name = "Generic Entities")
+  @PostMapping(
+      value = "/generic/batchGet",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Batch-get entities across multiple entity types.")
+  public ResponseEntity<Map<String, List<GenericEntityV3>>> batchGetGenericEntities(
+      HttpServletRequest request,
+      @RequestParam(value = "systemMetadata", defaultValue = "false") boolean withSystemMetadata,
+      @RequestBody String jsonBody)
+      throws Exception {
+
+    ObjectNode root = (ObjectNode) objectMapper.readTree(jsonBody);
+    Map<String, List<GenericEntityV3>> response = new LinkedHashMap<>();
+
+    for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
+      String entityName = it.next();
+      JsonNode array = root.get(entityName);
+
+      if (!array.isArray()) {
+        throw new IllegalArgumentException(
+            "Value of property '" + entityName + "' must be an array");
+      }
+
+      ResponseEntity<List<GenericEntityV3>> part =
+          this.getEntityBatch(
+              request,
+              withSystemMetadata,
+              objectMapper.writeValueAsString(array)); // reuse existing method
+
+      response.put(entityName, part.getBody() == null ? List.of() : part.getBody());
+    }
+
+    return ResponseEntity.ok(response);
+  }
+
   @Override
   public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,

@@ -673,7 +673,7 @@ export const IngestionSourceList = ({
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
-                                totalPages={totalSources}
+                                total={totalSources}
                                 showLessItems
                                 onPageChange={onChangePage}
                                 showSizeChanger={false}

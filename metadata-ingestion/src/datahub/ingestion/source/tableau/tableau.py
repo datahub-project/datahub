@@ -528,6 +528,14 @@ class TableauConfig(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
+    emit_all_published_datasources: bool = Field(
+        default=False,
+        description="Ingest all published data sources. When False (default), only ingest published data sources that belong to an ingested workbook.",
+    )
+    emit_all_embedded_datasources: bool = Field(
+        default=False,
+        description="Ingest all embedded data sources. When False (default), only ingest embedded data sources that belong to an ingested workbook.",
+    )
 
     env: str = Field(
         default=builder.DEFAULT_ENV,
@@ -861,6 +869,15 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLEAU_PROJECT,
+        SourceCapabilityModifier.TABLEAU_SITE,
+        SourceCapabilityModifier.TABLEAU_WORKBOOK,
+    ],
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -2850,7 +2867,11 @@ class TableauSiteSource:
         return datasource
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_all_published_datasources
+            else {c.ID_WITH_IN: self.datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=published_datasource_graphql_query,
@@ -3543,7 +3564,11 @@ class TableauSiteSource:
         return browse_paths
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_all_embedded_datasources
+            else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=embedded_datasource_graphql_query,
@@ -3655,7 +3680,7 @@ class TableauSiteSource:
                 container_key=project_key,
                 name=project_.name,
                 description=project_.description,
-                sub_types=[c.PROJECT],
+                sub_types=[BIContainerSubTypes.TABLEAU_PROJECT],
                 parent_container_key=parent_project_key,
             )
 
@@ -3673,7 +3698,7 @@ class TableauSiteSource:
         yield from gen_containers(
             container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
-            sub_types=[c.SITE],
+            sub_types=[BIContainerSubTypes.TABLEAU_SITE],
         )
 
     def _fetch_groups(self):

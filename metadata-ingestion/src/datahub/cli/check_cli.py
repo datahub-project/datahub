@@ -21,7 +21,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -47,7 +47,6 @@ def check() -> None:
 @click.option(
     "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
 )
-@telemetry.with_telemetry()
 def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""
 
@@ -105,7 +104,6 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     default=(),
     help="[Advanced] Paths in the deepdiff object to ignore",
 )
-@telemetry.with_telemetry()
 def metadata_diff(
     actual_file: str, expected_file: str, verbose: bool, ignore_path: List[str]
 ) -> None:
@@ -142,7 +140,6 @@ def metadata_diff(
     type=str,
     default=None,
 )
-@telemetry.with_telemetry()
 def plugins(source: Optional[str], verbose: bool) -> None:
     """List the enabled ingestion plugins."""
 
@@ -234,7 +231,7 @@ def sql_format(sql: str, platform: str) -> None:
     default=True,
     help="Run in offline mode and disable schema-aware parsing.",
 )
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def sql_lineage(
     sql: Optional[str],
     sql_file: Optional[str],
@@ -297,7 +294,6 @@ def sql_lineage(
     type=str,
     help="the input to validate",
 )
-@telemetry.with_telemetry()
 def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     """Test input string against AllowDeny pattern in a DataHub recipe.
 
@@ -346,7 +342,6 @@ def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     type=str,
     help="The input to validate",
 )
-@telemetry.with_telemetry()
 def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
     """Test input path string against PathSpec patterns in a DataHub recipe.
 
@@ -471,6 +466,7 @@ WHERE
 
 
 @check.command()
+@upgrade.check_upgrade
 def server_config() -> None:
     """Print the server config."""
     graph = get_default_graph(ClientMode.CLI)
@@ -495,6 +491,7 @@ def server_config() -> None:
     type=click.Path(exists=True, dir_okay=True, readable=True),
     help="File absolute path containing URNs (one per line) to restore indices",
 )
+@upgrade.check_upgrade
 def restore_indices(
     urn: Optional[str],
     aspect: Optional[str],
@@ -517,6 +514,7 @@ def restore_indices(
 
 
 @check.command()
+@upgrade.check_upgrade
 def get_kafka_consumer_offsets() -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
