@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-11T10:30:52.695807+00:00",
+  "generated_at": "2025-07-14T09:20:09.632850+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -3032,6 +3032,16 @@
     },
     "tableau": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Project",
+            "Site",
+            "Workbook"
+          ],
+          "supported": true
+        },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `extract_column_level_lineage`",
