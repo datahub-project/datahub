@@ -16,10 +16,10 @@ import {
     formatTimezone,
     getEntitiesIngestedByType,
     getIngestionContents,
+    getOtherIngestionContents,
     getSortInput,
     getSourceStatus,
     getTotalEntitiesIngested,
-    getOtherIngestionContents,
 } from '@app/ingestV2/source/utils';
 
 import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';

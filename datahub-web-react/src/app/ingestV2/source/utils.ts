@@ -309,15 +309,15 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
         return null;
     }
     const aspectsBySubtypes = structuredReportObject.source.report.aspects_by_subtypes;
-    
+
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
     }
-    
+
     let totalStatusCount = 0;
     let totalDatasetProfileCount = 0;
     let totalDatasetUsageStatisticsCount = 0;
-    
+
     Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
         if (entityType !== 'dataset') {
             // temporary for now - we have not decided on the design for non dataset entity types
@@ -330,37 +330,37 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
             }
             const dataSetProfileCount = (aspects as any)?.datasetProfile || 0;
             const dataSetUsageStatisticsCount = (aspects as any)?.datasetUsageStatistics || 0;
-            
+
             totalStatusCount += statusCount;
             totalDatasetProfileCount += dataSetProfileCount;
             totalDatasetUsageStatisticsCount += dataSetUsageStatisticsCount;
         });
     });
-    
+
     if (totalStatusCount === 0) {
         return null;
     }
-    
+
     const result: Array<{ type: string; count: number; percent: string }> = [];
-    
+
     if (totalDatasetProfileCount > 0) {
         const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
-            type: "Profiling",
+            type: 'Profiling',
             count: totalDatasetProfileCount,
             percent: datasetProfilePercent,
         });
     }
-    
+
     if (totalDatasetUsageStatisticsCount > 0) {
         const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
-            type: "Usage",
+            type: 'Usage',
             count: totalDatasetUsageStatisticsCount,
             percent: datasetUsageStatisticsPercent,
         });
     }
-    
+
     if (result.length === 0) {
         return null;
     }
@@ -374,11 +374,11 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
         return null;
     }
     const aspectsBySubtypes = structuredReportObject.source.report.aspects_by_subtypes;
-    
+
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
     }
-    
+
     const result: Array<{ title: string; count: number; percent: string }> = [];
     Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
         if (entityType !== 'dataset') {
