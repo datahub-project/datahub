@@ -14,6 +14,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ def upsert(file: Path, dry_run: bool) -> None:
 )
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
+@upgrade.check_upgrade
 def get(urn: str, to_file: str) -> None:
     """Get a Dataset from DataHub"""
 
@@ -71,6 +73,7 @@ def get(urn: str, to_file: str) -> None:
     help="URN of secondary sibling(s)",
     multiple=True,
 )
+@upgrade.check_upgrade
 def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns = set()
     all_urns.add(urn)
@@ -165,6 +168,7 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
 @click.option(
     "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
 )
+@upgrade.check_upgrade
 def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
     """Sync a Dataset file to/from DataHub"""
 

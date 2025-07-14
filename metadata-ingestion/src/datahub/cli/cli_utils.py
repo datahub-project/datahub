@@ -452,9 +452,6 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     def has_telemetry_decorator(func):
         return has_decorator(func, "telemetry", "with_telemetry")
 
-    def has_upgrade_decorator(func):
-        return has_decorator(func, "upgrade", "check_upgrade")
-
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
         if hasattr(command_obj, "callback") and command_obj.callback:
@@ -462,7 +459,6 @@ def enable_auto_decorators(main_group: click.Group) -> None:
 
             # Import here to avoid circular imports
             from datahub.telemetry import telemetry
-            from datahub.upgrade import upgrade
 
             decorated_callback = original_callback
 
@@ -471,12 +467,6 @@ def enable_auto_decorators(main_group: click.Group) -> None:
                     f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
                 )
                 decorated_callback = telemetry.with_telemetry()(decorated_callback)
-
-            if not has_upgrade_decorator(decorated_callback):
-                log.debug(
-                    f"Applying upgrade decorator to {original_callback.__module__}.{original_callback.__name__}"
-                )
-                decorated_callback = upgrade.check_upgrade(decorated_callback)
 
             # Preserve the original function's metadata
             decorated_callback = wraps(original_callback)(decorated_callback)
