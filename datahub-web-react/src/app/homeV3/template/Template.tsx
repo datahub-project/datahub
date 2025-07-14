@@ -1,5 +1,5 @@
 import { spacing } from '@components';
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
