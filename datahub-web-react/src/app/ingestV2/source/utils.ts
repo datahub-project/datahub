@@ -303,6 +303,68 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
+export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+
+    // "aspects_by_subtypes": {
+    //     "dataset": {
+    //       "Table": {
+    //         "datasetProfile": 2,
+    //         "datasetUsageStatistics": 2,
+    //         "status": 2,
+    //         "subTypes": 2,
+    //         "upstreamLineage": 1
+    //       },
+    //       "View": {
+    //         "datasetProfile": 1,
+    //         "datasetUsageStatistics": 1,
+    //         "status": 1,
+    //         "subTypes": 1,
+    //         "upstreamLineage": 1
+    //       }
+    //     }
+    //   },
+    const aspectsBySubtypes = structuredReportObject.source.report.aspects_by_subtypes;
+    const result: Array<{ title: string; count: number; percent: string }> = [];
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([subtype, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            const upstreamLineage = (aspects as any)?.upstreamLineage || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const percent = `${((upstreamLineage / statusCount) * 100).toFixed(0)}%`;
+            if (percent === '0%') {
+                return;
+            }
+            console.log(
+                'subtype',
+                subtype,
+                'statusCount',
+                statusCount,
+                'upstreamLineage',
+                upstreamLineage,
+                'percent',
+                percent,
+            );
+            result.push({
+                title: subtype,
+                count: statusCount,
+                percent,
+            });
+        });
+    });
+
+    return result;
+};
+
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
     if (!result) {
         return undefined;
