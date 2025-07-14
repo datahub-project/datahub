@@ -178,7 +178,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         <Modal
             width={800}
             bodyStyle={modalBodyStyle}
-            title="Execution Run Details"
+            title="Status Details"
             open={open}
             onCancel={onClose}
             buttons={[{ text: 'Close', variant: 'outline', onClick: onClose }]}

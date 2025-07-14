@@ -17,23 +17,46 @@ import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
-const HeaderContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
 
-const TitleContainer = styled.div``;
+const MainContainer = styled.div`
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    margin-top: 16px;
+    min-height: 90px;
+`;
 
 const TotalContainer = styled.div`
     display: flex;
     flex-direction: column;
-    justify-content: right;
-    align-items: end;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 10px;
+    background-color: ${ANTD_GRAY[1]};
+    border: 1px solid ${ANTD_GRAY[4]};
+    border-radius: 4px;
+    min-width: 200px;
+    height: 100%;
 `;
 
 const TotalText = styled(Typography.Text)`
-    font-size: 16px;
+    font-size: 18px;
     color: ${ANTD_GRAY[8]};
+    font-weight: bold;
+`;
+
+const TotalLabel = styled(Typography.Text)`
+    font-size: 12px;
+    color: ${ANTD_GRAY[6]};
+    margin-top: 4px;
+`;
+
+const TypesSection = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    height: 100%;
 `;
 
 const EntityCountsContainer = styled.div`
@@ -42,19 +65,34 @@ const EntityCountsContainer = styled.div`
     align-items: center;
     max-width: 100%;
     flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 8px;
+`;
+
+const EntityCountsHeader = styled(Typography.Text)`
+    font-size: 12px;
+    color: ${ANTD_GRAY[6]};
+    margin-bottom: 8px;
 `;
 
 const EntityCount = styled.div`
-    margin-right: 40px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    background-color: ${ANTD_GRAY[1]};
+    border: 1px solid ${ANTD_GRAY[4]};
+    padding: 12px 16px;
+    border-radius: 4px;
+    min-width: 70px;
 `;
 
-const ViewAllButton = styled(Button)`
-    padding: 0px;
-    margin-top: 4px;
+const VerticalDivider = styled.div`
+    width: 1px;
+    background-color: ${ANTD_GRAY[4]};
+    height: 70px;
+    align-self: center;
 `;
+
 
 type Props = {
     id: string;
@@ -116,41 +154,40 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     return (
         <>
             {error && <Message type="error" content="" />}
-            <HeaderContainer>
-                <TitleContainer>
-                    <Typography.Title level={5}>Ingested Assets</Typography.Title>
-                    {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
-                        <>
-                            {(total > 0 && (
-                                <Typography.Paragraph type="secondary">
-                                    The following asset types were ingested during this run.
-                                </Typography.Paragraph>
-                            )) || <Typography.Text>No assets were ingested.</Typography.Text>}
-                        </>
-                    )}
-                </TitleContainer>
-                {!loading && (
+            <Typography.Title level={5}>Ingested Assets</Typography.Title>
+            {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
+                <>
+                    {(total > 0 && (
+                        <Typography.Paragraph type="secondary">
+                            The following asset types were ingested during this run.
+                        </Typography.Paragraph>
+                    )) || <Typography.Text>No assets were ingested.</Typography.Text>}
+                </>
+            )}
+            {!loading && total > 0 && (
+                <MainContainer>
                     <TotalContainer>
-                        <Typography.Text type="secondary">Total</Typography.Text>
-                        <TotalText style={{ fontSize: 16, color: ANTD_GRAY[8] }}>
-                            <b>{formatNumber(total)}</b> assets
-                        </TotalText>
+                        <TotalText>{formatNumber(total)}</TotalText>
+                        <TotalLabel>Total Assets Ingested</TotalLabel>
                     </TotalContainer>
-                )}
-            </HeaderContainer>
-            <EntityCountsContainer>
-                {countsByEntityType.map((entityCount) => (
-                    <EntityCount>
-                        <Typography.Text style={{ paddingLeft: 2, fontSize: 18, color: ANTD_GRAY[8] }}>
-                            <b>{formatNumber(entityCount.count)}</b>
-                        </Typography.Text>
-                        <Typography.Text type="secondary">{entityCount.displayName}</Typography.Text>
-                    </EntityCount>
-                ))}
-            </EntityCountsContainer>
-            <ViewAllButton type="link" onClick={() => setShowAssetSearch(true)}>
-                View All
-            </ViewAllButton>
+                    <VerticalDivider />
+                    <TypesSection>
+                        {/* <EntityCountsHeader>Types</EntityCountsHeader> */}
+                        <EntityCountsContainer>
+                            {countsByEntityType.map((entityCount) => (
+                                <EntityCount key={entityCount.displayName}>
+                                    <Typography.Text style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}>
+                                        {formatNumber(entityCount.count)}
+                                    </Typography.Text>
+                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                        {entityCount.displayName}
+                                    </Typography.Text>
+                                </EntityCount>
+                            ))}
+                        </EntityCountsContainer>
+                    </TypesSection>
+                </MainContainer>
+            )}
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     title="View Ingested Assets"
