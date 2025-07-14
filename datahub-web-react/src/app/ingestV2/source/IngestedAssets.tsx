@@ -14,6 +14,7 @@ import {
 import { UnionType } from '@app/search/utils/constants';
 import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
@@ -210,10 +211,6 @@ export default function IngestedAssets({ id, executionResult }: Props) {
         fetchPolicy: 'cache-first',
     });
 
-    const casingForTypes = (input: string) => {
-        return input.charAt(0).toUpperCase() + input.slice(1);
-    };
-
     // Parse filter values to get results.
     const facets = data?.searchAcrossEntities?.facets;
 
@@ -266,11 +263,9 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <EntityCountsContainer>
                                 {countsByEntityType.map((entityCount) => (
                                     <EntityCount key={entityCount.displayName}>
-                                        <EntityCountNumber>
-                                            {formatNumber(entityCount.count)}
-                                        </EntityCountNumber>
+                                        <EntityCountNumber>{formatNumber(entityCount.count)}</EntityCountNumber>
                                         <EntityCountLabel type="secondary">
-                                            {casingForTypes(entityCount.displayName)}
+                                            {capitalizeFirstLetterOnly(entityCount.displayName)}
                                         </EntityCountLabel>
                                     </EntityCount>
                                 ))}
@@ -287,16 +282,12 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                 {ingestionContents.map((item) => (
                                     <IngestionBox key={item.title}>
                                         <IngestionBoxTopRow>
-                                            <IngestionBoxNumber>
-                                                {formatNumber(item.count)}
-                                            </IngestionBoxNumber>
+                                            <IngestionBoxNumber>{formatNumber(item.count)}</IngestionBoxNumber>
                                             <IngestionBoxPercent type="secondary">
                                                 {item.percent} of Total
                                             </IngestionBoxPercent>
                                         </IngestionBoxTopRow>
-                                        <IngestionBoxLabel type="secondary">
-                                            {item.title}
-                                        </IngestionBoxLabel>
+                                        <IngestionBoxLabel type="secondary">{item.title}</IngestionBoxLabel>
                                     </IngestionBox>
                                 ))}
                             </IngestionBoxesContainer>
@@ -309,16 +300,12 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                 {otherIngestionContents.map((item) => (
                                     <IngestionBox key={item.type}>
                                         <IngestionBoxTopRow>
-                                            <IngestionBoxNumber>
-                                                {formatNumber(item.count)}
-                                            </IngestionBoxNumber>
+                                            <IngestionBoxNumber>{formatNumber(item.count)}</IngestionBoxNumber>
                                             <IngestionBoxPercent type="secondary">
                                                 {item.percent} of Total
                                             </IngestionBoxPercent>
                                         </IngestionBoxTopRow>
-                                        <IngestionBoxLabel type="secondary">
-                                            {item.type}
-                                        </IngestionBoxLabel>
+                                        <IngestionBoxLabel type="secondary">{item.type}</IngestionBoxLabel>
                                     </IngestionBox>
                                 ))}
                             </IngestionBoxesContainer>
