@@ -1,9 +1,13 @@
+import datetime
+
 import pytest
+import sqlglot
+from sqlglot.dialects.snowflake import Snowflake
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.snowflake.snowflake_queries import (
-    _build_access_history_database_filter_condition,
-)
+from datahub.configuration.time_window_config import BucketDuration
+from datahub.ingestion.source.snowflake.snowflake_config import QueryDedupStrategyType
+from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -135,8 +139,93 @@ class TestBuildAccessHistoryDatabaseFilterCondition:
     def test_build_access_history_database_filter_condition(
         self, database_pattern, additional_database_names, expected
     ):
-        """Test the _build_access_history_database_filter_condition function with various inputs."""
-        result = _build_access_history_database_filter_condition(
+        """Test the _build_access_history_database_filter_condition method with various inputs."""
+        # Create a QueryLogQueryBuilder instance to test the method
+        builder = QueryLogQueryBuilder(
+            start_time=datetime.datetime(year=2021, month=1, day=1),
+            end_time=datetime.datetime(year=2021, month=1, day=2),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=None,
+            dedup_strategy=QueryDedupStrategyType.STANDARD,
+            database_pattern=database_pattern,
+            additional_database_names=additional_database_names,
+        )
+
+        result = builder._build_access_history_database_filter_condition(
             database_pattern, additional_database_names
         )
         assert result == expected
+
+
+class TestQueryLogQueryBuilder:
+    def test_non_implemented_strategy(self):
+        with pytest.raises(NotImplementedError):
+            QueryLogQueryBuilder(
+                start_time=datetime.datetime(year=2021, month=1, day=1),
+                end_time=datetime.datetime(year=2021, month=1, day=1),
+                bucket_duration=BucketDuration.HOUR,
+                deny_usernames=None,
+                dedup_strategy="DUMMY",  # type: ignore[arg-type]
+            ).build_enriched_query_log_query()
+
+    def test_fetch_query_for_all_strategies(self):
+        for strategy in QueryDedupStrategyType:
+            query = QueryLogQueryBuilder(
+                start_time=datetime.datetime(year=2021, month=1, day=1),
+                end_time=datetime.datetime(year=2021, month=1, day=1),
+                bucket_duration=BucketDuration.HOUR,
+                deny_usernames=None,
+                dedup_strategy=strategy,
+            ).build_enriched_query_log_query()
+            # SQL parsing should succeed
+            sqlglot.parse(query, dialect=Snowflake)
+
+    def test_query_with_database_pattern_filtering(self):
+        """Test that database pattern filtering generates valid SQL."""
+        database_pattern = AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"])
+
+        query = QueryLogQueryBuilder(
+            start_time=datetime.datetime(year=2021, month=1, day=1),
+            end_time=datetime.datetime(year=2021, month=1, day=2),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=None,
+            dedup_strategy=QueryDedupStrategyType.STANDARD,
+            database_pattern=database_pattern,
+        ).build_enriched_query_log_query()
+
+        # SQL parsing should succeed
+        sqlglot.parse(query, dialect=Snowflake)
+
+    def test_query_with_additional_database_names(self):
+        """Test that additional database names generate valid SQL."""
+        additional_database_names = ["SPECIAL_DB", "ANALYTICS_DB"]
+
+        query = QueryLogQueryBuilder(
+            start_time=datetime.datetime(year=2021, month=1, day=1),
+            end_time=datetime.datetime(year=2021, month=1, day=2),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=None,
+            dedup_strategy=QueryDedupStrategyType.NONE,
+            additional_database_names=additional_database_names,
+        ).build_enriched_query_log_query()
+
+        # SQL parsing should succeed
+        sqlglot.parse(query, dialect=Snowflake)
+
+    def test_query_with_combined_database_filtering(self):
+        """Test that both database patterns and additional database names generate valid SQL."""
+        database_pattern = AllowDenyPattern(allow=["PROD_.*"])
+        additional_database_names = ["SPECIAL_DB"]
+
+        query = QueryLogQueryBuilder(
+            start_time=datetime.datetime(year=2021, month=1, day=1),
+            end_time=datetime.datetime(year=2021, month=1, day=2),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=None,
+            dedup_strategy=QueryDedupStrategyType.STANDARD,
+            database_pattern=database_pattern,
+            additional_database_names=additional_database_names,
+        ).build_enriched_query_log_query()
+
+        # SQL parsing should succeed
+        sqlglot.parse(query, dialect=Snowflake)
