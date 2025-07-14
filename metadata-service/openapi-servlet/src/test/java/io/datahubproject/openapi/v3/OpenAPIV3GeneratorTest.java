@@ -233,7 +233,7 @@ public class OpenAPIV3GeneratorTest {
     assertNull(created.getTypes());
     assertNull(created.get$ref());
     assertEquals(
-        new HashSet<>(created.getAnyOf()),
+        new HashSet<>(created.getOneOf()),
         Set.of(new Schema().$ref("#/components/schemas/TimeStamp"), new Schema<>().type("null")));
     assertNull(created.getNullable());
 
@@ -267,7 +267,7 @@ public class OpenAPIV3GeneratorTest {
     assertNull(changeAuditStampsSchema.getNullable());
     assertNull(changeAuditStampsSchema.getTypes());
     assertNull(changeAuditStampsSchema.getType());
-    assertNull(changeAuditStampsSchema.getAnyOf()); // null is not allowed
+    assertNull(changeAuditStampsSchema.getOneOf()); // null is not allowed
     assertEquals(changeAuditStampsSchema.get$ref(), "#/components/schemas/ChangeAuditStamps");
   }
 
@@ -299,13 +299,13 @@ public class OpenAPIV3GeneratorTest {
               assertNull(properties.get(prop).getType());
               assertNull(properties.get(prop).getTypes());
               assertNull(properties.get(prop).get$ref());
-              assertEquals(properties.get(prop).getAnyOf().size(), 2);
+              assertEquals(properties.get(prop).getOneOf().size(), 2);
               assertTrue(
-                  properties.get(prop).getAnyOf().stream()
+                  properties.get(prop).getOneOf().stream()
                       .anyMatch(
                           s -> ((Schema) s).get$ref().equals("#/components/schemas/AuditStamp")));
               assertTrue(
-                  properties.get(prop).getAnyOf().stream()
+                  properties.get(prop).getOneOf().stream()
                       .anyMatch(s -> ((Schema) s).get$ref() == null));
             });
   }
@@ -347,12 +347,12 @@ public class OpenAPIV3GeneratorTest {
     assertNull(optionalTypeSchema.getNullable());
     assertNull(optionalTypeSchema.getType());
     assertNull(optionalTypeSchema.getTypes());
-    assertEquals(optionalTypeSchema.getAnyOf().size(), 2);
+    assertEquals(optionalTypeSchema.getOneOf().size(), 2);
     assertTrue(
-        optionalTypeSchema.getAnyOf().stream()
+        optionalTypeSchema.getOneOf().stream()
             .anyMatch(s -> ((Schema) s).get$ref().equals("#/components/schemas/DataProcessType")));
     assertTrue(
-        optionalTypeSchema.getAnyOf().stream().anyMatch(s -> ((Schema) s).get$ref() == null));
+        optionalTypeSchema.getOneOf().stream().anyMatch(s -> ((Schema) s).get$ref() == null));
   }
 
   @Test
