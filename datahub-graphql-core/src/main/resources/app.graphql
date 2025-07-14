@@ -749,7 +749,7 @@ type FeatureFlagsConfig {
   showHomePageRedesign: Boolean!
 
   """
-  SaaS only -- Whether product updates on the sidebar is enabled. Will go to oss.
+  Whether product updates on the sidebar is enabled. Will go to oss.
   """
   showProductUpdates: Boolean!
 
