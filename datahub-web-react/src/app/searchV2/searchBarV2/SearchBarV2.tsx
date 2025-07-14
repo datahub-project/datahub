@@ -109,7 +109,7 @@ export const SearchBarV2 = ({
     useEffect(() => () => clearQueryAndFilters(), [clearQueryAndFilters]);
 
     const onSearchHandler = useCallback(() => {
-        const filteredSearchQuery = filterSearchQuery(inputValue || ''); // Use inputValue for submitting
+        const filteredSearchQuery = filterSearchQuery(inputValue || '').normalize(); // Use inputValue for submitting
         let cleanedQuery = filteredSearchQuery.trim();
         if (cleanedQuery.length === 0) {
             cleanedQuery = '*';
