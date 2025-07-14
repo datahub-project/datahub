@@ -116,35 +116,33 @@ class Report(SupportsAsObj):
         if not aspects_by_subtypes:
             return "No aspects by subtypes data available."
 
-        # Collect all unique aspects across all entity types and subtypes
-        all_aspects = set()
-        for subtypes in aspects_by_subtypes.values():
-            for aspects in subtypes.values():
-                all_aspects.update(aspects.keys())
+        all_aspects: set[str] = {
+            aspect
+            for subtypes in aspects_by_subtypes.values()
+            for aspects in subtypes.values()
+            for aspect in aspects
+        }
 
-        # Sort aspects for consistent row ordering
         aspect_rows = sorted(all_aspects)
 
-        # Create entity/subtype column combinations
         entity_subtype_columns = []
         for entity_type, subtypes in aspects_by_subtypes.items():
             for subtype in subtypes:
                 entity_subtype_columns.append(f"{entity_type} ({subtype})")
 
-        # Sort columns for consistent ordering
         entity_subtype_columns.sort()
 
-        # Create headers: Aspect, then all entity/subtype combinations
         headers = ["Aspect"] + entity_subtype_columns
 
-        # Build table data
-        table_data = []
-        for aspect in aspect_rows:
-            row = [aspect]
-            for subtypes in aspects_by_subtypes.values():
-                for aspects in subtypes.values():
-                    row.append(aspects.get(aspect, 0))
-            table_data.append(row)
+        table_data = [
+            [aspect]
+            + [
+                aspects.get(aspect, 0)
+                for subtypes in aspects_by_subtypes.values()
+                for aspects in subtypes.values()
+            ]
+            for aspect in aspect_rows
+        ]
 
         if table_data:
             return tabulate(table_data, headers=headers, tablefmt="grid")
