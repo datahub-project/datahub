@@ -15,7 +15,11 @@ from docgen_types import Platform, Plugin
 from docs_config_table import gen_md_table_from_json_schema
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.decorators import SourceCapability, SupportStatus, CapabilitySetting
+from datahub.ingestion.api.decorators import (
+    CapabilitySetting,
+    SourceCapability,
+    SupportStatus,
+)
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -130,7 +134,7 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     # See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
     new_content = re.sub(
         r"\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)",
-        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(),path)})",  # type: ignore
+        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(), path)})",  # type: ignore
         file_contents,
     )
 
@@ -146,7 +150,7 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
 def load_capability_data(capability_summary_path: str) -> Dict:
     """Load capability data from the capability summary JSON file."""
     try:
-        with open(capability_summary_path, 'r') as f:
+        with open(capability_summary_path, "r") as f:
             return json.load(f)
     except FileNotFoundError:
         logger.error(f"Capability summary file not found: {capability_summary_path}")
@@ -156,7 +160,9 @@ def load_capability_data(capability_summary_path: str) -> Dict:
         raise
 
 
-def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_dir: str) -> Plugin:
+def create_plugin_from_capability_data(
+    plugin_name: str, plugin_data: Dict, out_dir: str
+) -> Plugin:
     """Create a Plugin object from capability data."""
     plugin = Plugin(
         name=plugin_name,
@@ -164,24 +170,26 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
         platform_name=plugin_data["platform_name"],
         classname=plugin_data["classname"],
     )
-    
+
     # Set support status
     if plugin_data.get("support_status"):
         plugin.support_status = SupportStatus[plugin_data["support_status"]]
-    
+
     # Set capabilities
     if plugin_data.get("capabilities"):
         capabilities = []
         for cap_data in plugin_data["capabilities"]:
             capability = map_capability_name_to_enum(cap_data["capability"])
-            capabilities.append(CapabilitySetting(
-                capability=capability,
-                supported=cap_data["supported"],
-                description=cap_data["description"],
-                subtype_modifier=cap_data.get("subtype_modifier", None)
-            ))
+            capabilities.append(
+                CapabilitySetting(
+                    capability=capability,
+                    supported=cap_data["supported"],
+                    description=cap_data["description"],
+                    subtype_modifier=cap_data.get("subtype_modifier", None),
+                )
+            )
         plugin.capabilities = capabilities
-    
+
     # Load additional plugin information that's not in capability summary
     try:
         # Load source class to get additional metadata
@@ -189,12 +197,12 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
         if isinstance(class_or_exception, Exception):
             raise class_or_exception
         source_type = source_registry.get(plugin_name)
-        
+
         # Get doc order
         if hasattr(source_type, "get_platform_doc_order"):
             platform_doc_order = source_type.get_platform_doc_order()
             plugin.doc_order = platform_doc_order
-        
+
         # Get filename
         plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
         if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
@@ -207,11 +215,11 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
             logger.info(
                 f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}, but that doesn't exist"
             )
-        
+
         # Get docstring
         if hasattr(source_type, "__doc__"):
             plugin.source_docstring = textwrap.dedent(source_type.__doc__ or "")
-        
+
         # Get extra dependencies
         try:
             extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
@@ -220,26 +228,29 @@ def create_plugin_from_capability_data(plugin_name: str, plugin_data: Dict, out_
             )
         except Exception as e:
             logger.info(
-                f"Failed to load extras for {plugin_name} due to exception {e}", exc_info=e
+                f"Failed to load extras for {plugin_name} due to exception {e}",
+                exc_info=e,
             )
-        
+
         # Get config class
         if hasattr(source_type, "get_config_class"):
             source_config_class: ConfigModel = source_type.get_config_class()
-            
+
             plugin.config_json_schema = source_config_class.schema_json(indent=2)
-            plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema(), current_source=plugin_name)
-            
+            plugin.config_md = gen_md_table_from_json_schema(
+                source_config_class.schema(), current_source=plugin_name
+            )
+
             # Write the config json schema to the out_dir.
             config_dir = pathlib.Path(out_dir) / "config_schemas"
             config_dir.mkdir(parents=True, exist_ok=True)
             (config_dir / f"{plugin_name}_config.json").write_text(
                 plugin.config_json_schema
             )
-            
+
     except Exception as e:
         logger.warning(f"Failed to load additional metadata for {plugin_name}: {e}")
-    
+
     return plugin
 
 
@@ -260,17 +271,25 @@ class PlatformMetrics:
 
 @click.command()
 @click.option("--out-dir", type=str, required=True)
-@click.option("--capability-summary", type=str, required=True, help="Path to capability summary JSON file")
+@click.option(
+    "--capability-summary",
+    type=str,
+    required=True,
+    help="Path to capability summary JSON file",
+)
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
 def generate(
-    out_dir: str, capability_summary: str, extra_docs: Optional[str] = None, source: Optional[str] = None
-) -> None:  # noqa: C901
+    out_dir: str,
+    capability_summary: str,
+    extra_docs: Optional[str] = None,
+    source: Optional[str] = None,
+) -> None:
     plugin_metrics = PluginMetrics()
     platform_metrics = PlatformMetrics()
 
     platforms: Dict[str, Platform] = {}
-    
+
     # Load capability data
     try:
         capability_data = load_capability_data(capability_summary)
@@ -278,7 +297,7 @@ def generate(
     except Exception as e:
         logger.error(f"Failed to load capability data: {e}")
         sys.exit(1)
-    
+
     for plugin_name in sorted(source_registry.mapping.keys()):
         if source and source != plugin_name:
             continue
@@ -296,7 +315,9 @@ def generate(
             if plugin_name in capability_data.get("plugin_details", {}):
                 # Use capability data
                 plugin_data = capability_data["plugin_details"][plugin_name]
-                plugin = create_plugin_from_capability_data(plugin_name, plugin_data, out_dir=out_dir)
+                plugin = create_plugin_from_capability_data(
+                    plugin_name, plugin_data, out_dir=out_dir
+                )
             else:
                 logger.error(f"Plugin {plugin_name} not found in capability data")
                 plugin_metrics.failed += 1
@@ -548,89 +569,16 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
-    doc_file = f"{source_dir}/lineage-feature-guide.md"
+    doc_file = f"{source_dir}/automatic-lineage-extraction.md"
     with open(doc_file, "w+") as f:
         f.write(
-            "import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n"
-        )
-        f.write("# About DataHub Lineage\n\n")
-        f.write("<FeatureAvailability/>\n")
-
-        f.write(
             """
-Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
-This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
-
-With data lineage, you can
-- Maintaining Data Integrity
-- Simplify and Refine Complex Relationships
-- Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
-- [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
-
-
-## Viewing Lineage
-
-You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
-
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
-</p>
-
-By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
-</p>
-
-In this example, data flows from Airflow/BigQuery to Snowflake tables, then to the Hive dataset, and ultimately to the features of Machine Learning Models.
-
-
-:::tip The Lineage Tab is greyed out - why can't I click on it?
-This means you have not yet ingested lineage metadata for that entity. Please ingest lineage to proceed.
-
-:::
-
-## Column Level Lineage Support
-
-Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
-Below is how column-level lineage can be set with dbt and Postgres tables.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage.png" />
-</p>
-
-## Adding Lineage
-
-### Ingestion Source
-
-If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://docs.datahub.com/integrations) for the source you are using.
-
-### UI
-
-As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage](../../features/feature-guides/ui-lineage.md) for more information.
-
-:::caution Recommendation on UI-based lineage
-
-Lineage added by hand and programmatically may conflict with one another to cause unwanted overwrites.
-It is strongly recommend that lineage is edited manually in cases where lineage information is not also extracted in automated fashion, e.g. by running an ingestion source.
-
-:::
-
-### API
-
-If you are not using a Lineage-support ingestion source, you can programmatically emit lineage edges between entities via API.
-Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more information.
-
-
-## Lineage Support
+# Automatic Lineage Extraction
 
 DataHub supports **[automatic table- and column-level lineage detection](#automatic-lineage-extraction-support)** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
 For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) detects lineage with 97-99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
-### Types of Lineage Connections
+## Types of Lineage Connections
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
@@ -640,7 +588,7 @@ Types of lineage connections supported in DataHub and the example codes are as f
 * [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)
 * [Chart to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)
 
-### Automatic Lineage Extraction Support
+## Automatic Lineage Extraction Support
 
 This is a summary of automatic lineage extraction support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
         )
@@ -687,7 +635,9 @@ This is a summary of automatic lineage extraction support in our data source. Pl
                         ):
                             column_level_supported = "✅"
 
-                if not (table_level_supported == "❌" and column_level_supported == "❌"):
+                if not (
+                    table_level_supported == "❌" and column_level_supported == "❌"
+                ):
                     if plugin.config_json_schema:
                         config_properties = json.loads(plugin.config_json_schema).get(
                             "properties", {}
@@ -719,7 +669,7 @@ This is a summary of automatic lineage extraction support in our data source. Pl
         f.write(
             """
         
-### SQL Parser Lineage Extraction
+## SQL Parser Lineage Extraction
 
 If you're using a different database system for which we don't support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
