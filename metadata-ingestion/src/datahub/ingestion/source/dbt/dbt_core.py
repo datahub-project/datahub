@@ -28,7 +28,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, get_bucket_name, get_key_prefix
+import boto3
+import glob
+import os
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -68,6 +71,7 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
+        "This can be a local file, a directory, a glob pattern, or an S3 URI. "
         "If not specified, test execution results and model performance metadata will not be populated in DataHub."
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
@@ -605,6 +609,51 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             catalog_version,
         )
 
+    @staticmethod
+    def _expand_run_results_paths(run_results_paths, aws_connection: Optional[AwsConnectionConfig]):
+        """
+        Expands a list of paths (local, glob, or S3) to a list of run_results.json file paths.
+        """
+        expanded_paths = []
+        for path in run_results_paths:
+            if is_s3_uri(path):
+                # S3 folder or file
+                bucket = get_bucket_name(path)
+                prefix = get_key_prefix(path)
+                if path.endswith(".json"):  # single file
+                    expanded_paths.append(path)
+                else:
+                    # List all objects under the prefix, recursively
+                    if aws_connection is None:
+                        raise ValueError("aws_connection must be provided for S3 paths")
+                    s3_client = aws_connection.get_s3_client()
+                    paginator = s3_client.get_paginator("list_objects_v2")
+                    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                        for obj in page.get("Contents", []):
+                            key = obj["Key"]
+                            if key.endswith("run_results.json"):
+                                expanded_paths.append(f"s3://{bucket}/{key}")
+            else:
+                # Local file, directory, or glob
+                if os.path.isdir(path):
+                    # Recursively find all run_results.json files
+                    for root, _, files in os.walk(path):
+                        for file in files:
+                            if file == "run_results.json":
+                                expanded_paths.append(os.path.join(root, file))
+                else:
+                    # Glob pattern or file
+                    matches = glob.glob(path, recursive=True)
+                    for match in matches:
+                        if os.path.isdir(match):
+                            for root, _, files in os.walk(match):
+                                for file in files:
+                                    if file == "run_results.json":
+                                        expanded_paths.append(os.path.join(root, file))
+                        elif match.endswith("run_results.json"):
+                            expanded_paths.append(match)
+        return expanded_paths
+
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         (
             all_nodes,
@@ -646,7 +695,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        for run_results_path in self.config.run_results_paths:
+        expanded_run_results_paths = self._expand_run_results_paths(
+            self.config.run_results_paths, self.config.aws_connection
+        )
+        for run_results_path in expanded_run_results_paths:
             # This will populate the test_results and model_performance fields on each node.
             all_nodes = load_run_results(
                 self.config,
