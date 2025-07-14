@@ -1,9 +1,5 @@
 import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
-import {
-    filterQueries,
-    getQueryEntitiesFilter,
-    getTimeFilters,
-} from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { filterQueries, getQueryEntitiesFilter } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 import useSorting from '@app/sharedV2/sorting/useSorting';
@@ -24,7 +20,6 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
     const { sortField, sortOrder } = sorting;
 
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
-    const { createdAtFilter, lastModifiedAtFilter } = getTimeFilters(30);
 
     const {
         data: highlightedQueriesData,
@@ -36,7 +31,7 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
                 start,
                 count,
                 source: QuerySource.Manual,
-                orFilters: [{ and: [entityFilter, createdAtFilter] }, { and: [entityFilter, lastModifiedAtFilter] }],
+                orFilters: [{ and: [entityFilter] }],
                 sortInput: sortField && sortOrder ? { sortCriterion: { field: sortField, sortOrder } } : undefined,
             },
         },
