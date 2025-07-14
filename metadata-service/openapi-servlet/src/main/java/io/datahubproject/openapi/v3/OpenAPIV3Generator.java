@@ -1142,7 +1142,8 @@ public class OpenAPIV3Generator {
                           }
 
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { oneOf: [ $ref, null ] }
+                            // A non-required $ref property must be wrapped in a { oneOf: [ $ref,
+                            // null ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(null);
