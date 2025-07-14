@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-14T08:57:19.878293+00:00",
+  "generated_at": "2025-07-14T09:20:09.632850+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -3037,7 +3037,8 @@
           "description": "Enabled by default",
           "subtype_modifier": [
             "Project",
-            "Site"
+            "Site",
+            "Workbook"
           ],
           "supported": true
         },

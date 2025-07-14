@@ -875,6 +875,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     subtype_modifier=[
         SourceCapabilityModifier.TABLEAU_PROJECT,
         SourceCapabilityModifier.TABLEAU_SITE,
+        SourceCapabilityModifier.TABLEAU_WORKBOOK,
     ],
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
