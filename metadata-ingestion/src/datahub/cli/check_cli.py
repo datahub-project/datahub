@@ -21,7 +21,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.telemetry import telemetry
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -47,7 +46,6 @@ def check() -> None:
 @click.option(
     "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
 )
-@telemetry.with_telemetry()
 def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""
 
@@ -105,7 +103,6 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     default=(),
     help="[Advanced] Paths in the deepdiff object to ignore",
 )
-@telemetry.with_telemetry()
 def metadata_diff(
     actual_file: str, expected_file: str, verbose: bool, ignore_path: List[str]
 ) -> None:
@@ -142,7 +139,6 @@ def metadata_diff(
     type=str,
     default=None,
 )
-@telemetry.with_telemetry()
 def plugins(source: Optional[str], verbose: bool) -> None:
     """List the enabled ingestion plugins."""
 
@@ -234,7 +230,6 @@ def sql_format(sql: str, platform: str) -> None:
     default=True,
     help="Run in offline mode and disable schema-aware parsing.",
 )
-@telemetry.with_telemetry()
 def sql_lineage(
     sql: Optional[str],
     sql_file: Optional[str],
@@ -297,7 +292,6 @@ def sql_lineage(
     type=str,
     help="the input to validate",
 )
-@telemetry.with_telemetry()
 def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     """Test input string against AllowDeny pattern in a DataHub recipe.
 
@@ -346,7 +340,6 @@ def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     type=str,
     help="The input to validate",
 )
-@telemetry.with_telemetry()
 def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
     """Test input path string against PathSpec patterns in a DataHub recipe.
 
@@ -482,26 +475,43 @@ def server_config() -> None:
 
 @check.command()
 @click.option(
-    "--urn", required=True, help="The urn or urn pattern (supports % for wildcard)"
+    "--urn", required=False, help="The urn or urn pattern (supports % for wildcard)"
 )
 @click.option("--aspect", default=None, help="Filter to a specific aspect name.")
 @click.option(
     "--start", type=int, default=None, help="Row number of sql store to restore from."
 )
 @click.option("--batch-size", type=int, default=None, help="How many rows to restore.")
+@click.option(
+    "--file",
+    required=False,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="File absolute path containing URNs (one per line) to restore indices",
+)
 def restore_indices(
-    urn: str,
+    urn: Optional[str],
     aspect: Optional[str],
     start: Optional[int],
     batch_size: Optional[int],
+    file: Optional[str],
 ) -> None:
     """Resync metadata changes into the search and graph indices."""
+    if urn is None and file is None:
+        raise click.UsageError("Either --urn or --file must be provided")
     graph = get_default_graph(ClientMode.CLI)
 
-    result = graph.restore_indices(
+    graph.restore_indices(
         urn_pattern=urn,
         aspect=aspect,
         start=start,
         batch_size=batch_size,
+        file=file,
     )
-    click.echo(result)
+
+
+@check.command()
+def get_kafka_consumer_offsets() -> None:
+    """Get Kafka consumer offsets from the DataHub API."""
+    graph = get_default_graph(ClientMode.CLI)
+    result = graph.get_kafka_consumer_offsets()
+    pprint.pprint(result)

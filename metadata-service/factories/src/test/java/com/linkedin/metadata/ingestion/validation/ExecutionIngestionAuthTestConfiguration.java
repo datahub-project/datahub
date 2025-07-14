@@ -15,7 +15,8 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import org.springframework.beans.factory.annotation.Qualifier;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -41,50 +42,42 @@ public class ExecutionIngestionAuthTestConfiguration {
             .getResourceAsStream("entity-registry.yml"));
   }
 
-  @Qualifier("entityService")
-  @MockBean
+  @MockBean(name = "entityService")
   private EntityService<?> entityService;
 
-  @Qualifier("graphClient")
-  @MockBean
+  @MockBean(name = "graphClient")
   private GraphClient graphClient;
 
   @MockBean private GraphService graphService;
 
-  @Qualifier("searchService")
-  @MockBean
+  @MockBean(name = "searchService")
   private SearchService searchService;
 
-  @Qualifier("baseElasticSearchComponents")
-  @MockBean
+  @MockBean(name = "baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
       baseElasticSearchComponents;
 
-  @Qualifier("deleteEntityService")
-  @MockBean
+  @MockBean(name = "deleteEntityService")
   private DeleteEntityService deleteEntityService;
 
-  @Qualifier("entitySearchService")
-  @MockBean
+  @MockBean(name = "entitySearchService")
   private EntitySearchService entitySearchService;
 
-  @Qualifier("cachingEntitySearchService")
-  @MockBean
+  @MockBean(name = "cachingEntitySearchService")
   private CachingEntitySearchService cachingEntitySearchService;
 
-  @Qualifier("timeseriesAspectService")
-  @MockBean
+  @MockBean(name = "timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
 
-  @Qualifier("relationshipSearchService")
-  @MockBean
+  @MockBean(name = "relationshipSearchService")
   private LineageSearchService lineageSearchService;
 
-  @Qualifier("kafkaEventProducer")
-  @MockBean
+  @MockBean(name = "kafkaEventProducer")
   private EventProducer eventProducer;
 
   @MockBean private RollbackService rollbackService;
 
-  @MockBean private io.datahubproject.metadata.context.TraceContext traceContext;
+  @MockBean private SystemTelemetryContext systemTelemetryContext;
+
+  @MockBean private MetricUtils metricUtils;
 }

@@ -169,7 +169,6 @@ def make_usage_workunit(
     resource = BigQueryTableRef.from_string_name(TABLE_REFS[table.name])
     return MetadataChangeProposalWrapper(
         entityUrn=identifiers.gen_dataset_urn_from_raw_ref(resource),
-        aspectName=dataset_usage_statistics.get_aspect_name(),
         aspect=dataset_usage_statistics,
     ).as_workunit()
 
@@ -179,7 +178,6 @@ def make_operational_workunit(
 ) -> MetadataWorkUnit:
     return MetadataChangeProposalWrapper(
         entityUrn=resource_urn,
-        aspectName=operation.get_aspect_name(),
         aspect=operation,
     ).as_workunit()
 

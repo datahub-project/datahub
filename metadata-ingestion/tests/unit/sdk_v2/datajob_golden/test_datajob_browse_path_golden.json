@@ -42,7 +42,8 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
+            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+            "env": "PROD"
         }
     }
 }

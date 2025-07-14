@@ -739,7 +739,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/preset",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+      "imgPath": "img/logos/platforms/presetlogo.svg",
       "Title": "Preset",
       "Description": "Preset is a cloud-native business intelligence platform that provides self-service analytics and data visualization capabilities.",
       "tags": {

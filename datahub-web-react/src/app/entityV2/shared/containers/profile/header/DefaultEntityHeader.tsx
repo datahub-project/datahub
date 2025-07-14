@@ -1,19 +1,16 @@
-import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType } from '@app/entityV2/Entity';
 import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
-import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared/containers/profile/header/utils';
 import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
 import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
@@ -22,16 +19,17 @@ import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
-import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Container, DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
+import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
 
 export const TitleWrapper = styled.div`
+    max-width: 100%;
+
     display: flex;
-    justify-content: start;
     align-items: center;
-    padding: 0px 0px 0px 0px;
+    justify-content: start;
+    padding: 0;
 
     .ant-typography-edit-content {
         padding-top: 7px;
@@ -39,6 +37,8 @@ export const TitleWrapper = styled.div`
     }
 `;
 const EntityDetailsContainer = styled.div`
+    min-width: 0;
+
     display: flex;
     flex-direction: column;
     gap: 0px;
@@ -67,19 +67,22 @@ export const Row = styled.div`
 
 export const LeftColumn = styled.div`
     flex: 1;
+    min-width: 0;
+
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: start;
-    flex-grow: 1;
-    flex-shrink: 1;
 `;
 
 export const RightColumn = styled.div`
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: end;
     justify-content: center;
+    overflow: hidden;
+    padding-left: 8px;
 `;
 
 export const TopButtonsWrapper = styled.div`
@@ -87,13 +90,6 @@ export const TopButtonsWrapper = styled.div`
     justify-content: flex-end;
     gap: 8px;
     max-width: 100%;
-`;
-
-export const StyledDivider = styled(Divider)`
-    &&& {
-        margin: 0px;
-        padding: 0px;
-    }
 `;
 
 const HeaderIconsWrapper = styled.span`
@@ -134,18 +130,10 @@ export const DefaultEntityHeader = ({
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
 
-    const { contentRef, isContentTruncated } = useContentTruncation(entityData);
-    const typeIcon =
-        entityType === EntityType.Container ? (
-            <ContainerIcon container={entityData as Container} />
-        ) : (
-            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
-        );
-
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const contextPath = getContextPath(entityData);
+    const contextPath = getParentEntities(entityData);
     return (
         <>
             <Row>
@@ -219,14 +207,10 @@ export const DefaultEntityHeader = ({
                                     </TitleRow>
                                     <HeaderRow>
                                         <ContextPath
-                                            instanceId={entityData?.dataPlatformInstance?.instanceId}
-                                            typeIcon={typeIcon}
-                                            type={displayedEntityType}
+                                            displayedEntityType={displayedEntityType}
                                             entityType={entityType}
                                             browsePaths={entityData?.browsePathV2}
                                             parentEntities={contextPath}
-                                            contentRef={contentRef}
-                                            isContentTruncated={isContentTruncated}
                                         />
                                     </HeaderRow>
                                 </EntityDetailsContainer>

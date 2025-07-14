@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -177,10 +178,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 class SQLServerSource(SQLAlchemySource):
     """
@@ -936,25 +945,25 @@ class SQLServerSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
-                inspector = inspect(conn)
-                yield inspector
-            else:
+
+        if self.config.database and self.config.database != "":
+            inspector = inspect(engine)
+            yield inspector
+        else:
+            with engine.begin() as conn:
                 databases = conn.execute(
                     "SELECT name FROM master.sys.databases WHERE name NOT IN \
                   ('master', 'model', 'msdb', 'tempdb', 'Resource', \
                        'distribution' , 'reportserver', 'reportservertempdb'); "
-                )
-                for db in databases:
-                    if self.config.database_pattern.allowed(db["name"]):
-                        url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                        with create_engine(
-                            url, **self.config.options
-                        ).connect() as conn:
-                            inspector = inspect(conn)
-                            self.current_database = db["name"]
-                            yield inspector
+                ).fetchall()
+
+            for db in databases:
+                if self.config.database_pattern.allowed(db["name"]):
+                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                    engine = create_engine(url, **self.config.options)
+                    inspector = inspect(engine)
+                    self.current_database = db["name"]
+                    yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

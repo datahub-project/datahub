@@ -6,16 +6,17 @@ import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ActionsColumn } from '@app/ingestV2/executions/components/columns/ActionsColumn';
+import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
 import { ExecutedByColumn } from '@app/ingestV2/executions/components/columns/ExecutedByColumn';
+import RollbackExecutionConfirmation from '@app/ingestV2/executions/components/columns/RollbackExecutionConfirmation';
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
-import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
+import { ExecutionCancelInfo, ExecutionRequestRecord } from '@app/ingestV2/executions/types';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { ExecutionRequest } from '@types';
 
@@ -28,7 +29,9 @@ interface Props {
     setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
     handleRollback: (executionUrn: string) => void;
+    handleCancelExecution: (executionUrn: string, ingestionSourceUrn: string) => void;
     isLastPage?: boolean;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
 }
 
 export default function ExecutionsTable({
@@ -36,9 +39,12 @@ export default function ExecutionsTable({
     setFocusExecutionUrn,
     loading,
     handleRollback,
+    handleCancelExecution,
     isLastPage,
+    setSelectedTab,
 }: Props) {
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
+    const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
     const history = useHistory();
 
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
@@ -48,6 +54,7 @@ export default function ExecutionsTable({
         actor: execution.input.actor,
         id: execution.id,
         source: execution.input.source.type,
+        sourceUrn: execution.source?.urn,
         startedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: getIngestionSourceStatus(execution.result),
@@ -60,17 +67,31 @@ export default function ExecutionsTable({
         setRunIdOfRollbackConfirmation(undefined);
     }, [handleRollback, runIdOfRollbackConfirmation]);
 
+    const navigateToSource = (record) => {
+        setSelectedTab(TabType.Sources);
+        history.replace({
+            pathname: tabUrlMap[TabType.Sources],
+            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+        });
+    };
+
+    const handleConfirmCancel = useCallback(() => {
+        if (executionInfoToCancel)
+            handleCancelExecution(executionInfoToCancel.executionUrn, executionInfoToCancel.sourceUrn);
+        setExecutionInfoToCancel(undefined);
+    }, [handleCancelExecution, executionInfoToCancel]);
+
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
             title: 'Source',
             key: 'source',
-            render: (record) => <SourceColumn record={record} />,
+            render: (record) => <SourceColumn record={record} navigateToSource={() => navigateToSource(record)} />,
             width: '30%',
         },
         {
             title: 'Started At',
             key: 'startedAt',
-            render: (record) => <DateTimeColumn time={record.startedAt} />,
+            render: (record) => <DateTimeColumn time={record.startedAt} showRelative />,
             width: '15%',
         },
         {
@@ -101,18 +122,18 @@ export default function ExecutionsTable({
                     record={record}
                     setFocusExecutionUrn={setFocusExecutionUrn}
                     handleRollback={() => setRunIdOfRollbackConfirmation(record.id)}
+                    handleCancel={() => {
+                        if (record.sourceUrn) {
+                            setExecutionInfoToCancel({ executionUrn: record.urn, sourceUrn: record.sourceUrn });
+                        } else {
+                            console.error(`The ingestion source is undefined for execution ${record.id}`);
+                        }
+                    }}
                 />
             ),
             width: '100px',
         },
     ];
-
-    const onRowClick = (record) => {
-        history.replace({
-            pathname: tabUrlMap[TabType.Sources],
-            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
-        });
-    };
 
     return (
         <>
@@ -121,21 +142,22 @@ export default function ExecutionsTable({
                 data={tableData}
                 isScrollable
                 isLoading={loading}
-                onRowClick={onRowClick}
+                onRowClick={(record) => setFocusExecutionUrn(record.urn)}
                 footer={
                     isLastPage ? (
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
                     ) : null
                 }
             />
-            <ConfirmationModal
+            <RollbackExecutionConfirmation
                 isOpen={!!runIdOfRollbackConfirmation}
-                modalTitle="Confirm Rollback"
-                modalText="Are you sure you want to continue? 
-                    Rolling back this ingestion run will remove any new data ingested during the run. This may
-                    exclude data that was previously extracted, but did not change during this run."
-                handleConfirm={() => handleConfirmRollback()}
-                handleClose={() => setRunIdOfRollbackConfirmation(undefined)}
+                onConfirm={() => handleConfirmRollback()}
+                onCancel={() => setRunIdOfRollbackConfirmation(undefined)}
+            />
+            <CancelExecutionConfirmation
+                isOpen={!!executionInfoToCancel}
+                onConfirm={() => handleConfirmCancel()}
+                onCancel={() => setExecutionInfoToCancel(undefined)}
             />
         </>
     );

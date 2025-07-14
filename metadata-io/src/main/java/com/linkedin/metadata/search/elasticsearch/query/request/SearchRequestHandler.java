@@ -411,7 +411,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       int from,
-      int size) {
+      @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -421,7 +421,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         .setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
         .setNumEntities(totalCount);
   }
 
@@ -431,9 +431,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
