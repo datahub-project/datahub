@@ -2697,10 +2697,7 @@ LIMIT 1"""
                 )
 
             # Execute the query
-            result = self.execute_query(
-                sample_query,
-                timeout=self.config.profiling.partition_fetch_timeout,
-            )
+            result = self.execute_query(sample_query)
 
             if result and len(result) > 0:
                 value = getattr(result[0], "value", None)
