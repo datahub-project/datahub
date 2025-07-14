@@ -16,7 +16,7 @@ import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Heading, Text } from '@src/alchemy-components';
+import { Heading, Pill, Text } from '@src/alchemy-components';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -136,12 +136,10 @@ const renderIngestionContents = ({ items, getKey, getLabel }: RenderIngestionCon
         {items.map((item) => (
             <CardContainer key={getKey(item)}>
                 <IngestionBoxTopRow>
-                    <Text size="xl" weight="bold" color="gray" colorLevel={800}>
+                    <Text size="xl" weight="bold" color="gray" colorLevel={800} style={{ marginRight: 10 }}>
                         {formatNumber(item.count)}
                     </Text>
-                    <Text size="sm" color="gray" colorLevel={600} style={{ marginLeft: 8 }}>
-                        {item.percent} of Total
-                    </Text>
+                    <Pill size="sm" variant="version" label={`${item.percent} of Total`} />
                 </IngestionBoxTopRow>
                 <Text size="md" color="gray" colorLevel={600}>
                     {getLabel(item)}
