@@ -787,6 +787,61 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
             logger.error(f"Error checking external table partitioning: {e}")
             return None
 
+    def _convert_partition_value_to_type(self, raw_val: Any, data_type: str) -> Any:
+        """
+        Convert a raw partition value to the appropriate type based on column data type.
+
+        Args:
+            raw_val: Raw value from error message or other source
+            data_type: BigQuery column data type
+
+        Returns:
+            Converted value appropriate for the data type
+        """
+        if raw_val is None:
+            return None
+
+        data_type_upper = data_type.upper() if data_type else ""
+
+        # For string types, keep as string
+        if data_type_upper in ("STRING", "VARCHAR"):
+            return str(raw_val)
+
+        # For date types, handle various input formats
+        elif data_type_upper == "DATE":
+            if isinstance(raw_val, str):
+                # If it looks like a date string, keep as is
+                if re.match(r"\d{4}-\d{2}-\d{2}", raw_val) or raw_val.isdigit():
+                    return raw_val
+            return str(raw_val)
+
+        # For timestamp/datetime types
+        elif data_type_upper in ("TIMESTAMP", "DATETIME"):
+            return str(raw_val)
+
+        # For numeric types, try to convert to appropriate type
+        elif data_type_upper in ("INT64", "INTEGER", "BIGINT"):
+            try:
+                return int(raw_val)
+            except (ValueError, TypeError):
+                return raw_val
+
+        elif data_type_upper in ("FLOAT64", "FLOAT", "NUMERIC", "DECIMAL"):
+            try:
+                return float(raw_val)
+            except (ValueError, TypeError):
+                return raw_val
+
+        # For boolean types
+        elif data_type_upper in ("BOOL", "BOOLEAN"):
+            if isinstance(raw_val, str):
+                return raw_val.lower() in ("true", "1", "yes", "on")
+            return bool(raw_val)
+
+        # Default: return as-is
+        else:
+            return raw_val
+
     def _create_partition_filter_from_value(
         self, col_name: str, val: Any, data_type: str
     ) -> str:
@@ -3217,9 +3272,11 @@ SELECT val, record_count FROM PartitionStats"""
                 if error_info.get("partition_values"):
                     partition_values = error_info["partition_values"]
                     if col_name in partition_values:
-                        val = partition_values[col_name]
+                        raw_val = partition_values[col_name]
+                        # Convert value to appropriate type based on column data type
+                        val = self._convert_partition_value_to_type(raw_val, data_type)
                         logger.info(
-                            f"Extracted partition value for {col_name} from error: {val}"
+                            f"Extracted partition value for {col_name} from error: {val} (type: {data_type})"
                         )
                         return val
             except Exception as extract_e:
@@ -3304,19 +3361,43 @@ LIMIT 10"""
                 error_info = self._extract_partition_info_from_error(str(e))
                 if error_info.get("partition_values"):
                     partition_values = error_info["partition_values"]
+
+                    # Get data types for proper conversion
+                    column_data_types = self._get_partition_column_types(
+                        table, project, schema, required_columns
+                    )
+
                     # Check if we have values for all required columns
                     if all(col in partition_values for col in required_columns):
+                        # Convert values to appropriate types
+                        converted_values = {}
+                        for col in required_columns:
+                            raw_val = partition_values[col]
+                            data_type = column_data_types.get(col, "STRING")
+                            converted_values[col] = (
+                                self._convert_partition_value_to_type(
+                                    raw_val, data_type
+                                )
+                            )
+
                         logger.info(
-                            f"Extracted multi-column partition values from error: {partition_values}"
+                            f"Extracted multi-column partition values from error: {converted_values}"
                         )
-                        return partition_values
+                        return converted_values
                     # Or return partial values if we have some
                     elif any(col in partition_values for col in required_columns):
-                        partial_values = {
-                            col: partition_values[col]
-                            for col in required_columns
-                            if col in partition_values
-                        }
+                        # Convert partial values to appropriate types
+                        partial_values = {}
+                        for col in required_columns:
+                            if col in partition_values:
+                                raw_val = partition_values[col]
+                                data_type = column_data_types.get(col, "STRING")
+                                partial_values[col] = (
+                                    self._convert_partition_value_to_type(
+                                        raw_val, data_type
+                                    )
+                                )
+
                         logger.info(
                             f"Extracted partial partition values from error: {partial_values}"
                         )
