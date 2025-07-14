@@ -82,7 +82,11 @@ def get_all_aspect_names() -> List[str]:
     """
     This is experimental internal API subject to breaking changes without prior notice.
     """
-    return list(get_lineage_data().entities.values()[0].aspects.keys())
+    entities = get_lineage_data().entities
+    if not entities:
+        return []
+    first_entity = next(iter(entities.values()))
+    return list(first_entity.aspects.keys())
 
 
 def _load_lineage_data() -> Dict:
