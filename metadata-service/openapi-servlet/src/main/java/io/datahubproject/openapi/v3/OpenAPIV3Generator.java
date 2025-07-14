@@ -1142,12 +1142,13 @@ public class OpenAPIV3Generator {
                           }
 
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
+                            // A non-required $ref property must be wrapped in a { oneOf: [ $ref,
+                            // null ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(null);
                             schema.set$ref(null);
-                            schema.setAnyOf(
+                            schema.setOneOf(
                                 List.of(newSchema().$ref($ref), newSchema().type(TYPE_NULL)));
                           }
 
@@ -1578,7 +1579,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAnyOf(List.of(newSchema().$ref(internalRef)));
+    result.setOneOf(List.of(newSchema().$ref(internalRef), newSchema().type(TYPE_NULL)));
     return result;
   }
 
