@@ -93,6 +93,3 @@ export function usePageTemplateContext() {
     }
     return context;
 }
-
-// Re-export types for convenience
-export type { UpsertModuleInput, AddModuleInput, RemoveModuleInput } from './types';

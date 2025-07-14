@@ -87,7 +87,7 @@ const validateAddModuleInput = (input: AddModuleInput): string | null => {
 };
 
 const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
-    if (!input.moduleUrn) {
+    if (!input.module.urn) {
         return 'Module URN is required for removal';
     }
     if (!input.position) {
@@ -258,7 +258,7 @@ export function useModuleOperations(
                 return;
             }
 
-            const { moduleUrn, position } = input;
+            const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
 
             if (!templateToUpdate) {
@@ -268,13 +268,22 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, moduleUrn, position);
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
+
+            // Delete module if necessary
+            // Only do not delete a module when removing a global module from personal template OR module is a default
+            const shouldNotDeleteModule =
+                (!context.isEditingGlobalTemplate && module.properties.visibility.scope === PageModuleScope.Global) ||
+                DEFAULT_MODULE_URNS.includes(module.urn);
+            if (!shouldNotDeleteModule) {
+                // delete the module calling the mutation
+            }
         },
         [context, removeModuleFromTemplate],
     );

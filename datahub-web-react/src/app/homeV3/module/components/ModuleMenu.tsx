@@ -35,12 +35,12 @@ export default function ModuleMenu({ module, position }: Props) {
         openToEdit(type, module);
     }, [module, openToEdit, type]);
 
-    const handleDelete = useCallback(() => {
+    const handleRemove = useCallback(() => {
         removeModule({
-            moduleUrn: module.urn,
+            module,
             position,
         });
-    }, [removeModule, module.urn, position]);
+    }, [removeModule, module, position]);
 
     const handleMenuClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -67,14 +67,13 @@ export default function ModuleMenu({ module, position }: Props) {
                               ]
                             : []),
                         {
-                            title: 'Delete',
-                            label: 'Delete',
-                            key: 'delete',
+                            title: 'Remove',
+                            label: 'Remove',
+                            key: 'remove',
                             style: {
                                 color: colors.red[500],
-                                fontSize: '14px',
                             },
-                            onClick: handleDelete,
+                            onClick: handleRemove,
                         },
                     ],
                 }}

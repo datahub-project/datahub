@@ -332,7 +332,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -382,7 +382,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:2',
+                module: mockGlobalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -432,7 +432,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:2',
+                module: mockGlobalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -485,7 +485,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -517,7 +517,7 @@ describe('useModuleOperations', () => {
             consoleSpy.mockRestore();
         });
 
-        it('should validate input and show error for missing moduleUrn', () => {
+        it('should validate input and show error for missing module URN', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
             const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
@@ -542,7 +542,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: '', // Invalid empty URN
+                module: { ...mockPersonalTemplate.properties!.rows![0].modules![0], urn: '' }, // Invalid empty URN
                 position,
             };
 
@@ -581,7 +581,7 @@ describe('useModuleOperations', () => {
             );
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position: null as any, // Invalid null position
             };
 
@@ -626,7 +626,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -671,7 +671,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
