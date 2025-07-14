@@ -350,7 +350,143 @@ fragment actionRequestFieldsV2 on ActionRequest {
     resultNote
     description
     entity {
-        ...entityDisplayNameFields
+        urn
+        type
+        ... on Dataset {
+            name
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            ...datasetSchema
+        }
+        ... on Dashboard {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Chart {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Container {
+            properties {
+                name
+                qualifiedName
+            }
+        }
+        ... on DataJob {
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on DataFlow {
+            orchestrator
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLFeature {
+            name
+        }
+        ... on MLFeatureTable {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModel {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModelGroup {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLPrimaryKey {
+            name
+        }
+        ... on GlossaryNode {
+            properties {
+                name
+                description
+            }
+        }
+        ... on GlossaryTerm {
+            properties {
+                name
+                description
+            }
+        }
+        ... on Domain {
+            properties {
+                name
+                description
+            }
+        }
+        ... on DataProduct {
+            properties {
+                name
+            }
+        }
     }
     subResourceType
     subResource
