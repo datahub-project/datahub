@@ -1,5 +1,5 @@
 import { Tabs as AntTabs } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
 import { Pill } from '@components/components/Pills';
@@ -7,9 +7,14 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-const StyledTabs = styled(AntTabs)<{ $addPaddingLeft?: boolean; $hideTabsHeader: boolean }>`
-    flex: 1;
-    overflow: hidden;
+const StyledTabs = styled(AntTabs)<{
+    $addPaddingLeft?: boolean;
+    $hideTabsHeader: boolean;
+    $scrollable?: boolean;
+    $stickyHeader?: boolean;
+}>`
+    ${({ $scrollable }) => !$scrollable && 'flex: 1;'}
+    ${({ $scrollable }) => !$scrollable && 'overflow: hidden;'}
 
     .ant-tabs-tab {
         padding: 8px 0;
@@ -38,13 +43,25 @@ const StyledTabs = styled(AntTabs)<{ $addPaddingLeft?: boolean; $hideTabsHeader:
             }
         `}
 
+    ${({ $stickyHeader }) =>
+        $stickyHeader &&
+        `
+            .ant-tabs-nav {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                background-color: white;
+                border-bottom: 1px solid ${colors.gray[200]};
+            }
+        `}
+
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
         font-weight: 600;
     }
 
     .ant-tabs-ink-bar {
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
     }
 
     .ant-tabs-content-holder {
@@ -100,6 +117,9 @@ export interface Props {
     getCurrentUrl?: () => string;
     addPaddingLeft?: boolean;
     hideTabsHeader?: boolean;
+    scrollToTopOnChange?: boolean;
+    maxHeight?: string;
+    stickyHeader?: boolean;
 }
 
 export function Tabs({
@@ -112,8 +132,19 @@ export function Tabs({
     getCurrentUrl = () => window.location.pathname,
     addPaddingLeft,
     hideTabsHeader,
+    scrollToTopOnChange = false,
+    maxHeight = '100%',
+    stickyHeader = false,
 }: Props) {
     const { TabPane } = AntTabs;
+    const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+    // Scroll to top when selectedTab changes if scrollToTopOnChange is enabled
+    useEffect(() => {
+        if (scrollToTopOnChange && tabsContainerRef.current) {
+            tabsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [selectedTab, scrollToTopOnChange]);
 
     // Create reverse mapping from URLs to tab keys if urlMap is provided
     const urlToTabMap = React.useMemo(() => {
@@ -140,23 +171,14 @@ export function Tabs({
         }
     }, [getCurrentUrl, onChange, onUrlChange, selectedTab, urlMap, urlToTabMap, defaultTab]);
 
-    function handleTabClick(key: string) {
-        onChange?.(key);
-        const newTab = tabs.find((t) => t.key === key);
-        newTab?.onSelectTab?.();
-
-        // Update URL if urlMap is provided
-        if (urlMap && urlMap[key]) {
-            onUrlChange(urlMap[key]);
-        }
-    }
-
-    return (
+    const tabsContent = (
         <StyledTabs
             activeKey={selectedTab}
-            onChange={handleTabClick}
+            onChange={onChange}
             $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
+            $scrollable={scrollToTopOnChange}
+            $stickyHeader={stickyHeader}
         >
             {tabs.map((tab) => {
                 return (
@@ -167,4 +189,22 @@ export function Tabs({
             })}
         </StyledTabs>
     );
+
+    if (scrollToTopOnChange) {
+        return (
+            <div
+                ref={tabsContainerRef}
+                style={{
+                    maxHeight,
+                    overflowY: 'auto' as const,
+                    height: '100%',
+                    position: 'relative',
+                }}
+            >
+                {tabsContent}
+            </div>
+        );
+    }
+
+    return tabsContent;
 }
