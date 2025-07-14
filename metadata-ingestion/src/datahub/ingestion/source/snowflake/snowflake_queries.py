@@ -120,7 +120,7 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_operations: bool = True
 
     push_down_database_pattern_access_history: bool = pydantic.Field(
-        default=True,
+        default=False,
         description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
         "This filters on the accessed objects in access_history.",
     )
