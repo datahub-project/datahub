@@ -82,7 +82,6 @@ const EntityCountsHeader = styled(Typography.Text)`
     top: 0;
     left: 0;
     margin-bottom: 0;
-    z-index: 1;
 `;
 
 const EntityCount = styled.div`
@@ -99,7 +98,7 @@ const EntityCount = styled.div`
 `;
 
 const ViewAllButton = styled(Button)`
-    padding: 0px;
+    padding: 0;
     margin-top: 4px;
 `;
 
@@ -120,7 +119,7 @@ const IngestionBoxesContainer = styled.div`
     width: 100%;
 `;
 
-const IngestionBox = styled.div<{ boxCount: number }>`
+const IngestionBox = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -131,8 +130,7 @@ const IngestionBox = styled.div<{ boxCount: number }>`
     min-width: 0;
     min-height: 80px;
     padding: 16px 20px;
-    flex: 1 1 0;
-    max-width: ${({ boxCount }) => `calc(${100 / boxCount}% - ${(16 * (boxCount - 1)) / boxCount}px)`};
+    flex: 1;
 `;
 
 const IngestionBoxTopRow = styled.div`
@@ -263,7 +261,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             </Typography.Paragraph>
                             <IngestionBoxesContainer>
                                 {ingestionContents.map((item) => (
-                                    <IngestionBox key={item.title} boxCount={ingestionContents.length}>
+                                    <IngestionBox key={item.title}>
                                         <IngestionBoxTopRow>
                                             <Typography.Text
                                                 style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}
