@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -7,7 +8,81 @@ from typing import Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Global cache for lineage data to avoid repeated file reads
-_lineage_data: Optional[Dict] = None
+_lineage_data: Optional["LineageData"] = None
+
+
+@dataclass
+class Field:
+    name: str
+    path: str
+    isLineage: bool
+    relationship: Optional[Dict]
+
+
+@dataclass
+class Aspect:
+    name: str
+    fields: List[Field]
+
+
+@dataclass
+class Entity:
+    name: str
+    aspects: Dict[str, Aspect]
+
+
+@dataclass
+class LineageData:
+    # entity name -> aspect
+    entities: Dict[str, Entity]
+    generated_by: str
+    generated_at: str
+
+
+def get_lineage_data() -> LineageData:
+    """
+    This is experimental internal API subject to breaking changes without prior notice.
+    """
+    global _lineage_data
+
+    if _lineage_data is not None:
+        return _lineage_data
+
+    raw_data = _load_lineage_data()
+    _entities = raw_data.get("entities", {})
+    for entity_name, entity_data in _entities.items():
+        entity = Entity(
+            name=entity_name,
+            aspects={},
+        )
+        for aspect_name, aspect_data in entity_data.items():
+            entity.aspects[aspect_name] = Aspect(
+                name=aspect_name,
+                fields=[
+                    Field(
+                        name=field["name"],
+                        path=field["path"],
+                        isLineage=field["isLineage"],
+                        relationship=field.get("relationship", None),
+                    )
+                    for field in aspect_data.get("fields", [])
+                ],
+            )
+        _entities[entity_name] = entity
+
+    _lineage_data = LineageData(
+        entities=_entities,
+        generated_by=raw_data.get("generated_by", ""),
+        generated_at=raw_data.get("generated_at", ""),
+    )
+    return _lineage_data
+
+
+def get_all_aspect_names() -> List[str]:
+    """
+    This is experimental internal API subject to breaking changes without prior notice.
+    """
+    return list(get_lineage_data().entities.values()[0].aspects.keys())
 
 
 def _load_lineage_data() -> Dict:
@@ -22,11 +97,6 @@ def _load_lineage_data() -> Dict:
     Raises:
         json.JSONDecodeError: If lineage.json is malformed
     """
-    global _lineage_data
-
-    if _lineage_data is not None:
-        return _lineage_data
-
     # Get the path to lineage.json relative to this file
     current_file = Path(__file__)
     lineage_file = current_file.parent / "lineage.json"
@@ -36,32 +106,40 @@ def _load_lineage_data() -> Dict:
             f"Lineage file not found: {lineage_file}. "
             "This may indicate a packaging issue. Lineage detection will be disabled."
         )
-        _lineage_data = {}
-        return _lineage_data
+        return {}
 
     try:
         with open(lineage_file, "r") as f:
-            _lineage_data = json.load(f)
-        return _lineage_data
+            return json.load(f)
     except json.JSONDecodeError as e:
         logger.error(
             f"Failed to parse lineage.json: {e}. Lineage detection will be disabled."
         )
-        _lineage_data = {}
-        return _lineage_data
+        return {}
 
 
 def _get_fields(entity_type: str, aspect_name: str) -> List[Dict]:
     """
     This is experimental internal API subject to breaking changes without prior notice.
     """
-    return (
-        _load_lineage_data()
-        .get("entities", {})
-        .get(entity_type, {})
-        .get(aspect_name, {})
-        .get("fields", [])
-    )
+    lineage_data = get_lineage_data()
+    entity = lineage_data.entities.get(entity_type)
+    if not entity:
+        return []
+
+    aspect = entity.aspects.get(aspect_name)
+    if not aspect:
+        return []
+
+    return [
+        {
+            "name": field.name,
+            "path": field.path,
+            "isLineage": field.isLineage,
+            "relationship": field.relationship,
+        }
+        for field in aspect.fields
+    ]
 
 
 def _get_lineage_fields(entity_type: str, aspect_name: str) -> List[Dict]:
