@@ -86,6 +86,11 @@ const EntityCount = styled.div`
     min-width: 70px;
 `;
 
+const ViewAllButton = styled(Button)`
+    padding: 0px;
+    margin-top: 4px;
+`;
+
 const VerticalDivider = styled.div`
     width: 1px;
     background-color: ${ANTD_GRAY[4]};
@@ -168,7 +173,12 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                 <MainContainer>
                     <TotalContainer>
                         <TotalText>{formatNumber(total)}</TotalText>
-                        <TotalLabel>Total Assets Ingested</TotalLabel>
+                        <TotalLabel>
+                            Total Assets Ingested
+                        </TotalLabel>
+                        <ViewAllButton type="link" onClick={() => setShowAssetSearch(true)}>
+                            View All
+                        </ViewAllButton>
                     </TotalContainer>
                     <VerticalDivider />
                     <TypesSection>
