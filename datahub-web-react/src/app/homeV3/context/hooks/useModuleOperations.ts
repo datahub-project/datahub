@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
@@ -149,14 +149,24 @@ export function useModuleOperations(
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
 
     // Create context object to avoid passing many parameters
-    const context: TemplateUpdateContext = {
-        isEditingGlobalTemplate,
-        personalTemplate,
-        globalTemplate,
-        setPersonalTemplate,
-        setGlobalTemplate,
-        upsertTemplate,
-    };
+    const context: TemplateUpdateContext = useMemo(
+        () => ({
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            upsertTemplate,
+        }),
+        [
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            upsertTemplate,
+        ],
+    );
 
     // Updates template state with a new module and updates the appropriate template on the backend
     const addModule = useCallback(
@@ -187,15 +197,7 @@ export function useModuleOperations(
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'add module');
         },
-        [
-            isEditingGlobalTemplate,
-            personalTemplate,
-            globalTemplate,
-            setPersonalTemplate,
-            setGlobalTemplate,
-            upsertTemplate,
-            updateTemplateWithModule,
-        ],
+        [context, updateTemplateWithModule],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -227,15 +229,7 @@ export function useModuleOperations(
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
         },
-        [
-            isEditingGlobalTemplate,
-            personalTemplate,
-            globalTemplate,
-            setPersonalTemplate,
-            setGlobalTemplate,
-            upsertTemplate,
-            removeModuleFromTemplate,
-        ],
+        [context, removeModuleFromTemplate],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
