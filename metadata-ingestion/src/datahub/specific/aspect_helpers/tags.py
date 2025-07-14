@@ -38,5 +38,7 @@ class HasTagsPatch(MetadataPatchProposal):
         """
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
+        self._add_patch(
+            GlobalTags.ASPECT_NAME, "remove", path=("tags", tag.tag), value={}
+        )
         return self
