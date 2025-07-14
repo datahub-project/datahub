@@ -541,7 +541,8 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        #if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        if: ${{ matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
@@ -549,7 +550,8 @@ jobs:
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        #if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        if: ${{ matrix.batch == '0' }}
         with:
           path: |
             ~/.cache/yarn
