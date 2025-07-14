@@ -1,9 +1,8 @@
 import { Button } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
@@ -17,6 +16,7 @@ import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Heading, Pill, Text } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -198,8 +198,14 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
 
-    const ingestionContents = executionResult && getIngestionContents(executionResult);
-    const otherIngestionContents = executionResult && getOtherIngestionContents(executionResult);
+    const ingestionContents = useMemo(
+        () => executionResult && getIngestionContents(executionResult),
+        [executionResult],
+    );
+    const otherIngestionContents = useMemo(
+        () => executionResult && getOtherIngestionContents(executionResult),
+        [executionResult],
+    );
 
     return (
         <>
