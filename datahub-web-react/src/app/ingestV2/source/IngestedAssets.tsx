@@ -1,4 +1,4 @@
-import { Button, Typography } from 'antd';
+import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -16,6 +16,7 @@ import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Heading, Text } from '@src/alchemy-components';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -27,36 +28,30 @@ const MainContainer = styled.div`
     margin-top: 16px;
 `;
 
-const TotalContainer = styled.div`
+const CardContainer = styled.div`
     display: flex;
+    padding: 16px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 16px;
+    flex: 1 0 0;
+    background-color: ${ANTD_GRAY[1]};
+    border: 1px solid ${ANTD_GRAY[4]};
+    border-radius: 12px;
+    min-height: 80px;
+`;
+
+const TotalContainer = styled(CardContainer)`
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
-    background-color: ${ANTD_GRAY[1]};
-    border: 1px solid ${ANTD_GRAY[4]};
-    border-radius: 4px;
-    min-width: 200px;
-    min-height: 80px;
-    gap: 16px;
 `;
 
 const TotalInfo = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-`;
-
-const TotalText = styled(Typography.Text)`
-    font-size: 18px;
-    color: ${ANTD_GRAY[8]};
-    font-weight: bold;
-`;
-
-const TotalLabel = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${ANTD_GRAY[6]};
-    margin-top: 4px;
 `;
 
 const TypesSection = styled.div`
@@ -79,48 +74,17 @@ const EntityCountsContainer = styled.div`
     flex: 1;
 `;
 
-const EntityCountsHeader = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${ANTD_GRAY[6]};
+const EntityCountsHeader = styled(Text)`
     position: absolute;
     top: 0;
     left: 0;
     margin-bottom: 0;
 `;
 
-const EntityCount = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    background-color: ${ANTD_GRAY[1]};
-    border: 1px solid ${ANTD_GRAY[4]};
-    padding: 16px 20px;
-    border-radius: 4px;
-    min-width: 70px;
-    min-height: 80px;
-    flex: 1;
-`;
-
-const EntityCountNumber = styled(Typography.Text)`
-    font-size: 16px;
-    color: ${ANTD_GRAY[8]};
-    font-weight: bold;
-`;
-
-const EntityCountLabel = styled(Typography.Text)`
-    font-size: 12px;
-`;
-
-const ViewAllButton = styled(Button)`
-    padding: 0;
-    margin-top: 4px;
-`;
-
 const VerticalDivider = styled.div`
-    width: 1px;
+    width: 2px;
     background-color: ${ANTD_GRAY[4]};
-    height: 70px;
+    height: 120px;
     align-self: center;
 `;
 
@@ -134,42 +98,12 @@ const IngestionBoxesContainer = styled.div`
     width: 100%;
 `;
 
-const IngestionBox = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    background: ${ANTD_GRAY[1]};
-    border: 1px solid ${ANTD_GRAY[4]};
-    border-radius: 4px;
-    min-width: 0;
-    min-height: 80px;
-    padding: 16px 20px;
-    flex: 1;
-`;
-
 const IngestionBoxTopRow = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
     width: 100%;
-`;
-
-const IngestionBoxNumber = styled(Typography.Text)`
-    font-size: 16px;
-    color: ${ANTD_GRAY[8]};
-    font-weight: bold;
-`;
-
-const IngestionBoxPercent = styled(Typography.Text)`
-    margin-left: 8px;
-    font-size: 12px;
-`;
-
-const IngestionBoxLabel = styled(Typography.Text)`
-    font-size: 12px;
-    margin-top: 4px;
 `;
 
 type Props = {
@@ -179,6 +113,39 @@ type Props = {
 
 const ENTITY_FACET_NAME = 'entity';
 const TYPE_NAMES_FACET_NAME = 'typeNames';
+
+type IngestionContentItem = {
+    title?: string;
+    type?: string;
+    count: number;
+    percent: string;
+};
+
+type RenderIngestionContentsProps = {
+    items: IngestionContentItem[];
+    getKey: (item: IngestionContentItem) => string;
+    getLabel: (item: IngestionContentItem) => string;
+};
+
+const renderIngestionContents = ({ items, getKey, getLabel }: RenderIngestionContentsProps) => (
+    <IngestionBoxesContainer>
+        {items.map((item) => (
+            <CardContainer key={getKey(item)}>
+                <IngestionBoxTopRow>
+                    <Text size="xl" weight="bold" color="gray" colorLevel={800}>
+                        {formatNumber(item.count)}
+                    </Text>
+                    <Text size="sm" color="gray" colorLevel={600} style={{ marginLeft: 8 }}>
+                        {item.percent} of Total
+                    </Text>
+                </IngestionBoxTopRow>
+                <Text size="md" color="gray" colorLevel={600}>
+                    {getLabel(item)}
+                </Text>
+            </CardContainer>
+        ))}
+    </IngestionBoxesContainer>
+);
 
 export default function IngestedAssets({ id, executionResult }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -235,14 +202,20 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     return (
         <>
             {error && <Message type="error" content="" />}
-            <Typography.Title level={5}>Ingested Assets</Typography.Title>
-            {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
+            <Heading type="h5" size="lg" weight="medium">
+                Ingested Assets
+            </Heading>
+            {(loading && (
+                <Text color="gray" colorLevel={600}>
+                    Loading...
+                </Text>
+            )) || (
                 <>
                     {(total > 0 && (
-                        <Typography.Paragraph type="secondary">
+                        <Text color="gray" colorLevel={600}>
                             The following asset types were ingested during this run.
-                        </Typography.Paragraph>
-                    )) || <Typography.Text>No assets were ingested.</Typography.Text>}
+                        </Text>
+                    )) || <Text>No assets were ingested.</Text>}
                 </>
             )}
             {!loading && total > 0 && (
@@ -250,65 +223,80 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                     <MainContainer>
                         <TotalContainer>
                             <TotalInfo>
-                                <TotalText>{formatNumber(total)}</TotalText>
-                                <TotalLabel>Total Assets Ingested</TotalLabel>
+                                <Text size="xl" weight="bold" color="gray" colorLevel={800}>
+                                    {formatNumber(total)}
+                                </Text>
+                                <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 4 }}>
+                                    Total Assets Ingested
+                                </Text>
                             </TotalInfo>
-                            <ViewAllButton type="link" onClick={() => setShowAssetSearch(true)}>
+                            <Button type="link" onClick={() => setShowAssetSearch(true)}>
                                 View All
-                            </ViewAllButton>
+                            </Button>
                         </TotalContainer>
                         <VerticalDivider />
                         <TypesSection>
-                            <EntityCountsHeader>Types</EntityCountsHeader>
+                            <EntityCountsHeader size="xs" color="gray" colorLevel={600}>
+                                Types
+                            </EntityCountsHeader>
                             <EntityCountsContainer>
                                 {countsByEntityType.map((entityCount) => (
-                                    <EntityCount key={entityCount.displayName}>
-                                        <EntityCountNumber>{formatNumber(entityCount.count)}</EntityCountNumber>
-                                        <EntityCountLabel type="secondary">
+                                    <CardContainer key={entityCount.displayName}>
+                                        <Text size="xl" weight="bold" color="gray" colorLevel={800}>
+                                            {formatNumber(entityCount.count)}
+                                        </Text>
+                                        <Text size="md" color="gray" colorLevel={600}>
                                             {capitalizeFirstLetterOnly(entityCount.displayName)}
-                                        </EntityCountLabel>
-                                    </EntityCount>
+                                        </Text>
+                                    </CardContainer>
                                 ))}
                             </EntityCountsContainer>
                         </TypesSection>
                     </MainContainer>
                     {ingestionContents && (
                         <IngestionContentsContainer>
-                            <Typography.Title level={5}>Ingestion Contents</Typography.Title>
-                            <Typography.Paragraph type="secondary">
+                            <Heading type="h5" size="lg" weight="medium">
+                                Ingestion Contents
+                            </Heading>
+                            <Text color="gray" colorLevel={600}>
                                 Breakdown of assets containing recommended ingestion data.
-                            </Typography.Paragraph>
-                            <IngestionBoxesContainer>
-                                {ingestionContents.map((item) => (
-                                    <IngestionBox key={item.title}>
-                                        <IngestionBoxTopRow>
-                                            <IngestionBoxNumber>{formatNumber(item.count)}</IngestionBoxNumber>
-                                            <IngestionBoxPercent type="secondary">
-                                                {item.percent} of Total
-                                            </IngestionBoxPercent>
-                                        </IngestionBoxTopRow>
-                                        <IngestionBoxLabel type="secondary">{item.title}</IngestionBoxLabel>
-                                    </IngestionBox>
-                                ))}
-                            </IngestionBoxesContainer>
-                        </IngestionContentsContainer>
-                    )}
-                    {otherIngestionContents && (
-                        <IngestionContentsContainer>
-                            <Typography.Title level={5}>Other Ingestion Contents</Typography.Title>
-                            <IngestionBoxesContainer>
-                                {otherIngestionContents.map((item) => (
-                                    <IngestionBox key={item.type}>
-                                        <IngestionBoxTopRow>
-                                            <IngestionBoxNumber>{formatNumber(item.count)}</IngestionBoxNumber>
-                                            <IngestionBoxPercent type="secondary">
-                                                {item.percent} of Total
-                                            </IngestionBoxPercent>
-                                        </IngestionBoxTopRow>
-                                        <IngestionBoxLabel type="secondary">{item.type}</IngestionBoxLabel>
-                                    </IngestionBox>
-                                ))}
-                            </IngestionBoxesContainer>
+                            </Text>
+                            <Text
+                                weight="medium"
+                                size="sm"
+                                style={{
+                                    marginTop: 16,
+                                    marginBottom: 8,
+                                    display: 'block',
+                                }}
+                            >
+                                Lineage Types
+                            </Text>
+                            {renderIngestionContents({
+                                items: ingestionContents,
+                                getKey: (item) => item.title || '',
+                                getLabel: (item) => item.title || '',
+                            })}
+                            {otherIngestionContents && (
+                                <>
+                                    <Text
+                                        weight="medium"
+                                        size="sm"
+                                        style={{
+                                            marginTop: 24,
+                                            marginBottom: 8,
+                                            display: 'block',
+                                        }}
+                                    >
+                                        Other Ingestion Contents
+                                    </Text>
+                                    {renderIngestionContents({
+                                        items: otherIngestionContents,
+                                        getKey: (item) => item.type || '',
+                                        getLabel: (item) => item.type || '',
+                                    })}
+                                </>
+                            )}
                         </IngestionContentsContainer>
                     )}
                 </>
