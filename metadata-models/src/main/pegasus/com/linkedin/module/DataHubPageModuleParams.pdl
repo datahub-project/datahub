@@ -19,4 +19,10 @@ record DataHubPageModuleParams {
   richTextParams: optional record RichTextModuleParams {
     content: string
   }
+  /**
+   * The params required if the module is type ASSET_COLLECTION
+   */
+  assetCollectionParams: optional record AssetCollectionModuleParams {
+    assetUrns: array[Urn]
+  }
 }

@@ -78,6 +78,11 @@ input PageModuleParamsInput {
   The params required if the module is type RICH_TEXT
   """
   richTextParams: RichTextModuleParamsInput
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParamsInput
 }
 
 """
@@ -98,6 +103,16 @@ input RichTextModuleParamsInput {
   The content of the rich text module
   """
   content: String!
+}
+
+"""
+Input for the params required if the module is type ASSET_COLLECTION
+"""
+input AssetCollectionModuleParamsInput {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assetUrns: [String]!
 }
 
 """
@@ -202,6 +217,11 @@ type DataHubPageModuleParams {
   The params required if the module is type RICH_TEXT
   """
   richTextParams: RichTextModuleParams
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParams
 }
 
 """
@@ -225,6 +245,16 @@ type RichTextModuleParams {
 }
 
 """
+The params required if the module is type ASSET_COLLECTION
+"""
+type AssetCollectionModuleParams {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assets: [Entity]!
+}
+
+"""
 Input for deleting a DataHub page module
 """
 input DeletePageModuleInput {
@@ -232,4 +262,5 @@ input DeletePageModuleInput {
   The URN of the page module to delete
   """
   urn: String!
+
 }

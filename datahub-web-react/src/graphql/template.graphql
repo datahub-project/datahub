@@ -33,6 +33,13 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assets {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
         }
     }
 }

@@ -7,3 +7,8 @@ export interface ModulePositionInput {
     rowSide?: RowSide;
     moduleIndex?: number; // Index of the module within the row (for precise removal)
 }
+
+export interface CreateNewModuleInput {
+    name: string;
+    description?: string;
+}

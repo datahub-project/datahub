@@ -250,9 +250,6 @@ export function useModuleOperations(
                 name: name.trim(),
                 type,
                 scope,
-                visibility: {
-                    scope,
-                },
                 params,
             };
 
