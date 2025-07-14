@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
@@ -31,8 +31,8 @@ const FlexContainer = styled.div`
 const BaseCard = styled.div`
     display: flex;
     padding: 16px;
-    background-color: ${ANTD_GRAY[1]};
-    border: 1px solid ${ANTD_GRAY[4]};
+    background-color: ${colors.gray[1500]};
+    border: 1px solid ${colors.gray[1400]};
     border-radius: 12px;
     min-height: 80px;
 `;
@@ -93,7 +93,7 @@ const EntityCountsHeader = styled(Text)`
 
 const VerticalDivider = styled.div`
     width: 2px;
-    background-color: ${ANTD_GRAY[4]};
+    background-color: ${colors.gray[1400]};
     height: 120px;
     align-self: center;
 `;
