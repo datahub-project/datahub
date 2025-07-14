@@ -46,8 +46,6 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         fetchPolicy: 'cache-first',
     });
 
-    console.log(`data is `, data);
-
     if (loading || error) {
         return {
             visible: false,
