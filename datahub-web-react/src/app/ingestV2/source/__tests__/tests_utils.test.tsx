@@ -15,6 +15,7 @@ import {
     capitalizeMonthsAndDays,
     formatTimezone,
     getEntitiesIngestedByType,
+    getIngestionContents,
     getSortInput,
     getSourceStatus,
     getTotalEntitiesIngested,
@@ -409,6 +410,198 @@ describe('getSourceStatus', () => {
         const source = createSource(urn, [createExecutionRequest({ result: undefined })]);
         const result = getSourceStatus(source, new Set(), new Set());
         expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
+    });
+});
+
+describe('getIngestionContents', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getIngestionContents({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns empty array when aspects_by_subtypes is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([]);
+    });
+
+    test('processes dataset subtypes with lineage information correctly', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 5,
+                                datasetProfile: 10,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                                datasetProfile: 20,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 10,
+                percent: '50%',
+            },
+            {
+                title: 'View',
+                count: 20,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with 0% lineage', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 0,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 20,
+                percent: '25%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with status count of 0', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 0,
+                                upstreamLineage: 5,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 20,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('handles missing upstreamLineage property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                // upstreamLineage is missing
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([]);
+    });
+
+    test('handles missing status property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                // status is missing
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([]);
+    });
+
+    test('calculates percentage correctly and rounds to nearest integer', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 7,
+                                upstreamLineage: 2, // 2/7 = 28.57...% rounds to 29%
+                            },
+                            View: {
+                                status: 3,
+                                upstreamLineage: 1, // 1/3 = 33.33...% rounds to 33%
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 7,
+                percent: '29%',
+            },
+            {
+                title: 'View',
+                count: 3,
+                percent: '33%',
+            },
+        ]);
     });
 });
 
