@@ -8,6 +8,7 @@ import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
     getIngestionContents,
+    getOtherIngestionContents,
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 import { UnionType } from '@app/search/utils/constants';
@@ -110,7 +111,7 @@ const VerticalDivider = styled.div`
 `;
 
 const IngestionContentsContainer = styled.div`
-    margin-top: 40px;
+    margin-top: 10px;
 `;
 
 const IngestionBoxesContainer = styled.div`
@@ -208,6 +209,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
 
     const ingestionContents = executionResult && getIngestionContents(executionResult);
+    const otherIngestionContents = executionResult && getOtherIngestionContents(executionResult);
 
     return (
         <>
@@ -274,6 +276,30 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                         </IngestionBoxTopRow>
                                         <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
                                             {item.title}
+                                        </Typography.Text>
+                                    </IngestionBox>
+                                ))}
+                            </IngestionBoxesContainer>
+                        </IngestionContentsContainer>
+                    )}
+                    {otherIngestionContents && (
+                        <IngestionContentsContainer>
+                            <Typography.Title level={5}>Other Ingestion Contents</Typography.Title>
+                            <IngestionBoxesContainer>
+                                {otherIngestionContents.map((item) => (
+                                    <IngestionBox key={item.type}>
+                                        <IngestionBoxTopRow>
+                                            <Typography.Text
+                                                style={{ fontSize: 16, color: ANTD_GRAY[8], fontWeight: 'bold' }}
+                                            >
+                                                {formatNumber(item.count)}
+                                            </Typography.Text>
+                                            <IngestionBoxPercent type="secondary">
+                                                {item.percent} of Total
+                                            </IngestionBoxPercent>
+                                        </IngestionBoxTopRow>
+                                        <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                                            {item.type}
                                         </Typography.Text>
                                     </IngestionBox>
                                 ))}
