@@ -47,6 +47,7 @@ interface Props {
     modulesAvailableToAdd: ModulesAvailableToAdd;
     onAddModule?: (input: AddModuleHandlerInput) => void;
     className?: string;
+    originRowIndex?: number;
     rowIndex?: number;
     rowSide?: RowSide;
 }
@@ -56,6 +57,7 @@ export default function AddModuleButton({
     modulesAvailableToAdd,
     onAddModule,
     className,
+    originRowIndex,
     rowIndex,
     rowSide,
 }: Props) {
@@ -68,11 +70,12 @@ export default function AddModuleButton({
             setIsOpened(false);
             onAddModule?.({
                 module,
+                originRowIndex,
                 rowIndex,
                 rowSide,
             });
         },
-        [onAddModule, rowIndex, rowSide],
+        [onAddModule, originRowIndex, rowIndex, rowSide],
     );
 
     const menu = useAddModuleMenu(modulesAvailableToAdd, onAddModuleHandler);
