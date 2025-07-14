@@ -426,6 +426,13 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - **Column-level Lineage Enhancement**: OpenLineage's transformation types are now captured and mapped to DataHub's FinegrainedLineage `TransformOption` as per the [OpenLineage column lineage specification](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type)
   - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
   - FileStreamMicroBatchStream and foreachBatch for Spark streaming
+  - MERGE INTO operations now capture both dataset-level AND column-level lineage
+    - Can track which columns from source/target tables are used in:
+      - Merge conditions (ON source.id = target.id)
+      - UPDATE clauses (SET target.name = source.name)
+      - INSERT clauses (VALUES (source.col1, source.col2))
+    - This extends StreamStrategy and is likely used by StreamingDataSourceV2RelationVisitor to handle file-based streaming sources specifically.
+
 
 ### Version 0.2.17
 
