@@ -250,6 +250,14 @@ elasticsearch:
     keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
     keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
     keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  bulkDelete:
+    batchSize: ${ES_BULK_DELETE_BATCH_SIZE:5000}
+    slices: ${ES_BULK_DELETE_SLICES:auto}
+    pollInterval: ${ES_BULK_DELETE_POLL_INTERVAL:30}
+    pollIntervalUnit: ${ES_BULK_DELETE_POLL_UNIT:SECONDS}
+    timeout: ${ES_BULK_DELETE_TIMEOUT:30}
+    timeoutUnit: ${ES_BULK_DELETE_TIMEOUT_UNIT:MINUTES}
+    numRetries: ${ES_BULK_DELETE_NUM_RETRIES:3}
   bulkProcessor:
     async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
@@ -577,6 +585,9 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
+  removeQueryEdges:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
+    numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
