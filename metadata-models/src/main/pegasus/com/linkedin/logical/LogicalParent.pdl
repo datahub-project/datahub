@@ -6,9 +6,9 @@ import com.linkedin.common.Edge
   "name": "logicalParent"
 }
 record LogicalParent {
-	@Relationship = {
-	  "/destinationUrn": {
-      "name": "LogicalInstanceOf",
+  @Relationship = {
+    "/destinationUrn": {
+      "name": "PhysicalInstanceOf",
       "entityTypes": [ "dataset", "schemaField" ],
       "createdOn": "parent/created/time",
       "createdActor": "parent/created/actor",
@@ -24,7 +24,7 @@ record LogicalParent {
       "queryByDefault": false,
       "addToFilters": true,
       "hasValuesFieldName": "hasLogicalParent",
-      "filterNameOverride": "Logical Instance Of"
+      "filterNameOverride": "Physical Instance Of"
     }
   }
   parent: Edge
