@@ -57,7 +57,9 @@ jobs:
           "annadoesdesign",
           "jmacryl",
           "esteban",
-          "anthonyburdi"
+          "anthonyburdi",
+          "ligfx",
+          "ksrinath"
           ]'),
           github.actor
           )

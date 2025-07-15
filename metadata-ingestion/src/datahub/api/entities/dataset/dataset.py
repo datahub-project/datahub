@@ -383,7 +383,7 @@ class Dataset(StrictModel):
     urn: Optional[str] = None
     description: Optional[str] = None
     name: Optional[str] = None
-    schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
+    schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     subtype: Optional[str] = None

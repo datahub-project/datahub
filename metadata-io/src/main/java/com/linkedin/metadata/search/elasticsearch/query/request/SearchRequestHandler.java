@@ -17,6 +17,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -53,6 +54,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +94,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private final SearchQueryBuilder searchQueryBuilder;
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
-
+  private final CustomizedQueryHandler customizedQueryHandler;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   private SearchRequestHandler(
@@ -134,6 +136,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
     this.searchableFieldTypes =
         buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
     this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.customizedQueryHandler =
+        CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
+            .build();
   }
 
   public static SearchRequestHandler getBuilder(
@@ -260,12 +265,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
           .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
-        searchSourceBuilder.highlighter(
-            getHighlights(opContext, searchFlags.getCustomHighlightingFields()));
-      } else {
-        searchSourceBuilder.highlighter(highlights);
-      }
+      // Apply custom highlight configuration
+      HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
+      searchSourceBuilder.highlighter(highlightBuilder);
     }
 
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
@@ -325,7 +327,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
           .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(highlights);
+      // Apply custom highlight configuration
+      HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
+      searchSourceBuilder.highlighter(highlightBuilder);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
@@ -402,6 +406,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Override
   protected Stream<String> highlightFieldExpansion(
       @Nonnull OperationContext opContext, @Nonnull String fieldName) {
+    // If the field already ends with .*, don't expand it further
+    if (fieldName.endsWith(".*")) {
+      return Stream.of(fieldName);
+    }
+
+    // For normal fields, expand as before
     return Stream.of(fieldName, fieldName + ".*");
   }
 
@@ -411,7 +421,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       int from,
-      int size) {
+      @Nullable Integer size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -421,7 +431,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         .setEntities(new SearchEntityArray(resultList))
         .setMetadata(searchResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
         .setNumEntities(totalCount);
   }
 
@@ -431,9 +441,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
@@ -504,6 +515,50 @@ public class SearchRequestHandler extends BaseRequestHandler {
                 entry.getValue().stream()
                     .map(value -> new MatchedField().setName(entry.getKey()).setValue(value)))
         .collect(Collectors.toList());
+  }
+
+  private HighlightBuilder getHighlightBuilder(
+      @Nonnull OperationContext opContext, @Nonnull SearchFlags searchFlags) {
+
+    // Get field configuration label
+    String fieldConfigLabel =
+        customizedQueryHandler.resolveFieldConfiguration(
+            searchFlags, CustomConfiguration::getSearchFieldConfigDefault);
+
+    // Check if highlighting is enabled for this configuration
+    if (!customizedQueryHandler.isHighlightingEnabled(fieldConfigLabel)) {
+      return new HighlightBuilder().numOfFragments(0); // Effectively disable highlighting
+    }
+
+    // Determine base fields to highlight
+    Set<String> baseHighlightFields;
+    Set<String> explicitlyConfigured = Set.of();
+
+    if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
+      // If custom highlighting fields are specified in search flags, use them as base
+      // Use LinkedHashSet to prevent duplicates while maintaining order
+      baseHighlightFields = new LinkedHashSet<>(searchFlags.getCustomHighlightingFields());
+    } else {
+      // Otherwise use default query fields with expansion
+      // LinkedHashSet prevents duplicates from expansion
+      baseHighlightFields =
+          defaultQueryFieldNames.stream()
+              .flatMap(field -> highlightFieldExpansion(opContext, field))
+              .collect(Collectors.toCollection(LinkedHashSet::new));
+
+      // Apply custom highlight field configuration only when not using custom fields from search
+      // flags
+      HighlightConfigurationResult highlightConfig =
+          customizedQueryHandler.getHighlightFieldConfiguration(
+              baseHighlightFields, fieldConfigLabel);
+
+      baseHighlightFields = highlightConfig.getFieldsToHighlight();
+      explicitlyConfigured = highlightConfig.getExplicitlyConfiguredFields();
+    }
+
+    // Build highlights with the configured fields using the existing method from BaseRequestHandler
+    return buildHighlightsWithSelectiveExpansion(
+        opContext, baseHighlightFields, explicitlyConfigured);
   }
 
   @Nonnull
@@ -600,7 +655,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   /**
    * Calculate the field types based on annotations if available, with fallback to ES mappings
    *
-   * @param entitySpecs entitySepcts
+   * @param entitySpecs entitySpecs
    * @return Field name to annotation field types
    */
   private static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(

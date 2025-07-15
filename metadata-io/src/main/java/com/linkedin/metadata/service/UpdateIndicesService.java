@@ -26,7 +26,6 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -333,7 +332,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     } catch (Exception e) {
       log.error(
           "Error in getting documents for urn: {} from aspect: {}", urn, aspectSpec.getName(), e);
-      MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC, 1));
       return;
     }
 
@@ -359,7 +362,11 @@ public class UpdateIndicesService implements SearchIndicesService {
               urn,
               aspectSpec.getName(),
               e);
-          MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
+          opContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC, 1));
         }
       }
 
@@ -370,7 +377,11 @@ public class UpdateIndicesService implements SearchIndicesService {
               "No changes detected for search document for urn: {} aspect: {}",
               urn,
               aspectSpec.getName());
-          MetricUtils.counter(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC).inc();
+          opContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC, 1));
           return;
         }
       }

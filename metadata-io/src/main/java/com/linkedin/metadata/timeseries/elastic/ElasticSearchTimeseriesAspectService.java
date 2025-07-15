@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -36,6 +37,7 @@ import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -94,6 +96,7 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final IndexConvention indexConvention;
   @Nonnull private final ESIndexBuilder indexBuilder;
+  private final MetricUtils metricUtils;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
@@ -103,7 +106,8 @@ public class ElasticSearchTimeseriesAspectService
       @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull IndexConvention indexConvention,
-      @Nonnull ESIndexBuilder indexBuilder) {
+      @Nonnull ESIndexBuilder indexBuilder,
+      MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
@@ -118,9 +122,15 @@ public class ElasticSearchTimeseriesAspectService
             new ArrayBlockingQueue<>(
                 timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "timeseries", this.queryPool, metricUtils.getRegistry().orElse(null));
+    }
+
     this.entityRegistry = entityRegistry;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.metricUtils = metricUtils;
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
@@ -757,6 +767,100 @@ public class ElasticSearchTimeseriesAspectService
         .events(resultPairs.stream().map(Pair::getFirst).collect(Collectors.toList()))
         .documents(resultPairs.stream().map(Pair::getSecond).collect(Collectors.toList()))
         .build();
+  }
+
+  @Override
+  public Map<Urn, Map<String, Map<String, Object>>> raw(
+      OperationContext opContext, Map<String, Set<String>> urnAspects) {
+
+    if (urnAspects == null || urnAspects.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<Urn, Map<String, Map<String, Object>>> result = new HashMap<>();
+
+    // Process each URN and its timeseries aspects
+    for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
+      String urnString = entry.getKey();
+      Set<String> aspectNames =
+          Optional.ofNullable(entry.getValue()).orElse(Collections.emptySet()).stream()
+              .filter(
+                  aspectName -> {
+                    AspectSpec aspectSpec = entityRegistry.getAspectSpecs().get(aspectName);
+                    return aspectSpec != null && aspectSpec.isTimeseries();
+                  })
+              .collect(Collectors.toSet());
+
+      if (aspectNames.isEmpty()) {
+        continue;
+      }
+
+      try {
+        Urn urn = UrnUtils.getUrn(urnString);
+        String entityName = urn.getEntityType();
+        Map<String, Map<String, Object>> aspectDocuments = new HashMap<>();
+
+        // For each aspect, find the latest document
+        for (String aspectName : aspectNames) {
+          try {
+            // Build query to find the latest document for this URN and aspect
+            BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+            queryBuilder.must(QueryBuilders.termQuery(MappingsBuilder.URN_FIELD, urnString));
+
+            // Build search request
+            SearchRequest searchRequest = new SearchRequest();
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+            searchSourceBuilder.query(queryBuilder);
+            searchSourceBuilder.size(1); // Only need the latest document
+            // Sort by timestamp descending to get the most recent document
+            searchSourceBuilder.sort(
+                SortBuilders.fieldSort(MappingsBuilder.TIMESTAMP_FIELD).order(SortOrder.DESC));
+
+            searchRequest.source(searchSourceBuilder);
+
+            // Get the index name for this entity and aspect
+            String indexName =
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getTimeseriesAspectIndexName(entityName, aspectName);
+            searchRequest.indices(indexName);
+
+            // Execute search
+            SearchResponse searchResponse =
+                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            SearchHits hits = searchResponse.getHits();
+
+            if (hits.getTotalHits() != null
+                && hits.getTotalHits().value > 0
+                && hits.getHits().length > 0) {
+              SearchHit latestHit = hits.getHits()[0];
+              Map<String, Object> sourceMap = latestHit.getSourceAsMap();
+
+              // Store the raw document for this aspect
+              aspectDocuments.put(aspectName, sourceMap);
+            }
+
+          } catch (IOException e) {
+            log.error(
+                "Error fetching latest document for URN: {}, aspect: {}", urnString, aspectName, e);
+            // Continue processing other aspects
+          }
+        }
+
+        // Only add to result if we found documents
+        if (!aspectDocuments.isEmpty()) {
+          result.put(urn, aspectDocuments);
+        }
+
+      } catch (Exception e) {
+        log.error("Error parsing URN {} in raw method: {}", urnString, e.getMessage(), e);
+        // Continue processing other URNs
+      }
+    }
+
+    return result;
   }
 
   private SearchResponse executeScrollSearchQuery(

@@ -124,6 +124,7 @@ const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
             zIndex: 13,
             paddingTop: '5px',
             'transform-origin': '0',
+            width: '100%',
         };
 
     return overlayStyle;

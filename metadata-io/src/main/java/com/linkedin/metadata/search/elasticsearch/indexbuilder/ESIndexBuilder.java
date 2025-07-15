@@ -943,7 +943,9 @@ public class ESIndexBuilder {
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
-    setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
+      setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
+    }
     setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
     // these depend on jvm max heap...
     // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
@@ -985,7 +987,9 @@ public class ESIndexBuilder {
       Map<String, Object> reinfo)
       throws IOException {
     // set the original values
-    setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
+    if (elasticSearchConfiguration.getBuildIndices().isReindexOptimizationEnabled()) {
+      setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
+    }
     setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);
     // reinfo could be emtpy (if reindex was already ongoing...)
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;

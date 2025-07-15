@@ -24,7 +24,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.ingest_utils import deploy_source_vars
-from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +113,7 @@ def ingest() -> None:
         "no_progress",
     ]
 )
+@upgrade.check_upgrade
 def run(
     config: str,
     dry_run: bool,
@@ -178,14 +178,7 @@ def run(
         no_progress=no_progress,
         raw_config=raw_pipeline_config,
     )
-    with PerfTimer() as timer:
-        ret = run_pipeline_to_completion(pipeline)
-
-    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-    if ret == 0:
-        upgrade.check_upgrade_post(
-            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
-        )
+    ret = run_pipeline_to_completion(pipeline)
 
     if ret:
         sys.exit(ret)
@@ -193,8 +186,6 @@ def run(
 
 
 @ingest.command()
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 @click.option(
     "-n",
     "--name",
@@ -252,6 +243,7 @@ def run(
     required=False,
     default=None,
 )
+@upgrade.check_upgrade
 def deploy(
     name: Optional[str],
     config: str,
@@ -386,7 +378,6 @@ def mcps(path: str) -> None:
     "--source", type=str, default=None, help="Filter by ingestion source name."
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
     """
     List ingestion source runs with their details, optionally filtered by URN or source.
@@ -515,7 +506,6 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
@@ -565,7 +555,6 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
@@ -615,7 +604,6 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:

@@ -113,7 +113,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             lineageRegistry,
             _indexConvention,
             graphServiceConfig,
-            esSearchConfig);
+            esSearchConfig,
+            null);
     ESGraphWriteDAO writeDAO =
         new ESGraphWriteDAO(
             _indexConvention, getBulkProcessor(), 1, esSearchConfig.getSearch().getGraph());

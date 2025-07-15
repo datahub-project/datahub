@@ -44,6 +44,13 @@ const meta = {
                 },
             },
         },
+        menu: {
+            description: 'The menu props from Antd',
+        },
+        resetDefaultMenuStyles: {
+            description:
+                'Adds styles to reset the default styles in the menu. It works only with the main dropdown. To reset styles in the child popup set popupClassName to RESET_DROPDOWN_MENU_STYLES_CLASSNAME',
+        },
     },
 
     // Define defaults

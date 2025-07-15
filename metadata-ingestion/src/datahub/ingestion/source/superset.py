@@ -272,7 +272,7 @@ def get_filter_name(filter_obj):
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
@@ -658,6 +658,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         if datasource_id:
             dataset_info = self.get_dataset_info(datasource_id).get("result", {})
             dataset_column_info = dataset_info.get("columns", [])
+            dataset_metric_info = dataset_info.get("metrics", [])
 
             for column in dataset_column_info:
                 col_name = column.get("column_name", "")
@@ -671,6 +672,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                     continue
 
                 dataset_columns.append((col_name, col_type, col_description))
+
+            for metric in dataset_metric_info:
+                metric_name = metric.get("metric_name", "")
+                metric_type = metric.get("metric_type", "")
+                metric_description = metric.get("description", "")
+
+                if metric_name == "" or metric_type == "":
+                    logger.info(f"could not construct metric lineage for {metric}")
+                    continue
+
+                dataset_columns.append((metric_name, metric_type, metric_description))
         else:
             # if no datasource id, cannot build cll, just return
             logger.warning(
@@ -972,19 +984,44 @@ class SupersetSource(StatefulIngestionSourceBase):
             schema_fields.append(field)
         return schema_fields
 
+    def gen_metric_schema_fields(
+        self, metric_data: List[Dict[str, Any]]
+    ) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+        for metric in metric_data:
+            metric_type = metric.get("metric_type", "")
+            data_type = resolve_sql_type(metric_type)
+            if data_type is None:
+                data_type = NullType()
+
+            field = SchemaField(
+                fieldPath=metric.get("metric_name", ""),
+                type=SchemaFieldDataType(data_type),
+                nativeDataType=metric_type or "",
+                description=metric.get("description", ""),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
     def gen_schema_metadata(
         self,
         dataset_response: dict,
     ) -> SchemaMetadata:
         dataset_response = dataset_response.get("result", {})
         column_data = dataset_response.get("columns", [])
+        metric_data = dataset_response.get("metrics", [])
+
+        column_fields = self.gen_schema_fields(column_data)
+        metric_fields = self.gen_metric_schema_fields(metric_data)
+
         schema_metadata = SchemaMetadata(
             schemaName=dataset_response.get("table_name", ""),
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self.gen_schema_fields(column_data),
+            fields=column_fields + metric_fields,
         )
         return schema_metadata
 
@@ -1049,6 +1086,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         # To generate column level lineage, we can manually decode the metadata
         # to produce the ColumnLineageInfo
         columns = dataset_response.get("result", {}).get("columns", [])
+        metrics = dataset_response.get("result", {}).get("metrics", [])
+
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         for column in columns:
@@ -1058,6 +1097,22 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             downstream = [make_schema_field_urn(datasource_urn, column_name)]
             upstreams = [make_schema_field_urn(upstream_dataset, column_name)]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        for metric in metrics:
+            metric_name = metric.get("metric_name", "")
+            if not metric_name:
+                continue
+
+            downstream = [make_schema_field_urn(datasource_urn, metric_name)]
+            upstreams = [make_schema_field_urn(upstream_dataset, metric_name)]
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,

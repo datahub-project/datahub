@@ -507,9 +507,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _execute_sql_query(self, query: str) -> List[List[str]]:
         """Execute SQL query using databricks-sql connector for better performance"""
         try:
-            with connect(
-                **self._sql_connection_params
-            ) as connection, connection.cursor() as cursor:
+            with (
+                connect(**self._sql_connection_params) as connection,
+                connection.cursor() as cursor,
+            ):
                 cursor.execute(query)
                 return cursor.fetchall()
 

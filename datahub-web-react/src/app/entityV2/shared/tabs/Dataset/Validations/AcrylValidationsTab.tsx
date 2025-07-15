@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
 import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';
@@ -67,7 +68,7 @@ export const AcrylValidationsTab = () => {
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        if (!selectedTab) {
+        if (!selectedTab && basePath.endsWith(QUALITY_TAB_NAME)) {
             // Route to the default tab.
             history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }

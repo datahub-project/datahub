@@ -64,6 +64,7 @@ enum FabricType {
    * Alternative Prod spelling
    */
   PRD
+
   /**
    * Alternative Test spelling
    */
@@ -72,7 +73,12 @@ enum FabricType {
   /**
    * System Integration Testing
    */
-   SIT
+  SIT
+
+  /**
+   * Alternative spelling for sandbox
+   */
+  SBX
 
   /**
    * Designates sandbox fabrics
