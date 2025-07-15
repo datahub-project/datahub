@@ -213,21 +213,17 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             <Heading type="h4" size="lg" weight="bold">
                 Ingested Assets
             </Heading>
-            {(loading && (
+            {loading && (
                 <Text color="gray" colorLevel={600}>
                     Loading...
                 </Text>
-            )) || (
-                <>
-                    {(total > 0 && (
-                        <Text color="gray" colorLevel={600}>
-                            The following asset types were ingested during this run.
-                        </Text>
-                    )) || <Text>No assets were ingested.</Text>}
-                </>
             )}
+            {!loading && total === 0 && <Text>No assets were ingested.</Text>}
             {!loading && total > 0 && (
                 <>
+                    <Text color="gray" colorLevel={600}>
+                        The following asset types were ingested during this run.
+                    </Text>
                     <MainContainer>
                         <TotalContainer>
                             <TotalInfo>
