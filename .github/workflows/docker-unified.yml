@@ -107,7 +107,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name != 'pull_request')
+               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -374,7 +374,7 @@ jobs:
           includes=''
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             includes="$python_matrix,$cypress_matrix"
-          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'false' ]]; then
+          elif [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
             includes="$cypress_matrix"
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             includes="$python_matrix"
@@ -539,8 +539,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        #if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
-        if: ${{ matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
@@ -548,8 +547,7 @@ jobs:
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        #if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
-        if: ${{ matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
             ~/.cache/yarn
