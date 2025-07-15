@@ -797,6 +797,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     SearchRequest autocompleteRequest =
@@ -868,6 +870,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Note: textFieldOverride is not in the default autocomplete fields, so it won't be added
@@ -935,6 +939,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextNoHighlight.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextNoHighlight.getSearchContext()).thenReturn(searchContextNoHighlight);
     when(opContextNoHighlight.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextNoHighlight.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContextNoHighlight.getSearchFlags()).thenReturn(searchFlagsNoHighlight);
 
     SearchRequest noHighlightRequest =
@@ -952,6 +958,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextCustomHighlight.getSearchContext()).thenReturn(searchContextCustom);
     when(opContextCustomHighlight.getAspectRetriever())
         .thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextCustomHighlight.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContextCustom.getSearchFlags()).thenReturn(searchFlagsCustom);
 
     SearchRequest customHighlightRequest =
@@ -998,6 +1006,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextWithConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextWithConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextWithConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextWithConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // When a specific field is provided, field configuration should still be applied
@@ -1034,6 +1044,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextNullConfig.getObjectMapper()).thenReturn(mockOpContext.getObjectMapper());
     when(opContextNullConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextNullConfig.getAspectRetriever()).thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextNullConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Should not throw and should use default behavior
@@ -1127,6 +1139,8 @@ public class AutocompleteRequestHandlerTest {
     when(opContextInvalidConfig.getSearchContext()).thenReturn(searchContext);
     when(opContextInvalidConfig.getAspectRetriever())
         .thenReturn(mockOpContext.getAspectRetriever());
+    when(opContextInvalidConfig.getOperationContextConfig())
+        .thenReturn(nonMockOpContext.getOperationContextConfig());
     when(searchContext.getSearchFlags()).thenReturn(searchFlags);
 
     // Should use default fields when configuration label doesn't exist

@@ -126,8 +126,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         lineageGraphV3: false,
         viewIngestionSourcePrivilegesEnabled: false,
         showHomePageRedesign: false,
-        showProductUpdates: false,
-        lineageGraphV3: false,
     },
     chromeExtensionConfig: {
         enabled: false,

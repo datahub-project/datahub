@@ -32,6 +32,6 @@ export default function AppProviders({ children }: Props) {
                     </EntityRegistryProvider>
                 </UserContextProvider>
             </AppConfigProvider>
-        <GlobalSettingsContextProvider>
+        </GlobalSettingsContextProvider>
     );
 }

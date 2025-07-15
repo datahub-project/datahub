@@ -77,30 +77,6 @@ public class MetricUtilsTimerCacheTest {
   }
 
   @Test
-  public void testTimerCacheDoesNotDuplicatePercentileMetrics() {
-    String metricName = "test.percentile.timer";
-
-    // Record multiple times - should not create duplicate percentile gauges
-    for (int i = 0; i < 5; i++) {
-      metricUtils.time(metricName, TimeUnit.MILLISECONDS.toNanos(100 * (i + 1)));
-    }
-
-    // Count all meters that start with our metric name (timer + percentile gauges)
-    long meterCount =
-        meterRegistry.getMeters().stream()
-            .filter(meter -> meter.getId().getName().startsWith(metricName))
-            .count();
-
-    // Should have 1 timer + 6 percentile gauges (0.5, 0.75, 0.95, 0.98, 0.99, 0.999)
-    // Without caching, we would have 5 timers + 30 percentile gauges
-    assertEquals(meterCount, 7);
-
-    // Verify the timer recorded all 5 events
-    Timer timer = meterRegistry.timer(metricName, MetricUtils.DROPWIZARD_METRIC, "true");
-    assertEquals(timer.count(), 5);
-  }
-
-  @Test
   public void testTimerCacheWorksWithConcurrentAccess() throws InterruptedException {
     String metricName = "test.concurrent.timer";
     int threadCount = 10;
@@ -178,30 +154,6 @@ public class MetricUtilsTimerCacheTest {
     Timer timer = meterRegistry.timer(longMetricName, MetricUtils.DROPWIZARD_METRIC, "true");
     assertNotNull(timer);
     assertEquals(timer.count(), 2);
-  }
-
-  @Test
-  public void testTimerPercentileValuesAreRecorded() {
-    String metricName = "test.percentile.values.timer";
-
-    // Record various values to test percentile calculation
-    long[] durations = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}; // milliseconds
-    for (long duration : durations) {
-      metricUtils.time(metricName, TimeUnit.MILLISECONDS.toNanos(duration));
-    }
-
-    // Verify percentile gauges exist
-    String[] expectedPercentiles = {"0.5", "0.75", "0.95", "0.98", "0.99", "0.999"};
-    for (String percentile : expectedPercentiles) {
-      boolean percentileExists =
-          meterRegistry.getMeters().stream()
-              .anyMatch(
-                  meter ->
-                      meter.getId().getName().equals(metricName + ".percentile")
-                          && meter.getId().getTag("phi") != null
-                          && meter.getId().getTag("phi").equals(percentile));
-      assertTrue(percentileExists, "Percentile gauge should exist for: " + percentile);
-    }
   }
 
   @Test

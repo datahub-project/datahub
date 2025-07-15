@@ -5,9 +5,9 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useAppConfig } from '@app/useAppConfig';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
+import { useAppConfig } from '@app/useAppConfig';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
