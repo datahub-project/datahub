@@ -26,9 +26,9 @@ This approach transfers all essential metadata by default, including:
 
 - Data assets (datasets, dashboards, charts, etc.)
 - Users and groups
-- Lineage relationships
-- Documentation and descriptions
-- Ownership information
+- Lineage
+- Descriptions
+- Ownership 
 - Domains and data products
 - Tags and glossary terms
 
