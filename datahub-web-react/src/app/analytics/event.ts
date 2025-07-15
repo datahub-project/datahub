@@ -119,6 +119,7 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    ClickProductUpdate,
 }
 
 /**
@@ -882,6 +883,12 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -985,4 +992,5 @@ export type Event =
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
     | HomePageClickEvent
-    | SearchBarFilterEvent;
+    | SearchBarFilterEvent
+    | ClickProductUpdateEvent;
