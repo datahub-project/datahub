@@ -21,6 +21,13 @@ export interface RemoveModuleInput {
     moduleUrn: string;
     position: ModulePositionInput;
 }
+export interface CreateModuleModalState {
+    isOpen: boolean;
+    moduleType: DataHubPageModuleType | null;
+    position: ModulePositionInput | null;
+    open: (moduleType: DataHubPageModuleType, position: ModulePositionInput) => void;
+    close: () => void;
+}
 
 // Context state shape
 export type PageTemplateContextState = {
@@ -35,4 +42,5 @@ export type PageTemplateContextState = {
     addModule: (input: AddModuleInput) => void;
     createModule: (input: CreateModuleInput) => void;
     removeModule: (input: RemoveModuleInput) => void;
+    createModuleModalState: CreateModuleModalState;
 };

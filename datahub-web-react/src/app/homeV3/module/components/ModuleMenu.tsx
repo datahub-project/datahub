@@ -38,16 +38,9 @@ export default function ModuleMenu({ module, position }: Props) {
                         title: 'Edit',
                         key: 'edit',
                         label: 'Edit',
-                        onClick: () => {
-                            // TODO: Implement edit functionality
-                        },
-                    },
-                    {
-                        title: 'Duplicate',
-                        label: 'Duplicate',
-                        key: 'duplicate',
-                        onClick: () => {
-                            // TODO: Implement duplicate functionality
+                        style: {
+                            color: colors.gray[600],
+                            fontSize: '14px',
                         },
                     },
                     {
@@ -56,6 +49,7 @@ export default function ModuleMenu({ module, position }: Props) {
                         key: 'delete',
                         style: {
                             color: colors.red[500],
+                            fontSize: '14px',
                         },
                         onClick: handleDelete,
                     },

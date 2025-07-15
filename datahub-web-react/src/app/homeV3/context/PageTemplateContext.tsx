@@ -1,5 +1,6 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
+import { useCreateModuleModalState } from '@app/homeV3/context/hooks/useCreateModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
@@ -45,6 +46,8 @@ export const PageTemplateProvider = ({
         upsertTemplate,
     );
 
+    const createModuleModalState = useCreateModuleModalState();
+
     const value = useMemo(
         () => ({
             personalTemplate,
@@ -58,6 +61,7 @@ export const PageTemplateProvider = ({
             addModule,
             removeModule,
             createModule,
+            createModuleModalState,
         }),
         [
             personalTemplate,
@@ -71,6 +75,7 @@ export const PageTemplateProvider = ({
             addModule,
             removeModule,
             createModule,
+            createModuleModalState,
         ],
     );
 
