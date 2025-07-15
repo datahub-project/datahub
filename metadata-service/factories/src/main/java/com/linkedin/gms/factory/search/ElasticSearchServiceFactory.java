@@ -74,6 +74,12 @@ public class ElasticSearchServiceFactory {
         configurationProvider.getSearchService());
   }
 
+  @Bean
+  protected ESWriteDAO esWriteDAO() {
+    return new ESWriteDAO(
+        components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
+  }
+
   @Bean(name = "elasticSearchService")
   @Nonnull
   protected ElasticSearchService getInstance(
@@ -81,7 +87,8 @@ public class ElasticSearchServiceFactory {
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
       final CustomSearchConfiguration customSearchConfiguration,
-      final ESSearchDAO esSearchDAO)
+      final ESSearchDAO esSearchDAO,
+      final ESWriteDAO esWriteDAO)
       throws IOException {
 
     return new ElasticSearchService(
@@ -97,9 +104,6 @@ public class ElasticSearchServiceFactory {
             customSearchConfiguration,
             queryFilterRewriteChain,
             configurationProvider.getSearchService()),
-        new ESWriteDAO(
-            components.getSearchClient(),
-            components.getBulkProcessor(),
-            components.getNumRetries()));
+        esWriteDAO);
   }
 }
