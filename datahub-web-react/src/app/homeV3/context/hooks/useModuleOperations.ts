@@ -406,17 +406,17 @@ export function useModuleOperations(
                 return;
             }
 
-            // Check if target row would exceed 3 modules (excluding the dragged module if it's from the same row)
+            // Check if target row would exceed 3 modules (only when moving between different rows)
             if (templateToUpdate.properties?.rows && toPosition.rowIndex !== undefined) {
                 const targetRow = templateToUpdate.properties.rows[toPosition.rowIndex];
                 if (targetRow) {
                     const currentModuleCount = targetRow.modules?.length || 0;
                     const isDraggedFromSameRow = fromPosition.rowIndex === toPosition.rowIndex;
-                    const effectiveModuleCount = isDraggedFromSameRow ? currentModuleCount : currentModuleCount + 1;
-
-                    if (effectiveModuleCount > 3) {
-                        console.warn('Cannot move module: Row would exceed maximum of 3 modules');
-                        message.warning('Cannot move module: Row already has maximum number of modules');
+                    
+                    // Only enforce the 3-module limit when moving between different rows
+                    if (!isDraggedFromSameRow && currentModuleCount >= 3) {
+                        console.warn('Cannot move module: Target row already has maximum of 3 modules');
+                        message.warning('Cannot move module: Target row already has maximum number of modules');
                         return;
                     }
                 }

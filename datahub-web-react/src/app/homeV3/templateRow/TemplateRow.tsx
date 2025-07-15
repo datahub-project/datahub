@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable, useDndContext } from '@dnd-kit/core';
 
 import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
@@ -82,6 +82,14 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
     const maxModulesPerRow = 3;
     const currentModuleCount = row.modules.length;
     const isRowFull = currentModuleCount >= maxModulesPerRow;
+    
+    // Get the active drag context to determine if we're dragging from the same row
+    const { active } = useDndContext();
+    const activeDragData = active?.data?.current as { position?: ModulePositionInput } | undefined;
+    const isDraggingFromSameRow = activeDragData?.position?.rowIndex === rowIndex;
+    
+    // Only disable drop zones if the row is full AND we're not rearranging within the same row
+    const shouldDisableDropZones = isRowFull && !isDraggingFromSameRow;
 
     return (
         <RowWrapper>
@@ -96,7 +104,7 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
             <ModuleDropZone 
                 rowIndex={rowIndex} 
                 moduleIndex={0} 
-                disabled={isRowFull}
+                disabled={shouldDisableDropZones}
             />
 
             {row.modules.map((module, moduleIndex) => {
@@ -111,11 +119,11 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
                     <React.Fragment key={key}>
                         <Module module={module} position={position} />
                         {/* Drop zone after each module (except the last one if row is full) */}
-                        {(moduleIndex < row.modules.length - 1 || !isRowFull) && (
+                        {(moduleIndex < row.modules.length - 1 || !shouldDisableDropZones) && (
                             <ModuleDropZone 
                                 rowIndex={rowIndex} 
                                 moduleIndex={moduleIndex + 1} 
-                                disabled={isRowFull && moduleIndex < row.modules.length - 1}
+                                disabled={shouldDisableDropZones && moduleIndex < row.modules.length - 1}
                             />
                         )}
                     </React.Fragment>

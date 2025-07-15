@@ -999,6 +999,153 @@ describe('useModuleOperations', () => {
         });
     });
 
+    describe('moveModule with 3-module row constraints', () => {
+        const templateWith3ModulesInFirstRow: PageTemplateFragment = {
+            urn: 'urn:li:pageTemplate:test',
+            type: EntityType.DatahubPageTemplate,
+            properties: {
+                rows: [
+                    {
+                        modules: [
+                            {
+                                urn: 'urn:li:pageModule:1',
+                                type: EntityType.DatahubPageModule,
+                                properties: {
+                                    name: 'Module 1',
+                                    type: DataHubPageModuleType.OwnedAssets,
+                                    visibility: { scope: PageModuleScope.Personal },
+                                    params: {},
+                                },
+                            },
+                            {
+                                urn: 'urn:li:pageModule:2',
+                                type: EntityType.DatahubPageModule,
+                                properties: {
+                                    name: 'Module 2',
+                                    type: DataHubPageModuleType.Domains,
+                                    visibility: { scope: PageModuleScope.Personal },
+                                    params: {},
+                                },
+                            },
+                            {
+                                urn: 'urn:li:pageModule:3',
+                                type: EntityType.DatahubPageModule,
+                                properties: {
+                                    name: 'Module 3',
+                                    type: DataHubPageModuleType.Link,
+                                    visibility: { scope: PageModuleScope.Personal },
+                                    params: {},
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        modules: [
+                            {
+                                urn: 'urn:li:pageModule:4',
+                                type: EntityType.DatahubPageModule,
+                                properties: {
+                                    name: 'Module 4',
+                                    type: DataHubPageModuleType.OwnedAssets,
+                                    visibility: { scope: PageModuleScope.Personal },
+                                    params: {},
+                                },
+                            },
+                        ],
+                    },
+                ],
+                surface: { surfaceType: PageTemplateSurfaceType.HomePage },
+                visibility: { scope: PageTemplateScope.Personal },
+            },
+        };
+
+        beforeEach(() => {
+            vi.clearAllMocks();
+        });
+
+        it('should allow rearranging modules within a row that has 3 modules', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    templateWith3ModulesInFirstRow,
+                    null,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            act(() => {
+                // Move the first module to the third position within the same row
+                result.current.moveModule({
+                    module: templateWith3ModulesInFirstRow.properties.rows[0].modules[0],
+                    fromPosition: { rowIndex: 0, moduleIndex: 0 },
+                    toPosition: { rowIndex: 0, moduleIndex: 2 },
+                });
+            });
+
+            expect(mockUpsertTemplate).toHaveBeenCalled();
+            expect(mockSetPersonalTemplate).toHaveBeenCalled();
+        });
+
+        it('should prevent moving a module from another row to a row with 3 modules', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    templateWith3ModulesInFirstRow,
+                    null,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            act(() => {
+                // Try to move module from row 1 to row 0 (which has 3 modules)
+                result.current.moveModule({
+                    module: templateWith3ModulesInFirstRow.properties.rows[1].modules[0],
+                    fromPosition: { rowIndex: 1, moduleIndex: 0 },
+                    toPosition: { rowIndex: 0, moduleIndex: 3 },
+                });
+            });
+
+            // Should not call upsert template because move was prevented
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+            expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+        });
+
+        it('should allow moving a module from a row with 3 modules to another row', () => {
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    templateWith3ModulesInFirstRow,
+                    null,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                ),
+            );
+
+            act(() => {
+                // Move module from row 0 (which has 3 modules) to row 1
+                result.current.moveModule({
+                    module: templateWith3ModulesInFirstRow.properties.rows[0].modules[0],
+                    fromPosition: { rowIndex: 0, moduleIndex: 0 },
+                    toPosition: { rowIndex: 1, moduleIndex: 1 },
+                });
+            });
+
+            expect(mockUpsertTemplate).toHaveBeenCalled();
+            expect(mockSetPersonalTemplate).toHaveBeenCalled();
+        });
+    });
+
     describe('hook dependencies', () => {
         it('should update addModule when dependencies change', () => {
             const { result, rerender } = renderHook(
