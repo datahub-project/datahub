@@ -16,6 +16,8 @@ import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
+import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -77,6 +79,17 @@ public class SearchTestUtils {
                       });
                 }
               })
+          .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(1).build())
+          .bulkDelete(
+              BulkDeleteConfiguration.builder()
+                  .batchSize(1000)
+                  .slices("auto")
+                  .numRetries(3)
+                  .timeout(30)
+                  .timeoutUnit("MINUTES")
+                  .pollInterval(1)
+                  .pollIntervalUnit("SECONDS")
+                  .build())
           .buildIndices(
               BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
           .build();
