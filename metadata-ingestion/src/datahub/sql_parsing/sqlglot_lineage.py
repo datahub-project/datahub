@@ -1330,7 +1330,9 @@ def _sqlglot_lineage_inner(
         qualified_table = table.qualified(
             dialect=dialect, default_db=default_db, default_schema=default_schema
         )
-        urn, schema_info = schema_resolver.resolve_table(qualified_table, normalize_case=normalize_case)
+        urn, schema_info = schema_resolver.resolve_table(
+            qualified_table, normalize_case=normalize_case
+        )
         table_name_urn_mapping[qualified_table] = urn
         if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
@@ -1547,11 +1549,21 @@ def sqlglot_lineage(
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect, normalize_case=normalize_case
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            normalize_case=normalize_case,
         )
     else:
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect, normalize_case=normalize_case
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            normalize_case=normalize_case,
         )
 
 

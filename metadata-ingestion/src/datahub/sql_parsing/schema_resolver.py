@@ -88,7 +88,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
 
     def get_urn_for_table(
-        self, table: _TableName, lower: bool = False, mixed: bool = False, normalize_case: str = None
+        self,
+        table: _TableName,
+        lower: bool = False,
+        mixed: bool = False,
+        normalize_case: str = None,
     ) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
@@ -98,11 +102,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         platform_instance = self.platform_instance
 
-        if normalize_case == 'upper':
+        if normalize_case == "upper":
             table_name = table_name.upper()
             if platform_instance:
                 platform_instance = platform_instance.upper()
-        elif normalize_case == 'lower':
+        elif normalize_case == "lower":
             table_name = table_name.lower()
             if platform_instance:
                 platform_instance = platform_instance.lower()
@@ -135,7 +139,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         return urn, None
 
-    def resolve_table(self, table: _TableName, normalize_case: str = None) -> Tuple[str, Optional[SchemaInfo]]:
+    def resolve_table(
+        self, table: _TableName, normalize_case: str = None
+    ) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table, normalize_case=normalize_case)
 
         schema_info = self._resolve_schema_info(urn)
