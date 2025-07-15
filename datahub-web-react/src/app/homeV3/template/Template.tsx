@@ -8,6 +8,8 @@ import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { wrapRows } from '@app/homeV3/templateRow/utils';
 
+import { DataHubPageTemplateRow } from '@types';
+
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -25,7 +27,10 @@ interface Props {
 
 export default function Template({ className }: Props) {
     const { template } = usePageTemplateContext();
-    const rows = useMemo(() => template?.properties?.rows ?? [], [template?.properties?.rows]);
+    const rows = useMemo(
+        () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
+        [template?.properties?.rows],
+    );
     const hasRows = useMemo(() => !!rows.length, [rows.length]);
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
 

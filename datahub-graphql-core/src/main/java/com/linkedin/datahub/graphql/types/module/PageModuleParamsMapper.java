@@ -1,15 +1,12 @@
 package com.linkedin.datahub.graphql.types.module;
 
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssetCollectionModuleParams;
-import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LinkModuleParams;
 import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.generated.RichTextModuleParams;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.module.DataHubPageModuleParams;
 import java.util.List;
@@ -57,15 +54,12 @@ public class PageModuleParamsMapper
 
       AssetCollectionModuleParams assetCollectionParams = new AssetCollectionModuleParams();
 
-      UrnArray urnArray = params.getAssetCollectionParams().getAssetUrns();
-      List<Urn> urns = urnArray.stream().collect(Collectors.toList());
-
-      List<Entity> assets =
-          urns.stream()
-              .map(urn -> UrnToEntityMapper.map(context, urn))
+      List<String> assetUrnStrings =
+          params.getAssetCollectionParams().getAssetUrns().stream()
+              .map(Urn::toString)
               .collect(Collectors.toList());
 
-      assetCollectionParams.setAssets(assets);
+      assetCollectionParams.setAssetUrns(assetUrnStrings);
       result.setAssetCollectionParams(assetCollectionParams);
     }
 

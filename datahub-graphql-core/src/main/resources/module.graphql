@@ -251,7 +251,7 @@ type AssetCollectionModuleParams {
   """
   The list of asset urns for the asset collection module
   """
-  assets: [Entity]!
+  assetUrns: [String]!
 }
 
 """
