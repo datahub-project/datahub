@@ -1,13 +1,14 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+import { useDraggable } from '@dnd-kit/core';
 
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
 import { ModuleProps } from '@app/homeV3/module/types';
 
-const ModuleHeader = styled.div`
+const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
     position: relative;
     display: flex;
     flex-direction: column;
@@ -15,11 +16,21 @@ const ModuleHeader = styled.div`
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.md} ${spacing.md} ${spacing.xsm} ${spacing.md};
     border-bottom: ${borders['1px']} ${colors.white};
+    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+    user-select: none;
 
     :hover {
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
     }
+
+    ${({ $isDragging }) =>
+        $isDragging &&
+        `
+        background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+    `}
 `;
 
 const FloatingRightHeaderSection = styled.div`
@@ -64,9 +75,28 @@ export default function LargeModule({
     onClickViewAll,
 }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
+    
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        isDragging,
+    } = useDraggable({
+        id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
+        data: {
+            module,
+            position,
+        },
+    });
+
     return (
         <ModuleContainer $height="316px">
-            <ModuleHeader>
+            <ModuleHeader
+                ref={setNodeRef}
+                {...listeners}
+                {...attributes}
+                $isDragging={isDragging}
+            >
                 <ModuleName text={name} />
                 {/* TODO: implement description for modules CH-548 */}
                 {/* <ModuleDescription text={description} /> */}

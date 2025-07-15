@@ -1,27 +1,88 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useDroppable } from '@dnd-kit/core';
 
 import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import { ModulePositionInput } from '@app/homeV3/template/types';
-
-import { PageTemplateRowFragment } from '@graphql/template.generated';
+import { WrappedRow } from '@app/homeV3/templateRow/types';
+import { spacing } from '@components';
 
 const RowWrapper = styled.div`
     display: flex;
-    gap: 16px;
-    width: 100%;
-    flex: 1;
+    align-items: flex-start;
+    gap: ${spacing.md};
+    position: relative;
+`;
+
+const DropZone = styled.div<{ $isOver?: boolean; $canDrop?: boolean }>`
+    min-width: 8px;
+    height: 316px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    
+    ${({ $isOver, $canDrop }) => {
+        if ($isOver && $canDrop) {
+            return `
+                background-color: rgba(59, 130, 246, 0.1);
+                border: 2px dashed #3b82f6;
+                min-width: 16px;
+            `;
+        }
+        if ($canDrop) {
+            return `
+                background-color: rgba(59, 130, 246, 0.05);
+                border: 1px dashed #3b82f6;
+                opacity: 0.7;
+            `;
+        }
+        return `
+            background-color: transparent;
+            border: 1px solid transparent;
+        `;
+    }}
 `;
 
 interface Props {
-    row: PageTemplateRowFragment;
+    row: WrappedRow;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
 }
 
+interface DropZoneProps {
+    rowIndex: number;
+    moduleIndex?: number;
+    disabled?: boolean;
+}
+
+function ModuleDropZone({ rowIndex, moduleIndex, disabled }: DropZoneProps) {
+    const {
+        isOver,
+        setNodeRef,
+    } = useDroppable({
+        id: `drop-zone-${rowIndex}-${moduleIndex ?? 'end'}`,
+        disabled,
+        data: {
+            rowIndex,
+            moduleIndex,
+        },
+    });
+
+    return (
+        <DropZone
+            ref={setNodeRef}
+            $isOver={isOver}
+            $canDrop={!disabled}
+        />
+    );
+}
+
 export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+    const maxModulesPerRow = 3;
+    const currentModuleCount = row.modules.length;
+    const isRowFull = currentModuleCount >= maxModulesPerRow;
+
     return (
         <RowWrapper>
             <AddModuleButton
@@ -31,6 +92,13 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
                 rowSide="left"
             />
 
+            {/* Drop zone at the beginning of the row */}
+            <ModuleDropZone 
+                rowIndex={rowIndex} 
+                moduleIndex={0} 
+                disabled={isRowFull}
+            />
+
             {row.modules.map((module, moduleIndex) => {
                 const position: ModulePositionInput = {
                     rowIndex,
@@ -38,7 +106,20 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
                     moduleIndex,
                 };
                 const key = `${module.urn}-${moduleIndex}`;
-                return <Module key={key} module={module} position={position} />;
+                
+                return (
+                    <React.Fragment key={key}>
+                        <Module module={module} position={position} />
+                        {/* Drop zone after each module (except the last one if row is full) */}
+                        {(moduleIndex < row.modules.length - 1 || !isRowFull) && (
+                            <ModuleDropZone 
+                                rowIndex={rowIndex} 
+                                moduleIndex={moduleIndex + 1} 
+                                disabled={isRowFull && moduleIndex < row.modules.length - 1}
+                            />
+                        )}
+                    </React.Fragment>
+                );
             })}
 
             <AddModuleButton
