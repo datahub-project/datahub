@@ -769,6 +769,45 @@ public class OpenAPIV3GeneratorTest {
     assertTrue(componentKeys.contains("CrossEntitiesResponse_v3"));
   }
 
+  @Test
+  public void testCrossEntityArraysAreOptional() {
+    String[] schemas = {"CrossEntitiesRequest_v3", "CrossEntitiesPatch_v3"};
+
+    for (String schemaName : schemas) {
+      Schema<?> schema = openAPI.getComponents().getSchemas().get(schemaName);
+      assertNotNull(schema, "Component " + schemaName + " must exist");
+
+      // 1)  No property except urn is required (required list null or empty)
+      assertTrue(
+          schema.getRequired() == null || schema.getRequired().isEmpty(),
+          schemaName + " must not require any entity arrays");
+
+      // 2)  Every property value is oneOf( array , null )
+      schema
+          .getProperties()
+          .forEach(
+              (propName, propSchema) -> {
+                // Property schema should have no direct $ref and be wrapped in oneOf
+                assertNull(
+                    propSchema.get$ref(),
+                    schemaName + "." + propName + " must not have direct $ref");
+                assertNotNull(
+                    propSchema.getOneOf(),
+                    schemaName + "." + propName + " must be defined with oneOf");
+
+                List<Schema<?>> oneOf = propSchema.getOneOf();
+                assertEquals(oneOf.size(), 2, "oneOf must contain exactly two alternatives");
+
+                boolean hasArray = oneOf.stream().anyMatch(s -> "array".equals(s.getType()));
+                boolean hasNull = oneOf.stream().anyMatch(s -> "null".equals(s.getType()));
+
+                assertTrue(
+                    hasArray, schemaName + "." + propName + " oneOf must include array type");
+                assertTrue(hasNull, schemaName + "." + propName + " oneOf must include null type");
+              });
+    }
+  }
+
   private JsonSchema loadOpenAPI31Schema(JsonSchemaFactory schemaFactory) throws Exception {
     URL schemaUrl = new URL("https://spec.openapis.org/oas/3.1/schema/2022-10-07");
     return schemaFactory.getSchema(schemaUrl.openStream());
