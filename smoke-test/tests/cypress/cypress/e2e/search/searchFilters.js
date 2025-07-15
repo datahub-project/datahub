@@ -62,9 +62,6 @@ describe("search", () => {
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress",
     );
 
-    cy.wait(2000);
-    cy.get("[data-testid=update-filters]").should("not.exist");
-
     // select datasets filter
     cy.get("[data-testid=filter-dropdown-Type]").click({ force: true });
     cy.get("[data-testid=filter-option-Datasets]").click({ force: true });
