@@ -103,6 +103,7 @@ query appConfig {
             showIngestionPageRedesign
             showLineageExpandMore
             showHomePageRedesign
+            showProductUpdates
             lineageGraphV3
         }
         chromeExtensionConfig {
