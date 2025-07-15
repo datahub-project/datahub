@@ -47,6 +47,8 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageModuleService;
+import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
@@ -113,6 +115,8 @@ public class GmsGraphQLEngineArgs {
   EntityVersioningService entityVersioningService;
   StsClient stsClient;
   ApplicationService applicationService;
+  PageTemplateService pageTemplateService;
+  PageModuleService pageModuleService;
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
 

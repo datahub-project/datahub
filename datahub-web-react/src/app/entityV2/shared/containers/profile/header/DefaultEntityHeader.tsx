@@ -90,7 +90,6 @@ export const TopButtonsWrapper = styled.div`
     justify-content: flex-end;
     gap: 8px;
     max-width: 100%;
-    width: 100%;
 `;
 
 const HeaderIconsWrapper = styled.span`

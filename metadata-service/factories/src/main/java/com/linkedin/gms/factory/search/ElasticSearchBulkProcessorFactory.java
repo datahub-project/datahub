@@ -57,7 +57,6 @@ public class ElasticSearchBulkProcessorFactory {
             .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
             .build();
 
-    // You might want to add a shutdown hook for additional safety
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread(

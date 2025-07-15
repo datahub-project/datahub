@@ -127,14 +127,20 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} />;
             },
-            width: '20%',
+            width: '25%',
             sorter: true,
         },
         {
             title: 'Schedule',
             key: 'schedule',
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
-            width: '15%',
+            width: '20%',
+        },
+        {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '20%',
         },
         ...(isPoolsDisplayEnabled
             ? [
@@ -172,7 +178,7 @@ function IngestionSourceTable({
             render: (record) => (
                 <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
             ),
-            width: '15%',
+            width: '20%',
         },
         {
             title: 'Status',
@@ -184,7 +190,7 @@ function IngestionSourceTable({
                     dataTestId="ingestion-source-table-status"
                 />
             ),
-            width: '10%',
+            width: '15%',
         },
 
         {

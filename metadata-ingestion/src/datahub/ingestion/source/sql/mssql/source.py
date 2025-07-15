@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -177,10 +178,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
 )
 class SQLServerSource(SQLAlchemySource):
     """

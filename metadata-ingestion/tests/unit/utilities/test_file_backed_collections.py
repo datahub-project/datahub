@@ -33,9 +33,12 @@ def test_set_use_sqlite_on_conflict():
         )
         assert cache._use_sqlite_on_conflict is False
 
-    with patch("sqlite3.sqlite_version_info", (3, 23, 1)), patch(
-        "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
-        True,
+    with (
+        patch("sqlite3.sqlite_version_info", (3, 23, 1)),
+        patch(
+            "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
+            True,
+        ),
     ):
         cache = FileBackedDict[int](
             tablename="cache",

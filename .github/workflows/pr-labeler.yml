@@ -59,7 +59,8 @@ jobs:
           "anthonyburdi",
           "esteban",
           "anthonyburdi",
-          "ligfx"
+          "ligfx",
+          "ksrinath"
           ]'),
           github.actor
           )

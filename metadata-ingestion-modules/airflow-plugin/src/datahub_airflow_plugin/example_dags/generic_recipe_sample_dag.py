@@ -41,7 +41,6 @@ with DAG(
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
     catchup=False,
-    default_view="tree",
 ) as dag:
     ingest_task = PythonOperator(
         task_id="ingest_using_recipe",

@@ -665,7 +665,6 @@ mypy-boto3-bedrock-runtime==1.38.4
 mypy-extensions==1.0.0
     # via
     #   -r requirements.txt
-    #   acryl-datahub-actions
     #   mypy
     #   reactpy
     #   typing-inspect

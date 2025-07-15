@@ -24,7 +24,8 @@ _self_pin = (
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # We require Airflow 2.7.x at minimum, to be comatible with the native Airflow Openlineage provider.
+    "pydantic>=2.4.0",
+    # We require Airflow 2.7.x at minimum, to be compatible with the native Airflow Openlineage provider.
     "apache-airflow>=2.7.0,<3",
 }
 
@@ -38,7 +39,6 @@ plugins: Dict[str, Set[str]] = {
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
-    "plugin-v1": set(),
     "plugin-v2": {
         f"acryl-datahub[sql-parser]{_self_pin}",
         # We remain restrictive on the versions allowed here to prevent
@@ -74,9 +74,6 @@ dev_requirements = {
     "coverage>=5.1",
     "mypy==1.14.1",
     "ruff==0.11.7",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10.16",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "tox",
@@ -94,7 +91,7 @@ integration_test_requirements = {
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
-    "apache-airflow[snowflake,amazon]>=2.0.2",
+    "apache-airflow[snowflake,amazon,google]>=2.0.2",
     # A collection of issues we've encountered:
     # - Connexion's new version breaks Airflow:
     #   See https://github.com/apache/airflow/issues/35234.
@@ -105,15 +102,6 @@ integration_test_requirements = {
     "snowflake-connector-python>=2.7.10",
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
-}
-per_version_test_requirements = {
-    "test-airflow25": {
-        "pendulum<3.0",
-        "Flask-Session<0.6.0",
-        "connexion<3.0",
-        "marshmallow<3.24.0",
-        "apache-airflow-providers-amazon==7.3.0",
-    },
 }
 
 
@@ -133,7 +121,7 @@ setuptools.setup(
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
-    license="Apache License 2.0",
+    license="Apache-2.0",
     description="Datahub Airflow plugin to capture executions and send to Datahub",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -145,8 +133,6 @@ setuptools.setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",
@@ -155,7 +141,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_data={
         "datahub_airflow_plugin": ["py.typed"],
     },
@@ -169,9 +155,5 @@ setuptools.setup(
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
-        **{
-            plugin: list(dependencies)
-            for plugin, dependencies in per_version_test_requirements.items()
-        },
     },
 )

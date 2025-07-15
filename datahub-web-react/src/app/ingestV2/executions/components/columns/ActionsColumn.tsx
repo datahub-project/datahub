@@ -14,7 +14,6 @@ interface ActionsColumnProps {
 
 export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, handleCancel }: ActionsColumnProps) {
     const canCancelExecution = record.privileges?.canExecute;
-
     const items = [
         {
             key: '0',

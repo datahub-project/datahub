@@ -166,7 +166,6 @@ class PathSpec(ConfigModel):
         return False
 
     def allowed(self, path: str, ignore_ext: bool = False) -> bool:
-        logger.debug(f"Checking file to inclusion: {path}")
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return False
 
@@ -174,19 +173,17 @@ class PathSpec(ConfigModel):
             self.glob_include, flags=pathlib.GLOBSTAR
         ):
             return False
-        logger.debug(f"{path} matched include ")
+
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
                     exclude_path, flags=pathlib.GLOBSTAR
                 ):
                     return False
-        logger.debug(f"{path} is not excluded")
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
             return False
-        logger.debug(f"{path} is passed table name check")
 
         ext = os.path.splitext(path)[1].strip(".")
 
@@ -196,8 +193,6 @@ class PathSpec(ConfigModel):
             ):
                 return False
 
-            logger.debug(f"{path} had selected extension {ext}")
-            logger.debug(f"{path} allowed for dataset creation")
         return True
 
     def dir_allowed(self, path: str) -> bool:
@@ -219,10 +214,8 @@ class PathSpec(ConfigModel):
         for _ in range(slash_to_remove_from_glob):
             glob_include = glob_include.rsplit("/", 1)[0]
 
-        logger.debug(f"Checking dir to inclusion: {path}")
         if not pathlib.PurePath(path).globmatch(glob_include, flags=pathlib.GLOBSTAR):
             return False
-        logger.debug(f"{path} matched include ")
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path.rstrip("/")).globmatch(
@@ -236,7 +229,7 @@ class PathSpec(ConfigModel):
         )
         if not self.tables_filter_pattern.allowed(table_name):
             return False
-        logger.debug(f"{path} is passed table name check")
+        # logger.debug(f"{path} is passed table name check")
 
         return True
 
@@ -246,10 +239,10 @@ class PathSpec(ConfigModel):
         if parsable_include.endswith("/{table}/**"):
             # Remove the last two characters to make it parsable if it ends with {table}/** which marks autodetect partition
             parsable_include = parsable_include[:-2]
-        else:
-            # Replace all * with {folder[i]} to make it parsable
-            for i in range(parsable_include.count("*")):
-                parsable_include = parsable_include.replace("*", f"{{folder[{i}]}}", 1)
+
+        # Replace all * with {folder[i]} to make it parsable
+        for i in range(parsable_include.count("*")):
+            parsable_include = parsable_include.replace("*", f"{{folder[{i}]}}", 1)
         return parsable_include
 
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
@@ -330,8 +323,6 @@ class PathSpec(ConfigModel):
             if "{table}" in values["include"]:
                 v = "{table}"
         else:
-            logger.debug(f"include fields: {compiled_include.named_fields}")
-            logger.debug(f"table_name fields: {parse.compile(v).named_fields}")
             if not all(
                 x in compiled_include.named_fields
                 for x in parse.compile(v).named_fields
@@ -356,9 +347,7 @@ class PathSpec(ConfigModel):
     @cached_property
     def compiled_include(self):
         parsable_include = PathSpec.get_parsable_include(self.include)
-        logger.debug(f"parsable_include: {parsable_include}")
         compiled_include = parse.compile(parsable_include)
-        logger.debug(f"Setting compiled_include: {compiled_include}")
         return compiled_include
 
     @cached_property
@@ -366,9 +355,8 @@ class PathSpec(ConfigModel):
         parsable_folder_include = PathSpec.get_parsable_include(self.include).rsplit(
             "/", 1
         )[0]
-        logger.debug(f"parsable_folder_include: {parsable_folder_include}")
         compiled_folder_include = parse.compile(parsable_folder_include)
-        logger.debug(f"Setting compiled_folder_include: {compiled_folder_include}")
+
         return compiled_folder_include
 
     @cached_property
@@ -376,7 +364,8 @@ class PathSpec(ConfigModel):
         # Regular expression to find all substrings enclosed in {}
         pattern = r"\{(.*?)\}"
         # Find all matches
-        matches = re.findall(pattern, self.include.split("{table}/")[1])
+        split_parts = self.include.split("{table}/")
+        matches = re.findall(pattern, split_parts[1]) if len(split_parts) > 1 else []
         return matches
 
     def get_partition_from_path(self, path: str) -> Optional[List[Tuple[str, str]]]:
@@ -563,7 +552,7 @@ class PathSpec(ConfigModel):
                         f"{{{template_key}}}", var[key]
                     )
             else:
-                partition_format.replace(f"{{{var_key}}}", var)
+                partition_format = partition_format.replace(f"{{{var_key}}}", var)
         return datetime.datetime.strptime(partition_format, datetime_format).replace(
             tzinfo=datetime.timezone.utc
         )

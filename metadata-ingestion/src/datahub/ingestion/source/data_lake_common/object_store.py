@@ -519,6 +519,13 @@ class ObjectStoreSourceAdapter:
                 "get_external_url",
                 lambda table_data: self.get_gcs_external_url(table_data),
             )
+            # Fix URI mismatch issue in pattern matching
+            self.register_customization(
+                "_normalize_uri_for_pattern_matching",
+                self._normalize_gcs_uri_for_pattern_matching,
+            )
+            # Fix URI handling in schema extraction - override strip_s3_prefix for GCS
+            self.register_customization("strip_s3_prefix", self._strip_gcs_prefix)
         elif platform == "s3":
             self.register_customization("is_s3_platform", lambda: True)
             self.register_customization("create_s3_path", self.create_s3_path)
@@ -611,6 +618,39 @@ class ObjectStoreSourceAdapter:
         elif self.platform == "abs":
             return self.get_abs_external_url(table_data)
         return None
+
+    def _normalize_gcs_uri_for_pattern_matching(self, uri: str) -> str:
+        """
+        Normalize GCS URI for pattern matching.
+
+        This method converts gs:// URIs to s3:// URIs for pattern matching purposes,
+        fixing the URI mismatch issue in GCS ingestion.
+
+        Args:
+            uri: The URI to normalize
+
+        Returns:
+            The normalized URI for pattern matching
+        """
+        if uri.startswith("gs://"):
+            return uri.replace("gs://", "s3://", 1)
+        return uri
+
+    def _strip_gcs_prefix(self, uri: str) -> str:
+        """
+        Strip GCS prefix from URI.
+
+        This method removes the gs:// prefix from GCS URIs for path processing.
+
+        Args:
+            uri: The URI to strip the prefix from
+
+        Returns:
+            The URI without the gs:// prefix
+        """
+        if uri.startswith("gs://"):
+            return uri[5:]  # Remove "gs://" prefix
+        return uri
 
 
 # Factory function to create an adapter for a specific platform

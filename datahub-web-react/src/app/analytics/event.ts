@@ -171,6 +171,7 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    ClickProductUpdate,
     NavBarExpandCollapse,
     NavBarItemClick,
     FormByEntityNavigate,
@@ -186,7 +187,6 @@ export enum EventType {
     GiveAnomalyFeedback,
     UndoAnomalyFeedback,
     RetrainAsNewNormal,
-    ClickProductUpdate,
     CreateActionEvent,
     UpdateActionEvent,
     DeleteActionEvent,
@@ -1550,6 +1550,7 @@ export type Event =
     | ShowAllVersionsEvent
     | HomePageClickEvent
     | SearchBarFilterEvent
+    | ClickProductUpdateEvent
     | NavBarExpandCollapseEvent
     | NavBarItemClickEvent
     | FormByEntityNavigateEvent
@@ -1565,7 +1566,6 @@ export type Event =
     | GiveAnomalyFeedbackEvent
     | UndoAnomalyFeedbackEvent
     | RetrainAsNewNormalEvent
-    | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent
     | DeleteActionEvent

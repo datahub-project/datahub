@@ -44,6 +44,7 @@ public class FeatureFlags {
   private boolean showLineageExpandMore = true;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
+  private boolean showProductUpdates = false;
   private boolean viewIngestionSourcePrivilegesEnabled = false;
 
   /* SaaS Only */
@@ -73,6 +74,5 @@ public class FeatureFlags {
   private boolean onlineSmartAssertionsEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean showCreatedAtFilter = false;
-  private boolean showProductUpdates = false;
   private boolean formsNotificationsEnabled = false;
 }

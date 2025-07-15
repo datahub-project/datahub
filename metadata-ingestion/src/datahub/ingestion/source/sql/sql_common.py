@@ -54,6 +54,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -291,6 +292,10 @@ class ProfileMetadata:
     SourceCapability.CONTAINERS,
     "Enabled by default",
     supported=True,
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
 )
 @capability(
     SourceCapability.DESCRIPTIONS,
@@ -305,10 +310,12 @@ class ProfileMetadata:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for views via `include_view_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for views via `include_view_column_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -586,6 +593,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         # Generate workunit for aggregated SQL parsing results
+        yield from self._generate_aggregator_workunits()
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
 

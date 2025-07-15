@@ -11,7 +11,7 @@ import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shar
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
 import { ACRYL_PLATFORM, ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatformInstance, EntityType, SyncMechanism } from '@types';
@@ -68,7 +68,7 @@ const StatusSection = () => {
 
     const lastIngested = entityData?.lastIngested;
     const platform = entityData?.siblingPlatforms?.[0] || entityData?.platform;
-    const rootSiblingPlatformName = getPlatformName(entityData);
+    const rootSiblingPlatformName = getPlatformNameFromEntityData(entityData);
     const baseEntityPlatformName = entityData?.platform
         ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)
         : null;

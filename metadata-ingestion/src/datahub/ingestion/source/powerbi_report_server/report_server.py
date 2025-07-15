@@ -52,7 +52,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -243,20 +242,14 @@ class Mapper:
 
     @staticmethod
     def new_mcp(
-        entity_type,
         entity_urn,
-        aspect_name,
         aspect,
-        change_type=ChangeTypeClass.UPSERT,
     ):
         """
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
-            changeType=change_type,
             entityUrn=entity_urn,
-            aspectName=aspect_name,
             aspect=aspect,
         )
 
@@ -343,17 +336,13 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -365,9 +354,7 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
 
@@ -378,9 +365,7 @@ class Mapper:
         ownership = OwnershipClass(owners=owners)
         # Dashboard owner MCP
         owner_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.OWNERSHIP,
             aspect=ownership,
         )
 
@@ -396,9 +381,7 @@ class Mapper:
             ]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
@@ -429,27 +412,21 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_INFO,
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
             user_mcps.append(status_mcp)
             user_key = CorpUserKeyClass(username=user.username)
 
             user_key_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_KEY,
                 aspect=user_key,
             )
             user_mcps.append(user_key_mcp)

@@ -28,9 +28,26 @@ const StyledTabsPrimary = styled(AntTabs)<{
         color: ${colors.gray[600]};
     }
 
-    .ant-tabs-tab + .ant-tabs-tab {
-        margin-left: 16px;
-    }
+    ${({ $addPaddingLeft }) =>
+        $addPaddingLeft
+            ? `
+            .ant-tabs-tab {
+                margin-left: 16px;
+            }
+            `
+            : `
+            .ant-tabs-tab + .ant-tabs-tab {
+                margin-left: 16px;
+            }
+        `}
+
+    ${({ $hideTabsHeader }) =>
+        $hideTabsHeader &&
+        `
+            .ant-tabs-nav {
+                display: none;
+            }
+        `}
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.styles['primary-color']};
@@ -111,16 +128,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
     }
 `;
 
-const TabViewWrapper = styled.div`
+const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
 `;
 
 function TabView({ tab }: { tab: Tab }) {
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper id={tab.id}>
+            <TabViewWrapper id={tab.id} $disabled={tab.disabled} data-testid={tab.dataTestId}>
                 {tab.name}
                 {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
             </TabViewWrapper>
@@ -136,6 +154,8 @@ export interface Tab {
     onSelectTab?: () => void;
     tooltip?: string;
     id?: string;
+    dataTestId?: string;
+    disabled?: boolean;
 }
 
 export interface Props {
@@ -146,6 +166,8 @@ export interface Props {
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
     getCurrentUrl?: () => string;
+    addPaddingLeft?: boolean;
+    hideTabsHeader?: boolean;
     secondary?: boolean;
     styleOptions?: {
         containerHeight?: 'full' | 'auto';
@@ -162,6 +184,8 @@ export function Tabs({
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
+    addPaddingLeft,
+    hideTabsHeader,
     secondary,
     styleOptions,
 }: Props) {
@@ -209,13 +233,15 @@ export function Tabs({
         <StyledTabs
             activeKey={selectedTab}
             onChange={handleTabClick}
+            $addPaddingLeft={addPaddingLeft}
+            $hideTabsHeader={!!hideTabsHeader}
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}
         >
             {tabs.map((tab) => {
                 return (
-                    <TabPane tab={<TabView tab={tab} />} key={tab.key}>
+                    <TabPane tab={<TabView tab={tab} />} key={tab.key} disabled={tab.disabled}>
                         {tab.component}
                     </TabPane>
                 );

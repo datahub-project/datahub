@@ -9,7 +9,6 @@ from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationC
 from datahub.cli.specific.file_loader import load_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ def user() -> None:
     help="Use this flag to overwrite the information that is set via the UI",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path, override_editable: bool) -> None:
     """Create or Update a User in DataHub"""
 

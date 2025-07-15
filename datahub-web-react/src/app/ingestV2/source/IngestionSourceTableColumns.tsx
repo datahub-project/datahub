@@ -262,6 +262,19 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
+    if (record.execCount)
+        items.push({
+            key: '3',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigateToRunHistory(record);
+                    }}
+                >
+                    View Run History
+                </MenuItem>
+            ),
+        });
     if (navigator.clipboard)
         items.push({
             key: '3',

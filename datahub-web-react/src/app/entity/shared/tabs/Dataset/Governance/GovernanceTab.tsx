@@ -10,6 +10,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AcrylTestResults } from '@app/entity/shared/tabs/Dataset/Governance/AcrylTestResults';
 import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { GOVERNANCE_TAB_NAME } from '@app/entityV2/dataset/constants';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -43,7 +44,7 @@ export const GovernanceTab = () => {
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        if (!selectedTab) {
+        if (!selectedTab && basePath.endsWith(GOVERNANCE_TAB_NAME)) {
             // Route to the default tab.
             history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }

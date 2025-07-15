@@ -4,7 +4,7 @@ requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py39"
 exclude = [
     ".git",
     "venv",

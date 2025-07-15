@@ -226,6 +226,7 @@ visualConfig:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
   application:
+    # DEPRECATED: This is now controlled via the UI settings.
     showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
@@ -344,6 +345,8 @@ elasticsearch:
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config_acryl.yaml} # update for Saas
+      searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
+      autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
@@ -1030,7 +1033,7 @@ graphQL:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
     enabled: ${GRAPHQL_METRICS_ENABLED:true}
-    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.95,0.99,0.9995}
+    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.75,0.95,0.98,0.99,0.999} # set to legacy percentiles by default
 
     # Enable field-level resolver metrics collection
     # When true, timing metrics are collected for individual GraphQL field resolvers

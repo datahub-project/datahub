@@ -10,6 +10,7 @@ export type ProductUpdate = {
     ctaLink: string;
 };
 
+// NOTE: This is a place that OSS and Cloud diverge.
 /* Important: Change this section to adjust the system announcement shown in the bottom left corner of the product! */
 // TODO: Migrate this to be served via an aspect!
 export const latestUpdate: ProductUpdate = {

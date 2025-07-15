@@ -37,7 +37,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.65.7'
   ext.mavenVersion = '3.6.3'
-  ext.versionGradle = '8.11.1'
+  ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.5'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.6'
@@ -122,7 +122,6 @@ project.ext.externalDependency = [
     'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
     'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
     'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
-    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -148,8 +147,8 @@ project.ext.externalDependency = [
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
-    'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
-    'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
+    'datastaxOssCore': 'org.apache.cassandra:java-driver-core:4.19.0',
+    'datastaxOssQueryBuilder': 'org.apache.cassandra:java-driver-query-builder:4.19.0',
     'micrometerPrometheus': "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
     'micrometerJmx': "io.micrometer:micrometer-registry-jmx:$micrometerVersion",
     'micrometerObserve': "io.micrometer:micrometer-observation:$micrometerVersion",
@@ -262,7 +261,7 @@ project.ext.externalDependency = [
     'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
     'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.1.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.7',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
@@ -416,6 +415,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "javax.mail", module: "mail"
     exclude group: 'org.glassfish', module: 'javax.json'
     exclude group: 'org.glassfish', module: 'jakarta.json'
+exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
+    exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
 
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -424,6 +425,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
+    resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
@@ -600,6 +602,7 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
+  distributionSha256Sum = 'ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c'
 }
 
 tasks.register('format') {

@@ -63,14 +63,17 @@ def test_consumer_init_with_consumer_id_loads_offsets(mock_graph: DataHubGraph) 
     mock_store.load_offset_id.return_value = "loaded-offset"
 
     # Patch the store's constructor so it returns our mock_store
-    with patch.object(
-        target=DataHubEventsConsumerPlatformResourceOffsetsStore,
-        attribute="__init__",
-        return_value=None,
-    ), patch.object(
-        DataHubEventsConsumerPlatformResourceOffsetsStore,
-        "load_offset_id",
-        new=mock_store.load_offset_id,
+    with (
+        patch.object(
+            target=DataHubEventsConsumerPlatformResourceOffsetsStore,
+            attribute="__init__",
+            return_value=None,
+        ),
+        patch.object(
+            DataHubEventsConsumerPlatformResourceOffsetsStore,
+            "load_offset_id",
+            new=mock_store.load_offset_id,
+        ),
     ):
         # Construct the consumer
         consumer = DataHubEventsConsumer(

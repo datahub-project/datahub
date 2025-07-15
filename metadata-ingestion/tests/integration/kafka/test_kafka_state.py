@@ -130,12 +130,13 @@ def test_kafka_ingest_with_stateful(
         }
 
         # topics will be automatically created and deleted upon test completion
-        with KafkaTopicsCxtManager(
-            topic_names, KAFKA_BOOTSTRAP_SERVER
-        ) as kafka_ctx, patch(
-            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-            mock_datahub_graph,
-        ) as mock_checkpoint:
+        with (
+            KafkaTopicsCxtManager(topic_names, KAFKA_BOOTSTRAP_SERVER) as kafka_ctx,
+            patch(
+                "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+                mock_datahub_graph,
+            ) as mock_checkpoint,
+        ):
             # both checkpoint and reporting will use the same mocked graph instance
             mock_checkpoint.return_value = mock_datahub_graph
 

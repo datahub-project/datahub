@@ -78,7 +78,7 @@ GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DAT
 
 ## Propagating for Existing Assets
 
-You can back-fill historical data for existing assets to ensure that all existing column and table Tags and Glossary Terms are propagated to Snowflake.
+You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms are propagated to Snowflake.
 Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
 
 To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
@@ -93,8 +93,14 @@ and then click "Initialize".
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating
-descriptions going forward, you can skip this step.
+This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
+terms going forward, you can skip this step.
+
+:::info
+
+The back-filling of tags will be available in a future release.
+
+:::
 
 ## Viewing Propagated Tags
 
