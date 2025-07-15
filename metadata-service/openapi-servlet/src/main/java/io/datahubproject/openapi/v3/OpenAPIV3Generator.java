@@ -1465,7 +1465,7 @@ public class OpenAPIV3Generator {
 
     return newSchema()
         .type(TYPE_OBJECT)
-        .description(toUpperFirst(entity.getName()) + "object.")
+        .description(toUpperFirst(entity.getName()) + " object.")
         .required(List.of(PROPERTY_URN))
         .properties(properties);
   }
