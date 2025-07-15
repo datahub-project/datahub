@@ -192,18 +192,36 @@ public class OpenAPIV3GeneratorTest {
 
   @Test
   public void testBatchProperties() {
-    Map<String, Schema> batchProperties =
+    Map<String, Schema> batchProps =
         openAPI
             .getComponents()
             .getSchemas()
             .get("BatchGetContainerEntityRequest_v3")
             .getProperties();
-    batchProperties.entrySet().stream()
-        .filter(entry -> !entry.getKey().equals("urn"))
+
+    batchProps.entrySet().stream()
+        .filter(e -> !e.getKey().equals("urn"))
         .forEach(
-            entry ->
-                assertEquals(
-                    "#/components/schemas/BatchGetRequestBody", entry.getValue().get$ref()));
+            e -> {
+              Schema<?> prop = e.getValue();
+
+              // must be wrapped in oneOf
+              assertNull(prop.get$ref());
+              assertNotNull(prop.getOneOf());
+              assertEquals(prop.getOneOf().size(), 2);
+
+              boolean hasRef =
+                  prop.getOneOf().stream()
+                      .anyMatch(
+                          s ->
+                              "#/components/schemas/BatchGetRequestBody"
+                                  .equals(((Schema<?>) s).get$ref()));
+              boolean hasNull =
+                  prop.getOneOf().stream().anyMatch(s -> "null".equals(((Schema<?>) s).getType()));
+
+              assertTrue(hasRef, "oneOf must contain BatchGetRequestBody ref");
+              assertTrue(hasNull, "oneOf must contain null type");
+            });
   }
 
   @Test
@@ -232,10 +250,16 @@ public class OpenAPIV3GeneratorTest {
     assertNull(created.getType());
     assertNull(created.getTypes());
     assertNull(created.get$ref());
-    assertEquals(
-        new HashSet<>(created.getOneOf()),
-        Set.of(new Schema().$ref("#/components/schemas/TimeStamp"), new Schema<>().type("null")));
-    assertNull(created.getNullable());
+    assertEquals(created.getOneOf().size(), 2);
+
+    assertTrue(
+        created.getOneOf().stream()
+            .anyMatch(s -> "#/components/schemas/TimeStamp".equals(((Schema<?>) s).get$ref())));
+    assertTrue(
+        created.getOneOf().stream()
+            .anyMatch(
+                s ->
+                    ((Schema<?>) s).get$ref() == null && "null".equals(((Schema<?>) s).getType())));
 
     // Assert systemMetadata property on response schema is optional per v3.1.0
     Map<String, Schema> datasetPropertiesResponseSchemaProps =
@@ -244,10 +268,23 @@ public class OpenAPIV3GeneratorTest {
             .getSchemas()
             .get("DatasetPropertiesAspectResponse_v3")
             .getProperties();
-    Schema systemMetadata = datasetPropertiesResponseSchemaProps.get("systemMetadata");
-    assertEquals(systemMetadata.getTypes(), Set.of("object", "null"));
-    assertEquals(systemMetadata.get$ref(), "#/components/schemas/SystemMetadata");
-    assertNull(systemMetadata.getNullable());
+    Schema systemMetadataProperty = datasetPropertiesResponseSchemaProps.get("systemMetadata");
+    assertNotNull(systemMetadataProperty);
+
+    assertNull(systemMetadataProperty.get$ref());
+    assertEquals(systemMetadataProperty.getTypes(), Set.of("object", "null"));
+    assertNotNull(systemMetadataProperty.getOneOf());
+    assertEquals(systemMetadataProperty.getOneOf().size(), 2);
+
+    boolean hasSysMetaRef =
+        systemMetadataProperty.getOneOf().stream()
+            .anyMatch(s -> "#/components/schemas/SystemMetadata".equals(((Schema<?>) s).get$ref()));
+    boolean hasNullAlt =
+        systemMetadataProperty.getOneOf().stream()
+            .anyMatch(s -> "null".equals(((Schema<?>) s).getType()));
+
+    assertTrue(hasSysMetaRef, "systemMetadata oneOf must contain SystemMetadata ref");
+    assertTrue(hasNullAlt, "systemMetadata oneOf must contain null type");
   }
 
   @Test
@@ -592,20 +629,22 @@ public class OpenAPIV3GeneratorTest {
 
     // Verify 'systemMetadata' property
     Schema systemMetadataProperty = properties.get("systemMetadata");
-    assertNotNull(
-        systemMetadataProperty, "AspectPatchProperty should have 'systemMetadata' property");
-    assertEquals(
-        systemMetadataProperty.get$ref(),
-        "#/components/schemas/SystemMetadata",
-        "SystemMetadata property should reference SystemMetadata schema");
-    assertEquals(
-        systemMetadataProperty.getTypes(),
-        Set.of("object", "null"),
-        "SystemMetadata property should allow object and null types");
-    assertEquals(
-        systemMetadataProperty.getDescription(),
-        "System metadata for the aspect.",
-        "SystemMetadata property should have correct description");
+    assertNotNull(systemMetadataProperty);
+
+    assertNull(systemMetadataProperty.get$ref());
+    assertEquals(systemMetadataProperty.getTypes(), Set.of("object", "null"));
+    assertNotNull(systemMetadataProperty.getOneOf());
+    assertEquals(systemMetadataProperty.getOneOf().size(), 2);
+
+    boolean hasSysMetaRef =
+        systemMetadataProperty.getOneOf().stream()
+            .anyMatch(s -> "#/components/schemas/SystemMetadata".equals(((Schema<?>) s).get$ref()));
+    boolean hasNullAlt =
+        systemMetadataProperty.getOneOf().stream()
+            .anyMatch(s -> "null".equals(((Schema<?>) s).getType()));
+
+    assertTrue(hasSysMetaRef, "systemMetadata oneOf must contain SystemMetadata ref");
+    assertTrue(hasNullAlt, "systemMetadata oneOf must contain null type");
 
     // Verify 'headers' property
     Schema headersProperty = properties.get("headers");
