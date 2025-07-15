@@ -70,22 +70,32 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
 
   private static final NotificationSettingMap DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS =
       new NotificationSettingMap(
-          ImmutableMap.of(
+          ImmutableMap.<String, NotificationSetting>builder()
               // Enable being notified when I'm assigned to a proposal
-              NotificationScenarioType.NEW_PROPOSAL.toString(),
-              new NotificationSetting()
-                  .setValue(NotificationSettingValue.ENABLED)
-                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))),
+              .put(
+                  NotificationScenarioType.NEW_PROPOSAL.toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
               // Enable being notified when a proposed I'm assigned to is approved or rejected
-              NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString(),
-              new NotificationSetting()
-                  .setValue(NotificationSettingValue.ENABLED)
-                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))),
+              .put(
+                  NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
               // Enable being notified when a proposal I've created is approved or rejected
-              NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
-              new NotificationSetting()
-                  .setValue(NotificationSettingValue.ENABLED)
-                  .setParams(new StringMap(ImmutableMap.of("email.enabled", "true")))));
+              .put(
+                  NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
+              // Enable DataHub community updates by default
+              .put(
+                  NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
+              .build());
 
   private static final NotificationSettingMap DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS =
       new NotificationSettingMap(

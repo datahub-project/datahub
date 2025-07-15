@@ -132,6 +132,12 @@ def test_user_upsert(auth_session: Any) -> None:
                                         },
                                         "value": "ENABLED",
                                     },
+                                    "DATA_HUB_COMMUNITY_UPDATES": {
+                                        "params": {
+                                            "email.enabled": "true",
+                                        },
+                                        "value": "ENABLED",
+                                    },
                                 },
                                 "sinkTypes": [
                                     "SLACK",

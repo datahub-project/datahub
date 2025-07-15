@@ -283,6 +283,18 @@ public class DefaultNotificationSettingsHookTest {
             .get(NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString());
     assertEquals(proposerStatusChangeSetting.getValue(), NotificationSettingValue.ENABLED);
     assertTrue(proposerStatusChangeSetting.getParams().get("email.enabled").equals("true"));
+
+    // Verify DATA_HUB_COMMUNITY_UPDATES scenario
+    assertTrue(
+        capturedSettings
+            .getSettings()
+            .containsKey(NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString()));
+    NotificationSetting communityUpdatesSetting =
+        capturedSettings
+            .getSettings()
+            .get(NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString());
+    assertEquals(communityUpdatesSetting.getValue(), NotificationSettingValue.ENABLED);
+    assertTrue(communityUpdatesSetting.getParams().get("email.enabled").equals("true"));
   }
 
   @Test
@@ -353,7 +365,8 @@ public class DefaultNotificationSettingsHookTest {
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
-                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
                 .collect(
                     Collectors.toMap(
                         NotificationScenarioType::toString,
@@ -386,7 +399,8 @@ public class DefaultNotificationSettingsHookTest {
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
-                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
                 .collect(
                     Collectors.toMap(
                         NotificationScenarioType::toString,
@@ -414,7 +428,8 @@ public class DefaultNotificationSettingsHookTest {
             Stream.of(
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
-                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE)
+                    NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
                 .collect(
                     Collectors.toMap(
                         NotificationScenarioType::toString,

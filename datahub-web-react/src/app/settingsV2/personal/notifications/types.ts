@@ -56,3 +56,16 @@ export const GROUP_PROPOSAL_NOTIFICATIONS_GROUP = {
     title: 'Proposals',
     notifications: GROUP_PROPOSAL_NOTIFICATIONS,
 };
+
+const USER_COMMUNITY_UPDATES_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.DataHubCommunityUpdates,
+        description: 'Community updates, announcements, and news about DataHub',
+        default: true, // Default enabled - users auto-subscribed
+    },
+];
+
+export const USER_COMMUNITY_UPDATES_NOTIFICATIONS_GROUP = {
+    title: 'Community Updates',
+    notifications: USER_COMMUNITY_UPDATES_NOTIFICATIONS,
+};

@@ -1,4 +1,4 @@
-import { Button, ToggleCard, colors } from '@components';
+import { Button, Checkbox, ToggleCard, colors } from '@components';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -11,8 +11,9 @@ import {
     StyledFormItem,
     StyledInput,
 } from '@app/settingsV2/personal/notifications/section/styledComponents';
+import { useMarketingOptIn } from '@app/settingsV2/personal/notifications/useMarketingOptIn';
 
-import { EmailNotificationSettings, EmailNotificationSettingsInput } from '@types';
+import { EmailNotificationSettings, EmailNotificationSettingsInput, NotificationSettings } from '@types';
 
 const HelperText = styled.div`
     color: ${colors.gray[1700]};
@@ -29,6 +30,18 @@ const CurrentValue = styled.div`
     color: ${colors.gray[1700]};
 `;
 
+const CheckboxContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const CheckboxLabel = styled.span`
+    font-size: 14px;
+    color: ${colors.gray[1700]};
+    cursor: pointer;
+`;
+
 type Props = {
     isPersonal: boolean;
     sinkEnabled: boolean;
@@ -37,6 +50,8 @@ type Props = {
     toggleSink: (enabled: boolean) => void;
     settings?: EmailNotificationSettings;
     groupName?: string;
+    actorNotificationSettings?: Partial<NotificationSettings>;
+    refetchNotificationSettings?: () => void;
 };
 
 /**
@@ -50,14 +65,18 @@ export const EmailSinkSettingsSection = ({
     updateSinkSetting,
     toggleSink,
     groupName,
+    actorNotificationSettings,
+    refetchNotificationSettings,
 }: Props) => {
     const email = settings?.email;
     const [editing, setIsEditing] = useState<boolean>(false);
     const [inputValue, setInputValue] = useState(email);
     const [form] = Form.useForm();
 
-    form.setFieldsValue({ emailFormValue: inputValue });
-
+    const { marketingOptIn, handleMarketingOptInChange } = useMarketingOptIn({
+        actorNotificationSettings,
+        refetchNotificationSettings,
+    });
     useEffect(() => {
         if (!email) {
             setIsEditing(true);
@@ -88,6 +107,10 @@ export const EmailSinkSettingsSection = ({
     const cancelButtonOnClick = () => {
         setInputValue(email);
         setIsEditing(false);
+    };
+
+    const handleCheckboxToggle = () => {
+        handleMarketingOptInChange(!marketingOptIn);
     };
 
     return (
@@ -145,6 +168,15 @@ export const EmailSinkSettingsSection = ({
                             <HelperText>The email address where notifications will be sent.</HelperText>
                         </>
                     )}
+
+                    <CheckboxContainer>
+                        <Checkbox
+                            isChecked={marketingOptIn}
+                            onCheckboxChange={handleCheckboxToggle}
+                            data-testid="marketing-updates-checkbox"
+                        />
+                        <CheckboxLabel onClick={handleCheckboxToggle}>Send me updates about DataHub</CheckboxLabel>
+                    </CheckboxContainer>
                 </SinkConfigurationContainer>
             ) : null}
         </ToggleCard>

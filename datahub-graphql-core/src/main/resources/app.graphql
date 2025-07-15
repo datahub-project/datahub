@@ -979,6 +979,11 @@ enum NotificationScenarioType {
   Notification when a compliance form is published.
   """
   COMPLIANCE_FORM_PUBLISH
+
+  """
+  Community updates and announcements from DataHub.
+  """
+  DATA_HUB_COMMUNITY_UPDATES
 }
 
 """

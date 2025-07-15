@@ -32,4 +32,5 @@ public enum NotificationScenarioType {
   ASSERTION_STATUS_CHANGE,
   /** SaaS Only: A new compliance form is published, notifying assignees */
   COMPLIANCE_FORM_PUBLISH,
+  DATA_HUB_COMMUNITY_UPDATES,
 }

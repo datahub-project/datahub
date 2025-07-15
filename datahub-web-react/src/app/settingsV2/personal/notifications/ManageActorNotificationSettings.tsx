@@ -123,6 +123,8 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
                         updateSinkSetting={handleUpdateEmailSinkSettings}
                         toggleSink={(enabled: boolean) => handleToggleSink(EMAIL_SINK.type, enabled)}
                         groupName={groupName}
+                        actorNotificationSettings={notificationSettings || undefined}
+                        refetchNotificationSettings={refetch}
                     />
                     <SlackSinkSettingsSection
                         isPersonal={isPersonal}

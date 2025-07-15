@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Checkbox, Tooltip } from '@components';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
@@ -15,7 +15,9 @@ import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections
 import { PLATFORMS_MODULE_ID } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
 import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useMarketingOptIn } from '@app/settingsV2/personal/notifications/useMarketingOptIn';
 import Loading from '@app/shared/Loading';
+import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
@@ -212,6 +214,21 @@ const SkipButton = styled.div`
     }
 `;
 
+const CheckboxContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    justify-content: center;
+`;
+
+const CheckboxLabel = styled.span`
+    font-size: 14px;
+    color: ${colors.gray[600]};
+    cursor: pointer;
+`;
+
 const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // const RoleCard = styled.div`
@@ -266,6 +283,7 @@ export const IntroduceYourselfMainContent = () => {
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
     const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
+
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -276,6 +294,17 @@ export const IntroduceYourselfMainContent = () => {
     const selectedPersona = PersonaType.TECHNICAL_USER;
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [selectedTitle, setSelectedTitle] = useState('');
+
+    // Fetch user notification settings
+    const { notificationSettings, refetch: refetchNotificationSettings } = useActorSinkSettings({
+        isPersonal: true,
+    });
+
+    // Use the marketing opt-in hook with notification settings
+    const { marketingOptIn, handleMarketingOptInChange } = useMarketingOptIn({
+        actorNotificationSettings: notificationSettings || undefined,
+        refetchNotificationSettings,
+    });
 
     const { loading: viewsLoading, data: globalViewsData } = useListGlobalViewsQuery({
         variables: {
@@ -533,6 +562,18 @@ export const IntroduceYourselfMainContent = () => {
                 </SelectWrapper>
                 {/* Note: This is commented out for now, but may be brought back in the future. As of today, it causes more confusion than it helps */}
                 {/* <PersonaSelector selectedPersona={selectedPersona} onSelect={setSelectedPersona} /> */}
+
+                <CheckboxContainer>
+                    <Checkbox
+                        isChecked={marketingOptIn}
+                        onCheckboxChange={() => handleMarketingOptInChange(!marketingOptIn)}
+                        data-testid="marketing-updates-checkbox"
+                    />
+                    <CheckboxLabel onClick={() => handleMarketingOptInChange(!marketingOptIn)}>
+                        Send me updates about DataHub
+                    </CheckboxLabel>
+                </CheckboxContainer>
+
                 <DoneButton
                     type="primary"
                     size="large"
