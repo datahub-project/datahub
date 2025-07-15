@@ -583,6 +583,8 @@ def get_platform(connection_type: str) -> str:
         platform = "mssql"
     elif connection_type in ("athena"):
         platform = "athena"
+    elif connection_type in ("googlebigquery"):
+        platform = "bigquery"
     elif connection_type.endswith("_jdbc"):
         # e.g. convert trino_jdbc -> trino
         platform = connection_type[: -len("_jdbc")]
