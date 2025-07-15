@@ -59,6 +59,8 @@ class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
+    TABLEAU_SITE = "Site"
+    TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"

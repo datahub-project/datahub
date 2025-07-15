@@ -20,15 +20,17 @@ interface Props {
     onAddModule?: (input: AddModuleHandlerInput) => void;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
+    originRowIndex: number;
 }
 
-export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, rowIndex }: Props) {
+export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, rowIndex, originRowIndex }: Props) {
     return (
         <RowWrapper>
             <AddModuleButton
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
                 onAddModule={onAddModule}
+                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="left"
             />
@@ -41,6 +43,7 @@ export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, r
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
                 onAddModule={onAddModule}
+                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="right"
             />
