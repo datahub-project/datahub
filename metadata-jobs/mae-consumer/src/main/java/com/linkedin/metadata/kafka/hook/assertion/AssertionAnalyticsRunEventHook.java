@@ -209,7 +209,6 @@ public class AssertionAnalyticsRunEventHook implements MetadataChangeLogHook {
       return new DataPlatformInstance(
           aspectMap.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME).getValue().data());
     }
-    ;
     return null;
   }
 

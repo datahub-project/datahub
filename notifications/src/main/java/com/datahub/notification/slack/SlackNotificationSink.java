@@ -1079,6 +1079,7 @@ public class SlackNotificationSink implements NotificationSink {
             this.baseUrl, entityPath, urlEncode(assertionUrn));
 
     final String result = request.getMessage().getParameters().get("result");
+    final String resultReason = request.getMessage().getParameters().get("resultReason");
     final String description = request.getMessage().getParameters().get("description");
     final String maybeExternalUrl =
         request.getMessage().getParameters().getOrDefault("externalUrl", null);
@@ -1103,13 +1104,14 @@ public class SlackNotificationSink implements NotificationSink {
      * Example: Assertion `column x must not be null` has failed for Dataset SampleHiveDataset! View results in dbt
      */
     return String.format(
-        ">%s  *%s* `%s` has *%s* for *<%s|%s>*! %s",
+        "%s  *%s* `%s` has *%s* for *<%s|%s>*!\n> %s\n%s",
         resultEmoji,
         assertionTypeText,
         description,
         resultString,
         entityUrl,
         entityName,
+        resultReason,
         resultsLink);
   }
 

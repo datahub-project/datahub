@@ -323,17 +323,21 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
     }
 };
 
-const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
+export const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     assertedOnDescription: string,
     range: AssertionExpectedRange,
 ): string | undefined => {
-    let { low, high } = range;
+    let { low, high, equal, notEqual } = range;
     low = low && formatNumberWithoutAbbreviation(low);
     high = high && formatNumberWithoutAbbreviation(high);
+    equal = equal && formatNumberWithoutAbbreviation(equal);
+    notEqual = notEqual && formatNumberWithoutAbbreviation(notEqual);
 
     let message: string | undefined;
     const isHighValid = typeof high !== 'undefined';
     const isLowValid = typeof low !== 'undefined';
+    const isEqualValid = typeof equal !== 'undefined';
+    const isNotEqualValid = typeof notEqual !== 'undefined';
     if (isHighValid && isLowValid) {
         message = `${assertedOnDescription} should be between ${low} and ${high}.`;
     } else if (isHighValid) {
@@ -342,6 +346,10 @@ const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     } else if (isLowValid) {
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than';
         message = `${assertedOnDescription} should be ${rangeDefinition} ${low}.`;
+    } else if (isEqualValid) {
+        message = `${assertedOnDescription} should be ${equal}.`;
+    } else if (isNotEqualValid) {
+        message = `${assertedOnDescription} should not be ${notEqual}.`;
     }
 
     return message;

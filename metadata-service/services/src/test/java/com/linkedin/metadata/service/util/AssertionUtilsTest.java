@@ -120,7 +120,7 @@ public class AssertionUtilsTest {
     assertionInfo.setVolumeAssertion(volumeAssertionInfo);
 
     String result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Row count is between 1 and 1000");
+    Assert.assertEquals(result, "Row count is between 1 and 1,000");
 
     volumeAssertionInfo.setType(VolumeAssertionType.ROW_COUNT_CHANGE);
     volumeAssertionInfo.setRowCountChange(
@@ -135,7 +135,7 @@ public class AssertionUtilsTest {
                             .setType(AssertionStdParameterType.NUMBER))));
 
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Row count percentage change greater than 5");
+    Assert.assertEquals(result, "Row count percentage change is greater than 5");
 
     volumeAssertionInfo.setType(VolumeAssertionType.INCREMENTING_SEGMENT_ROW_COUNT_TOTAL);
     volumeAssertionInfo.setIncrementingSegmentRowCountTotal(
@@ -159,7 +159,7 @@ public class AssertionUtilsTest {
                             .setValue("1000")
                             .setType(AssertionStdParameterType.NUMBER))));
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Incremental row count greater than 1000");
+    Assert.assertEquals(result, "Incremental row count is greater than 1,000");
 
     volumeAssertionInfo.setType(VolumeAssertionType.INCREMENTING_SEGMENT_ROW_COUNT_CHANGE);
     volumeAssertionInfo.setIncrementingSegmentRowCountChange(
@@ -184,7 +184,7 @@ public class AssertionUtilsTest {
                             .setValue("4")
                             .setType(AssertionStdParameterType.NUMBER))));
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Incremental row count percentage change greater than 4");
+    Assert.assertEquals(result, "Incremental row count percentage change is greater than 4");
   }
 
   @Test
@@ -214,7 +214,7 @@ public class AssertionUtilsTest {
     assertionInfo.setFieldAssertion(fieldAssertionInfo);
 
     String result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "*Median* of column 'path' (NUMBER) greater than 4");
+    Assert.assertEquals(result, "*Median* of column 'path' (NUMBER) is greater than 4");
 
     fieldAssertionInfo.setType(FieldAssertionType.FIELD_VALUES);
     fieldAssertionInfo.setFieldValuesAssertion(
@@ -236,7 +236,7 @@ public class AssertionUtilsTest {
             .setTransform(new FieldTransform().setType(FieldTransformType.LENGTH)));
 
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Column 'path' (NUMBER) greater than 4");
+    Assert.assertEquals(result, "Column 'path' (NUMBER) is greater than 4");
   }
 
   @Test
@@ -259,7 +259,7 @@ public class AssertionUtilsTest {
     assertionInfo.setSqlAssertion(sqlAssertionInfo);
 
     String result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "SELECT COUNT(*) FROM foo.bar.baz greater than 5");
+    Assert.assertEquals(result, "SELECT COUNT(*) FROM foo.bar.baz is greater than 5");
 
     sqlAssertionInfo
         .setType(SqlAssertionType.METRIC_CHANGE)
@@ -274,13 +274,13 @@ public class AssertionUtilsTest {
                         .setValue(("5"))));
 
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "SELECT COUNT(*) FROM foo.bar.baz change greater than 5");
+    Assert.assertEquals(result, "SELECT COUNT(*) FROM foo.bar.baz change is greater than 5");
 
     sqlAssertionInfo.setChangeType(AssertionValueChangeType.PERCENTAGE);
 
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
     Assert.assertEquals(
-        result, "SELECT COUNT(*) FROM foo.bar.baz percentage change greater than 5");
+        result, "SELECT COUNT(*) FROM foo.bar.baz percentage change is greater than 5");
   }
 
   @Test
@@ -331,7 +331,7 @@ public class AssertionUtilsTest {
     assertionInfo.setDatasetAssertion(rowsDatasetAssertionInfo);
 
     result = AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo);
-    Assert.assertEquals(result, "Row count is between 40000 and 50000");
+    Assert.assertEquals(result, "Row count is between 40,000 and 50,000");
   }
 
   @Test
@@ -381,7 +381,7 @@ public class AssertionUtilsTest {
         AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
     Assert.assertEquals(
         result,
-        "Expected table to be updated since the previous check, but no updates were found.");
+        "Expected table to be updated since the previous check, running (* * * * *) in America / Los Angeles, but no updates were found.");
 
     final FreshnessAssertionSchedule fixedSchedule =
         new FreshnessAssertionSchedule()
@@ -430,7 +430,7 @@ public class AssertionUtilsTest {
 
     String result =
         AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
-    Assert.assertEquals(result, "Expected row count is between 1 and 1000, but found 2000.");
+    Assert.assertEquals(result, "Expected row count is between 1 and 1,000, but found 2,000.");
 
     volumeAssertionInfo.setType(VolumeAssertionType.ROW_COUNT_CHANGE);
     volumeAssertionInfo.setRowCountChange(
@@ -447,7 +447,7 @@ public class AssertionUtilsTest {
     result = AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
     Assert.assertEquals(
         result,
-        "Expected row count change greater than 5%, but found previous row count 1095 and new row count 2000.");
+        "Expected row count change is greater than 5%, but found previous row count 1,095 and new row count 2,000.");
   }
 
   @Test
@@ -487,7 +487,8 @@ public class AssertionUtilsTest {
 
     String result =
         AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
-    Assert.assertEquals(result, "Expected median of column 'path' greater than 4, but found 1000.");
+    Assert.assertEquals(
+        result, "Expected median of column 'path' is greater than 4, but found 1,000.");
 
     fieldAssertionInfo.setType(FieldAssertionType.FIELD_VALUES);
     fieldAssertionInfo.setFieldValuesAssertion(
@@ -510,7 +511,7 @@ public class AssertionUtilsTest {
 
     result = AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
     Assert.assertEquals(
-        result, "Expected column 'path' greater than 4, but found 100 invalid rows.");
+        result, "Expected column 'path' is greater than 4, but found 100 invalid rows.");
   }
 
   @Test
@@ -542,7 +543,7 @@ public class AssertionUtilsTest {
 
     String result =
         AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
-    Assert.assertEquals(result, "Expected SQL result greater than 5, but found 1000.");
+    Assert.assertEquals(result, "Expected SQL result is greater than 5, but found 1,000.");
 
     sqlAssertionInfo
         .setType(SqlAssertionType.METRIC_CHANGE)
@@ -559,14 +560,14 @@ public class AssertionUtilsTest {
     result = AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
     Assert.assertEquals(
         result,
-        "Expected SQL result change greater than 5, but found previous metric value 100 and new metric value 1000.");
+        "Expected SQL result change is greater than 5, but found previous metric value 100 and new metric value 1,000.");
 
     sqlAssertionInfo.setChangeType(AssertionValueChangeType.PERCENTAGE);
 
     result = AssertionUtils.buildAssertionResultReason(assertionUrn, assertionInfo, runEvent);
     Assert.assertEquals(
         result,
-        "Expected SQL result change greater than 5%, but found previous metric value 100 and new metric value 1000.");
+        "Expected SQL result change is greater than 5%, but found previous metric value 100 and new metric value 1,000.");
   }
 
   @Test

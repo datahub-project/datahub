@@ -211,6 +211,8 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(
 // This captures context around the expected range of values
 export type AssertionRangeEndType = 'inclusive' | 'exclusive';
 export type AssertionExpectedRange = {
+    equal?: number;
+    notEqual?: number;
     // These are the actual values we expect (ie. actual row count)
     high?: number;
     low?: number;
@@ -348,6 +350,8 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
     if (!totals?.parameters) {
         return {};
     }
+    let equal: undefined | number;
+    let notEqual: undefined | number;
     let high: undefined | number;
     let low: undefined | number;
     let highType: undefined | AssertionRangeEndType;
@@ -375,10 +379,18 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
             highType = 'inclusive';
             break;
+        case AssertionStdOperator.EqualTo:
+            equal = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
+            break;
+        case AssertionStdOperator.NotEqualTo:
+            notEqual = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
+            break;
         default:
             break;
     }
     return {
+        equal,
+        notEqual,
         high,
         low,
         context: {
@@ -387,6 +399,7 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
         },
     };
 }
+
 /**
  * Tries to calculate expected result ranges for assertions that have expectations defined relative to previous runs
  * ie. handles 'RowCount should not grow by more than 50%'

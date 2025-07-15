@@ -6,6 +6,7 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
@@ -881,6 +882,41 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
     final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
     final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final Map<String, String> templateParams =
+        buildAssertionStatusChangeTemplateParams(
+            assertionUrn,
+            assertionInfo,
+            result,
+            maybeAssertionPlatform,
+            entityUrn,
+            entityName,
+            entityType,
+            entityPlatform);
+
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name(),
+            templateParams,
+            recipients);
+
+    // 3. Send request.
+    log.debug(
+        String.format(
+            "Broadcasting entity change notification request for entity %s, notification type %s",
+            entityUrn, NotificationScenarioType.ASSERTION_STATUS_CHANGE));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  @VisibleForTesting
+  protected Map<String, String> buildAssertionStatusChangeTemplateParams(
+      final Urn assertionUrn,
+      final AssertionInfo assertionInfo,
+      final AssertionResult result,
+      final DataPlatformInstance maybeAssertionPlatform,
+      final Urn entityUrn,
+      final String entityName,
+      final String entityType,
+      final String entityPlatform) {
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("assertionType", assertionInfo.getType().toString());
     templateParams.put("assertionUrn", assertionUrn.toString());
@@ -888,6 +924,10 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     templateParams.put("entityType", entityType);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
     templateParams.put("result", result.getType().toString());
+    templateParams.put(
+        "resultReason",
+        AssertionUtils.buildAssertionResultReason(
+            assertionUrn, assertionInfo, new AssertionRunEvent().setResult(result)));
     templateParams.put(
         "description", AssertionUtils.buildAssertionDescription(assertionUrn, assertionInfo));
     if (entityPlatform != null) {
@@ -904,19 +944,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (assertionInfo.hasSource()) {
       templateParams.put("sourceType", assertionInfo.getSource().getType().toString());
     }
-
-    final NotificationRequest notificationRequest =
-        buildNotificationRequest(
-            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name(),
-            templateParams,
-            recipients);
-
-    // 3. Send request.
-    log.debug(
-        String.format(
-            "Broadcasting entity change notification request for entity %s, notification type %s",
-            entityUrn, NotificationScenarioType.ASSERTION_STATUS_CHANGE));
-    sendNotificationRequest(notificationRequest);
+    return templateParams;
   }
 
   @Override

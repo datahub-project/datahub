@@ -530,7 +530,7 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    ">%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*! <%s|View results>",
+                    "%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*!\n> The assertion met the expected criteria.\n<%s|View results>",
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
@@ -578,6 +578,8 @@ public class SlackNotificationSinkTest {
                         "/datasets/test",
                         "result",
                         "SUCCESS",
+                        "resultReason",
+                        "The assertion met the expected criteria.",
                         "description",
                         "column x is greater than y",
                         "sourceType",
@@ -732,7 +734,7 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    ">%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*! <%s|View results in dbt>",
+                    "%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results in dbt>",
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
@@ -780,6 +782,8 @@ public class SlackNotificationSinkTest {
                         "/datasets/test",
                         "result",
                         "SUCCESS",
+                        "resultReason",
+                        "Expected criteria has been met.",
                         "description",
                         "urn:li:assertion:test",
                         "sourceType",
@@ -839,7 +843,7 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    ">%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*! <%s|View results in dbt>",
+                    "%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results in dbt>",
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
@@ -892,6 +896,7 @@ public class SlackNotificationSinkTest {
                 "http://localhost:8084/dbt/results",
                 Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
                 TEST_EXECUTION_REQUEST_URN));
+    paramsMap.put("resultReason", "Expected criteria has been met.");
     paramsMap.put("requestName", Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME);
     notificationRequest.setMessage(
         new NotificationMessage()
@@ -970,7 +975,7 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    ">%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*! <%s|View results>",
+                    "%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results>",
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
@@ -1020,6 +1025,8 @@ public class SlackNotificationSinkTest {
                         "/datasets/test",
                         "result",
                         "SUCCESS",
+                        "resultReason",
+                        "Expected criteria has been met.",
                         "description",
                         "column x is greater than y",
                         "sourceType",

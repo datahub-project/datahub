@@ -728,6 +728,7 @@ def test_build_assertion_status_change_parameters_success(base_url_fix: str) -> 
                 "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplehivedataset",
                 "result": "SUCCESS",
+                "resultReason": "The expected conditions were not met.",
                 "description": "column x must not be null",
                 "externalUrl": "https://external.com/results123",
             },
@@ -737,7 +738,7 @@ def test_build_assertion_status_change_parameters_success(base_url_fix: str) -> 
 
     expected = {
         "subject": "Freshness Assertion has passed for Hive Table SampleHiveDataset!",
-        "message": "Freshness Assertion 'column x must not be null' has <b>passed</b> for <b>Hive Table SampleHiveDataset</b>!",
+        "message": "Freshness Assertion 'column x must not be null' has <b>passed</b> for <b>Hive Table SampleHiveDataset</b>!<br/>The expected conditions were not met.",
         "entityName": "SampleHiveDataset",
         "detailsUrl": "https://external.com/results123",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",
@@ -759,6 +760,7 @@ def test_build_assertion_status_change_parameters_success(base_url_fix: str) -> 
                 "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplehivedataset",
                 "result": "SUCCESS",
+                "resultReason": "The expected conditions were not met.",
                 "description": "column x must not be null",
                 "externalUrl": "https://external.com/results123",
             },
@@ -768,7 +770,7 @@ def test_build_assertion_status_change_parameters_success(base_url_fix: str) -> 
 
     expected = {
         "subject": "Smart Assertion has passed for Hive Table SampleHiveDataset!",
-        "message": "Smart Assertion 'column x must not be null' has <b>passed</b> for <b>Hive Table SampleHiveDataset</b>!",
+        "message": "Smart Assertion 'column x must not be null' has <b>passed</b> for <b>Hive Table SampleHiveDataset</b>!<br/>The expected conditions were not met.",
         "entityName": "SampleHiveDataset",
         "detailsUrl": "https://external.com/results123",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",
@@ -793,6 +795,7 @@ def test_build_assertion_status_change_parameters_failure_with_default_url(
                 "entityPlatform": "Hive",
                 "entityPath": "/datasets/samplehivedataset",
                 "result": "FAILURE",
+                "resultReason": "Expected volume to be between 1,000 and 2,000, but found 500.",
                 "description": "Data volume decreased significantly",
             },
         ),
@@ -801,7 +804,7 @@ def test_build_assertion_status_change_parameters_failure_with_default_url(
 
     expected = {
         "subject": "Volume Assertion has failed for Hive Table SampleHiveDataset!",
-        "message": "Volume Assertion 'Data volume decreased significantly' has <b>failed</b> for <b>Hive Table SampleHiveDataset</b>!",
+        "message": "Volume Assertion 'Data volume decreased significantly' has <b>failed</b> for <b>Hive Table SampleHiveDataset</b>!<br/>Expected volume to be between 1,000 and 2,000, but found 500.",
         "entityName": "SampleHiveDataset",
         "detailsUrl": f"https://example.acryl.io/datasets/samplehivedataset/Validation/Assertions?assertion_urn={quote(assertion_urn)}",
         "entityUrl": "https://example.acryl.io/datasets/samplehivedataset",

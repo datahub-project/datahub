@@ -61,7 +61,7 @@ public class AssertionUtils {
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionInfo info) {
 
     // If assertion has a description, always just use that!
-    if (info.hasDescription()) {
+    if (info.hasDescription() && !info.getDescription().isEmpty()) {
       return info.getDescription();
     }
 
@@ -329,7 +329,9 @@ public class AssertionUtils {
                 "in the past %s %s",
                 schedule.getFixedInterval().getMultiple(),
                 getUnitText(schedule.getFixedInterval().getUnit()))
-            : "since the previous check"; // Cron schedule.
+            : String.format(
+                "since the previous check, running (%s) in %s",
+                schedule.getCron().getCron(), schedule.getCron().getTimezone()); // Cron schedule.
     return String.format(
         "Expected table to be updated %s, but no updates were found.", freshnessText);
   }
@@ -364,7 +366,7 @@ public class AssertionUtils {
 
   private static String extractRowCountFromResult(@Nonnull final AssertionRunEvent runEvent) {
     return runEvent.hasResult() && runEvent.getResult().hasRowCount()
-        ? runEvent.getResult().getRowCount().toString()
+        ? formatParameterValue(runEvent.getResult().getRowCount().toString())
         : "N/A";
   }
 
@@ -378,7 +380,7 @@ public class AssertionUtils {
       @Nonnull final AssertionRunEvent runEvent, @Nonnull final String keyName) {
     if (runEvent.hasResult() && runEvent.getResult().hasNativeResults()) {
       Map<String, String> nativeResults = runEvent.getResult().getNativeResults();
-      return nativeResults.get(keyName);
+      return formatParameterValue(nativeResults.get(keyName));
     }
     return "N/A";
   }
@@ -547,13 +549,13 @@ public class AssertionUtils {
       case CONTAIN:
         return "contains";
       case GREATER_THAN:
-        return "greater than";
+        return "is greater than";
       case GREATER_THAN_OR_EQUAL_TO:
-        return "greater than or equal to";
+        return "is greater than or equal to";
       case LESS_THAN:
-        return "less than";
+        return "is less than";
       case LESS_THAN_OR_EQUAL_TO:
-        return "less than or equal to";
+        return "is less than or equal to";
       case BETWEEN:
         return "is between";
       case _NATIVE_:
@@ -643,13 +645,33 @@ public class AssertionUtils {
   private static String getParameterText(@Nullable final AssertionStdParameters parameters) {
     if (parameters != null) {
       if (parameters.hasValue()) {
-        return parameters.getValue().getValue();
+        return formatParameterValue(parameters.getValue().getValue());
       } else if (parameters.hasMinValue() && parameters.hasMaxValue()) {
         return String.format(
-            "%s and %s", parameters.getMinValue().getValue(), parameters.getMaxValue().getValue());
+            "%s and %s",
+            formatParameterValue(parameters.getMinValue().getValue()),
+            formatParameterValue(parameters.getMaxValue().getValue()));
       }
     }
     return "";
+  }
+
+  private static String formatParameterValue(@Nonnull final String value) {
+    // If the value is a number, format it with commas.
+    // If decimals, round to 2 decimal places.
+    // If decimals are 0, remove them.
+    try {
+      // Try to parse as a number
+      final double numValue = Double.parseDouble(value);
+
+      // Create a DecimalFormat with comma separators and up to 2 decimal places
+      java.text.DecimalFormat formatter = new java.text.DecimalFormat("#,##0.##");
+
+      return formatter.format(numValue);
+    } catch (NumberFormatException e) {
+      // If it's not a number, return the original value
+      return value;
+    }
   }
 
   public static String getAssertionTypeName(final String assertionType) {

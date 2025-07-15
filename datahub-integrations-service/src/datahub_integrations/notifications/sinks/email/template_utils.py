@@ -392,6 +392,7 @@ def build_assertion_status_change_parameters(
     results_url = f"{base_url}{entity_path}/Validation/Assertions?assertion_urn={quote(assertion_urn) if assertion_urn else ''}"
 
     result = request.message.parameters.get("result")
+    result_reason = request.message.parameters.get("resultReason")
     description = request.message.parameters.get("description")
     maybe_external_url = request.message.parameters.get("externalUrl", None)
     maybe_source_type = request.message.parameters.get("sourceType", None)
@@ -410,7 +411,8 @@ def build_assertion_status_change_parameters(
 
     # Example output:
     # Column Assertion 'column x must not be null' has failed for Dataset SampleHiveDataset!
-    message = f"{assertion_type_text} '{description}' has <b>{result_string}</b> for <b>{entity_title}</b>!"
+    result_reason_str = f"<br/>{result_reason}" if result_reason else ""
+    message = f"{assertion_type_text} '{description}' has <b>{result_string}</b> for <b>{entity_title}</b>!{result_reason_str}"
 
     return {
         "subject": subject,
