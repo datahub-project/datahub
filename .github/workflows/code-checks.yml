@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - acryl-main
+      - hotfixes/**
     paths:
       - "metadata-io/**"
       - "datahub-web-react/**"

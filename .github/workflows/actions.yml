@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - ".github/workflows/actions.yml"
       - "datahub-actions/**"

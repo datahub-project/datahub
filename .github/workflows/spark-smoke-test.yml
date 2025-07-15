@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"

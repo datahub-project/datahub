@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"

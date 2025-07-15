@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - "metadata-integration/**"
   pull_request:
