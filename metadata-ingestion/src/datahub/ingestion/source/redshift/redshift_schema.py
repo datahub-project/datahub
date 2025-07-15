@@ -7,7 +7,6 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import redshift_connector
 
 from datahub.ingestion.source.redshift.query import (
-    RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
 )
@@ -233,10 +232,16 @@ def _stringy(x: Optional[int]) -> Optional[str]:
 
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
-    def __init__(self, is_serverless):
-        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
-        if is_serverless:
-            self.queries = RedshiftServerlessQuery()
+    def __init__(
+        self,
+        is_serverless: bool,
+        alternative_system_tables_schema: Optional[str] = None,
+    ):
+        self.queries = (
+            RedshiftServerlessQuery(alternative_system_tables_schema)
+            if is_serverless
+            else RedshiftProvisionedQuery(alternative_system_tables_schema)
+        )
 
     @staticmethod
     def get_query_result(
@@ -248,24 +253,22 @@ class RedshiftDataDictionary:
         cursor.execute(query)
         return cursor
 
-    @staticmethod
-    def get_databases(conn: redshift_connector.Connection) -> List[str]:
+    def get_databases(self, conn: redshift_connector.Connection) -> List[str]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_databases,
+            self.queries.list_databases(),
         )
 
         dbs = cursor.fetchall()
 
         return [db[0] for db in dbs]
 
-    @staticmethod
     def get_database_details(
-        conn: redshift_connector.Connection, database: str
+        self, conn: redshift_connector.Connection, database: str
     ) -> Optional[RedshiftDatabase]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.get_database_details(database),
+            self.queries.get_database_details(database),
         )
 
         row = cursor.fetchone()
@@ -277,13 +280,12 @@ class RedshiftDataDictionary:
             options=row[2],
         )
 
-    @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+        self, conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas(database),
+            self.queries.list_schemas(database),
         )
 
         schemas = cursor.fetchall()
@@ -351,7 +353,7 @@ class RedshiftDataDictionary:
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_tables(
+            self.queries.list_tables(
                 database=database,
                 skip_external_tables=skip_external_tables,
                 is_shared_database=is_shared_database,
@@ -498,8 +500,8 @@ class RedshiftDataDictionary:
             default_nullable=True,
         )
 
-    @staticmethod
     def get_columns_for_schema(
+        self,
         conn: redshift_connector.Connection,
         database: str,
         schema: RedshiftSchema,
@@ -507,7 +509,7 @@ class RedshiftDataDictionary:
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_columns(
+            self.queries.list_columns(
                 database_name=database,
                 schema_name=schema.name,
                 is_shared_database=is_shared_database,
@@ -658,12 +660,12 @@ class RedshiftDataDictionary:
                 )
             rows = cursor.fetchmany()
 
-    @staticmethod
     def get_outbound_datashares(
+        self,
         conn: redshift_connector.Connection,
     ) -> Iterable[OutboundDatashare]:
         cursor = conn.cursor()
-        cursor.execute(RedshiftCommonQuery.list_outbound_datashares())
+        cursor.execute(self.queries.list_outbound_datashares())
         for item in cursor.fetchall():
             yield OutboundDatashare(
                 share_name=item[1],
@@ -673,13 +675,13 @@ class RedshiftDataDictionary:
 
     # NOTE: this is not used right now as it requires superuser privilege
     # We can use this in future if the permissions are lowered.
-    @staticmethod
     def get_inbound_datashare(
+        self,
         conn: redshift_connector.Connection,
         database: str,
     ) -> Optional[InboundDatashare]:
         cursor = conn.cursor()
-        cursor.execute(RedshiftCommonQuery.get_inbound_datashare(database))
+        cursor.execute(self.queries.get_inbound_datashare(database))
         item = cursor.fetchone()
         if item:
             return InboundDatashare(

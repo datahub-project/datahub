@@ -243,7 +243,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             test_report.capability_report = {}
             try:
-                RedshiftDataDictionary.get_schemas(connection, database=config.database)
+                data_dictionary = RedshiftDataDictionary(
+                    is_serverless=config.is_serverless,
+                    alternative_system_tables_schema=config.alternative_system_tables_schema,
+                )
+                data_dictionary.get_schemas(connection, database=config.database)
                 test_report.capability_report[SourceCapability.SCHEMA_METADATA] = (
                     CapabilityReport(capable=True)
                 )
@@ -300,7 +304,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.data_dictionary = RedshiftDataDictionary(
-            is_serverless=self.config.is_serverless
+            is_serverless=self.config.is_serverless,
+            alternative_system_tables_schema=self.config.alternative_system_tables_schema,
         )
 
         self.db: Optional[RedshiftDatabase] = None
