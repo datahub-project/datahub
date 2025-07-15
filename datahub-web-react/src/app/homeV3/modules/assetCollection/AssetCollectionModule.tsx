@@ -4,20 +4,25 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
 import { Entity } from '@types';
 
 const AssetCollectionModule = (props: ModuleProps) => {
-    const entities = props.module.properties.params.assetCollectionParams?.assets || [];
+    const assetUrns =
+        props.module.properties.params.assetCollectionParams?.assetUrns.filter(
+            (urn): urn is string => typeof urn === 'string',
+        ) || [];
+
+    const { entities, loading } = useGetEntities(assetUrns);
+
     return (
-        <LargeModule {...props}>
+        <LargeModule {...props} loading={loading}>
             {entities?.length === 0 ? (
                 <EmptyContent
-                    icon="User"
-                    title="No Owned Assets"
-                    description="Select an asset and add yourself as an owner to see the assets in this list"
-                    linkText="Discover assets to subscribe to"
-                    onLinkClick={() => {}}
+                    icon="Stack"
+                    title="No Assets"
+                    description="Edit the module and add assets to see them in this list"
                 />
             ) : (
                 entities

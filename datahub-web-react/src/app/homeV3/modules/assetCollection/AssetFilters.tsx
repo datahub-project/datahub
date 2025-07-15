@@ -15,7 +15,6 @@ type Props = {
 };
 
 const AssetFilters = ({ searchQuery, appliedFilters, setAppliedFilters }: Props) => {
-    
     const updateFieldAppliedFilters: AppliedFieldFilterUpdater = (field, value) => {
         setAppliedFilters((prev) => {
             const next = new Map(prev);

@@ -34,11 +34,7 @@ fragment PageModule on DataHubPageModule {
                 content
             }
             assetCollectionParams {
-                assets {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                }
+                assetUrns
             }
         }
     }
