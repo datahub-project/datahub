@@ -88,7 +88,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
 
     def get_urn_for_table(
-        self, table: _TableName, lower: bool = False, mixed: bool = False
+        self, table: _TableName, lower: bool = False, mixed: bool = False, normalize_case: str = None
     ) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
@@ -98,7 +98,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         platform_instance = self.platform_instance
 
-        if lower:
+        if normalize_case == 'upper':
+            table_name = table_name.upper()
+            if platform_instance:
+                platform_instance = platform_instance.upper()
+        elif normalize_case == 'lower':
+            table_name = table_name.lower()
+            if platform_instance:
+                platform_instance = platform_instance.lower()
+        elif lower:
             table_name = table_name.lower()
             if not mixed:
                 platform_instance = (
@@ -127,35 +135,30 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         return urn, None
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        urn = self.get_urn_for_table(table)
+    def resolve_table(self, table: _TableName, normalize_case: str = None) -> Tuple[str, Optional[SchemaInfo]]:
+        urn = self.get_urn_for_table(table, normalize_case=normalize_case)
 
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
             return urn, schema_info
 
-        urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
-            schema_info = self._resolve_schema_info(urn_lower)
-            if schema_info:
-                return urn_lower, schema_info
+        if not normalize_case:
+            urn_lower = self.get_urn_for_table(table, lower=True)
+            if urn_lower != urn:
+                schema_info = self._resolve_schema_info(urn_lower)
+                if schema_info:
+                    return urn_lower, schema_info
 
-        # Our treatment of platform instances when lowercasing urns
-        # is inconsistent. In some places (e.g. Snowflake), we lowercase
-        # the table names but not the platform instance. In other places
-        # (e.g. Databricks), we lowercase everything because it happens
-        # via the automatic lowercasing helper.
-        # See https://github.com/datahub-project/datahub/pull/8928.
-        # While we have this sort of inconsistency, we should also
-        # check the mixed case urn, as a last resort.
-        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
-        if urn_mixed not in {urn, urn_lower}:
-            schema_info = self._resolve_schema_info(urn_mixed)
-            if schema_info:
-                return urn_mixed, schema_info
+            urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+            if urn_mixed not in {urn, urn_lower}:
+                schema_info = self._resolve_schema_info(urn_mixed)
+                if schema_info:
+                    return urn_mixed, schema_info
 
-        if self._prefers_urn_lower():
-            return urn_lower, None
+            if self._prefers_urn_lower():
+                return urn_lower, None
+            else:
+                return urn, None
         else:
             return urn, None
 

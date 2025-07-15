@@ -933,6 +933,9 @@ class BigQueryUsageExtractor:
                     self.schema_resolver,
                     default_db=default_project,
                     default_schema=default_dataset,
+                    normalize_case=(
+                        'lower' if self.config.convert_urns_to_lowercase and not self.config.lineage_sql_parser_use_raw_names else None
+                    ),
                 )
         except Exception:
             logger.debug(

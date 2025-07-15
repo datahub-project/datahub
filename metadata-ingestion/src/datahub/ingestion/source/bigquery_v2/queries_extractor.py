@@ -182,6 +182,9 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
+            normalize_case=(
+                'lower' if self.config.convert_urns_to_lowercase and not self.config.lineage_sql_parser_use_raw_names else None
+            ),
         )
 
         self.report.sql_aggregator = self.aggregator.report
