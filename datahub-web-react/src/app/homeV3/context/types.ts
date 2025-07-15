@@ -17,6 +17,14 @@ export interface AddModuleInput {
     position: ModulePositionInput;
 }
 
+export interface CreateModuleModalState {
+    isOpen: boolean;
+    moduleType: DataHubPageModuleType | null;
+    position: ModulePositionInput | null;
+    open: (moduleType: DataHubPageModuleType, position: ModulePositionInput) => void;
+    close: () => void;
+}
+
 // Context state shape
 export type PageTemplateContextState = {
     personalTemplate: PageTemplateFragment | null;
@@ -29,4 +37,5 @@ export type PageTemplateContextState = {
     setTemplate: (template: PageTemplateFragment | null) => void;
     addModule: (input: AddModuleInput) => void;
     createModule: (input: CreateModuleInput) => void;
+    createModuleModalState: CreateModuleModalState;
 };

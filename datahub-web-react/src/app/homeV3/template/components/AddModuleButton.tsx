@@ -2,8 +2,6 @@ import { Button, Dropdown, Icon, colors } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import AssetCollectionModal from '@app/homeV3/modules/assetCollection/AssetCollectionModal';
-import useHandleCreateModuleModals from '@app/homeV3/modules/hooks/useHandleCreateModuleModals';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 import { ModulePositionInput, RowSide } from '@app/homeV3/template/types';
@@ -65,14 +63,7 @@ export default function AddModuleButton({ orientation, modulesAvailableToAdd, cl
 
     const closeMenu = () => setIsOpened(false);
 
-    const { showAddAssetCollectionModal, setShowAddAssetCollectionModal, handleNewModuleModals } =
-        useHandleCreateModuleModals();
-    const { menu, handleCreateNewModule } = useAddModuleMenu(
-        modulesAvailableToAdd,
-        position,
-        closeMenu,
-        handleNewModuleModals,
-    );
+    const menu = useAddModuleMenu(modulesAvailableToAdd, position, closeMenu);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger
@@ -102,12 +93,6 @@ export default function AddModuleButton({ orientation, modulesAvailableToAdd, cl
                     <Icon icon="Plus" source="phosphor" color="primary" />
                 </ButtonComponent>
             </Dropdown>
-            {showAddAssetCollectionModal && (
-                <AssetCollectionModal
-                    setShowAddAssetCollectionModal={setShowAddAssetCollectionModal}
-                    handleCreateNewModule={handleCreateNewModule}
-                />
-            )}
         </Wrapper>
     );
 }

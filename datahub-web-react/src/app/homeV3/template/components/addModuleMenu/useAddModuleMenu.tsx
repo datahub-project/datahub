@@ -12,7 +12,7 @@ import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/compon
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleParamsInput, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
@@ -40,9 +40,11 @@ export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
     position: ModulePositionInput,
     closeMenu: () => void,
-    handleNewModuleModals: (type: DataHubPageModuleType) => void,
 ) {
-    const { addModule, createModule } = usePageTemplateContext();
+    const {
+        addModule,
+        createModuleModalState: { open: openModal },
+    } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -55,17 +57,12 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    const handleCreateNewModule = useCallback(
-        (type: DataHubPageModuleType, name: string, params?: PageModuleParamsInput) => {
-            createModule({
-                name,
-                type,
-                position,
-                params,
-            });
+    const handleOpenCreatingNewModuleModal = useCallback(
+        (type: DataHubPageModuleType) => {
+            openModal(type, position);
             closeMenu();
         },
-        [createModule, position, closeMenu],
+        [openModal, position, closeMenu],
     );
 
     const menu = useMemo(() => {
@@ -125,8 +122,7 @@ export default function useAddModuleMenu(
                 />
             ),
             onClick: () => {
-                handleNewModuleModals(DataHubPageModuleType.AssetCollection);
-                closeMenu();
+                handleOpenCreatingNewModuleModal(DataHubPageModuleType.AssetCollection);
             },
         };
 
@@ -164,7 +160,7 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleNewModuleModals, closeMenu]);
+    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenCreatingNewModuleModal]);
 
-    return { menu, handleCreateNewModule };
+    return menu;
 }

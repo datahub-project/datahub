@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import CreateModuleModalMapper from '@app/homeV3/createModule/CreateModuleModalMapper';
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
@@ -50,6 +51,7 @@ export default function Template({ className }: Props) {
                     $hasRows={hasRows}
                     modulesAvailableToAdd={modulesAvailableToAdd}
                 />
+                <CreateModuleModalMapper />
             </Wrapper>
         </>
     );

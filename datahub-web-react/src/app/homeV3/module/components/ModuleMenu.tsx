@@ -19,11 +19,10 @@ export default function ModuleMenu() {
                         title: 'Edit',
                         key: 'edit',
                         label: 'Edit',
-                    },
-                    {
-                        title: 'Duplicate',
-                        label: 'Duplicate',
-                        key: 'duplicate',
+                        style: {
+                            color: colors.gray[600],
+                            fontSize: '14px',
+                        },
                     },
                     {
                         title: 'Delete',
@@ -31,6 +30,7 @@ export default function ModuleMenu() {
                         key: 'delete',
                         style: {
                             color: colors.red[500],
+                            fontSize: '14px',
                         },
                     },
                 ],

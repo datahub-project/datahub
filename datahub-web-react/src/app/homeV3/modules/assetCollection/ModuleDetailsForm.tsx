@@ -9,7 +9,7 @@ interface Props {
     formValues?: Partial<ModuleInfo>;
 }
 
-const ModuleDetailsForm: React.FC<Props> = ({ form, formValues }) => {
+const ModuleDetailsForm = ({ form, formValues }: Props) => {
     return (
         <Form form={form} initialValues={formValues}>
             <Form.Item
