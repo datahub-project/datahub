@@ -32,7 +32,11 @@ from datahub_executor.coordinator.ingestion import IngestionAction
 from datahub_executor.coordinator.manager import ExecutionRequestManager
 from datahub_executor.coordinator.scheduler import ExecutionRequestScheduler
 
-from .assertion_handlers import async_queue_start, async_queue_stop
+from . import scheduler_handlers
+from .assertion_handlers import (
+    async_queue_start,
+    async_queue_stop,
+)
 
 logger = logging.getLogger(__name__)
 manager = None
@@ -105,6 +109,7 @@ def start_scheduler(graph: DataHubGraph, sighandler: List[Callable]) -> None:
 
         # Create a scheduler
         scheduler = ExecutionRequestScheduler(None, None, None, None, None)
+        scheduler_handlers.scheduler = scheduler
 
         # Create a manager
         manager = ExecutionRequestManager(
