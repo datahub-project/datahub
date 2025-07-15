@@ -27,10 +27,11 @@ RUN apk --no-cache --update-cache --available upgrade \
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
+COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
+
 FROM base AS prod-install
 
 COPY --chown=datahub:datahub --chmod=755 ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
-COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 COPY --chown=datahub:datahub --chmod=755 ./datahub-frontend/build/stage/main /datahub-frontend/
 
 FROM base AS dev-install
