@@ -71,10 +71,12 @@ describe("glossary sidebar navigation test", () => {
       glossaryTermGroup,
     );
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+    cy.waitTextVisible(`Created Term Group!`);
+    cy.wait(1000);
+    nevigateGlossaryPage();
     cy.get('[data-testid="glossary-browser-sidebar"]')
       .contains(glossaryTermGroup)
       .should("be.visible");
-    cy.waitTextVisible(`Created Term Group!`);
     cy.clickOptionWithText(glossaryTermGroup);
     cy.clickOptionWithTestId("add-term-button");
     createTerm(glossaryTerm);
@@ -144,6 +146,7 @@ describe("glossary sidebar navigation test", () => {
     deleteGlossary("Deleted Term Group!");
 
     // Ensure it is no longer in the sidebar navigator
+    nevigateGlossaryPage();
     cy.ensureTextNotPresent(glossaryTerm);
     cy.ensureTextNotPresent(glossaryTermGroup);
   });
