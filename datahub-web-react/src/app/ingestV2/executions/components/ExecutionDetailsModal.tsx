@@ -178,6 +178,10 @@ const SummaryTab = ({
     const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
     const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
 
+    const downloadRecipe = () => {
+        downloadFile(recipeYaml, `recipe-${urn}.yaml`);
+    };
+
     return (
         <Section>
             <StatusSection>
@@ -199,9 +203,13 @@ const SummaryTab = ({
                     <SubHeaderParagraph type="secondary">
                         View logs that were collected during the sync.
                     </SubHeaderParagraph>
+                    {areLogsExpandable && (
+                        <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Logs)}>
+                            View More
+                        </ShowMoreButton>
+                    )}
                     <Button type="text" onClick={downloadLogs}>
                         <DownloadOutlined />
-                        Download
                     </Button>
                 </SectionSubHeader>
                 <DetailsContainer areDetailsExpandable={areLogsExpandable} showExpandedDetails={false}>
@@ -209,11 +217,6 @@ const SummaryTab = ({
                         <pre>{`${logs}${areLogsExpandable ? '...' : ''}`}</pre>
                     </Typography.Paragraph>
                 </DetailsContainer>
-                {areLogsExpandable && (
-                    <ShowMoreButton type="link" onClick={() => onTabChange(TabType.Logs)}>
-                        Show More
-                    </ShowMoreButton>
-                )}
             </LogsSection>
             {recipe && (
                 <RecipeSection>
@@ -222,6 +225,14 @@ const SummaryTab = ({
                         <SubHeaderParagraph type="secondary">
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
+                        {isRecipeExpandable && (
+                            <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Recipe)}>
+                                View More
+                            </ShowMoreButton>
+                        )}
+                        <Button type="text" onClick={downloadRecipe}>
+                            <DownloadOutlined />
+                        </Button>
                     </SectionSubHeader>
                     <DetailsContainer
                         areDetailsExpandable={isRecipeExpandable}
@@ -231,11 +242,6 @@ const SummaryTab = ({
                             <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>
                     </DetailsContainer>
-                    {isRecipeExpandable && (
-                        <ShowMoreButton type="link" onClick={() => onTabChange(TabType.Recipe)}>
-                            Show More
-                        </ShowMoreButton>
-                    )}
                 </RecipeSection>
             )}
         </Section>
