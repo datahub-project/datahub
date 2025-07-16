@@ -51,7 +51,6 @@ const StyledTabs = styled(AntTabs)<{
                 top: 0;
                 z-index: 10;
                 background-color: white;
-                border-bottom: 1px solid ${colors.gray[200]};
             }
         `}
 
@@ -75,6 +74,37 @@ const StyledTabs = styled(AntTabs)<{
     .ant-tabs-nav {
         margin-bottom: 24px;
     }
+
+    ${({ $stickyHeader }) =>
+        $stickyHeader &&
+        `
+            .ant-tabs-nav::before {
+                display: none;
+            }
+            
+            .ant-tabs-nav-wrap::before {
+                display: none;
+            }
+            
+            .ant-tabs-nav-list::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background-color: ${colors.gray[200]};
+            }
+        `}
+
+    ${({ $addPaddingLeft, $stickyHeader }) =>
+        $addPaddingLeft &&
+        $stickyHeader &&
+        `
+            .ant-tabs-nav-list::after {
+                left: 16px;
+            }
+        `}
 `;
 
 const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
@@ -174,7 +204,12 @@ export function Tabs({
     const tabsContent = (
         <StyledTabs
             activeKey={selectedTab}
-            onChange={onChange}
+            onChange={(key) => {
+                if (onChange) onChange(key);
+                if (urlMap && onUrlChange && urlMap[key]) {
+                    onUrlChange(urlMap[key]);
+                }
+            }}
             $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
             $scrollable={scrollToTopOnChange}

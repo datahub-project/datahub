@@ -34,6 +34,7 @@ const BaseCard = styled.div`
     background-color: white;
     border: 1px solid ${colors.gray[1400]};
     border-radius: 12px;
+    box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.04);
     min-height: 60px;
 `;
 
@@ -277,7 +278,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                     </MainContainer>
                     {ingestionContents && (
                         <IngestionContentsContainer>
-                            <Heading type="h5" size="lg" weight="medium">
+                            <Heading type="h5" size="lg" weight="bold">
                                 Coverage
                             </Heading>
                             <Text color="gray" colorLevel={600}>
