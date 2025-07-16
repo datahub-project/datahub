@@ -183,6 +183,7 @@ describe('PageTemplateContext', () => {
                 mockUpdateTemplateWithModule,
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
+                false,
             );
         });
 
@@ -281,6 +282,7 @@ describe('PageTemplateContext', () => {
                 mockUpdateTemplateWithModule,
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
+                false,
             );
         });
 
@@ -329,6 +331,12 @@ describe('PageTemplateContext', () => {
             expect(result.current.setTemplate).toBe(mockSetTemplate);
             expect(result.current.addModule).toBe(mockAddModule);
             expect(result.current.createModule).toBe(mockCreateModule);
+            expect(result.current.createModuleModalState).toMatchObject({
+                isOpen: false,
+                isEditing: false,
+                open: expect.any(Function),
+                close: expect.any(Function),
+            });
         });
 
         it('should throw error when used outside provider', () => {
