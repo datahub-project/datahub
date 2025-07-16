@@ -22,7 +22,7 @@ ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
 
 # Acryl Only
-export COMPOSE_FILE="../docker/profiles/docker-compose.acryl.yml"
+export COMPOSE_FILE="../docker/profiles/docker-compose.acryl-smoke.yml"
 
 # Set the path to the smoke.gms.env file
 export DATAHUB_LOCAL_GMS_ENV="$(pwd)/smoke.gms.env"
