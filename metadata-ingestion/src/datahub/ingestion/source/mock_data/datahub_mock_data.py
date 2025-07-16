@@ -70,9 +70,18 @@ class LineageConfigGen1(ConfigModel):
     Table naming convention: "hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
     """
 
-    emit_lineage: bool = Field(
+    enabled: bool = Field(
         default=False,
+        description="Whether this source is enabled",
+    )
+
+    emit_lineage: bool = Field(
+        default=True,
         description="Whether to emit lineage data for testing purposes. When False, no lineage data is generated regardless of other settings.",
+    )
+    emit_usage: bool = Field(
+        default=True,
+        description="Whether to emit usage data for testing purposes. When False, no usage data is generated regardless of other settings.",
     )
 
     lineage_fan_out: int = Field(
@@ -161,7 +170,7 @@ class DataHubMockDataSource(Source):
 
         # We don't want any implicit aspects to be produced
         # so we are not using get_workunits_internal
-        if self.config.gen_1.emit_lineage:
+        if self.config.gen_1.enabled:
             for wu in self._data_gen_1():
                 if self.report.first_urn_seen is None:
                     self.report.first_urn_seen = wu.get_urn()
@@ -315,17 +324,19 @@ class DataHubMockDataSource(Source):
 
                 yield self._get_profile_aspect(table_name)
 
-                yield self._get_usage_aspect(table_name)
+                if self.config.gen_1.emit_usage:
+                    yield self._get_usage_aspect(table_name)
 
-                yield from self._generate_lineage_for_table(
-                    table_name=table_name,
-                    table_level=i,
-                    table_index=j,
-                    hops=hops,
-                    fan_out=fan_out,
-                    fan_out_after_first=fan_out_after_first,
-                    tables_at_levels=tables_at_levels,
-                )
+                if self.config.gen_1.emit_lineage:
+                    yield from self._generate_lineage_for_table(
+                        table_name=table_name,
+                        table_level=i,
+                        table_index=j,
+                        hops=hops,
+                        fan_out=fan_out,
+                        fan_out_after_first=fan_out_after_first,
+                        tables_at_levels=tables_at_levels,
+                    )
 
     def _generate_lineage_for_table(
         self,
