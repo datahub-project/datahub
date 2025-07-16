@@ -54,9 +54,12 @@ interface Props {
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+<<<<<<< HEAD
     saasProps: {
         onViewPool: (poolId: string) => void;
     };
+=======
+>>>>>>> 3ab354eac4
 }
 
 function IngestionSourceTable({
@@ -74,7 +77,10 @@ function IngestionSourceTable({
     sourcesToRefetch,
     executedUrns,
     setSelectedTab,
+<<<<<<< HEAD
     saasProps,
+=======
+>>>>>>> 3ab354eac4
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -100,10 +106,14 @@ function IngestionSourceTable({
 
     const navigateToRunHistory = (record) => {
         setSelectedTab(TabType.RunHistory);
+<<<<<<< HEAD
         const selectedSourceNameFilter = [
             { field: 'executorType', values: [EXECUTOR_TYPE_ALL_VALUE] },
             { field: 'ingestionSource', values: [record.urn] },
         ];
+=======
+        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+>>>>>>> 3ab354eac4
         const preserveParams = shouldPreserveParams;
         preserveParams.current = true;
 
@@ -127,7 +137,11 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} />;
             },
+<<<<<<< HEAD
+            width: '20%',
+=======
             width: '25%',
+>>>>>>> 3ab354eac4
             sorter: true,
         },
         {
@@ -178,7 +192,11 @@ function IngestionSourceTable({
             render: (record) => (
                 <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
             ),
+<<<<<<< HEAD
+            width: '15%',
+=======
             width: '20%',
+>>>>>>> 3ab354eac4
         },
         {
             title: 'Status',
@@ -190,7 +208,11 @@ function IngestionSourceTable({
                     dataTestId="ingestion-source-table-status"
                 />
             ),
+<<<<<<< HEAD
+            width: '10%',
+=======
             width: '15%',
+>>>>>>> 3ab354eac4
         },
 
         {

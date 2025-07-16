@@ -13,7 +13,11 @@ interface ActionsColumnProps {
 }
 
 export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, handleCancel }: ActionsColumnProps) {
+<<<<<<< HEAD
     const canCancelExecution = record.privileges?.canExecute;
+
+=======
+>>>>>>> 3ab354eac4
     const items = [
         {
             key: '0',
@@ -42,7 +46,11 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
         },
     ];
 
+<<<<<<< HEAD
     if (canCancelExecution && record.status === EXECUTION_REQUEST_STATUS_RUNNING) {
+=======
+    if (record.status === EXECUTION_REQUEST_STATUS_RUNNING) {
+>>>>>>> 3ab354eac4
         items.push({
             key: '2',
             label: <MenuItem onClick={() => handleCancel(record.urn)}>Cancel</MenuItem>,

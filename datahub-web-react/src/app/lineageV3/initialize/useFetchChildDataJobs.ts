@@ -30,14 +30,22 @@ export default function useFetchChildDataJobs(): boolean {
             let addedNode = false;
 
             const jobs = data.dataFlow?.childJobs;
+<<<<<<< HEAD
             jobs?.relationships?.forEach((job) => {
+=======
+            jobs?.relationships.forEach((job) => {
+>>>>>>> 3ab354eac4
                 if (!job.entity) return;
                 addedNode = addedNode || !nodes.has(job.entity.urn);
                 const node = setDefault(nodes, job.entity.urn, makeInitialNode(job.entity));
                 node.parentDataJob = rootUrn;
 
                 if (job.entity.__typename === 'DataJob') {
+<<<<<<< HEAD
                     job.entity.upstream?.relationships?.forEach((relationship) => {
+=======
+                    job.entity.upstream?.relationships.forEach((relationship) => {
+>>>>>>> 3ab354eac4
                         if (!relationship.entity) return;
                         const edgeId = getEdgeId(node.urn, relationship.entity.urn, LineageDirection.Upstream);
                         edges.set(edgeId, { ...edges.get(edgeId), isDisplayed: true });

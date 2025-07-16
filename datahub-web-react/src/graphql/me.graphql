@@ -84,14 +84,17 @@ query getMe {
             manageBusinessAttributes
             manageStructuredProperties
             viewStructuredPropertiesPage
-            manageApplications
-            manageFeatures
+<<<<<<< HEAD
             manageDocumentationForms
             viewDocumentationFormsPage
             manageOrganizationDisplayPreferences
             proposeCreateGlossaryTerm
             proposeCreateGlossaryNode
             canViewIngestionPage
+=======
+            manageApplications
+            manageFeatures
+>>>>>>> 3ab354eac4
         }
     }
 }

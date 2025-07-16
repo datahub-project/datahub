@@ -105,6 +105,7 @@ export const NavSidebar = () => {
     const showManageTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+<<<<<<< HEAD
 
     /* SaaS Only */
     const { helpLinkState, globalSettings } = useGlobalSettingsContext();
@@ -120,6 +121,8 @@ export const NavSidebar = () => {
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const { viewIngestionSourcePrivilegesEnabled } = config.featureFlags;
     /* End SaaS Only */
+=======
+>>>>>>> 3ab354eac4
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
@@ -197,6 +200,8 @@ export const NavSidebar = () => {
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
                         isHidden: !showManageTags,
+<<<<<<< HEAD
+=======
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -206,6 +211,7 @@ export const NavSidebar = () => {
                         selectedIcon: <AppWindow weight="fill" />,
                         link: PageRoutes.MANAGE_APPLICATIONS,
                         isHidden: !(appConfig.config.visualConfig.application?.showApplicationInNavigation ?? false),
+>>>>>>> 3ab354eac4
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

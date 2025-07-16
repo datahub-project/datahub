@@ -171,7 +171,7 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
-    ClickProductUpdate,
+<<<<<<< HEAD
     NavBarExpandCollapse,
     NavBarItemClick,
     FormByEntityNavigate,
@@ -187,11 +187,15 @@ export enum EventType {
     GiveAnomalyFeedback,
     UndoAnomalyFeedback,
     RetrainAsNewNormal,
+    ClickProductUpdate,
     CreateActionEvent,
     UpdateActionEvent,
     DeleteActionEvent,
     DatasetHealthFilterEvent,
     DatasetHealthClickEvent,
+=======
+    ClickProductUpdate,
+>>>>>>> 3ab354eac4
 }
 
 /**
@@ -1408,6 +1412,12 @@ export interface ClickProductUpdateEvent extends BaseEvent {
     url: string;
 }
 
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1550,7 +1560,7 @@ export type Event =
     | ShowAllVersionsEvent
     | HomePageClickEvent
     | SearchBarFilterEvent
-    | ClickProductUpdateEvent
+<<<<<<< HEAD
     | NavBarExpandCollapseEvent
     | NavBarItemClickEvent
     | FormByEntityNavigateEvent
@@ -1566,8 +1576,12 @@ export type Event =
     | GiveAnomalyFeedbackEvent
     | UndoAnomalyFeedbackEvent
     | RetrainAsNewNormalEvent
+    | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent
     | DeleteActionEvent
     | DatasetHealthFilterEvent
     | DatasetHealthClickEvent;
+=======
+    | ClickProductUpdateEvent;
+>>>>>>> 3ab354eac4

@@ -76,6 +76,7 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+<<<<<<< HEAD
     const canViewIngestionPage =
         platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
 
@@ -86,6 +87,11 @@ export const ManageIngestionPage = () => {
     const canViewPools = canManagePools || canViewIngestionPage;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
+=======
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && canManageIngestion;
+    const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+>>>>>>> 3ab354eac4
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -118,12 +124,16 @@ export const ManageIngestionPage = () => {
                 setSelectedTab(TabType.Sources);
             } else if (showSecretsTab) {
                 setSelectedTab(TabType.Secrets);
+<<<<<<< HEAD
             } else if (showRemoteExecutorsTab) {
                 setSelectedTab(TabType.RemoteExecutors);
+=======
+>>>>>>> 3ab354eac4
             } else {
                 setSelectedTab(null);
             }
         }
+<<<<<<< HEAD
     }, [
         loadedAppConfig,
         loadedPlatformPrivileges,
@@ -132,6 +142,9 @@ export const ManageIngestionPage = () => {
         showRemoteExecutorsTab,
         selectedTab,
     ]);
+=======
+    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
+>>>>>>> 3ab354eac4
 
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const preserveParams = shouldPreserveParams.current;
@@ -207,10 +220,13 @@ export const ManageIngestionPage = () => {
         setShowCreateSecretModal(true);
     };
 
+<<<<<<< HEAD
     const handleCreatePool = () => {
         setShowCreatePoolModal(true);
     };
 
+=======
+>>>>>>> 3ab354eac4
     if (selectedTab === undefined) {
         return <></>; // loading
     }
@@ -259,6 +275,7 @@ export const ManageIngestionPage = () => {
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                         >
                             Create secret
+<<<<<<< HEAD
                         </Button>
                     )}
                     {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canViewPools && (
@@ -271,6 +288,8 @@ export const ManageIngestionPage = () => {
                             disabled={!canManagePools}
                         >
                             Create pool
+=======
+>>>>>>> 3ab354eac4
                         </Button>
                     )}
                 </HeaderActionsContainer>

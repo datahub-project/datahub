@@ -1,5 +1,8 @@
 import { colors } from '@components';
+<<<<<<< HEAD
 import { Maybe } from 'graphql/jsutils/Maybe';
+=======
+>>>>>>> 3ab354eac4
 import {
     ArrowCounterClockwise,
     ArrowsCounterClockwise,
@@ -98,7 +101,10 @@ export const getExecutionRequestStatusIcon = (status?: string) => {
         (status === ROLLING_BACK && ArrowsCounterClockwise) ||
         (status === ROLLBACK_FAILED && X) ||
         (status === ABORTED && X) ||
+<<<<<<< HEAD
         (status === DUPLICATE && Prohibit) ||
+=======
+>>>>>>> 3ab354eac4
         ClockClockwise
     );
 };
@@ -159,7 +165,10 @@ export const getExecutionRequestStatusDisplayColor = (status?: string) => {
         (status === ROLLING_BACK && colors.yellow[500]) ||
         (status === ROLLBACK_FAILED && colors.red[500]) ||
         (status === ABORTED && colors.red[500]) ||
+<<<<<<< HEAD
         (status === DUPLICATE && colors.gray[1700]) ||
+=======
+>>>>>>> 3ab354eac4
         colors.gray[1700]
     );
 };

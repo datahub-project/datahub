@@ -5,10 +5,13 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
+<<<<<<< HEAD
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
-import { useAppConfig } from '@app/useAppConfig';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
+=======
+import { useAppConfig } from '@app/useAppConfig';
+>>>>>>> 3ab354eac4
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -90,12 +93,15 @@ export const Preferences = () => {
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
-    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+<<<<<<< HEAD
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const authenticatedUser = useGetAuthenticatedUser();
     const canManageOrganizationDisplayPreferences =
         authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
+=======
+    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+>>>>>>> 3ab354eac4
 
     return (
         <Page>
@@ -179,6 +185,11 @@ export const Preferences = () => {
                         </StyledCard>
                     </>
                 )}
+<<<<<<< HEAD
+                {canManageOrganizationDisplayPreferences && isShowNavBarRedesign && <OrganizationInfo />}
+                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageOrganizationDisplayPreferences && (
+                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+=======
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
@@ -207,9 +218,9 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {canManageOrganizationDisplayPreferences && isShowNavBarRedesign && <OrganizationInfo />}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageOrganizationDisplayPreferences && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplicationAppearance && (
+                    <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
+>>>>>>> 3ab354eac4
                 )}
             </SourceContainer>
         </Page>

@@ -225,10 +225,17 @@ describe('NodeBuilder', () => {
         expect(dataset1Node?.position.x).toEqual(dataset2Node?.position.x);
         expect(dataset1Node?.position.y).toBeLessThan(dataset2Node?.position.y ?? -Infinity);
         expect(transform1Node?.position.x).toBeGreaterThan(dataset1Node?.position.x ?? Infinity);
+<<<<<<< HEAD
         expect(dataset4Node?.position?.y).toEqual(dataset5Node?.position.y);
         expect(transform2Node?.position.y).within(
             (dataset4Node?.position?.y || 0) - 20,
             (dataset4Node?.position?.y || 0) + 20,
+=======
+        expect(dataset4Node?.position.y).toEqual(dataset5Node?.position.y);
+        expect(transform2Node?.position.y).within(
+            (dataset4Node?.position.y || 0) - 20,
+            (dataset4Node?.position.y || 0) + 20,
+>>>>>>> 3ab354eac4
         );
         expect(dataset5Node?.position.x).toBeLessThan(transform2Node?.position.x ?? -Infinity);
         expect(dataset4Node?.position.x).toBeGreaterThan(transform2Node?.position.x ?? Infinity);

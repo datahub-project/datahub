@@ -7,6 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
+<<<<<<< HEAD
 const StyledTabsPrimary = styled(AntTabs)<{
     $navMarginBottom?: number;
     $navMarginTop?: number;
@@ -20,6 +21,10 @@ const StyledTabsPrimary = styled(AntTabs)<{
             : `
         flex: 1;
     `}
+=======
+const StyledTabs = styled(AntTabs)<{ $addPaddingLeft?: boolean; $hideTabsHeader: boolean }>`
+    flex: 1;
+>>>>>>> 3ab354eac4
     overflow: hidden;
 
     .ant-tabs-tab {
@@ -166,14 +171,17 @@ export interface Props {
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
     getCurrentUrl?: () => string;
-    addPaddingLeft?: boolean;
-    hideTabsHeader?: boolean;
+<<<<<<< HEAD
     secondary?: boolean;
     styleOptions?: {
         containerHeight?: 'full' | 'auto';
         navMarginBottom?: number;
         navMarginTop?: number;
     };
+=======
+    addPaddingLeft?: boolean;
+    hideTabsHeader?: boolean;
+>>>>>>> 3ab354eac4
 }
 
 export function Tabs({
@@ -184,10 +192,13 @@ export function Tabs({
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
-    addPaddingLeft,
-    hideTabsHeader,
+<<<<<<< HEAD
     secondary,
     styleOptions,
+=======
+    addPaddingLeft,
+    hideTabsHeader,
+>>>>>>> 3ab354eac4
 }: Props) {
     const { TabPane } = AntTabs;
 
@@ -233,11 +244,14 @@ export function Tabs({
         <StyledTabs
             activeKey={selectedTab}
             onChange={handleTabClick}
-            $addPaddingLeft={addPaddingLeft}
-            $hideTabsHeader={!!hideTabsHeader}
+<<<<<<< HEAD
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}
+=======
+            $addPaddingLeft={addPaddingLeft}
+            $hideTabsHeader={!!hideTabsHeader}
+>>>>>>> 3ab354eac4
         >
             {tabs.map((tab) => {
                 return (

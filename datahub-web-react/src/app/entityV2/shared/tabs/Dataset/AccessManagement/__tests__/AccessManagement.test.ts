@@ -91,12 +91,15 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-                    manageApplications: true,
-                    manageFeatures: true,
+<<<<<<< HEAD
                     manageOrganizationDisplayPreferences: true,
                     proposeCreateGlossaryTerm: true,
                     proposeCreateGlossaryNode: true,
                     canViewIngestionPage: true,
+=======
+                    manageApplications: true,
+                    manageFeatures: true,
+>>>>>>> 3ab354eac4
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -184,12 +187,15 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-                    manageApplications: true,
-                    manageFeatures: true,
+<<<<<<< HEAD
                     manageOrganizationDisplayPreferences: true,
                     proposeCreateGlossaryNode: true,
                     proposeCreateGlossaryTerm: true,
                     canViewIngestionPage: true,
+=======
+                    manageApplications: true,
+                    manageFeatures: true,
+>>>>>>> 3ab354eac4
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -285,12 +291,15 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-                    manageApplications: true,
-                    manageFeatures: true,
+<<<<<<< HEAD
                     manageOrganizationDisplayPreferences: true,
                     proposeCreateGlossaryNode: true,
                     proposeCreateGlossaryTerm: true,
                     canViewIngestionPage: true,
+=======
+                    manageApplications: true,
+                    manageFeatures: true,
+>>>>>>> 3ab354eac4
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',

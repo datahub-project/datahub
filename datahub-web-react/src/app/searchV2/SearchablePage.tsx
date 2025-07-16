@@ -144,6 +144,10 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 </Navigation>
                 <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>
+<<<<<<< HEAD
+            {/** DataHub Cloud Only (For Now) */}
+=======
+>>>>>>> 3ab354eac4
             <ProductUpdates />
         </>
     );
