@@ -13,33 +13,38 @@ Before starting the upgrade process:
 2. **Database Access**: You'll need read access to your DataHub Core MySQL or PostgreSQL database
 3. **DataHub CLI**: Install the DataHub CLI with `pip install acryl-datahub`
 4. **Network Connectivity**: Ensure your upgrade environment can access both your source database and DataHub Cloud
-5. **Database Index**: Verify that the `createdon` column is indexed in your source database - it should be by default:
+5. **Database Index**: Verify that the `createdon` column is indexed in your source database:
+
    ```sql
    CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);
    ```
 
-## Upgrade Approaches
+## Moving From Core To Cloud
 
-### Quickstart: Transferring Core Metadata
+DataHub supports lifting and shifting your instance from DataHub Core to DataHub Cloud, if you'd like to retain the information already present in your DataHub Core instance. To transfer your instance cleanly, you can follow the steps below.
 
-This approach transfers all essential metadata by default, including:
+### Transferring Core Data
+
+You can easily copy core metadata from DataHub Core to DataHub Cloud using a simple CLI command.
+
+By default, we'll transfer:
 
 - Data assets (datasets, dashboards, charts, etc.)
 - Users and groups
 - Lineage
 - Descriptions
-- Ownership 
+- Ownership
 - Domains and data products
 - Tags and glossary terms
 
-It does NOT transfer the following:
+The following is NOT automatically transferred:
 
 - Ingestion Sources
 - Ingestion Source Runs
 - Ingestion Secrets
 - Platform Settings
 
-Or any aspect due to the different encryption scheme employed on DataHub cloud. This method also excludes time-series metadata such as dataset profiles, column statistics, and assertion run history.
+Due to the different encryption scheme employed on DataHub Cloud. This method also excludes time-series metadata such as dataset profiles, column statistics, and assertion run history.
 
 #### Step 1: Create Your Upgrade Recipe
 
@@ -100,18 +105,18 @@ After completion:
 3. Check a few key datasets to ensure documentation, owners, and tags transferred correctly
 4. Verify lineage relationships are intact
 
-### Advanced: Including Time-Series Metadata
+### Transferring Time-Series Metadata
 
-For a complete transfer including historical time-series data, you'll need to connect to your **Kafka** cluster. This captures:
+For a complete transfer including recent time-series metadata, you'll need to provide additional configurations to connect to your **Kafka** cluster. This will transfer:
 
 - Dataset and column profiling history
-- Dataset operation logs
+- Dataset update history (inserts, updates, deletes)
+- Dataset query statistics (query counts)
 - Assertion run results
-- Usage statistics
 
 **Important**: The amount of historical data available depends on your Kafka retention policy (typically 30-90 days).
 
-#### Enhanced Recipe Configuration
+#### Extended Recipe Configuration
 
 ```yaml
 pipeline_name: datahub_upgrade_with_timeseries
@@ -159,7 +164,9 @@ sink:
 
 ### Advanced Configuration: Transferring Specific Aspects
 
-You can override the default aspects which are excluded from transfer during upgrade using the `exclude_aspects` configuration.
+You can override the default aspects which are excluded from transfer during upgrade using the `exclude_aspects` configuration. This is useful if you want to be more restrictive, opting to exclude certain information from being transferred to
+your Cloud instance.
+
 **Be careful! Some aspects**, particularly those containing encrypted secrets, will NOT transfer to DataHub Cloud due to differences in encryption schemes.
 
 ```yaml
@@ -243,11 +250,10 @@ source:
 
 ## Post-Upgrade Steps
 
-1. **Update Integrations**: Point your ingestion pipelines to DataHub Cloud
+1. **Configure Data Sources**: Configure your ingestion sources on DataHub Cloud
 2. **Configure SSO**: Set up authentication for your team
-3. **Update API Clients**: Update any applications using DataHub APIs
-4. **Verify Automations**: Test any existing automation workflows
-5. **Review Policies**: Recreate any custom policies and roles as needed
+3. **Update API Clients**: Update any client applications to point to your DataHub Cloud instance
+4. **Review Policies**: Recreate any custom policies and roles as needed
 
 ## Additional Resources
 
