@@ -516,7 +516,7 @@ def test_train_and_update_assertion(
     mock_dependencies[
         "metrics_predictor"
     ].predict_metric_boundaries.assert_called_once_with(
-        mock_metrics_data, timedelta(hours=1), 48, sensitivity
+        mock_metrics_data, timedelta(hours=1), 48, sensitivity, floor_value=0.0
     )
 
     # Check assertion info was retrieved

@@ -30,6 +30,8 @@ from datahub_executor.common.monitor.inference.utils import (
     coalesce_metrics,
     create_embedded_assertion,
     create_inference_source,
+    get_metric_ceiling_value,
+    get_metric_floor_value,
     is_metric_anomaly,
 )
 from datahub_executor.common.types import (
@@ -204,15 +206,23 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         # 1) Determine sensitivity level
         sensitivity = self._get_sensitivity_level(adjustment_settings)
 
-        # 2) Predict boundaries
+        # 2) Get assertion info and extract field and metric information
+        assertion_info, field, metric = self._get_field_assertion_details(assertion)
+
+        # 3) Predict boundaries
+        metric_floor_value = get_metric_floor_value(str(metric))
+        metric_ceiling_value = get_metric_ceiling_value(str(metric))
+
         boundaries = self.metrics_predictor.predict_metric_boundaries(
-            events, timedelta(hours=1), 24, sensitivity
+            events,
+            timedelta(hours=1),
+            24,
+            sensitivity,
+            floor_value=metric_floor_value,
+            ceiling_value=metric_ceiling_value,
         )
         current_boundary = boundaries[0]  # First boundary is the current one
         future_boundaries = boundaries[1:]  # Rest are future predictions
-
-        # 3) Get assertion info and extract field and metric information
-        assertion_info, field, metric = self._get_field_assertion_details(assertion)
 
         # 4) Build new field metric assertion with updated boundaries
         new_field_metric_assertion = self._build_field_metric_assertion_info(

@@ -233,7 +233,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
 
         # 2) Predict boundaries
         boundaries = self.metrics_predictor.predict_metric_boundaries(
-            events, timedelta(hours=1), 48, sensitivity
+            events, timedelta(hours=1), 48, sensitivity, floor_value=0.0
         )
         current_boundary = boundaries[0]  # First boundary is the current one
         future_boundaries = boundaries[1:]  # Rest are future predictions

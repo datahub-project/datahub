@@ -585,7 +585,12 @@ def test_train_and_update_assertion(
     mock_dependencies[
         "metrics_predictor"
     ].predict_metric_boundaries.assert_called_once_with(
-        mock_metrics_data, timedelta(hours=1), 24, sensitivity
+        mock_metrics_data,
+        timedelta(hours=1),
+        24,
+        sensitivity,
+        floor_value=0.0,
+        ceiling_value=None,
     )
 
     # Check field assertion details were retrieved
@@ -618,6 +623,140 @@ def test_train_and_update_assertion(
 
     # Check result
     assert result == mock_field_assertion
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._update_field_metric_monitor_evaluation_context"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_with_floor_and_ceiling(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_field_assertion_details: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    trainer: FieldAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_field_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_boundaries: List[Mock],
+    mock_field_assertion_info: AssertionInfoClass,
+    mock_schema_field: Mock,
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test train_and_update_assertion with metric that has both floor and ceiling (EMPTY_PERCENTAGE)."""
+    # Arrange
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.return_value = mock_boundaries
+
+    # Setup field assertion details with EMPTY_PERCENTAGE (has both floor=0.0 and ceiling=100.0)
+    mock_get_field_assertion_details.return_value = (
+        mock_field_assertion_info,
+        cast(SchemaFieldSpecClass, mock_schema_field),
+        FieldMetricTypeClass.EMPTY_PERCENTAGE,
+    )
+
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_field_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_field_assertion),
+        mock_metrics_data,
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # Check boundaries were predicted with both floor and ceiling
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.assert_called_once_with(
+        mock_metrics_data,
+        timedelta(hours=1),
+        24,
+        sensitivity,
+        floor_value=0.0,
+        ceiling_value=100.0,
+    )
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._update_field_metric_monitor_evaluation_context"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_with_no_floor_or_ceiling(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_field_assertion_details: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    trainer: FieldAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_field_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_boundaries: List[Mock],
+    mock_field_assertion_info: AssertionInfoClass,
+    mock_schema_field: Mock,
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test train_and_update_assertion with metric that has no floor or ceiling (MEAN)."""
+    # Arrange
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.return_value = mock_boundaries
+
+    # Setup field assertion details with MEAN (has neither floor nor ceiling)
+    mock_get_field_assertion_details.return_value = (
+        mock_field_assertion_info,
+        cast(SchemaFieldSpecClass, mock_schema_field),
+        FieldMetricTypeClass.MEAN,
+    )
+
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_field_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_field_assertion),
+        mock_metrics_data,
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # Check boundaries were predicted with no floor or ceiling
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.assert_called_once_with(
+        mock_metrics_data,
+        timedelta(hours=1),
+        24,
+        sensitivity,
+        floor_value=None,
+        ceiling_value=None,
+    )
 
 
 def test_get_sensitivity_level_with_settings(

@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     CalendarIntervalClass,
     EmbeddedAssertionClass,
+    FieldMetricTypeClass,
     FixedIntervalScheduleClass,
     TimeWindowClass,
     TimeWindowSizeClass,
@@ -100,6 +101,42 @@ def is_metric_anomaly(metric: Metric, anomalies: List[Anomaly]) -> bool:
             ):
                 return True
     return False
+
+
+FIELD_METRICS_WITH_ZERO_AS_FLOOR_VALUE = [
+    FieldMetricTypeClass.EMPTY_COUNT,
+    FieldMetricTypeClass.EMPTY_PERCENTAGE,
+    FieldMetricTypeClass.NULL_COUNT,
+    FieldMetricTypeClass.NULL_PERCENTAGE,
+    FieldMetricTypeClass.NEGATIVE_COUNT,
+    FieldMetricTypeClass.NEGATIVE_PERCENTAGE,
+    FieldMetricTypeClass.UNIQUE_COUNT,
+    FieldMetricTypeClass.UNIQUE_PERCENTAGE,
+    FieldMetricTypeClass.ZERO_COUNT,
+    FieldMetricTypeClass.ZERO_PERCENTAGE,
+    FieldMetricTypeClass.MAX_LENGTH,
+    FieldMetricTypeClass.MIN_LENGTH,
+]
+
+FIELD_METRICS_WITH_ONE_HUNDRED_AS_CEILING_VALUE = [
+    FieldMetricTypeClass.EMPTY_PERCENTAGE,
+    FieldMetricTypeClass.NULL_PERCENTAGE,
+    FieldMetricTypeClass.NEGATIVE_PERCENTAGE,
+    FieldMetricTypeClass.UNIQUE_PERCENTAGE,
+    FieldMetricTypeClass.ZERO_PERCENTAGE,
+]
+
+
+def get_metric_floor_value(metric: str) -> Optional[float]:
+    if metric in FIELD_METRICS_WITH_ZERO_AS_FLOOR_VALUE:
+        return 0.0
+    return None
+
+
+def get_metric_ceiling_value(metric: str) -> Optional[float]:
+    if metric in FIELD_METRICS_WITH_ONE_HUNDRED_AS_CEILING_VALUE:
+        return 100.0
+    return None
 
 
 def annotate_operations_with_anomalies(

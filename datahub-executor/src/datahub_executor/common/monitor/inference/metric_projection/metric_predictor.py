@@ -86,6 +86,8 @@ class MetricPredictor:
         multiple: int,
         sensitivity_level: int,
         start_time: Optional[datetime] = None,
+        floor_value: Optional[float] = None,
+        ceiling_value: Optional[float] = None,
     ) -> List[MetricBoundary]:
         """
         Given some recent metrics, produce current and future metric boundaries.
@@ -97,6 +99,8 @@ class MetricPredictor:
             sensitivity_level: Sensitivity level (1-10) to adjust prediction confidence intervals.
                                Higher values produce narrower bounds (more sensitive).
             start_time: Optional start time for prediction. If None, current time is used.
+            floor_value: Optional floor value for prediction. If None, no floor is applied.
+            ceiling_value: Optional ceiling value for prediction. If None, no ceiling is applied.
 
         Returns:
             List of predicted MetricBoundary objects for requested intervals.
@@ -134,9 +138,67 @@ class MetricPredictor:
             config,
         )
 
+        if floor_value:
+            metric_boundaries = self._apply_floor_value(metric_boundaries, floor_value)
+        if ceiling_value:
+            metric_boundaries = self._apply_ceiling_value(
+                metric_boundaries, ceiling_value
+            )
+
         self._log_metric_prediction_result(metric_boundaries)
 
         return metric_boundaries
+
+    def _apply_floor_value(
+        self, metric_boundaries: List[MetricBoundary], floor_value: float
+    ) -> List[MetricBoundary]:
+        """
+        Applies a floor value to the metric boundaries.
+        """
+        updated_boundaries = []
+        for boundary in metric_boundaries:
+            if boundary.lower_bound.value < floor_value:
+                # Create a new Metric for the lower_bound with updated value
+                new_lower_bound = Metric(
+                    value=floor_value,
+                    timestamp_ms=boundary.lower_bound.timestamp_ms,
+                )
+                # Create a new MetricBoundary with updated lower_bound
+                updated_boundary = MetricBoundary(
+                    lower_bound=new_lower_bound,
+                    upper_bound=boundary.upper_bound,
+                    start_time_ms=boundary.start_time_ms,
+                    end_time_ms=boundary.end_time_ms,
+                )
+                updated_boundaries.append(updated_boundary)
+            else:
+                updated_boundaries.append(boundary)
+        return updated_boundaries
+
+    def _apply_ceiling_value(
+        self, metric_boundaries: List[MetricBoundary], ceiling_value: float
+    ) -> List[MetricBoundary]:
+        """
+        Applies a ceiling value to the metric boundaries.
+        """
+        updated_boundaries = []
+        for boundary in metric_boundaries:
+            if boundary.upper_bound.value > ceiling_value:
+                # Create a new Metric for the upper_bound with updated value
+                new_upper_bound = Metric(
+                    value=ceiling_value,
+                    timestamp_ms=boundary.upper_bound.timestamp_ms,
+                )
+                updated_boundary = MetricBoundary(
+                    lower_bound=boundary.lower_bound,
+                    upper_bound=new_upper_bound,
+                    start_time_ms=boundary.start_time_ms,
+                    end_time_ms=boundary.end_time_ms,
+                )
+                updated_boundaries.append(updated_boundary)
+            else:
+                updated_boundaries.append(boundary)
+        return updated_boundaries
 
     def _validate_metrics_input(self, metrics: List[Metric]) -> None:
         """

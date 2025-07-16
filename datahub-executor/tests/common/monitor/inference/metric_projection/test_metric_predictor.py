@@ -706,3 +706,193 @@ class TestMetricPredictor:
         assert (
             "failed to generate fixed interval prediction" in str(excinfo.value).lower()
         )
+
+    def test_apply_floor_value(self, predictor: MetricPredictor) -> None:
+        """Test applying floor value to metric boundaries."""
+        # Create boundaries where some need floor adjustment
+        boundaries = [
+            MetricBoundary(
+                lower_bound=Metric(value=2.0, timestamp_ms=1000),  # Below floor
+                upper_bound=Metric(value=10.0, timestamp_ms=1000),
+                start_time_ms=1000,
+                end_time_ms=2000,
+            ),
+            MetricBoundary(
+                lower_bound=Metric(value=8.0, timestamp_ms=2000),  # Above floor
+                upper_bound=Metric(value=15.0, timestamp_ms=2000),
+                start_time_ms=2000,
+                end_time_ms=3000,
+            ),
+        ]
+
+        floor_value = 5.0
+        result = predictor._apply_floor_value(boundaries, floor_value)
+
+        # First boundary should have floor applied
+        assert result[0].lower_bound.value == floor_value
+        assert result[0].upper_bound.value == 10.0  # Unchanged
+        assert result[0].start_time_ms == 1000
+        assert result[0].end_time_ms == 2000
+
+        # Second boundary should be unchanged
+        assert result[1].lower_bound.value == 8.0
+        assert result[1].upper_bound.value == 15.0
+        assert result[1].start_time_ms == 2000
+        assert result[1].end_time_ms == 3000
+
+    def test_apply_ceiling_value(self, predictor: MetricPredictor) -> None:
+        """Test applying ceiling value to metric boundaries."""
+        # Create boundaries where some need ceiling adjustment
+        boundaries = [
+            MetricBoundary(
+                lower_bound=Metric(value=2.0, timestamp_ms=1000),
+                upper_bound=Metric(value=15.0, timestamp_ms=1000),  # Above ceiling
+                start_time_ms=1000,
+                end_time_ms=2000,
+            ),
+            MetricBoundary(
+                lower_bound=Metric(value=3.0, timestamp_ms=2000),
+                upper_bound=Metric(value=8.0, timestamp_ms=2000),  # Below ceiling
+                start_time_ms=2000,
+                end_time_ms=3000,
+            ),
+        ]
+
+        ceiling_value = 10.0
+        result = predictor._apply_ceiling_value(boundaries, ceiling_value)
+
+        # First boundary should have ceiling applied
+        assert result[0].lower_bound.value == 2.0  # Unchanged
+        assert result[0].upper_bound.value == ceiling_value
+        assert result[0].start_time_ms == 1000
+        assert result[0].end_time_ms == 2000
+
+        # Second boundary should be unchanged
+        assert result[1].lower_bound.value == 3.0
+        assert result[1].upper_bound.value == 8.0
+        assert result[1].start_time_ms == 2000
+        assert result[1].end_time_ms == 3000
+
+    @patch(
+        "datahub_executor.common.monitor.inference.metric_projection.metric_predictor.MetricPredictor._run_metric_forecaster"
+    )
+    def test_predict_metric_boundaries_with_floor_value(
+        self,
+        mock_run_forecaster: MagicMock,
+        predictor: MetricPredictor,
+        sample_metrics: List[Metric],
+    ) -> None:
+        """Test predicting metric boundaries with floor value."""
+        # Setup mock boundaries with lower bounds below floor
+        mock_boundaries = [
+            MetricBoundary(
+                lower_bound=Metric(value=1.0, timestamp_ms=1000),  # Below floor
+                upper_bound=Metric(value=5.0, timestamp_ms=1000),
+                start_time_ms=1000,
+                end_time_ms=2000,
+            ),
+            MetricBoundary(
+                lower_bound=Metric(value=8.0, timestamp_ms=2000),  # Above floor
+                upper_bound=Metric(value=12.0, timestamp_ms=2000),
+                start_time_ms=2000,
+                end_time_ms=3000,
+            ),
+        ]
+        mock_run_forecaster.return_value = mock_boundaries
+
+        floor_value = 3.0
+        result = predictor.predict_metric_boundaries(
+            recent_metrics=sample_metrics,
+            unit=timedelta(hours=1),
+            multiple=2,
+            sensitivity_level=5,
+            floor_value=floor_value,
+        )
+
+        # Verify floor was applied to first boundary
+        assert result[0].lower_bound.value == floor_value
+        assert result[0].upper_bound.value == 5.0
+
+        # Verify second boundary unchanged
+        assert result[1].lower_bound.value == 8.0
+        assert result[1].upper_bound.value == 12.0
+
+    @patch(
+        "datahub_executor.common.monitor.inference.metric_projection.metric_predictor.MetricPredictor._run_metric_forecaster"
+    )
+    def test_predict_metric_boundaries_with_ceiling_value(
+        self,
+        mock_run_forecaster: MagicMock,
+        predictor: MetricPredictor,
+        sample_metrics: List[Metric],
+    ) -> None:
+        """Test predicting metric boundaries with ceiling value."""
+        # Setup mock boundaries with upper bounds above ceiling
+        mock_boundaries = [
+            MetricBoundary(
+                lower_bound=Metric(value=2.0, timestamp_ms=1000),
+                upper_bound=Metric(value=15.0, timestamp_ms=1000),  # Above ceiling
+                start_time_ms=1000,
+                end_time_ms=2000,
+            ),
+            MetricBoundary(
+                lower_bound=Metric(value=3.0, timestamp_ms=2000),
+                upper_bound=Metric(value=8.0, timestamp_ms=2000),  # Below ceiling
+                start_time_ms=2000,
+                end_time_ms=3000,
+            ),
+        ]
+        mock_run_forecaster.return_value = mock_boundaries
+
+        ceiling_value = 10.0
+        result = predictor.predict_metric_boundaries(
+            recent_metrics=sample_metrics,
+            unit=timedelta(hours=1),
+            multiple=2,
+            sensitivity_level=5,
+            ceiling_value=ceiling_value,
+        )
+
+        # Verify ceiling was applied to first boundary
+        assert result[0].lower_bound.value == 2.0
+        assert result[0].upper_bound.value == ceiling_value
+
+        # Verify second boundary unchanged
+        assert result[1].lower_bound.value == 3.0
+        assert result[1].upper_bound.value == 8.0
+
+    @patch(
+        "datahub_executor.common.monitor.inference.metric_projection.metric_predictor.MetricPredictor._run_metric_forecaster"
+    )
+    def test_predict_metric_boundaries_with_floor_and_ceiling(
+        self,
+        mock_run_forecaster: MagicMock,
+        predictor: MetricPredictor,
+        sample_metrics: List[Metric],
+    ) -> None:
+        """Test predicting metric boundaries with both floor and ceiling values."""
+        # Setup mock boundaries that need both floor and ceiling applied
+        mock_boundaries = [
+            MetricBoundary(
+                lower_bound=Metric(value=1.0, timestamp_ms=1000),  # Below floor
+                upper_bound=Metric(value=15.0, timestamp_ms=1000),  # Above ceiling
+                start_time_ms=1000,
+                end_time_ms=2000,
+            ),
+        ]
+        mock_run_forecaster.return_value = mock_boundaries
+
+        floor_value = 3.0
+        ceiling_value = 10.0
+        result = predictor.predict_metric_boundaries(
+            recent_metrics=sample_metrics,
+            unit=timedelta(hours=1),
+            multiple=1,
+            sensitivity_level=5,
+            floor_value=floor_value,
+            ceiling_value=ceiling_value,
+        )
+
+        # Verify both floor and ceiling were applied
+        assert result[0].lower_bound.value == floor_value
+        assert result[0].upper_bound.value == ceiling_value
