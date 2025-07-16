@@ -1,31 +1,23 @@
-import { DownloadOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Icon, Pill } from '@components';
+import { DownloadOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StructuredReport } from '@app/ingestV2/executions/components/reporting/StructuredReport';
+import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import {
-    EXECUTION_REQUEST_STATUS_LOADING,
-    EXECUTION_REQUEST_STATUS_RUNNING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
-import {
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-    getExecutionRequestStatusIcon,
-    getExecutionRequestSummaryText,
-} from '@app/ingestV2/executions/utils';
+import { TabType } from '@app/ingestV2/executions/types';
+import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
-import { TabType } from '@app/ingestV2/executions/types';
 
 const Section = styled.div`
     display: flex;
@@ -58,12 +50,9 @@ const StatusSection = styled.div`
     padding-right: 30px;
 `;
 
-const ResultText = styled.div`
-    margin-bottom: 4px;
-`;
-
-const IngestedAssetsSection = styled.div`
+const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
+    ${({ isFirstSection }) => !isFirstSection && `border-top: 1px solid ${ANTD_GRAY[4]};`}
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
@@ -102,7 +91,6 @@ type DetailsContainerProps = {
     areDetailsExpandable: boolean;
 };
 
-
 export const SummaryTab = ({
     urn,
     status,
@@ -126,29 +114,11 @@ export const SummaryTab = ({
     };
 
     const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
-    const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status ? getExecutionRequestStatusDisplayColor(status) : 'gray';
-    const resultText = status && (
-        <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
-            {ResultIcon && (
-                <Pill
-                    customIconRenderer={() =>
-                        status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                            <LoadingOutlined />
-                        ) : (
-                            <Icon icon={ResultIcon} source="phosphor" size="lg" />
-                        )
-                    }
-                    label={getExecutionRequestStatusDisplayText(status)}
-                    color={resultColor}
-                    size="md"
-                />
-            )}
-        </Typography.Text>
-    );
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
-        (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
+        (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
+            <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>
+        )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
@@ -167,14 +137,15 @@ export const SummaryTab = ({
 
     return (
         <Section>
-            <StatusSection>
-                <ResultText>{resultText}</ResultText>
-                <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
-                {structuredReport ? <StructuredReport report={structuredReport} /> : null}
-            </StatusSection>
+            {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
+                <StatusSection>
+                    <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {structuredReport && structuredReport ? <StructuredReport report={structuredReport} /> : null}
+                </StatusSection>
+            )}
             {(status === EXECUTION_REQUEST_STATUS_SUCCESS ||
                 status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) && (
-                <IngestedAssetsSection>
+                <IngestedAssetsSection isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}>
                     {data?.executionRequest?.id && (
                         <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
                     )}
