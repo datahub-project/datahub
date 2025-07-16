@@ -1142,12 +1142,13 @@ public class OpenAPIV3Generator {
                           }
 
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
+                            // A non-required $ref property must be wrapped in a { oneOf: [ $ref,
+                            // null ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(null);
                             schema.set$ref(null);
-                            schema.setAnyOf(
+                            schema.setOneOf(
                                 List.of(newSchema().$ref($ref), newSchema().type(TYPE_NULL)));
                           }
 
@@ -1186,13 +1187,18 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
     result.addProperty(
         NAME_AUDIT_STAMP,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "AuditStamp")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "AuditStamp"), newSchema().type(TYPE_NULL)))
             .description("Audit stamp for the aspect."));
     return result;
   }
@@ -1209,7 +1215,10 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
 
     Schema stringTypeSchema = newSchema();
@@ -1358,8 +1367,8 @@ public class OpenAPIV3Generator {
                         .toList()))
         .properties(
             Map.of(
-                "entities", entitiesSchema,
-                "aspects", aspectsSchema));
+                "entities", newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
+                "aspects", newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL)))));
   }
 
   private static Schema buildEntitiesPatchRequestSchema(List<EntitySpec> entitySpecs) {
@@ -1433,19 +1442,26 @@ public class OpenAPIV3Generator {
   private static Schema buildEntityBatchGetRequestSchema(
       final EntitySpec entity, Set<String> aspectNames) {
 
-    final Map<String, Schema> properties =
-        entity.getAspectSpecMap().entrySet().stream()
-            .filter(a -> aspectNames.contains(a.getValue().getName()))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    a -> newSchema().$ref("#/components/schemas/BatchGetRequestBody")));
+    Map<String, Schema> properties = new LinkedHashMap<>();
     properties.put(
         PROPERTY_URN,
         newSchema().type(TYPE_STRING).description("Unique id for " + entity.getName()));
 
-    properties.put(
-        entity.getKeyAspectName(), newSchema().$ref("#/components/schemas/BatchGetRequestBody"));
+    entity.getAspectSpecMap().entrySet().stream()
+        .filter(
+            e ->
+                aspectNames.contains(e.getValue().getName())
+                    || e.getKey().equals(entity.getKeyAspectName()))
+        .forEach(
+            e ->
+                properties.put(
+                    e.getKey(),
+                    newSchema()
+                        .types(TYPE_OBJECT_NULLABLE)
+                        .oneOf(
+                            List.of(
+                                newSchema().$ref("#/components/schemas/BatchGetRequestBody"),
+                                newSchema().type(TYPE_NULL)))));
 
     return newSchema()
         .type(TYPE_OBJECT)
@@ -1455,19 +1471,24 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityUpsertSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)));
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity upsert request body.")
@@ -1476,19 +1497,25 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityPatchSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_REQUEST_PATCH_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_REQUEST_PATCH_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(newSchema().type(TYPE_NULL), arraySchema)));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity patch request body.")
@@ -1498,18 +1525,23 @@ public class OpenAPIV3Generator {
 
   private static Schema buildCrossEntityResponseSchema(List<EntitySpec> entitySpecs) {
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_RESPONSE_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_RESPONSE_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity upsert / patch response.")
@@ -1518,50 +1550,30 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityBatchGetRequestSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
 
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    "BatchGet" + toUpperFirst(e.getName()), // BatchGet<Ent>
-                                    ENTITY_REQUEST_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  "BatchGet" + toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
 
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity batch-get request body.")
         .additionalProperties(false)
         .properties(props);
-  }
-
-  /** Same structure as buildEntityBatchGetRequestSchema but covers the union of all aspects. */
-  private static Schema buildEntitiesBatchGetRequestSchema(
-      Map<String, AspectSpec> aspectSpecs, Set<String> aspectNames) {
-
-    Map<String, Schema> properties =
-        aspectSpecs.entrySet().stream()
-            .filter(e -> aspectNames.contains(e.getKey()))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> newSchema().$ref("#/components/schemas/BatchGetRequestBody"),
-                    (a, b) -> a, // merge func (won’t actually happen)
-                    LinkedHashMap::new));
-
-    properties.put(PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for entity"));
-
-    return newSchema()
-        .type(TYPE_OBJECT)
-        .description(ENTITIES + " object.")
-        .required(List.of(PROPERTY_URN))
-        .properties(properties);
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
@@ -1578,7 +1590,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAnyOf(List.of(newSchema().$ref(internalRef)));
+    result.setOneOf(List.of(newSchema().$ref(internalRef), newSchema().type(TYPE_NULL)));
     return result;
   }
 
@@ -1967,7 +1979,10 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
     schema.addProperty(
         "headers",

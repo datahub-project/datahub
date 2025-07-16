@@ -7,6 +7,7 @@ from click_default_group import DefaultGroup
 from datahub.api.entities.datacontract.datacontract import DataContract
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ def datacontract() -> None:
 
 @datacontract.command()
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@upgrade.check_upgrade
 def upsert(file: str) -> None:
     """Upsert (create or update) a Data Contract in DataHub."""
 
@@ -55,6 +57,7 @@ def upsert(file: str) -> None:
     help="The file containing the data contract definition",
 )
 @click.option("--hard/--soft", required=False, is_flag=True, default=False)
+@upgrade.check_upgrade
 def delete(urn: Optional[str], file: Optional[str], hard: bool) -> None:
     """Delete a Data Contract in DataHub. Defaults to a soft-delete. Use --hard to completely erase metadata."""
 

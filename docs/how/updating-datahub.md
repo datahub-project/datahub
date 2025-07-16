@@ -41,6 +41,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #14015: In the sql-queries source, the `default_dialect` configuration parameter has been renamed to `override_dialect`. This also affects the Python SDK methods:
   - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
   - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
+- #14059: The `acryl-datahub-gx-plugin` now requires pydantic v2, which means the effective minimum supported version of GX is 0.17.15 (from Sept 2023).
 
 ### Known Issues
 

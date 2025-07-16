@@ -41,31 +41,56 @@ public class ElasticSearchServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Bean
+  protected ElasticSearchConfiguration elasticSearchConfiguration(
+      final ConfigurationProvider configurationProvider) {
+    log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
+    return configurationProvider.getElasticSearch();
+  }
+
+  @Bean
+  protected CustomSearchConfiguration customSearchConfiguration(
+      final ElasticSearchConfiguration elasticSearchConfiguration) throws IOException {
+    SearchConfiguration searchConfiguration = elasticSearchConfiguration.getSearch();
+    return searchConfiguration.getCustom() == null
+        ? null
+        : searchConfiguration.getCustom().resolve(ObjectMapperContext.DEFAULT.getYamlMapper());
+  }
+
+  @Bean
+  protected ESSearchDAO esSearchDAO(
+      final ConfigurationProvider configurationProvider,
+      final QueryFilterRewriteChain queryFilterRewriteChain,
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      final CustomSearchConfiguration customSearchConfiguration) {
+
+    return new ESSearchDAO(
+        components.getSearchClient(),
+        configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
+        elasticSearchConfiguration.getImplementation(),
+        elasticSearchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        configurationProvider.getSearchService());
+  }
+
+  @Bean
+  protected ESWriteDAO esWriteDAO() {
+    return new ESWriteDAO(
+        components.getConfig(), components.getSearchClient(), components.getBulkProcessor());
+  }
+
   @Bean(name = "elasticSearchService")
   @Nonnull
   protected ElasticSearchService getInstance(
       final ConfigurationProvider configurationProvider,
-      final QueryFilterRewriteChain queryFilterRewriteChain)
+      final QueryFilterRewriteChain queryFilterRewriteChain,
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      final CustomSearchConfiguration customSearchConfiguration,
+      final ESSearchDAO esSearchDAO,
+      final ESWriteDAO esWriteDAO)
       throws IOException {
-    log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
 
-    ElasticSearchConfiguration elasticSearchConfiguration =
-        configurationProvider.getElasticSearch();
-    SearchConfiguration searchConfiguration = elasticSearchConfiguration.getSearch();
-    CustomSearchConfiguration customSearchConfiguration =
-        searchConfiguration.getCustom() == null
-            ? null
-            : searchConfiguration.getCustom().resolve(ObjectMapperContext.DEFAULT.getYamlMapper());
-
-    ESSearchDAO esSearchDAO =
-        new ESSearchDAO(
-            components.getSearchClient(),
-            configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
-            elasticSearchConfiguration.getImplementation(),
-            elasticSearchConfiguration,
-            customSearchConfiguration,
-            queryFilterRewriteChain,
-            configurationProvider.getSearchService());
     return new ElasticSearchService(
         components.getIndexBuilder(),
         entityRegistry,
@@ -79,9 +104,6 @@ public class ElasticSearchServiceFactory {
             customSearchConfiguration,
             queryFilterRewriteChain,
             configurationProvider.getSearchService()),
-        new ESWriteDAO(
-            components.getSearchClient(),
-            components.getBulkProcessor(),
-            components.getNumRetries()));
+        esWriteDAO);
   }
 }
