@@ -29,11 +29,10 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Autowired private ConfigurationProvider configurationProvider;
-
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
+      final ConfigurationProvider configurationProvider,
       final EntityRegistry entityRegistry,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       MetricUtils metricUtils) {
@@ -45,7 +44,7 @@ public class ElasticSearchGraphServiceFactory {
         new ESGraphWriteDAO(
             components.getIndexConvention(),
             components.getBulkProcessor(),
-            components.getNumRetries(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
             configurationProvider.getElasticSearch().getSearch().getGraph()),
         new ESGraphQueryDAO(
             components.getSearchClient(),
