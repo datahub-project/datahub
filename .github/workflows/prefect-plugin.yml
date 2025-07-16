@@ -25,9 +25,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   prefect-plugin:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-22.04' || 'ubuntu-latest' }}
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:

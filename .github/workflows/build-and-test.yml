@@ -20,6 +20,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -54,7 +57,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-22.04-2' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup
     steps:
@@ -200,7 +203,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   docker-codegen-validation:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     needs: setup
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:
