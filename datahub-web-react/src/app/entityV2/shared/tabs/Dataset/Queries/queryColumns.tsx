@@ -11,8 +11,7 @@ import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
-import { useDeleteQueryMutation } from '@graphql/query.generated';
-import { CorpUser, EntityType } from '@types';
+import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/query.generated';
 
 /*
  * Description Column
@@ -68,7 +67,7 @@ export const QueryDescription = ({ description }: DescriptionProps) => {
 const INGESTION_URN = 'urn:li:corpuser:_ingestion';
 
 interface CreatedByProps {
-    createdBy?: CorpUser;
+    createdBy?: ActorWithDisplayNameFragment;
 }
 
 export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
@@ -76,17 +75,21 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
 
     if (!createdBy || createdBy.urn === INGESTION_URN) return null;
 
-    const userName = entityRegistry.getDisplayName(EntityType.CorpUser, createdBy);
+    const userName = entityRegistry.getDisplayName(createdBy.type, createdBy);
+    const photoUrl =
+        createdBy?.__typename === 'CorpUser'
+            ? (createdBy as any)?.editableProperties?.pictureLink ||
+              (createdBy as any)?.editableInfo?.pictureLink ||
+              undefined
+            : undefined;
 
     return (
         <div>
             <ActorAvatar
                 size={26}
                 name={userName}
-                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${createdBy.urn}`}
-                photoUrl={
-                    createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined
-                }
+                url={`/${entityRegistry.getPathName(createdBy.type)}/${createdBy.urn}`}
+                photoUrl={photoUrl}
             />
         </div>
     );

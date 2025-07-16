@@ -8,6 +8,12 @@ query getQuery($urn: String!) {
     }
 }
 
+fragment ActorWithDisplayName on Entity {
+    urn
+    type
+    ...entityDisplayNameFields
+}
+
 fragment query on QueryEntity {
     urn
     properties {
@@ -25,9 +31,7 @@ fragment query on QueryEntity {
         createdOn {
             time
             actor {
-                urn
-                type
-                ...entityDisplayNameFields
+                ...ActorWithDisplayName
             }
         }
         lastModified {
