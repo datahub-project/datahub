@@ -151,7 +151,9 @@ export const SummaryTab = ({
             )}
             {(status === EXECUTION_REQUEST_STATUS_SUCCESS ||
                 status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) && (
-                <IngestedAssetsSection isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}>
+                <IngestedAssetsSection
+                    isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}
+                >
                     {data?.executionRequest?.id && (
                         <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
                     )}
