@@ -28,6 +28,9 @@ class TestS3ObjectStore(unittest.TestCase):
         self.assertFalse(
             S3ObjectStore.is_uri("abfss://container@account.dfs.core.windows.net/path")
         )
+        self.assertFalse(
+            S3ObjectStore.is_uri("https://account.blob.core.windows.net/container/path")
+        )
         self.assertFalse(S3ObjectStore.is_uri("file:///path/to/file"))
 
     def test_get_prefix(self):
@@ -86,6 +89,11 @@ class TestGCSObjectStore(unittest.TestCase):
         self.assertFalse(
             GCSObjectStore.is_uri("abfss://container@account.dfs.core.windows.net/path")
         )
+        self.assertFalse(
+            GCSObjectStore.is_uri(
+                "https://account.blob.core.windows.net/container/path"
+            )
+        )
 
     def test_get_prefix(self):
         """Test the get_prefix method."""
@@ -131,29 +139,73 @@ class TestABSObjectStore(unittest.TestCase):
 
     def test_is_uri(self):
         """Test the is_uri method with various URIs."""
+        # Test abfss:// format
         self.assertTrue(
             ABSObjectStore.is_uri("abfss://container@account.dfs.core.windows.net/path")
         )
+        # Test HTTPS format
+        self.assertTrue(
+            ABSObjectStore.is_uri(
+                "https://account.blob.core.windows.net/container/path"
+            )
+        )
+        self.assertTrue(
+            ABSObjectStore.is_uri(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            )
+        )
+        # Test non-ABS URIs
         self.assertFalse(ABSObjectStore.is_uri("s3://bucket/path"))
         self.assertFalse(ABSObjectStore.is_uri("gs://bucket/path"))
+        self.assertFalse(ABSObjectStore.is_uri("https://example.com/path"))
 
     def test_get_prefix(self):
         """Test the get_prefix method."""
+        # Test abfss:// format
         self.assertEqual(
             ABSObjectStore.get_prefix(
                 "abfss://container@account.dfs.core.windows.net/path"
             ),
             "abfss://",
         )
+        # Test HTTPS format
+        self.assertEqual(
+            ABSObjectStore.get_prefix(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "https://account.blob.core.windows.net/",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_prefix(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "https://odedmdatacatalog.blob.core.windows.net/",
+        )
+        # Test non-ABS URIs
         self.assertIsNone(ABSObjectStore.get_prefix("s3://bucket/path"))
+        self.assertIsNone(ABSObjectStore.get_prefix("https://example.com/path"))
 
     def test_strip_prefix(self):
         """Test the strip_prefix method."""
+        # Test abfss:// format
         self.assertEqual(
             ABSObjectStore.strip_prefix(
                 "abfss://container@account.dfs.core.windows.net/path"
             ),
             "container@account.dfs.core.windows.net/path",
+        )
+        # Test HTTPS format
+        self.assertEqual(
+            ABSObjectStore.strip_prefix(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "container/path",
+        )
+        self.assertEqual(
+            ABSObjectStore.strip_prefix(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "settler/import_export_services/message_data_randomized.csv",
         )
 
         # Should raise ValueError for non-ABS URIs
@@ -162,11 +214,25 @@ class TestABSObjectStore(unittest.TestCase):
 
     def test_get_bucket_name(self):
         """Test the get_bucket_name method."""
+        # Test abfss:// format
         self.assertEqual(
             ABSObjectStore.get_bucket_name(
                 "abfss://container@account.dfs.core.windows.net/path"
             ),
             "container",
+        )
+        # Test HTTPS format
+        self.assertEqual(
+            ABSObjectStore.get_bucket_name(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "container",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_bucket_name(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "settler",
         )
 
         # Should raise ValueError for non-ABS URIs
@@ -175,6 +241,7 @@ class TestABSObjectStore(unittest.TestCase):
 
     def test_get_object_key(self):
         """Test the get_object_key method."""
+        # Test abfss:// format
         self.assertEqual(
             ABSObjectStore.get_object_key(
                 "abfss://container@account.dfs.core.windows.net/path"
@@ -186,6 +253,25 @@ class TestABSObjectStore(unittest.TestCase):
                 "abfss://container@account.dfs.core.windows.net/path/to/file.txt"
             ),
             "path/to/file.txt",
+        )
+        # Test HTTPS format
+        self.assertEqual(
+            ABSObjectStore.get_object_key(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "path",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_object_key(
+                "https://account.blob.core.windows.net/container/path/to/file.txt"
+            ),
+            "path/to/file.txt",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_object_key(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "import_export_services/message_data_randomized.csv",
         )
 
         # Should raise ValueError for non-ABS URIs
@@ -206,6 +292,19 @@ class TestUtilityFunctions(unittest.TestCase):
             ),
             ABSObjectStore,
         )
+        # Test HTTPS ABS format
+        self.assertEqual(
+            get_object_store_for_uri(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            ABSObjectStore,
+        )
+        self.assertEqual(
+            get_object_store_for_uri(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            ABSObjectStore,
+        )
         self.assertIsNone(get_object_store_for_uri("file:///path/to/file"))
 
     def test_get_object_store_bucket_name(self):
@@ -217,6 +316,19 @@ class TestUtilityFunctions(unittest.TestCase):
                 "abfss://container@account.dfs.core.windows.net/path"
             ),
             "container",
+        )
+        # Test HTTPS ABS format
+        self.assertEqual(
+            get_object_store_bucket_name(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "container",
+        )
+        self.assertEqual(
+            get_object_store_bucket_name(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "settler",
         )
 
         # Should raise ValueError for unsupported URIs
@@ -232,6 +344,17 @@ class TestUtilityFunctions(unittest.TestCase):
         self.assertEqual(
             get_object_key("abfss://container@account.dfs.core.windows.net/path"),
             "path",
+        )
+        # Test HTTPS ABS format
+        self.assertEqual(
+            get_object_key("https://account.blob.core.windows.net/container/path"),
+            "path",
+        )
+        self.assertEqual(
+            get_object_key(
+                "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+            ),
+            "import_export_services/message_data_randomized.csv",
         )
 
         # Should raise ValueError for unsupported URIs
@@ -305,13 +428,30 @@ class TestObjectStoreSourceAdapter(unittest.TestCase):
     def test_get_abs_external_url(self):
         """Test the get_abs_external_url static method."""
         mock_table_data = MagicMock()
+
+        # Test abfss:// format
         mock_table_data.table_path = (
             "abfss://container@account.dfs.core.windows.net/path/to/file.txt"
         )
-
         self.assertEqual(
             ObjectStoreSourceAdapter.get_abs_external_url(mock_table_data),
             "https://portal.azure.com/#blade/Microsoft_Azure_Storage/ContainerMenuBlade/overview/storageAccountId/account/containerName/container",
+        )
+
+        # Test HTTPS format
+        mock_table_data.table_path = (
+            "https://account.blob.core.windows.net/container/path/to/file.txt"
+        )
+        self.assertEqual(
+            ObjectStoreSourceAdapter.get_abs_external_url(mock_table_data),
+            "https://portal.azure.com/#blade/Microsoft_Azure_Storage/ContainerMenuBlade/overview/storageAccountId/account/containerName/container",
+        )
+
+        # Test real-world HTTPS example
+        mock_table_data.table_path = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertEqual(
+            ObjectStoreSourceAdapter.get_abs_external_url(mock_table_data),
+            "https://portal.azure.com/#blade/Microsoft_Azure_Storage/ContainerMenuBlade/overview/storageAccountId/odedmdatacatalog/containerName/settler",
         )
 
         # Test with non-ABS URI
@@ -411,12 +551,21 @@ class TestObjectStoreSourceAdapter(unittest.TestCase):
             "https://console.cloud.google.com/storage/browser/bucket/path/to/file.txt",
         )
 
-        # Test ABS adapter
+        # Test ABS adapter with abfss:// format
         mock_table_data.table_path = (
             "abfss://container@account.dfs.core.windows.net/path/to/file.txt"
         )
         abs_adapter = ObjectStoreSourceAdapter(
             platform="abs", platform_name="Azure Blob Storage"
+        )
+        self.assertEqual(
+            abs_adapter.get_external_url(mock_table_data),
+            "https://portal.azure.com/#blade/Microsoft_Azure_Storage/ContainerMenuBlade/overview/storageAccountId/account/containerName/container",
+        )
+
+        # Test ABS adapter with HTTPS format
+        mock_table_data.table_path = (
+            "https://account.blob.core.windows.net/container/path/to/file.txt"
         )
         self.assertEqual(
             abs_adapter.get_external_url(mock_table_data),
@@ -454,6 +603,123 @@ class TestCreateObjectStoreAdapter(unittest.TestCase):
         self.assertEqual(adapter.platform_name, "Unknown (unknown)")
 
 
+class TestABSHTTPSSupport(unittest.TestCase):
+    """Tests specifically for HTTPS Azure Blob Storage support."""
+
+    def test_https_uri_detection(self):
+        """Test that HTTPS Azure Blob Storage URIs are detected correctly."""
+        # Test the specific URI from the error
+        error_uri = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertTrue(ABSObjectStore.is_uri(error_uri))
+
+        # Test other variations
+        self.assertTrue(
+            ABSObjectStore.is_uri(
+                "https://account.blob.core.windows.net/container/path"
+            )
+        )
+        self.assertTrue(
+            ABSObjectStore.is_uri(
+                "https://myaccount123.blob.core.windows.net/data/file.json"
+            )
+        )
+
+        # Test that non-Azure HTTPS URIs are not detected
+        self.assertFalse(ABSObjectStore.is_uri("https://google.com/path"))
+        self.assertFalse(ABSObjectStore.is_uri("https://example.com/path"))
+
+    def test_https_container_extraction(self):
+        """Test container name extraction from HTTPS URIs."""
+        # Test the specific URI from the error
+        error_uri = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertEqual(ABSObjectStore.get_bucket_name(error_uri), "settler")
+
+        # Test other variations
+        self.assertEqual(
+            ABSObjectStore.get_bucket_name(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "container",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_bucket_name(
+                "https://myaccount123.blob.core.windows.net/data/file.json"
+            ),
+            "data",
+        )
+
+    def test_https_object_key_extraction(self):
+        """Test object key extraction from HTTPS URIs."""
+        # Test the specific URI from the error
+        error_uri = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertEqual(
+            ABSObjectStore.get_object_key(error_uri),
+            "import_export_services/message_data_randomized.csv",
+        )
+
+        # Test other variations
+        self.assertEqual(
+            ABSObjectStore.get_object_key(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "path",
+        )
+        self.assertEqual(
+            ABSObjectStore.get_object_key(
+                "https://myaccount123.blob.core.windows.net/data/file.json"
+            ),
+            "file.json",
+        )
+
+    def test_https_prefix_extraction(self):
+        """Test prefix extraction from HTTPS URIs."""
+        # Test the specific URI from the error
+        error_uri = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertEqual(
+            ABSObjectStore.get_prefix(error_uri),
+            "https://odedmdatacatalog.blob.core.windows.net/",
+        )
+
+        # Test other variations
+        self.assertEqual(
+            ABSObjectStore.get_prefix(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "https://account.blob.core.windows.net/",
+        )
+
+    def test_fallback_bucket_name_resolution(self):
+        """Test the fallback logic in get_object_store_bucket_name."""
+        # Test the specific URI from the error
+        error_uri = "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv"
+        self.assertEqual(get_object_store_bucket_name(error_uri), "settler")
+
+        # Test that the fallback works when the native implementation is found
+        self.assertEqual(
+            get_object_store_bucket_name(
+                "https://account.blob.core.windows.net/container/path"
+            ),
+            "container",
+        )
+
+    def test_mixed_format_compatibility(self):
+        """Test that both abfss:// and HTTPS formats work for the same container."""
+        abfss_uri = "abfss://container@account.dfs.core.windows.net/path/file.txt"
+        https_uri = "https://account.blob.core.windows.net/container/path/file.txt"
+
+        # Both should be recognized as ABS URIs
+        self.assertTrue(ABSObjectStore.is_uri(abfss_uri))
+        self.assertTrue(ABSObjectStore.is_uri(https_uri))
+
+        # Both should extract the same container name
+        self.assertEqual(ABSObjectStore.get_bucket_name(abfss_uri), "container")
+        self.assertEqual(ABSObjectStore.get_bucket_name(https_uri), "container")
+
+        # Both should extract the same object key
+        self.assertEqual(ABSObjectStore.get_object_key(abfss_uri), "path/file.txt")
+        self.assertEqual(ABSObjectStore.get_object_key(https_uri), "path/file.txt")
+
+
 # Parametrized tests for GCS URI normalization
 @pytest.mark.parametrize(
     "input_uri,expected",
@@ -487,6 +753,36 @@ def test_gcs_prefix_stripping(input_uri, expected):
     gcs_adapter = create_object_store_adapter("gcs")
     result = gcs_adapter._strip_gcs_prefix(input_uri)
     assert result == expected
+
+
+# Parametrized tests for ABS HTTPS URI handling
+@pytest.mark.parametrize(
+    "input_uri,expected_container,expected_key",
+    [
+        (
+            "https://account.blob.core.windows.net/container/path/file.txt",
+            "container",
+            "path/file.txt",
+        ),
+        (
+            "https://odedmdatacatalog.blob.core.windows.net/settler/import_export_services/message_data_randomized.csv",
+            "settler",
+            "import_export_services/message_data_randomized.csv",
+        ),
+        (
+            "https://mystorageaccount.blob.core.windows.net/data/2023/logs/app.log",
+            "data",
+            "2023/logs/app.log",
+        ),
+        ("https://account.blob.core.windows.net/container/", "container", ""),
+        ("https://account.blob.core.windows.net/container", "container", ""),
+    ],
+)
+def test_abs_https_uri_parsing(input_uri, expected_container, expected_key):
+    """Test that HTTPS ABS URIs are parsed correctly."""
+    assert ABSObjectStore.is_uri(input_uri)
+    assert ABSObjectStore.get_bucket_name(input_uri) == expected_container
+    assert ABSObjectStore.get_object_key(input_uri) == expected_key
 
 
 class TestGCSURINormalization(unittest.TestCase):
