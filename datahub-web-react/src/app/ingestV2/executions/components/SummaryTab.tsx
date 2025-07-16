@@ -39,6 +39,12 @@ const SectionSubHeader = styled.div`
     align-items: center;
 `;
 
+const ButtonGroup = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+`;
+
 const SubHeaderParagraph = styled(Typography.Paragraph)`
     margin-bottom: 0px;
 `;
@@ -113,7 +119,7 @@ export const SummaryTab = ({
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 14)?.join('\n');
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
@@ -127,9 +133,9 @@ export const SummaryTab = ({
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
-    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
-    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 14)?.join('\n');
+    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 14;
+    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 14;
 
     const downloadRecipe = () => {
         downloadFile(recipeYaml, `recipe-${urn}.yaml`);
@@ -157,14 +163,16 @@ export const SummaryTab = ({
                     <SubHeaderParagraph type="secondary">
                         View logs that were collected during the sync.
                     </SubHeaderParagraph>
-                    {areLogsExpandable && (
-                        <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Logs)}>
-                            View More
-                        </ShowMoreButton>
-                    )}
-                    <Button type="text" onClick={downloadLogs}>
-                        <DownloadOutlined />
-                    </Button>
+                    <ButtonGroup>
+                        {areLogsExpandable && (
+                            <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Logs)}>
+                                View More
+                            </ShowMoreButton>
+                        )}
+                        <Button type="text" onClick={downloadLogs}>
+                            <DownloadOutlined />
+                        </Button>
+                    </ButtonGroup>
                 </SectionSubHeader>
                 <DetailsContainer areDetailsExpandable={areLogsExpandable} showExpandedDetails={false}>
                     <Typography.Paragraph ellipsis>
@@ -179,14 +187,16 @@ export const SummaryTab = ({
                         <SubHeaderParagraph type="secondary">
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
-                        {isRecipeExpandable && (
-                            <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Recipe)}>
-                                View More
-                            </ShowMoreButton>
-                        )}
-                        <Button type="text" onClick={downloadRecipe}>
-                            <DownloadOutlined />
-                        </Button>
+                        <ButtonGroup>
+                            {isRecipeExpandable && (
+                                <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Recipe)}>
+                                    View More
+                                </ShowMoreButton>
+                            )}
+                            <Button type="text" onClick={downloadRecipe}>
+                                <DownloadOutlined />
+                            </Button>
+                        </ButtonGroup>
                     </SectionSubHeader>
                     <DetailsContainer
                         areDetailsExpandable={isRecipeExpandable}
