@@ -1565,16 +1565,6 @@ type FeatureFlagsConfig {
   formsNotificationsEnabled: Boolean!
 
   """
-  SaaS only -- Whether product updates on the sidebar is enabled. Will go to oss.
-  """
-  showProductUpdates: Boolean!
-
-  """
-  Enables the redesign of the lineage v2 graph
-  """
-  lineageGraphV3: Boolean!
-
-  """
   Enables getting to the ingestion source page if you have permission to view any ingestion sources
   """
   viewIngestionSourcePrivilegesEnabled: Boolean!
