@@ -193,15 +193,15 @@ class ChatSession:
         # Log messages for debugging purposes.
         if isinstance(message, ToolResult):
             logger.debug(
-                f"Adding ToolResult for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000)}"
+                f"Adding ToolResult for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
             )
         elif isinstance(message, ToolResultError):
             logger.debug(
-                f"Adding ToolResultError for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000)}"
+                f"Adding ToolResultError for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
             )
         else:
             logger.debug(
-                f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400)}"
+                f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400, show_length=True)}"
             )
 
         self.history.add_message(message)

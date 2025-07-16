@@ -6,6 +6,7 @@ import mlflow
 import mlflow.utils
 import mlflow.utils.databricks_utils
 import pandas as pd
+import pydantic
 import streamlit as st
 from mlflow import entities as mlflow_entities
 
@@ -83,7 +84,11 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
 
         history = None
         if raw_history := row["history"]:
-            history = ChatHistory.model_validate(raw_history)
+            try:
+                history = ChatHistory.model_validate(raw_history)
+            except pydantic.ValidationError as e:
+                st.error(f"Error loading history for {prompt_id}: {e}")
+                history = None
 
         next_message = None
         response = None
@@ -118,6 +123,7 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
             "Raw Data": {
                 "prompt": prompt,
                 "history": history,
+                "raw_history": raw_history,
                 "evaluation": evaluation,
             },
         }
@@ -179,10 +185,12 @@ def main(run_name: Optional[str] = None):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("### Conversation History")
-            show_thinking = st.toggle("Show Thinking", value=True)
-            st_chat_history(
-                selected_row["Raw Data"]["history"], show_thinking=show_thinking
-            )
+            if history := selected_row["Raw Data"]["history"]:
+                show_thinking = st.toggle("Show Thinking", value=True)
+                st_chat_history(history, show_thinking=show_thinking)
+            else:
+                st.markdown("No conversation history found")
+                st.code(selected_row["Raw Data"]["raw_history"], language="json")
 
         with col2:
             st.markdown("### Response Guidelines")
@@ -209,7 +217,10 @@ def main(run_name: Optional[str] = None):
                 st.json(new_evaluation.model_dump())
             else:
                 st.markdown("### Current Evaluation")
-                st.json(selected_row["Raw Data"]["evaluation"].dict())
+                old_evaluation: LLMJudgeResponse = selected_row["Raw Data"][
+                    "evaluation"
+                ]
+                st.json(old_evaluation.model_dump())
 
 
 main()

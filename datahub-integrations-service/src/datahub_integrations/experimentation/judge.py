@@ -71,7 +71,7 @@ def chatbot_llm_judge_evaluation(
     )
 
     try:
-        judge_response = LLMJudgeResponse.parse_raw(raw_response)
+        judge_response = LLMJudgeResponse.model_validate_json(raw_response)
         assert judge_response.choice is not None
         return judge_response
     except (pydantic.ValidationError, json.JSONDecodeError, AssertionError):

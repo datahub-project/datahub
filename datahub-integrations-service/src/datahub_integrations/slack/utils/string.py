@@ -14,8 +14,11 @@ def pluralize(word: str, count: int) -> str:
     return _get_inflect_engine().plural(word, count)
 
 
-def truncate(text: str, max_length: int) -> str:
+def truncate(text: str, max_length: int, show_length: bool = False) -> str:
     """Truncate text to a maximum length, appending an ellipsis if the text is cut off."""
     if len(text) > max_length:
-        return text[: max_length - 3] + "..."
+        if show_length:
+            return text[:max_length] + f"[{len(text) - max_length} chars truncated]"
+        else:
+            return text[: max_length - 3] + "..."
     return text

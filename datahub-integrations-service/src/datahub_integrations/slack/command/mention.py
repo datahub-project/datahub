@@ -332,7 +332,7 @@ def _build_response(
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": truncate(question, 75),
+                        "text": truncate(question, max_length=75),
                         "emoji": True,
                     },
                     "action_id": f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}_{i}",

@@ -211,7 +211,7 @@ def render_base(
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": truncate(entity.description, 80),
+                    "text": truncate(entity.description, max_length=80),
                 },
             ],
         }

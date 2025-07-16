@@ -192,7 +192,7 @@ def render_entity_full(entity: ExtractedEntity) -> dict:
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"*Description* \n{truncate(entity.description, 2000) if entity.description else 'None'}\n\n",
+                    "text": f"*Description* \n{truncate(entity.description, max_length=2000) if entity.description else 'None'}\n\n",
                 },
             ],
         }

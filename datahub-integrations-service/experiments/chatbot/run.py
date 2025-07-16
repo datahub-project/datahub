@@ -1,5 +1,6 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
+import fnmatch
 import pathlib
 import time
 from typing import Annotated, List, Optional
@@ -17,7 +18,11 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
-from datahub_integrations.experimentation.chatbot import Prompt, prompts, prompts_file
+from datahub_integrations.experimentation.chatbot import (
+    Prompt,
+    prompts as all_prompts,
+    prompts_file,
+)
 from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
 from datahub_integrations.mcp.mcp_server import mcp
 
@@ -33,9 +38,9 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
     # assert span is not None
     # span.set_attribute("prompt_id", case.id)
 
+    graph = create_uncached_datahub_graph(key=case.instance)
+    client = DataHubClient(graph=graph)
     try:
-        graph = create_uncached_datahub_graph(key=case.instance)
-        client = DataHubClient(graph=graph)
         history = ChatHistory(messages=[HumanMessage(text=case.message)])
         session = ChatSession(tools=[mcp], client=client, history=history)
 
@@ -82,11 +87,16 @@ has_response_metric = mlflow_metrics.make_metric(
 
 
 async def main(prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = None):
-    filtered_prompts = prompts
+    filtered_prompts = all_prompts
     if prompt_ids:
-        filtered_prompts = [p for p in prompts if p.id in prompt_ids]
-        missing_prompt_ids = set(prompt_ids) - set([p.id for p in filtered_prompts])
-        assert len(missing_prompt_ids) == 0, f"Unknown prompt ids: {missing_prompt_ids}"
+        filtered_prompts = [
+            p
+            for p in all_prompts
+            if any(fnmatch.fnmatch(p.id, pattern) for pattern in prompt_ids)
+        ]
+        if len(filtered_prompts) == 0:
+            logger.error(f"No prompts found for {prompt_ids}")
+            return
         logger.info(f"Running {len(filtered_prompts)} prompts")
 
     with mlflow.start_run() as run:
@@ -116,7 +126,7 @@ async def main(prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = 
             results.append(
                 {
                     "prompt_id": prompt.id,
-                    **prompt.dict(exclude={"id"}),
+                    **prompt.model_dump(exclude={"id"}),
                     **task.value,
                 }
             )
