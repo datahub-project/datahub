@@ -445,9 +445,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if result_set_size >= page_limit:
                 # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
-                    f"Fetching next page of views for {db_name} - after {view_name}"
+                    f"Fetching next page of views for {db_name} - after {schema_name}.{view_name}"
                 )
-                view_pagination_marker = view_name
+                view_pagination_marker = f"{schema_name}.{view_name}"
 
         return views
 
@@ -710,9 +710,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if result_set_size >= page_limit:
                 # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
-                    f"Fetching next page of streams for {db_name} - after {stream_name}"
+                    f"Fetching next page of streams for {db_name} - after {schema_name}.{stream_name}"
                 )
-                stream_pagination_marker = stream_name
+                stream_pagination_marker = f"{schema_name}.{stream_name}"
 
         return streams
 

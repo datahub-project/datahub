@@ -247,6 +247,8 @@ class SnowflakeQuery:
         assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
+        # The pagination marker should be schema-qualified (e.g., "schema.view_name") to avoid
+        # issues with partial matching when the same view name exists in multiple schemas.
         from_clause = (
             f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
         )
@@ -936,6 +938,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
+        # The pagination marker should be schema-qualified (e.g., "schema.stream_name") to avoid
+        # issues with partial matching when the same stream name exists in multiple schemas.
         from_clause = (
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
