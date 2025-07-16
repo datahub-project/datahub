@@ -1,167 +1,224 @@
-import unittest
 from unittest.mock import Mock, patch
 
+import pytest
 from azure.identity import ClientSecretCredential
+from azure.storage.blob import BlobServiceClient
+from azure.storage.filedatalake import DataLakeServiceClient
 
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 
 
-class TestAzureDataHubFixes(unittest.TestCase):
-    def test_service_principal_credentials_type(self):
-        config = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id",
-        )
+def test_service_principal_credentials_return_objects():
+    """Service principal credentials must return ClientSecretCredential objects, not strings"""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        tenant_id="test-tenant-id",
+    )
 
-        credential = config.get_credentials()
+    credential = config.get_credentials()
 
-        # Critical: Must be ClientSecretCredential object, not string
-        self.assertIsInstance(credential, ClientSecretCredential)
-        self.assertNotIsInstance(credential, str)
+    assert isinstance(credential, ClientSecretCredential)
+    assert not isinstance(credential, str)
 
-    def test_account_key_credentials_type(self):
-        config = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            account_key="test-account-key",
-        )
 
-        credential = config.get_credentials()
+@pytest.mark.parametrize(
+    "auth_type,config_params,expected_type",
+    [
+        (
+            "service_principal",
+            {
+                "client_id": "test-client-id",
+                "client_secret": "test-client-secret",
+                "tenant_id": "test-tenant-id",
+            },
+            ClientSecretCredential,
+        ),
+        ("account_key", {"account_key": "test-account-key"}, str),
+        ("sas_token", {"sas_token": "test-sas-token"}, str),
+    ],
+)
+def test_credential_types_by_auth_method(auth_type, config_params, expected_type):
+    """Test that different authentication methods return correct credential types"""
+    base_config = {"account_name": "testaccount", "container_name": "testcontainer"}
+    config = AzureConnectionConfig(**{**base_config, **config_params})
 
-        self.assertIsInstance(credential, str)
-        self.assertEqual(credential, "test-account-key")
+    credential = config.get_credentials()
+    assert isinstance(credential, expected_type)
 
-    @patch("datahub.ingestion.source.azure.azure_common.BlobServiceClient")
-    def test_blob_service_client_credential_not_stringified(
-        self, mock_blob_service_client
-    ):
-        config = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id",
-        )
 
-        config.get_blob_service_client()
+def test_credential_object_not_converted_to_string():
+    """Credential objects should not be accidentally converted to strings via f-string formatting"""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        tenant_id="test-tenant-id",
+    )
 
-        mock_blob_service_client.assert_called_once()
-        call_args = mock_blob_service_client.call_args
+    credential = config.get_credentials()
+    credential_as_string = f"{credential}"
 
-        credential = call_args[1]["credential"]
-        self.assertIsInstance(credential, ClientSecretCredential)
-        self.assertNotIsInstance(credential, str)
+    assert isinstance(credential, ClientSecretCredential)
+    assert credential != credential_as_string
+    assert "ClientSecretCredential" in str(credential)
 
-    @patch("datahub.ingestion.source.azure.azure_common.DataLakeServiceClient")
-    def test_data_lake_service_client_credential_not_stringified(
-        self, mock_data_lake_service_client
-    ):
-        """Test that get_data_lake_service_client passes credential object directly (not as f-string)"""
-        config = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id",
-        )
 
-        config.get_data_lake_service_client()
+@pytest.mark.parametrize(
+    "service_client_class,method_name",
+    [
+        (BlobServiceClient, "get_blob_service_client"),
+        (DataLakeServiceClient, "get_data_lake_service_client"),
+    ],
+)
+def test_service_clients_receive_credential_objects(service_client_class, method_name):
+    """Both BlobServiceClient and DataLakeServiceClient should receive credential objects"""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        tenant_id="test-tenant-id",
+    )
 
-        mock_data_lake_service_client.assert_called_once()
-        call_args = mock_data_lake_service_client.call_args
+    with patch(
+        f"datahub.ingestion.source.azure.azure_common.{service_client_class.__name__}"
+    ) as mock_client:
+        getattr(config, method_name)()
 
-        # Check credential is ClientSecretCredential object, not string
-        credential = call_args[1]["credential"]
-        self.assertIsInstance(credential, ClientSecretCredential)
-        self.assertNotIsInstance(credential, str)
+        mock_client.assert_called_once()
+        credential = mock_client.call_args[1]["credential"]
+        assert isinstance(credential, ClientSecretCredential)
+        assert not isinstance(credential, str)
 
-    def test_azure_blob_list_parameter_usage(self):
-        mock_container_client = Mock()
+
+@pytest.mark.parametrize(
+    "deprecated_param,new_param",
+    [
+        ("prefix", "name_starts_with"),
+    ],
+)
+def test_azure_sdk_parameter_deprecation(deprecated_param, new_param):
+    """Test that demonstrates the Azure SDK parameter deprecation issue"""
+    # This test shows why the fix was needed - deprecated params cause errors
+    mock_container_client = Mock()
+
+    def list_blobs_with_validation(**kwargs):
+        if deprecated_param in kwargs:
+            raise ValueError(
+                f"Passing '{deprecated_param}' has no effect on filtering, please use the '{new_param}' parameter instead."
+            )
+        return []
+
+    mock_container_client.list_blobs.side_effect = list_blobs_with_validation
+
+    # Test that the deprecated parameter causes an error (this is what was happening before the fix)
+    with pytest.raises(ValueError) as exc_info:
         mock_container_client.list_blobs(
-            name_starts_with="test/path", results_per_page=1000
+            **{deprecated_param: "test/path", "results_per_page": 1000}
         )
 
-        mock_container_client.list_blobs.assert_called_with(
-            name_starts_with="test/path", results_per_page=1000
-        )
+    assert new_param in str(exc_info.value)
+    assert deprecated_param in str(exc_info.value)
 
-        call_args = mock_container_client.list_blobs.call_args
-        self.assertIn("name_starts_with", call_args[1])
-        self.assertNotIn("prefix", call_args[1])
+    # Test that the new parameter works (this is what the fix implemented)
+    mock_container_client.list_blobs.side_effect = None
+    mock_container_client.list_blobs.return_value = []
 
-    def test_azure_blob_list_deprecated_parameter(self):
-        mock_container_client = Mock()
+    result = mock_container_client.list_blobs(
+        **{new_param: "test/path", "results_per_page": 1000}
+    )
+    assert result == []
 
-        def mock_list_blobs_with_prefix(**kwargs):
-            if "prefix" in kwargs:
-                raise ValueError(
-                    "Passing 'prefix' has no effect on filtering, please use the 'name_starts_with' parameter instead."
-                )
-            return []
 
-        mock_container_client.list_blobs.side_effect = mock_list_blobs_with_prefix
+@patch("datahub.ingestion.source.azure.azure_common.BlobServiceClient")
+def test_datahub_source_uses_correct_azure_parameters(mock_blob_service_client_class):
+    """Test that DataHub source code actually uses the correct Azure SDK parameters"""
+    # This test verifies that the real DataHub code calls Azure SDK with correct parameters
+    mock_container_client = Mock()
+    mock_blob_service_client = Mock()
+    mock_blob_service_client.get_container_client.return_value = mock_container_client
+    mock_blob_service_client_class.return_value = mock_blob_service_client
 
-        # Test that using prefix would raise an error
-        with self.assertRaises(ValueError) as context:
-            mock_container_client.list_blobs(prefix="test/path", results_per_page=1000)
+    # Mock the blob objects returned by list_blobs
+    mock_blob = Mock()
+    mock_blob.name = "test/path/file.csv"
+    mock_blob.size = 1024
+    mock_container_client.list_blobs.return_value = [mock_blob]
 
-        self.assertIn("name_starts_with", str(context.exception))
-        self.assertIn("prefix", str(context.exception))
+    # Now test the REAL DataHub code
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.abs.config import DataLakeSourceConfig
+    from datahub.ingestion.source.abs.source import ABSSource
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
-    def test_f_string_formatting_bug_demonstration(self):
-        config = AzureConnectionConfig(
+    # Create real DataHub source
+    source_config = DataLakeSourceConfig(
+        platform="abs",
+        azure_config=AzureConnectionConfig(
             account_name="testaccount",
             container_name="testcontainer",
             client_id="test-client-id",
             client_secret="test-client-secret",
             tenant_id="test-tenant-id",
-        )
+        ),
+        path_specs=[
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/test/*.*",
+                exclude=[],
+                file_types=["csv"],
+                sample_files=False,
+            )
+        ],
+    )
 
-        credential = config.get_credentials()
+    pipeline_context = PipelineContext(run_id="test-run-id", pipeline_name="abs-source")
+    pipeline_context.graph = Mock()
+    source = ABSSource(source_config, pipeline_context)
 
-        # This would be the bug - f-string formatting the credential
-        credential_as_string = f"{credential}"
+    # Call the REAL DataHub method
+    with patch(
+        "datahub.ingestion.source.abs.source.get_container_relative_path",
+        return_value="test/path",
+    ):
+        path_spec = source_config.path_specs[0]
+        list(source.abs_browser(path_spec, 100))
 
-        # The original credential object should not equal its string representation
-        self.assertIsInstance(credential, ClientSecretCredential)
-        self.assertNotEqual(credential, credential_as_string)
+    # NOW verify the real DataHub code called Azure SDK with correct parameters
+    mock_container_client.list_blobs.assert_called_once_with(
+        name_starts_with="test/path", results_per_page=1000
+    )
 
-        # The bug was that the code was doing this:
-        # credential=f"{self.get_credentials()}"
-        # Instead of this:
-        # credential=self.get_credentials()
-
-        # Verify that the string representation indicates it's a credential object
-        self.assertIn("ClientSecretCredential", str(credential))
-
-    def test_azure_connection_config_validates_credentials(self):
-        # Test service principal credentials
-        config_sp = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id",
-        )
-        self.assertIsInstance(config_sp.get_credentials(), ClientSecretCredential)
-
-        config_key = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            account_key="test-account-key",
-        )
-        self.assertEqual(config_key.get_credentials(), "test-account-key")
-
-        config_sas = AzureConnectionConfig(
-            account_name="testaccount",
-            container_name="testcontainer",
-            sas_token="test-sas-token",
-        )
-        self.assertEqual(config_sas.get_credentials(), "test-sas-token")
+    # Verify the fix worked - no deprecated 'prefix' parameter
+    call_args = mock_container_client.list_blobs.call_args
+    assert "name_starts_with" in call_args[1]
+    assert "prefix" not in call_args[1]
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_account_key_authentication():
+    """Test that account key authentication returns string credentials"""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        account_key="test-account-key",
+    )
+
+    credential = config.get_credentials()
+    assert isinstance(credential, str)
+    assert credential == "test-account-key"
+
+
+def test_sas_token_authentication():
+    """Test that SAS token authentication returns string credentials"""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        sas_token="test-sas-token",
+    )
+
+    credential = config.get_credentials()
+    assert isinstance(credential, str)
+    assert credential == "test-sas-token"
