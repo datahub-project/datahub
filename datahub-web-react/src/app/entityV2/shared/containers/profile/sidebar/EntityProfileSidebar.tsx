@@ -148,6 +148,7 @@ export default function EntityProfileSidebar({
     const selectedTab = tabs.find((tab) => tab.name === selectedTabName);
 
     const isCardLayout = type === 'card';
+    const hideCollapse = contextType === TabContextType.CHROME_SIDEBAR;
 
     return (
         <StyledEntitySidebarContainer
@@ -181,6 +182,7 @@ export default function EntityProfileSidebar({
                             tabs={tabs}
                             selectedTab={selectedTab}
                             onSelectTab={(name) => setSelectedTabName(name)}
+                            hideCollapse={hideCollapse}
                         />
                     </Tabs>
                 </TabsContainer>
