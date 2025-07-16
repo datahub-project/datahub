@@ -1,6 +1,6 @@
 # Upgrading from DataHub Core to DataHub Cloud
 
-Looking to upgrade to **DataHub Cloud**, but don't have an account yet? Start [here](https://datahub.com/demo/). 
+Looking to upgrade to **DataHub Cloud**, but don't have an account yet? Start [here](https://datahub.com/demo/).
 
 Once you have a **DataHub Cloud** instance, you can seamlessly transfer all metadata from your self-hosted **DataHub Core** instance
 to **DataHub Cloud** using the DataHub CLI. In this guide, we'll show you how.
@@ -52,17 +52,17 @@ source:
   config:
     # Disable version history to transfer only current state
     include_all_versions: false
-    
+
     # Configure your source database connection
     database_connection:
       # For MySQL
       scheme: "mysql+pymysql"
       # For PostgreSQL, use: "postgresql+psycopg2"
-      
-      host_port: "your-database-host:3306"  # MySQL default port
+
+      host_port: "your-database-host:3306" # MySQL default port
       username: "your-datahub-username"
       password: "your-datahub-password"
-      database: "datahub"  # Default database name
+      database: "datahub" # Default database name
 
     # Disable stateful ingestion for one-time transfer.
     # If you intend to incrementally sync over time, should enable this!
@@ -81,7 +81,7 @@ sink:
     token: "your-datahub-cloud-api-token"
 ```
 
-#### Step 2: Run the Upgrade 
+#### Step 2: Run the Upgrade
 
 Execute the upgrade using the DataHub CLI:
 
@@ -119,7 +119,7 @@ source:
   type: datahub
   config:
     include_all_versions: false
-    
+
     # Database connection (same as quickstart)
     database_connection:
       scheme: "mysql+pymysql"
@@ -127,7 +127,7 @@ source:
       username: "your-datahub-username"
       password: "your-datahub-password"
       database: "datahub"
-    
+
     # Kafka configuration for time-series data
     kafka_connection:
       bootstrap: "your-kafka-broker:9092"
@@ -138,7 +138,7 @@ source:
         # sasl.mechanism: "PLAIN"
         # sasl.username: "your-username"
         # sasl.password: "your-password"
-    
+
     # Topic containing time-series data (change if doesn't match default name)
     kafka_topic_name: "MetadataChangeLog_Timeseries_v1"
 
@@ -167,7 +167,7 @@ source:
   type: datahub
   config:
     # ... other config ...
-    
+
     # Exclude specific aspects from transfer
     exclude_aspects:
       - dataHubIngestionSourceInfo
@@ -193,24 +193,26 @@ To learn about all aspects in DataHub, check out the [DataHub metadata model doc
 ### Performance Optimization
 
 1. **Batch Size**: For large transfers, adjust the batch configuration:
+
    ```yaml
    source:
      type: datahub
      config:
-       database_query_batch_size: 10000  # Adjust based on your system
-       commit_state_interval: 1000  # Records before checkpoint
+       database_query_batch_size: 10000 # Adjust based on your system
+       commit_state_interval: 1000 # Records before checkpoint
    ```
 
 2. **Destination Settings**: For optimal performance on DataHub Cloud:
-    - Enable async ingestion (usually enabled by default)
-    - Consider scaling consumer replicas for large upgrade transfers
-    - Increase thread count if needed in sink settings
+
+   - Enable async ingestion (usually enabled by default)
+   - Consider scaling consumer replicas for large upgrade transfers
+   - Increase thread count if needed in sink settings
 
 3. **Stateful Ingestion**: For very large instances, use stateful ingestion:
    ```yaml
    stateful_ingestion:
      enabled: true
-     ignore_old_state: false  # Set to true to restart from beginning!
+     ignore_old_state: false # Set to true to restart from beginning!
    ```
 
 ### Troubleshooting
@@ -225,10 +227,10 @@ Common issues and solutions:
 
 ### Error Handling
 
-By default, the upgrade job will stop committing checkpoints if errors occur, allowing you to re-run and catch missed data. 
+By default, the upgrade job will stop committing checkpoints if errors occur, allowing you to re-run and catch missed data.
 
 However, in some cases it's not possible to transfer data to DataHub Cloud, particularly if you've forked and extended the DataHub
-metadata model. 
+metadata model.
 
 To continue making progress, ignoring errors:
 
@@ -236,7 +238,7 @@ To continue making progress, ignoring errors:
 source:
   type: datahub
   config:
-    commit_with_parse_errors: true  # Continue even with parse errors
+    commit_with_parse_errors: true # Continue even with parse errors
 ```
 
 ## Post-Upgrade Steps
