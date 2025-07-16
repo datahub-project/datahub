@@ -97,6 +97,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -127,7 +128,12 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockPersonalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                mockModule,
+                position,
+                false,
+            );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
         });
@@ -142,6 +148,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -172,7 +179,7 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position, false);
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
         });
@@ -187,6 +194,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -218,7 +226,7 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position, false);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
         });
@@ -233,6 +241,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -260,14 +269,10 @@ describe('useModuleOperations', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
             await act(async () => {
-                try {
-                    result.current.addModule({
-                        module: mockModule,
-                        position,
-                    });
-                } catch (e) {
-                    // Expected to throw
-                }
+                result.current.addModule({
+                    module: mockModule,
+                    position,
+                });
             });
 
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
@@ -290,6 +295,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -352,10 +358,8 @@ describe('useModuleOperations', () => {
                         name: 'Test Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Personal,
-                        visibility: {
-                            scope: PageModuleScope.Personal,
-                        },
                         params: { limit: 10 },
+                        urn: undefined,
                     },
                 },
             });
@@ -373,6 +377,7 @@ describe('useModuleOperations', () => {
                     },
                 },
                 position,
+                false,
             );
 
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
@@ -389,6 +394,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -416,7 +422,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                await result.current.createModule(createModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -425,10 +431,8 @@ describe('useModuleOperations', () => {
                         name: 'Test Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Personal, // Default scope
-                        visibility: {
-                            scope: PageModuleScope.Personal,
-                        },
                         params: {}, // Default empty params
+                        urn: undefined,
                     },
                 },
             });
@@ -444,6 +448,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -497,6 +502,7 @@ describe('useModuleOperations', () => {
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -558,10 +564,8 @@ describe('useModuleOperations', () => {
                         name: 'Global Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Global,
-                        visibility: {
-                            scope: PageModuleScope.Global,
-                        },
                         params: {},
+                        urn: undefined,
                     },
                 },
             });
@@ -579,6 +583,7 @@ describe('useModuleOperations', () => {
                     },
                 },
                 position,
+                false,
             );
 
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
@@ -598,6 +603,7 @@ describe('useModuleOperations', () => {
                         mockSetGlobalTemplate,
                         mockUpdateTemplateWithModule,
                         mockUpsertTemplate,
+                        false,
                     ),
                 {
                     initialProps: {
@@ -630,6 +636,7 @@ describe('useModuleOperations', () => {
                         mockSetGlobalTemplate,
                         mockUpdateTemplateWithModule,
                         mockUpsertTemplate,
+                        false,
                     ),
                 {
                     initialProps: {

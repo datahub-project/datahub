@@ -8,6 +8,6 @@ export function useGetEntities(urns: string[]): {
     const verifiedUrns = urns.filter((urn) => typeof urn === 'string' && urn.startsWith('urn:li:'));
 
     const { data, loading } = useGetEntitiesQuery({ variables: { urns: verifiedUrns }, skip: !verifiedUrns.length });
-    const entities: Entity[] = Array.isArray(data?.entities) ? (data.entities.filter(Boolean) as Entity[]) : [];
+    const entities: Entity[] = Array.isArray(data?.entities) ? (data?.entities.filter(Boolean) as Entity[]) : [];
     return { entities, loading };
 }
