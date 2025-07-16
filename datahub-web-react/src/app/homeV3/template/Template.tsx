@@ -10,6 +10,11 @@ import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvaila
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { wrapRows } from '@app/homeV3/templateRow/utils';
+import LargeModule from '@app/homeV3/module/components/LargeModule';
+
+import { PageModuleFragment } from '@graphql/template.generated';
+import { ModulePositionInput } from '@app/homeV3/template/types';
+import Module from '@app/homeV3/module/Module';
 
 import { DataHubPageTemplateRow } from '@types';
 
@@ -57,20 +62,12 @@ const NewRowDropText = styled.div<{ $isOver?: boolean }>`
     `}
 `;
 
-// Optimized drag overlay component
-const DragOverlayContent = styled.div`
-    background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
-    border: 2px solid #3b82f6;
+// Styled wrapper for drag overlay to make it look like it's floating
+const DragOverlayWrapper = styled.div`
+    transform: rotate(5deg) scale(1.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    padding: 12px 16px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    opacity: 0.9;
-    transform: rotate(2deg);
-    color: #1f2937;
-    font-weight: 500;
-    font-size: 14px;
-    min-width: 200px;
-    text-align: center;
+    opacity: 0.95;
     /* Performance optimizations */
     will-change: transform;
     pointer-events: none;
@@ -111,13 +108,24 @@ function Template({ className }: Props) {
     const modulesAvailableToAdd = useModulesAvailableToAdd();
     const { handleDragEnd } = useDragAndDrop();
 
-    // State for drag overlay
-    const [activeModule, setActiveModule] = React.useState<{ name: string } | null>(null);
+    // State for drag overlay - store the full module and position
+    const [activeModule, setActiveModule] = React.useState<{
+        module: PageModuleFragment;
+        position: ModulePositionInput;
+    } | null>(null);
 
     const handleDragStart = React.useCallback((event: DragStartEvent) => {
-        const draggedData = event.active.data.current as { module?: { properties?: { name?: string } } } | undefined;
-        const moduleName = draggedData?.module?.properties?.name;
-        setActiveModule(moduleName ? { name: moduleName } : null);
+        const draggedData = event.active.data.current as { 
+            module?: PageModuleFragment; 
+            position?: ModulePositionInput;
+        } | undefined;
+        
+        if (draggedData?.module && draggedData?.position) {
+            setActiveModule({
+                module: draggedData.module,
+                position: draggedData.position,
+            });
+        }
     }, []);
 
     const handleDragEndWithCleanup = React.useCallback(
@@ -155,7 +163,14 @@ function Template({ className }: Props) {
                 <NewRowDropZoneComponent rowIndex={wrappedRows.length} />
 
                 <DragOverlay>
-                    {activeModule && <DragOverlayContent>Moving "{activeModule.name}"!!</DragOverlayContent>}
+                    {activeModule && (
+                        <DragOverlayWrapper>
+                            <Module 
+                                module={activeModule.module}
+                                position={activeModule.position}
+                            />
+                        </DragOverlayWrapper>
+                    )}
                 </DragOverlay>
             </DndContext>
             <StyledAddModulesButton

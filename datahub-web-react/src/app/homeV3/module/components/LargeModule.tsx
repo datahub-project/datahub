@@ -84,13 +84,14 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
     });
 
     return (
-        <ModuleContainer $height="316px" ref={setNodeRef} {...listeners} {...attributes} $isDragging={isDragging}>
-            <ModuleHeader
-            // ref={setNodeRef}
-            // {...listeners}
-            // {...attributes}
-            // $isDragging={isDragging}
-            >
+        <ModuleContainer
+            $height="316px"
+            style={{
+                opacity: isDragging ? 0.5 : 1,
+                transition: 'opacity 0.2s ease',
+            }}
+        >
+            <ModuleHeader ref={setNodeRef} {...listeners} {...attributes} $isDragging={isDragging}>
                 <ModuleName text={name} />
                 {/* TODO: implement description for modules CH-548 */}
                 {/* <ModuleDescription text={description} /> */}
