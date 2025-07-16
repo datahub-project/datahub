@@ -289,15 +289,15 @@ def test_casted_partition_key():
 
 
 def test_convert_simple_field_paths_to_v1_enabled():
-    """Test that convert_simple_field_paths_to_v1 correctly converts simple field paths when enabled"""
+    """Test that emit_schema_fieldpaths_as_v1 correctly converts simple field paths when enabled"""
 
-    # Test config with convert_simple_field_paths_to_v1 enabled
+    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
             "work_group": "test-workgroup",
-            "convert_simple_field_paths_to_v1": True,
+            "emit_schema_fieldpaths_as_v1": True,
         }
     )
 
@@ -353,15 +353,15 @@ def test_convert_simple_field_paths_to_v1_enabled():
 
 
 def test_convert_simple_field_paths_to_v1_disabled():
-    """Test that convert_simple_field_paths_to_v1 keeps v2 field paths when disabled"""
+    """Test that emit_schema_fieldpaths_as_v1 keeps v2 field paths when disabled"""
 
-    # Test config with convert_simple_field_paths_to_v1 disabled (default)
+    # Test config with emit_schema_fieldpaths_as_v1 disabled (default)
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
             "work_group": "test-workgroup",
-            "convert_simple_field_paths_to_v1": False,
+            "emit_schema_fieldpaths_as_v1": False,
         }
     )
 
@@ -391,15 +391,15 @@ def test_convert_simple_field_paths_to_v1_disabled():
 
 
 def test_convert_simple_field_paths_to_v1_complex_types_ignored():
-    """Test that complex types (arrays, maps, structs) are not affected by convert_simple_field_paths_to_v1"""
+    """Test that complex types (arrays, maps, structs) are not affected by emit_schema_fieldpaths_as_v1"""
 
-    # Test config with convert_simple_field_paths_to_v1 enabled
+    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
             "work_group": "test-workgroup",
-            "convert_simple_field_paths_to_v1": True,
+            "emit_schema_fieldpaths_as_v1": True,
         }
     )
 
@@ -451,15 +451,15 @@ def test_convert_simple_field_paths_to_v1_complex_types_ignored():
 
 
 def test_convert_simple_field_paths_to_v1_with_partition_keys():
-    """Test that convert_simple_field_paths_to_v1 works correctly with partition keys"""
+    """Test that emit_schema_fieldpaths_as_v1 works correctly with partition keys"""
 
-    # Test config with convert_simple_field_paths_to_v1 enabled
+    # Test config with emit_schema_fieldpaths_as_v1 enabled
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
             "query_result_location": "s3://query-result-location/",
             "work_group": "test-workgroup",
-            "convert_simple_field_paths_to_v1": True,
+            "emit_schema_fieldpaths_as_v1": True,
         }
     )
 
@@ -490,10 +490,10 @@ def test_convert_simple_field_paths_to_v1_with_partition_keys():
 
 
 def test_convert_simple_field_paths_to_v1_default_behavior():
-    """Test that convert_simple_field_paths_to_v1 defaults to False"""
+    """Test that emit_schema_fieldpaths_as_v1 defaults to False"""
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
-    # Test config without specifying convert_simple_field_paths_to_v1
+    # Test config without specifying emit_schema_fieldpaths_as_v1
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
@@ -502,4 +502,4 @@ def test_convert_simple_field_paths_to_v1_default_behavior():
         }
     )
 
-    assert config.convert_simple_field_paths_to_v1 is False  # Should default to False
+    assert config.emit_schema_fieldpaths_as_v1 is False  # Should default to False

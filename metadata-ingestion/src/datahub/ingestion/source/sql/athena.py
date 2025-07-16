@@ -303,7 +303,7 @@ class AthenaConfig(SQLCommonConfig):
         print_warning=True,
     )
 
-    convert_simple_field_paths_to_v1 = pydantic.Field(
+    emit_schema_fieldpaths_as_v1 = pydantic.Field(
         default=False,
         description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
     )
@@ -648,7 +648,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
         # Keeping it as individual check to make it more explicit and easier to understand
-        if not self.config.convert_simple_field_paths_to_v1:
+        if not self.config.emit_schema_fieldpaths_as_v1:
             return fields
 
         if isinstance(
