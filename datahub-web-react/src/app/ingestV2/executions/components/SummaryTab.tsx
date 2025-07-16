@@ -25,6 +25,7 @@ import { downloadFile } from '@app/search/utils/csvUtils';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
+import { TabType } from '@app/ingestV2/executions/types';
 
 const Section = styled.div`
     display: flex;
@@ -101,11 +102,6 @@ type DetailsContainerProps = {
     areDetailsExpandable: boolean;
 };
 
-const enum TabType {
-    Summary = 'Summary',
-    Logs = 'Logs',
-    Recipe = 'Recipe',
-}
 
 export const SummaryTab = ({
     urn,

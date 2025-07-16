@@ -1,6 +1,7 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
+import { Modal } from '@components';
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
 import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
@@ -12,6 +13,7 @@ import { Message } from '@app/shared/Message';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
+import { TabType } from '@app/ingestV2/executions/types';
 
 const modalBodyStyle = {
     padding: 0,
@@ -23,11 +25,6 @@ type Props = {
     onClose: () => void;
 };
 
-const enum TabType {
-    Summary = 'Summary',
-    Logs = 'Logs',
-    Recipe = 'Recipe',
-}
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
@@ -46,7 +43,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const tabs: Tab[] = [
         {
             component: (
-                <SummaryTab urn={urn} status={status} result={result} data={data} onTabChange={setSelectedTab} />
+                <SummaryTab urn={urn} status={status} result={result} data={data} onTabChange={(tab: TabType) => setSelectedTab(tab)} />
             ),
             key: TabType.Summary,
             name: TabType.Summary,
