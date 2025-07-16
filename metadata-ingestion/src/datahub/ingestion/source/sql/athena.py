@@ -303,6 +303,11 @@ class AthenaConfig(SQLCommonConfig):
         print_warning=True,
     )
 
+    convert_simple_field_paths_to_v1 = pydantic.Field(
+        default=False,
+        description="Convert simple field paths to datahub field path v1 format. Simple column paths are those that do not contain any nested fields.",
+    )
+
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
 
     def get_sql_alchemy_url(self):
@@ -641,6 +646,11 @@ class AthenaSource(SQLAlchemySource):
                 partition_keys is not None and column["name"] in partition_keys
             ),
         )
+
+        # Keeping it as individual check to make it more explicit and easier to understand
+        if not self.config.convert_simple_field_paths_to_v1:
+            return fields
+
         if isinstance(
             fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
         ):
