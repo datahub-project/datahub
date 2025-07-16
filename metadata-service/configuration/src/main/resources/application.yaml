@@ -250,6 +250,14 @@ elasticsearch:
     keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
     keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
     keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  bulkDelete:
+    batchSize: ${ES_BULK_DELETE_BATCH_SIZE:5000}
+    slices: ${ES_BULK_DELETE_SLICES:auto}
+    pollInterval: ${ES_BULK_DELETE_POLL_INTERVAL:30}
+    pollIntervalUnit: ${ES_BULK_DELETE_POLL_UNIT:SECONDS}
+    timeout: ${ES_BULK_DELETE_TIMEOUT:30}
+    timeoutUnit: ${ES_BULK_DELETE_TIMEOUT_UNIT:MINUTES}
+    numRetries: ${ES_BULK_DELETE_NUM_RETRIES:3}
   bulkProcessor:
     async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
@@ -284,7 +292,7 @@ elasticsearch:
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
     reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
   search:
-    maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:20}
+    maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
@@ -577,6 +585,9 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
+  removeQueryEdges:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
+    numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
