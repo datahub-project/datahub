@@ -3,6 +3,7 @@ import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
+import { UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -38,7 +39,7 @@ describe('useGetAssetResults', () => {
         vi.clearAllMocks();
         convertFiltersMapToFiltersMock.mockReturnValue(mockFilters);
         generateOrFiltersMock.mockReturnValue(mockOrFilters);
-        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: mockData });
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: mockData, loading: false });
     });
 
     it('should call convertFiltersMapToFilters with appliedFilters', () => {
@@ -48,8 +49,7 @@ describe('useGetAssetResults', () => {
 
     it('should call generateOrFilters with UnionType.AND and filters', () => {
         renderHook(() => useGetAssetResults({ searchQuery: 'query', appliedFilters: mockAppliedFilters }));
-        // UnionType.AND is 0
-        expect(generateOrFiltersMock).toHaveBeenCalledWith(0, mockFilters);
+        expect(generateOrFiltersMock).toHaveBeenCalledWith(UnionType.AND, mockFilters);
     });
 
     it('should call useGetSearchResultsForMultipleQuery with correct variables', () => {
@@ -62,9 +62,7 @@ describe('useGetAssetResults', () => {
                     start: 0,
                     count: 10,
                     orFilters: mockOrFilters,
-                    searchFlags: {
-                        skipCache: true,
-                    },
+                    searchFlags: { skipCache: true },
                 },
             },
         });
@@ -74,11 +72,7 @@ describe('useGetAssetResults', () => {
         renderHook(() => useGetAssetResults({ searchQuery: undefined, appliedFilters: mockAppliedFilters }));
         expect(useGetSearchResultsForMultipleQueryMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                variables: expect.objectContaining({
-                    input: expect.objectContaining({
-                        query: '*',
-                    }),
-                }),
+                variables: expect.objectContaining({ input: expect.objectContaining({ query: '*' }) }),
             }),
         );
     });
@@ -91,9 +85,90 @@ describe('useGetAssetResults', () => {
     });
 
     it('should return empty array if data is undefined', () => {
-        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: undefined });
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: undefined, loading: false });
         const { result } = renderHook(() =>
             useGetAssetResults({ searchQuery: 'query', appliedFilters: mockAppliedFilters }),
+        );
+        expect(result.current.entities).toEqual([]);
+    });
+
+    it('should return empty array if searchAcrossEntities is missing', () => {
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: {}, loading: false });
+        const { result } = renderHook(() =>
+            useGetAssetResults({ searchQuery: 'foo', appliedFilters: mockAppliedFilters }),
+        );
+        expect(result.current.entities).toEqual([]);
+    });
+
+    it('should return empty array if searchResults is missing', () => {
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: { searchAcrossEntities: {} }, loading: false });
+        const { result } = renderHook(() =>
+            useGetAssetResults({ searchQuery: 'foo', appliedFilters: mockAppliedFilters }),
+        );
+        expect(result.current.entities).toEqual([]);
+    });
+
+    it('should use loading from useGetSearchResultsForMultipleQuery', () => {
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({ data: mockData, loading: true });
+        const { result } = renderHook(() =>
+            useGetAssetResults({ searchQuery: 'bar', appliedFilters: mockAppliedFilters }),
+        );
+        expect(result.current.loading).toBe(true);
+    });
+
+    it('should handle empty appliedFilters', () => {
+        convertFiltersMapToFiltersMock.mockReturnValue([]);
+        renderHook(() => useGetAssetResults({ searchQuery: 'foo', appliedFilters: new Map() }));
+        expect(generateOrFiltersMock).toHaveBeenCalledWith(UnionType.AND, []);
+    });
+
+    it('should handle appliedFilters with multiple fields', () => {
+        const multiFilters = [
+            { field: 'testField', value: 'testValue' },
+            { field: 'anotherField', value: 'anotherValue' },
+        ];
+        convertFiltersMapToFiltersMock.mockReturnValue(multiFilters);
+        renderHook(() => useGetAssetResults({ searchQuery: 'foo', appliedFilters: new Map([['k', { filters: [] }]]) }));
+        expect(generateOrFiltersMock).toHaveBeenCalledWith(UnionType.AND, multiFilters);
+    });
+
+    it('should pass through searchFlags.skipCache', () => {
+        renderHook(() => useGetAssetResults({ searchQuery: 'baz', appliedFilters: mockAppliedFilters }));
+        const call = useGetSearchResultsForMultipleQueryMock.mock.calls[0][0];
+        expect(call.variables.input.searchFlags.skipCache).toBe(true);
+    });
+
+    it('should memoize filter conversion results (filters object)', () => {
+        // Set up for checking memoization via rerender
+        const { rerender } = renderHook(
+            ({ searchQuery, appliedFilters }) => useGetAssetResults({ searchQuery, appliedFilters }),
+            {
+                initialProps: { searchQuery: 'foo', appliedFilters: mockAppliedFilters },
+            },
+        );
+        rerender({ searchQuery: 'foo', appliedFilters: mockAppliedFilters });
+        // convertFiltersMapToFilters should not be called additional times (React useMemo prevents it)
+        expect(convertFiltersMapToFiltersMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle when searchResults is not an array (null)', () => {
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({
+            data: { searchAcrossEntities: { searchResults: null } },
+            loading: false,
+        });
+        const { result } = renderHook(() =>
+            useGetAssetResults({ searchQuery: 'result', appliedFilters: mockAppliedFilters }),
+        );
+        expect(result.current.entities).toEqual([]);
+    });
+
+    it('should use empty array for entities if searchResults is empty', () => {
+        useGetSearchResultsForMultipleQueryMock.mockReturnValue({
+            data: { searchAcrossEntities: { searchResults: [] } },
+            loading: false,
+        });
+        const { result } = renderHook(() =>
+            useGetAssetResults({ searchQuery: 'result', appliedFilters: mockAppliedFilters }),
         );
         expect(result.current.entities).toEqual([]);
     });

@@ -8,7 +8,7 @@ import EmptySection from '@app/homeV3/modules/assetCollection/EmptySection';
 import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
 import { LoaderContainer } from '@app/homeV3/styledComponents';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
-import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
+import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
@@ -29,8 +29,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
     const entityRegistry = useEntityRegistryV2();
 
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
-    const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap>(new Map());
-
+    const { appliedFilters, updateFieldFilters } = useAppliedFilters();
     const { entities, loading } = useGetAssetResults({ searchQuery, appliedFilters });
 
     const handleSearchChange = (value: string) => {
@@ -82,7 +81,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
             <AssetFilters
                 searchQuery={searchQuery}
                 appliedFilters={appliedFilters}
-                setAppliedFilters={setAppliedFilters}
+                updateFieldFilters={updateFieldFilters}
             />
             {content}
         </AssetSection>
