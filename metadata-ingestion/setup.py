@@ -340,7 +340,7 @@ abs_base = {
 
 data_lake_profiling = {
     "pydeequ>=1.1.0",
-    "pyspark~=3.5.6",
+    "pyspark~=4.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -365,7 +365,7 @@ databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.5.6",
+    "pyspark~=4.0.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
