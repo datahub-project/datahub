@@ -30,11 +30,11 @@ const FlexContainer = styled.div`
 // Base card styling
 const BaseCard = styled.div`
     display: flex;
-    padding: 16px;
-    background-color: ${colors.gray[1500]};
+    padding: 12px;
+    background-color: white;
     border: 1px solid ${colors.gray[1400]};
     border-radius: 12px;
-    min-height: 80px;
+    min-height: 60px;
 `;
 
 const MainContainer = styled(FlexContainer)`
@@ -47,6 +47,8 @@ const CardContainer = styled(BaseCard)`
     justify-content: center;
     align-items: flex-start;
     flex: 1 0 0;
+    min-height: 80px;
+    max-height: 80px;
 `;
 
 const TotalContainer = styled(BaseCard)`
@@ -54,6 +56,8 @@ const TotalContainer = styled(BaseCard)`
     align-items: center;
     justify-content: space-between;
     flex: 1 0 0;
+    min-height: 80px;
+    max-height: 80px;
 `;
 
 const TotalInfo = styled.div`
@@ -101,12 +105,12 @@ const TypesHeader = styled(Text)`
 const VerticalDivider = styled.div`
     width: 2px;
     background-color: ${colors.gray[1400]};
-    height: 120px;
+    height: 80px;
     align-self: center;
 `;
 
 const IngestionContentsContainer = styled.div`
-    margin-top: 10px;
+    margin-top: 20px;
 `;
 
 const IngestionBoxTopRow = styled.div`
@@ -146,7 +150,7 @@ const renderIngestionContents = ({ items, getKey, getLabel }: RenderIngestionCon
                     <Text size="xl" weight="bold" color="gray" colorLevel={800} style={{ marginRight: 10 }}>
                         {formatNumber(item.count)}
                     </Text>
-                    <Pill size="sm" variant="version" label={`${item.percent} of Total`} />
+                    <Pill size="sm" variant="version" color="white" label={`${item.percent} of Total`} />
                 </IngestionBoxTopRow>
                 <Text size="md" color="gray" colorLevel={600}>
                     {getLabel(item)}
@@ -242,7 +246,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                 <Text size="xl" weight="bold" color="gray" colorLevel={800}>
                                     {formatNumber(total)}
                                 </Text>
-                                <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 4 }}>
+                                <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 2 }}>
                                     Total Assets Ingested
                                 </Text>
                             </TotalInfo>
@@ -269,13 +273,13 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                     {ingestionContents && (
                         <IngestionContentsContainer>
                             <Heading type="h5" size="lg" weight="medium">
-                                Ingestion Contents
+                                Coverage
                             </Heading>
                             <Text color="gray" colorLevel={600}>
-                                Breakdown of assets containing recommended ingestion data.
+                                Additional metadata collected during this ingestion run.
                             </Text>
                             <Text weight="semiBold" size="md">
-                                Lineage Types
+                                Lineage
                             </Text>
                             {renderIngestionContents({
                                 items: ingestionContents,
@@ -285,7 +289,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             {otherIngestionContents && (
                                 <>
                                     <Text weight="semiBold" size="md">
-                                        Other Ingestion Contents
+                                        Statistics
                                     </Text>
                                     {renderIngestionContents({
                                         items: otherIngestionContents,
