@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 
@@ -56,7 +56,8 @@ interface DropZoneProps {
     disabled?: boolean;
 }
 
-function ModuleDropZone({ rowIndex, moduleIndex, disabled }: DropZoneProps) {
+// Memoized drop zone component to prevent unnecessary re-renders
+const ModuleDropZone = memo(function ModuleDropZone({ rowIndex, moduleIndex, disabled }: DropZoneProps) {
     const {
         isOver,
         setNodeRef,
@@ -76,20 +77,56 @@ function ModuleDropZone({ rowIndex, moduleIndex, disabled }: DropZoneProps) {
             $canDrop={!disabled}
         />
     );
+});
+
+// Optimized hook to get drag context with minimal re-renders
+function useDragRowContext(rowIndex: number) {
+    const { active } = useDndContext();
+    
+    return useMemo(() => {
+        const activeDragData = active?.data?.current as { position?: ModulePositionInput } | undefined;
+        return activeDragData?.position?.rowIndex === rowIndex;
+    }, [active?.data?.current, rowIndex]);
 }
 
-export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+// Memoized module wrapper to prevent unnecessary re-renders
+const ModuleWrapper = memo(function ModuleWrapper({ 
+    module, 
+    position 
+}: { 
+    module: WrappedRow['modules'][0], 
+    position: ModulePositionInput 
+}) {
+    return <Module module={module} position={position} />;
+});
+
+function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
     const maxModulesPerRow = 3;
     const currentModuleCount = row.modules.length;
     const isRowFull = currentModuleCount >= maxModulesPerRow;
     
-    // Get the active drag context to determine if we're dragging from the same row
-    const { active } = useDndContext();
-    const activeDragData = active?.data?.current as { position?: ModulePositionInput } | undefined;
-    const isDraggingFromSameRow = activeDragData?.position?.rowIndex === rowIndex;
+    // Optimized drag context check
+    const isDraggingFromSameRow = useDragRowContext(rowIndex);
     
-    // Only disable drop zones if the row is full AND we're not rearranging within the same row
-    const shouldDisableDropZones = isRowFull && !isDraggingFromSameRow;
+    // Memoize the drop zone disabled state calculation
+    const shouldDisableDropZones = useMemo(() => 
+        isRowFull && !isDraggingFromSameRow, 
+        [isRowFull, isDraggingFromSameRow]
+    );
+
+    // Memoize module positions to prevent recalculation
+    const modulePositions = useMemo(() => 
+        row.modules.map((module, moduleIndex) => ({
+            module,
+            position: {
+                rowIndex,
+                rowSide: moduleIndex === 0 ? 'left' : 'right',
+                moduleIndex,
+            } as ModulePositionInput,
+            key: `${module.urn}-${moduleIndex}`,
+        })),
+        [row.modules, rowIndex]
+    );
 
     return (
         <RowWrapper>
@@ -107,28 +144,19 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
                 disabled={shouldDisableDropZones}
             />
 
-            {row.modules.map((module, moduleIndex) => {
-                const position: ModulePositionInput = {
-                    rowIndex,
-                    rowSide: moduleIndex === 0 ? 'left' : 'right',
-                    moduleIndex,
-                };
-                const key = `${module.urn}-${moduleIndex}`;
-                
-                return (
-                    <React.Fragment key={key}>
-                        <Module module={module} position={position} />
-                        {/* Drop zone after each module (except the last one if row is full) */}
-                        {(moduleIndex < row.modules.length - 1 || !shouldDisableDropZones) && (
-                            <ModuleDropZone 
-                                rowIndex={rowIndex} 
-                                moduleIndex={moduleIndex + 1} 
-                                disabled={shouldDisableDropZones && moduleIndex < row.modules.length - 1}
-                            />
-                        )}
-                    </React.Fragment>
-                );
-            })}
+            {modulePositions.map(({ module, position, key }, moduleIndex) => (
+                <React.Fragment key={key}>
+                    <ModuleWrapper module={module} position={position} />
+                    {/* Drop zone after each module (except the last one if row is full) */}
+                    {(moduleIndex < modulePositions.length - 1 || !shouldDisableDropZones) && (
+                        <ModuleDropZone 
+                            rowIndex={rowIndex} 
+                            moduleIndex={moduleIndex + 1} 
+                            disabled={shouldDisableDropZones && moduleIndex < modulePositions.length - 1}
+                        />
+                    )}
+                </React.Fragment>
+            ))}
 
             <AddModuleButton
                 orientation="vertical"
@@ -139,3 +167,6 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
         </RowWrapper>
     );
 }
+
+// Export memoized component to prevent unnecessary re-renders from parent
+export default memo(TemplateRow);

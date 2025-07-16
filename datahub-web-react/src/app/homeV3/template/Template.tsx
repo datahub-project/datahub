@@ -1,6 +1,6 @@
 import { spacing } from '@components';
-import { DndContext, DragOverlay, closestCenter, useDroppable } from '@dnd-kit/core';
-import React, { useMemo } from 'react';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDroppable } from '@dnd-kit/core';
+import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
@@ -57,11 +57,31 @@ const NewRowDropText = styled.div<{ $isOver?: boolean }>`
     `}
 `;
 
+// Optimized drag overlay component
+const DragOverlayContent = styled.div`
+    background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+    transform: rotate(2deg);
+    color: #1f2937;
+    font-weight: 500;
+    font-size: 14px;
+    min-width: 200px;
+    text-align: center;
+    /* Performance optimizations */
+    will-change: transform;
+    pointer-events: none;
+`;
+
 interface Props {
     className?: string;
 }
 
-function NewRowDropZoneComponent({ rowIndex }: { rowIndex: number }) {
+// Memoized new row drop zone component
+const NewRowDropZoneComponent = memo(function NewRowDropZoneComponent({ rowIndex }: { rowIndex: number }) {
     const { isOver, setNodeRef } = useDroppable({
         id: `new-row-drop-zone-${rowIndex}`,
         data: {
@@ -77,9 +97,9 @@ function NewRowDropZoneComponent({ rowIndex }: { rowIndex: number }) {
             </NewRowDropText>
         </NewRowDropZone>
     );
-}
+});
 
-export default function Template({ className }: Props) {
+function Template({ className }: Props) {
     const { template } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
@@ -91,22 +111,51 @@ export default function Template({ className }: Props) {
     const modulesAvailableToAdd = useModulesAvailableToAdd();
     const { handleDragEnd } = useDragAndDrop();
 
+    // State for drag overlay
+    const [activeModule, setActiveModule] = React.useState<{ name: string } | null>(null);
+
+    const handleDragStart = React.useCallback((event: DragStartEvent) => {
+        const draggedData = event.active.data.current as { module?: { properties?: { name?: string } } } | undefined;
+        const moduleName = draggedData?.module?.properties?.name;
+        setActiveModule(moduleName ? { name: moduleName } : null);
+    }, []);
+
+    const handleDragEndWithCleanup = React.useCallback(
+        (event: DragEndEvent) => {
+            setActiveModule(null);
+            handleDragEnd(event);
+        },
+        [handleDragEnd],
+    );
+
+    // Memoize the template rows to prevent unnecessary re-renders
+    const templateRows = useMemo(
+        () =>
+            wrappedRows.map((row, i) => (
+                <TemplateRow
+                    key={`templateRow-${i}`}
+                    row={row}
+                    rowIndex={i}
+                    modulesAvailableToAdd={modulesAvailableToAdd}
+                />
+            )),
+        [wrappedRows, modulesAvailableToAdd],
+    );
+
     return (
         <Wrapper className={className}>
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                {wrappedRows.map((row, i) => {
-                    const key = `templateRow-${i}`;
-                    return (
-                        <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />
-                    );
-                })}
+            <DndContext
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEndWithCleanup}
+            >
+                {templateRows}
 
                 {/* Drop zone for creating new rows */}
                 <NewRowDropZoneComponent rowIndex={wrappedRows.length} />
 
                 <DragOverlay>
-                    {/* Optionally render a preview of the dragged item */}
-                    <div style={{ opacity: 0.8 }}>Dragging...</div>
+                    {activeModule && <DragOverlayContent>Moving "{activeModule.name}"!!</DragOverlayContent>}
                 </DragOverlay>
             </DndContext>
             <StyledAddModulesButton
@@ -118,3 +167,6 @@ export default function Template({ className }: Props) {
         </Wrapper>
     );
 }
+
+// Export memoized component
+export default memo(Template);

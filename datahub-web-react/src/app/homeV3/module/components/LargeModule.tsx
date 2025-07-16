@@ -1,7 +1,7 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
-import React from 'react';
-import styled from 'styled-components';
 import { useDraggable } from '@dnd-kit/core';
+import React, { memo } from 'react';
+import styled from 'styled-components';
 
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
@@ -19,6 +19,10 @@ const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
     cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     user-select: none;
 
+    /* Optimize for smooth dragging */
+    transform: translateZ(0);
+    will-change: transform;
+
     :hover {
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
@@ -30,6 +34,7 @@ const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
         background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1000;
+        transform: translateZ(0) scale(1.02);
     `}
 `;
 
@@ -67,21 +72,10 @@ interface Props extends ModuleProps {
     onClickViewAll?: () => void;
 }
 
-export default function LargeModule({
-    children,
-    module,
-    position,
-    loading,
-    onClickViewAll,
-}: React.PropsWithChildren<Props>) {
+function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
-    
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        isDragging,
-    } = useDraggable({
+
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
         data: {
             module,
@@ -90,12 +84,12 @@ export default function LargeModule({
     });
 
     return (
-        <ModuleContainer $height="316px">
+        <ModuleContainer $height="316px" ref={setNodeRef} {...listeners} {...attributes} $isDragging={isDragging}>
             <ModuleHeader
-                ref={setNodeRef}
-                {...listeners}
-                {...attributes}
-                $isDragging={isDragging}
+            // ref={setNodeRef}
+            // {...listeners}
+            // {...attributes}
+            // $isDragging={isDragging}
             >
                 <ModuleName text={name} />
                 {/* TODO: implement description for modules CH-548 */}
@@ -121,3 +115,6 @@ export default function LargeModule({
         </ModuleContainer>
     );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export default memo(LargeModule);
