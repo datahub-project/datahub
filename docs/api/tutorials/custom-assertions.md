@@ -107,7 +107,7 @@ mutation reportAssertionResult {
   reportAssertionResult(
     urn: "urn:li:assertion:<your-new-assertion-id>"
     result: {
-      timestampMillis: 1620000000 # Unix timestamp in millis. If not provided, the current time will be used.
+      timestampMillis: 1620000000000 # Unix timestamp in millis. If not provided, the current time will be used.
       type: SUCCESS # or FAILURE or ERROR or INIT
       properties: [{ key: "my_custom_key", value: "my_custom_value" }]
       externalUrl: "https://my-great-expectations.com/results/1234" # Optional: URL to the results in the external tool

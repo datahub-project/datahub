@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.SIMPLE_EVENT_CONSUMER_NAME;
+
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
@@ -36,9 +36,6 @@ public class DataHubUsageEventsProcessor {
   private final String indexName;
   private final OperationContext systemOperationContext;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
-
   public DataHubUsageEventsProcessor(
       ElasticsearchConnector elasticSearchConnector,
       DataHubUsageEventTransformer dataHubUsageEventTransformer,
@@ -53,13 +50,20 @@ public class DataHubUsageEventsProcessor {
   @KafkaListener(
       id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}",
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
-      containerFactory = "simpleKafkaConsumer",
+      containerFactory = SIMPLE_EVENT_CONSUMER_NAME,
       autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
     systemOperationContext.withSpan(
         "consume",
         () -> {
-          kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.histogram(
+                          this.getClass(),
+                          "kafkaLag",
+                          System.currentTimeMillis() - consumerRecord.timestamp()));
           final String record = consumerRecord.value();
 
           log.info(

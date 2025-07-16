@@ -24,7 +24,7 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide/"
+                        href="https://docs.datahub.com/docs/features/feature-guides/lineage/"
                     >
                         here.
                     </a>

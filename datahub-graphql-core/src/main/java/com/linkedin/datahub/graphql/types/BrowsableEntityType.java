@@ -33,7 +33,7 @@ public interface BrowsableEntityType<T extends Entity, K> extends EntityType<T, 
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception;
 

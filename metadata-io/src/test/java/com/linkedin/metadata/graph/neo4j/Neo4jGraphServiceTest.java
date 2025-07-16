@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph.neo4j;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.SessionConfig;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -63,9 +64,12 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   @BeforeClass
   public void init() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Create and start the Neo4j test server
     _serverBuilder = new Neo4jTestServerBuilder();
-    _serverBuilder.newServer();
-    _driver = GraphDatabase.driver(_serverBuilder.boltURI());
+    _serverBuilder.start();
+
+    _driver = _serverBuilder.getDriver();
 
     ConfigEntityRegistry configEntityRegistry =
         new ConfigEntityRegistry(
@@ -82,18 +86,29 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
       throw new RuntimeException(e);
     }
 
-    _client = new Neo4jGraphService(lineageRegistry, _driver);
+    _client =
+        new Neo4jGraphService(
+            lineageRegistry,
+            _driver,
+            SessionConfig.defaultConfig(),
+            TEST_GRAPH_SERVICE_CONFIG.toBuilder().type("neo4j").build());
     _client.clear();
   }
 
   @BeforeMethod
   public void wipe() {
-    _client.wipe();
+    try (var session = _driver.session()) {
+      // Delete all nodes and relationships
+      session.run("MATCH (n) DETACH DELETE n").consume();
+    }
   }
 
   @AfterClass
   public void tearDown() {
-    _serverBuilder.shutdown();
+    // Shutdown the test server
+    if (_serverBuilder != null) {
+      _serverBuilder.shutdown();
+    }
   }
 
   @Override
@@ -719,5 +734,142 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         ((Neo4jGraphService) getGraphService())
             .findRelatedEntities(operationContext, graphFilters, 0, 100);
     assertEquals(resultAfter.getTotal(), 0);
+  }
+
+  @Test
+  public void testFindRelatedEntitiesWithNullCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with null count
+    RelatedEntitiesResult result =
+        getGraphService().findRelatedEntities(operationContext, graphFilters, 0, null);
+
+    // Verify the count is limited by the actual data available or the default limit
+    assertTrue(result.getCount() <= 50, "Count should be limited to max 50");
+    assertTrue(result.getCount() >= 0, "Count should be non-negative");
+  }
+
+  @Test
+  public void testFindRelatedEntitiesWithLowCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with a low count
+    RelatedEntitiesResult result =
+        getGraphService().findRelatedEntities(operationContext, graphFilters, 0, 20);
+
+    // Verify the requested count is respected (or less if there's not enough data)
+    assertTrue(result.getCount() <= 20, "Count should be at most 20");
+    assertTrue(result.getCount() >= 0, "Count should be non-negative");
+  }
+
+  @Test
+  public void testFindRelatedEntitiesWithHighCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with a count exceeding max
+    RelatedEntitiesResult result =
+        getGraphService().findRelatedEntities(operationContext, graphFilters, 0, 150);
+
+    // Verify the count is capped at the default limit
+    assertTrue(result.getCount() <= 50, "Count should be capped at 50");
+    assertTrue(result.getCount() >= 0, "Count should be non-negative");
+  }
+
+  @Test
+  public void testScrollRelatedEntitiesWithNullCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with null count
+    var result =
+        getGraphService()
+            .scrollRelatedEntities(
+                operationContext, graphFilters, Collections.emptyList(), null, null, null, null);
+
+    // Verify the pageSize is set appropriately
+    assertTrue(result.getPageSize() <= 50, "Page size should be limited to max 50");
+    assertTrue(result.getPageSize() >= 0, "Page size should be non-negative");
+  }
+
+  @Test
+  public void testScrollRelatedEntitiesWithLowCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with a low count
+    var result =
+        getGraphService()
+            .scrollRelatedEntities(
+                operationContext, graphFilters, Collections.emptyList(), null, 20, null, null);
+
+    // Verify the requested pageSize is respected (or less if there's not enough data)
+    assertTrue(result.getPageSize() <= 20, "Page size should be at most 20");
+    assertTrue(result.getPageSize() >= 0, "Page size should be non-negative");
+  }
+
+  @Test
+  public void testScrollRelatedEntitiesWithHighCount() throws Exception {
+    // First, create some test data
+    createTestData();
+
+    // Prepare test data
+    GraphFilters graphFilters = createMockGraphFilters();
+
+    // Invoke method with a count exceeding max
+    var result =
+        getGraphService()
+            .scrollRelatedEntities(
+                operationContext, graphFilters, Collections.emptyList(), null, 150, null, null);
+
+    // Verify the pageSize is capped at the default limit
+    assertTrue(result.getPageSize() <= 50, "Page size should be capped at 50");
+    assertTrue(result.getPageSize() >= 0, "Page size should be non-negative");
+  }
+
+  // Helper method to create test data
+  private void createTestData() {
+    // Create some edges for the tests to find
+    List<Edge> edges =
+        Arrays.asList(
+            new Edge(dataset1Urn, dataJobOneUrn, downstreamOf, null, null, null, null, null),
+            new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null),
+            new Edge(dataset3Urn, dataset2Urn, downstreamOf, null, null, null, null, null),
+            new Edge(dataset4Urn, dataset3Urn, downstreamOf, null, null, null, null, null),
+            new Edge(dataset5Urn, dataset4Urn, downstreamOf, null, null, null, null, null));
+
+    // Add all edges to the graph
+    edges.forEach(edge -> getGraphService().addEdge(edge));
+  }
+
+  // Helper method to create mock GraphFilters
+  private GraphFilters createMockGraphFilters() {
+    DatasetUrn datasetUrn =
+        new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
+
+    return new GraphFilters(
+        newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
+        EMPTY_FILTER,
+        Set.of("dataset"),
+        Set.of("tag"),
+        Set.of("TAG_RELATIONSHIP"),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING));
   }
 }

@@ -353,6 +353,19 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
 }
 ```
 
+### Vended Credentials and Session Expiry
+
+When creating a warehouse, the session expiry duration for the vended credentials can be configured via the
+`datahub iceberg` cli by passing the `--duration_seconds` parameter. If not specified, this currently defaults to 3600
+seconds. This needs to be a minimum of 900 seconds (15 minutes).
+
+With AWS, at the time of creating the role for use with the catalog, a `MaxSessionDuration` can also be set. AWS currently
+supports values between 1 hour to 12 hours. This configuration will set the upper limit for what can be configured for the
+warehouse via `--duration_seconds` flag.
+
+See `datahub iceberg create --help` for the flags and default if not specified. This can also be updated using
+`datahub iceberg update`
+
 ### Namespace and Configuration Requirements
 
 1. **Namespace Creation**: A namespace must be created before any tables can be created within it.
@@ -456,14 +469,14 @@ select * from myTable;
 
 DataHub provides granular access control for Iceberg operations through policies. The following privileges were introduced with Iceberg support:
 
-| Operation                              | Required Privilege                | Resource Type          |
-| -------------------------------------- | --------------------------------- | ---------------------- |
-| CREATE or DROP namespaces              | Manage Namespaces                 | Data Platform Instance |
-| CREATE, ALTER or DROP tables           | Manage Tables                     | Data Platform Instance |
-| CREATE, ALTER or DROP views            | Manage Views                      | Data Platform Instance |
-| SELECT from tables or views            | Read Only data-access             | Dataset                |
-| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access            | Dataset                |
-| List tables or views                   | List tables, views and namespaces | Data Platform Instance |
+| Operation                              | Required Privilege                | Resource Types                  |
+| -------------------------------------- | --------------------------------- | ------------------------------- |
+| CREATE or DROP namespaces              | Manage Namespaces                 | Data Platform Instance          |
+| CREATE, ALTER or DROP tables           | Manage Tables                     | Data Platform Instance          |
+| CREATE, ALTER or DROP views            | Manage Views                      | Data Platform Instance          |
+| SELECT from tables or views            | Read Only data-access             | Dataset, Data Platform Instance |
+| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access            | Dataset, Data Platform Instance |
+| List tables or views                   | List tables, views and namespaces | Data Platform Instance          |
 
 To configure access:
 
@@ -473,12 +486,14 @@ To configure access:
 </p>
 
 2. Scope the policies by:
-   - Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
-   - Selecting specific DataSets for table and view data access privileges
-   - Selecting Tags that may be applied to DataSets or Data Platform Instances
+   - Selecting specific warehouse Data Platform Instances for namespace, table/view management, and listing privileges
+   - Selecting specific DataSets and/or Data Platform Instances for table and view data access privileges
+   - Alternatively, resources can be filtered by
+     - Selecting specific namespace Containers for namespace, table/view management, listing and data access privileges: when a container is selected, all datasets in that container and its descendant containers (in the container hierarchy) are included in the scope.
+     - Selecting Tags / Domains that may be applied to DataSets or Data Platform Instances
 
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/b5468a7907023020b55d3e8d1341876ce56a6b5f/imgs/iceberg-policy-privileges.png"/>
 </p>
 
 3. Assign the policies to relevant users or groups
@@ -520,18 +535,15 @@ A: Check that:
 ## Known Limitations
 
 - AWS S3 only support
-- Concurrency - supports single instance of GMS
 - Multi-table transactional `/commit` is not yet supported
 - Table operation purge is not yet implemented
 - Metric collection and credential refresh mechanisms are still in development
 
 ## Future Enhancements
 
-- Improved concurrency with multiple replicas of GMS
 - Support for Iceberg multi-table transactional `/commit`
 - Additional table APIs (scan, drop table purge)
 - Azure and GCP Support
-- Namespace permissions
 - Enhanced metrics
 - Credential refresh
 - Proxy to another REST Catalog to use its capabilities while DataHub has real-time metadata updates.

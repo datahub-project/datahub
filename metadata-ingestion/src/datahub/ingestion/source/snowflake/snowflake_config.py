@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -22,6 +23,7 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -48,7 +50,13 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
+    r".*\.SNOWPARK_TEMP_TABLE_.+",  # snowpark
 ]
+
+
+class QueryDedupStrategyType(Enum):
+    STANDARD = "STANDARD"
+    NONE = "NONE"
 
 
 class TagOption(StrEnum):
@@ -153,14 +161,11 @@ class SnowflakeIdentifierConfig(
 
     email_domain: Optional[str] = pydantic.Field(
         default=None,
-        description="Email domain of your organization so users can be displayed on UI appropriately.",
+        description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
     )
 
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
+    _email_as_user_identifier = pydantic_removed_field(
+        "email_as_user_identifier",
     )
 
 
@@ -249,6 +254,11 @@ class SnowflakeV2Config(
         "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
 
+    query_dedup_strategy: QueryDedupStrategyType = Field(
+        default=QueryDedupStrategyType.STANDARD,
+        description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
+    )
+
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
 
@@ -326,6 +336,18 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    known_snowflake_edition: Optional[SnowflakeEdition] = Field(
+        default=None,
+        description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
+    )
+
+    # Allows empty containers to be ingested before datasets are added, avoiding permission errors
+    warn_no_datasets: bool = Field(
+        hidden_from_docs=True,
+        default=False,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
+    )
+
     include_assertion_results: bool = Field(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
@@ -337,6 +359,20 @@ class SnowflakeV2Config(
         description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
+        "This filters on the accessed objects in access_history.",
+    )
+
+    additional_database_names_allowlist: List[str] = Field(
+        default=[],
+        description="Additional database names (no pattern matching) to be included in the access_history filter. "
+        "Only applies if push_down_database_pattern_access_history=True. "
+        "These databases will be included in the filter being pushed down regardless of database_pattern settings."
+        "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
     @validator("convert_urns_to_lowercase")

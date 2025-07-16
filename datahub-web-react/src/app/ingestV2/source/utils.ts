@@ -1,21 +1,45 @@
-import {
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    CloseCircleOutlined,
-    LoadingOutlined,
-    StopOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
+import { SortingState } from '@components/components/Table/types';
+
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
+import {
+    StructuredReport,
+    StructuredReportItemLevel,
+    StructuredReportLogEntry,
+} from '@app/ingestV2/executions/components/reporting/types';
+import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
+    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingestV2/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
-import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
-import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
+import {
+    Entity,
+    EntityType,
+    ExecutionRequestResult,
+    FacetFilterInput,
+    FacetMetadata,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortCriterion,
+    SortOrder,
+} from '@types';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(advancedFormat);
+dayjs.extend(localizedFormat);
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -42,96 +66,9 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
     return selectedSource?.recipe || '';
 }
 
-export const RUNNING = 'RUNNING';
-export const SUCCESS = 'SUCCESS';
-export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
-export const WARNING = 'WARNING';
-export const FAILURE = 'FAILURE';
-export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
-export const CANCELLED = 'CANCELLED';
-export const ABORTED = 'ABORTED';
-export const UP_FOR_RETRY = 'UP_FOR_RETRY';
-export const ROLLING_BACK = 'ROLLING_BACK';
-export const ROLLED_BACK = 'ROLLED_BACK';
-export const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
-
-export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
-
-export const getExecutionRequestStatusIcon = (status: string) => {
-    return (
-        (status === RUNNING && LoadingOutlined) ||
-        (status === SUCCESS && CheckCircleOutlined) ||
-        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
-        (status === FAILURE && CloseCircleOutlined) ||
-        (status === CANCELLED && StopOutlined) ||
-        (status === UP_FOR_RETRY && ClockCircleOutlined) ||
-        (status === ROLLED_BACK && WarningOutlined) ||
-        (status === ROLLING_BACK && LoadingOutlined) ||
-        (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        (status === ABORTED && CloseCircleOutlined) ||
-        ClockCircleOutlined
-    );
-};
-
-export const getExecutionRequestStatusDisplayText = (status: string) => {
-    return (
-        (status === RUNNING && 'Running') ||
-        (status === SUCCESS && 'Succeeded') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'Succeeded With Warnings') ||
-        (status === FAILURE && 'Failed') ||
-        (status === CANCELLED && 'Cancelled') ||
-        (status === UP_FOR_RETRY && 'Up for Retry') ||
-        (status === ROLLED_BACK && 'Rolled Back') ||
-        (status === ROLLING_BACK && 'Rolling Back') ||
-        (status === ROLLBACK_FAILED && 'Rollback Failed') ||
-        (status === ABORTED && 'Aborted') ||
-        status
-    );
-};
-
-export const getExecutionRequestSummaryText = (status: string) => {
-    switch (status) {
-        case RUNNING:
-            return 'Ingestion is running...';
-        case SUCCESS:
-            return 'Ingestion completed with no errors or warnings.';
-        case SUCCEEDED_WITH_WARNINGS:
-            return 'Ingestion completed with some warnings.';
-        case FAILURE:
-            return 'Ingestion failed to complete, or completed with errors.';
-        case CANCELLED:
-            return 'Ingestion was cancelled.';
-        case ROLLED_BACK:
-            return 'Ingestion was rolled back.';
-        case ROLLING_BACK:
-            return 'Ingestion is in the process of rolling back.';
-        case ROLLBACK_FAILED:
-            return 'Ingestion rollback failed.';
-        case ABORTED:
-            return 'Ingestion job got aborted due to worker restart.';
-        default:
-            return 'Ingestion status not recognized.';
-    }
-};
-
-export const getExecutionRequestStatusDisplayColor = (status: string) => {
-    return (
-        (status === RUNNING && REDESIGN_COLORS.BLUE) ||
-        (status === SUCCESS && 'green') ||
-        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
-        (status === FAILURE && 'red') ||
-        (status === UP_FOR_RETRY && 'orange') ||
-        (status === CANCELLED && ANTD_GRAY[9]) ||
-        (status === ROLLED_BACK && 'orange') ||
-        (status === ROLLING_BACK && 'orange') ||
-        (status === ROLLBACK_FAILED && 'red') ||
-        (status === ABORTED && 'red') ||
-        ANTD_GRAY[7]
-    );
-};
 
 export const validateURL = (fieldName: string) => {
     return {
@@ -257,26 +194,6 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
-/**
- * This function is used to get the total number of entities ingested from the structured report.
- *
- * @param result - The result of the execution request.
- * @returns {number | null}
- */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const structuredReportObject = extractStructuredReportPOJO(result);
-    if (!structuredReportObject) {
-        return null;
-    }
-
-    try {
-        return structuredReportObject.sink.report.total_records_written;
-    } catch (e) {
-        console.error(`Caught exception while parsing structured report!`, e);
-        return null;
-    }
-};
-
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -348,10 +265,19 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         const entities = structuredReportObject.source.report.aspects;
         const entitiesIngestedByType: { [key: string]: number } = {};
         Object.entries(entities).forEach(([entityName, aspects]) => {
-            // Get the max count of all the sub-aspects for this entity type.
-            entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            // Use the status aspect count instead of max count
+            const statusCount = (aspects as any)?.status;
+            if (statusCount !== undefined) {
+                entitiesIngestedByType[entityName] = statusCount;
+            } else {
+                // Get the max count of all the sub-aspects for this entity type if status is not present.
+                entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+            }
         });
 
+        if (Object.keys(entitiesIngestedByType).length === 0) {
+            return null;
+        }
         return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
             count,
             displayName: entityName,
@@ -360,6 +286,21 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
         console.error(`Caught exception while parsing structured report!`, e);
         return null;
     }
+};
+
+/**
+ * This function is used to get the total number of entities ingested from the structured report.
+ *
+ * @param result - The result of the execution request.
+ * @returns {number | null}
+ */
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
+    const entityTypeCounts = getEntitiesIngestedByType(result);
+    if (!entityTypeCounts) {
+        return null;
+    }
+
+    return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
@@ -375,8 +316,8 @@ export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult
      *
      * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
      */
-    if (status === SUCCESS && (structuredReport?.warnCount || 0) > 0) {
-        return SUCCEEDED_WITH_WARNINGS;
+    if (status === EXECUTION_REQUEST_STATUS_SUCCESS && (structuredReport?.warnCount || 0) > 0) {
+        return EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS;
     }
     // Else return the raw status.
     return status;
@@ -440,84 +381,94 @@ export const extractEntityTypeCountsFromFacets = (
     return finalCounts;
 };
 
-/**
- * Add an entry to the ListIngestionSources cache.
- */
-export const addToListIngestionSourcesCache = (client, newSource, pageSize, query) => {
-    // Read the data from our cache for this query.
-    const currData: ListIngestionSourcesQuery | null = client.readQuery({
-        query: ListIngestionSourcesDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-                query,
-            },
-        },
-    });
+export function getSortInput(field: string, order: SortingState): SortCriterion | undefined {
+    if (order === SortingState.ORIGINAL) return undefined;
 
-    // Add our new source into the existing list.
-    const newSources = [newSource, ...(currData?.listIngestionSources?.ingestionSources || [])];
+    return {
+        sortOrder: order === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending,
+        field,
+    };
+}
 
-    // Write our data back to the cache.
-    client.writeQuery({
-        query: ListIngestionSourcesDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-                query,
-            },
-        },
-        data: {
-            listIngestionSources: {
-                start: 0,
-                count: (currData?.listIngestionSources?.count || 0) + 1,
-                total: (currData?.listIngestionSources?.total || 0) + 1,
-                ingestionSources: newSources,
-            },
-        },
-    });
+export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
+    return hideSystemSources
+        ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
+        : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
 };
 
-/**
- * Remove an entry from the ListIngestionSources cache.
- */
-export const removeFromListIngestionSourcesCache = (client, urn, page, pageSize, query) => {
-    // Read the data from our cache for this query.
-    const currData: ListIngestionSourcesQuery | null = client.readQuery({
-        query: ListIngestionSourcesDocument,
-        variables: {
-            input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-                query,
-            },
-        },
-    });
+export function formatTimezone(timezoneVal: string | null | undefined): string | undefined {
+    return timezoneVal ? dayjs().tz(timezoneVal).format('z') : undefined;
+}
 
-    // Remove the source from the existing sources set.
-    const newSources = [
-        ...(currData?.listIngestionSources?.ingestionSources || []).filter((source) => source.urn !== urn),
-    ];
+export function capitalizeMonthsAndDays(scheduleText: string): string {
+    const dayNames = Array.from({ length: 7 }, (_, i) => dayjs().day(i).format('dddd').toLowerCase());
+    const monthNames = Array.from({ length: 12 }, (_, i) => dayjs().month(i).format('MMMM').toLowerCase());
 
-    // Write our data back to the cache.
-    client.writeQuery({
-        query: ListIngestionSourcesDocument,
-        variables: {
-            input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-                query,
+    const capitalizableWords = new Set([...dayNames, ...monthNames]);
+
+    return scheduleText.replace(/\b[a-z]+\b/g, (word) =>
+        capitalizableWords.has(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+    );
+}
+
+export const getSourceStatus = (
+    source: IngestionSource,
+    sourcesToRefetch: Set<string>,
+    executedUrns: Set<string>,
+): string => {
+    const isPolling = sourcesToRefetch.has(source.urn);
+    const hasRequests = !!source.executions?.executionRequests?.length;
+    const hasActiveRequest = source.executions?.executionRequests?.some(isExecutionRequestActive);
+    const executedNow = executedUrns.has(source.urn);
+
+    if (executedNow && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
+    if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
+
+    return (
+        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
+    );
+};
+
+export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerType?: OwnershipTypeEntity) => {
+    return (
+        owners?.map((owner: any) => ({
+            owner: {
+                ...owner,
+                editableProperties: {
+                    email: '',
+                    displayName: '',
+                    title: '',
+                    pictureLink: '',
+                    ...owner.editableProperties,
+                },
+                properties: {
+                    displayName: '',
+                    email: '',
+                    active: true,
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.properties,
+                },
+                info: {
+                    email: '',
+                    admins: [],
+                    members: [],
+                    groups: [],
+                    active: true,
+                    displayName: '',
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.info,
+                },
             },
-        },
-        data: {
-            listIngestionSources: {
-                start: currData?.listIngestionSources?.start || 0,
-                count: (currData?.listIngestionSources?.count || 1) - 1,
-                total: (currData?.listIngestionSources?.total || 1) - 1,
-                ingestionSources: newSources,
-            },
-        },
-    });
+            associatedUrn: urn,
+            type: owner.type,
+            ownershipType: defaultOwnerType ?? null,
+            __typename: 'Owner' as const,
+        })) || []
+    );
 };

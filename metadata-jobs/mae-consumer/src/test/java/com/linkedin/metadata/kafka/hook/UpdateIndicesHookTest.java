@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,7 +34,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
@@ -118,10 +118,9 @@ public class UpdateIndicesHookTest {
 
     when(mockEntitySearchService.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
 
-    ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    when(mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_ES_SEARCH_CONFIG);
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/gx-plugin.yml"
       - "metadata-ingestion-modules/gx-plugin/**"
@@ -31,13 +32,9 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.9", "3.11"]
         include:
-          - python-version: "3.8"
-            extraPythonRequirement: "great-expectations~=0.15.12"
-          - python-version: "3.10"
-            extraPythonRequirement: "great-expectations~=0.16.0 numpy~=1.26.0"
-          - python-version: "3.11"
+          - python-version: "3.9"
             extraPythonRequirement: "great-expectations~=0.17.0"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.18.0"

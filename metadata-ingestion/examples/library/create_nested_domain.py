@@ -3,7 +3,7 @@ import logging
 from datahub.emitter.mce_builder import make_domain_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import ChangeTypeClass, DomainPropertiesClass
+from datahub.metadata.schema_classes import DomainPropertiesClass
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -16,8 +16,6 @@ domain_properties_aspect = DomainPropertiesClass(
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityType="domain",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=domain_urn,
     aspect=domain_properties_aspect,
 )

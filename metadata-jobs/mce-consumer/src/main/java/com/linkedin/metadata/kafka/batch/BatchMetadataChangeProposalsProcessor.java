@@ -4,8 +4,6 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CO
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -57,9 +55,6 @@ public class BatchMetadataChangeProposalsProcessor {
   private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
-
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
           + Topics.FAILED_METADATA_CHANGE_PROPOSAL
@@ -86,7 +81,14 @@ public class BatchMetadataChangeProposalsProcessor {
     String topicName = null;
 
     for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
-      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.histogram(
+                      this.getClass(),
+                      "kafkaLag",
+                      System.currentTimeMillis() - consumerRecord.timestamp()));
       final GenericRecord record = consumerRecord.value();
 
       if (topicName == null) {
@@ -149,7 +151,7 @@ public class BatchMetadataChangeProposalsProcessor {
       // If adding this MCP would exceed the batch size limit, process the current batch first
       if (!currentBatch.isEmpty()
           && currentBatchSize + mcpSize
-              > provider.getMetadataChangeProposal().getBatch().getSize()) {
+              > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
         processBatch(currentBatch, currentBatchSize);
         totalProcessed += currentBatch.size();
         log.info(

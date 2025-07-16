@@ -72,11 +72,8 @@ interface Props {
     logoUrls?: Maybe<string | undefined>[];
     logoUrl?: string;
     previewData: GenericEntityProperties | null;
-    platformInstanceId?: string;
-    typeIcon?: JSX.Element;
     finalType?: string | undefined;
     parentEntities?: Entity[] | null;
-    contentRef: React.RefObject<HTMLDivElement>;
     browsePaths?: BrowsePathV2 | undefined;
 }
 
@@ -102,11 +99,8 @@ export const CompactView = ({
     previewType,
     urn,
     entityType,
-    platformInstanceId,
-    typeIcon,
     finalType,
-    parentEntities, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    contentRef,
+    parentEntities,
     browsePaths,
 }: Props) => {
     return (
@@ -157,15 +151,11 @@ export const CompactView = ({
                     <div />
                 )}
                 <ContextPath
-                    instanceId={platformInstanceId}
-                    typeIcon={typeIcon}
-                    type={finalType}
+                    displayedEntityType={finalType}
                     entityType={entityType}
                     browsePaths={browsePaths}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
                     entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                    previewType={previewType}
                     isCompactView
                 />
             </RowContainer>

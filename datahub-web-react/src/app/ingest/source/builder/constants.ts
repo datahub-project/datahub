@@ -30,6 +30,7 @@ import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.png';
+import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
@@ -98,6 +99,8 @@ export const POSTGRES = 'postgres';
 export const POSTGRES_URN = `urn:li:dataPlatform:${POSTGRES}`;
 export const POWER_BI = 'powerbi';
 export const POWER_BI_URN = `urn:li:dataPlatform:${POWER_BI}`;
+export const PRESET = 'preset';
+export const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
 export const REDSHIFT = 'redshift';
 export const REDSHIFT_USAGE = 'redshift-usage';
 export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
@@ -171,6 +174,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,
     [POWER_BI_URN]: powerbiLogo,
+    [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
     [TABLEAU_URN]: tableauLogo,

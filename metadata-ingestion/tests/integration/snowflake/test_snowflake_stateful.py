@@ -52,10 +52,13 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
 
 @freeze_time(FROZEN_TIME)
 def test_stale_metadata_removal(mock_datahub_graph):
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("snowflake.connector.connect") as mock_connect:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("snowflake.connector.connect") as mock_connect,
+    ):
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
@@ -71,10 +74,13 @@ def test_stale_metadata_removal(mock_datahub_graph):
         assert checkpoint1
         assert checkpoint1.state
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("snowflake.connector.connect") as mock_connect:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("snowflake.connector.connect") as mock_connect,
+    ):
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection

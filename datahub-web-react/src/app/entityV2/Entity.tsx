@@ -96,6 +96,10 @@ export enum EntityCapabilityType {
      * Lineage information of an entity
      */
     LINEAGE,
+    /**
+     * Assigning the entity to an application
+     */
+    APPLICATIONS,
 }
 
 export interface EntityMenuActions {
