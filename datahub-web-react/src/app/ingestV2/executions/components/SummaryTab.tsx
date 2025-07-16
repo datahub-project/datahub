@@ -6,10 +6,7 @@ import YAML from 'yamljs';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
-import {
-    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
-    EXECUTION_REQUEST_STATUS_SUCCESS,
-} from '@app/ingestV2/executions/constants';
+import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
 import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
@@ -149,16 +146,13 @@ export const SummaryTab = ({
                     {structuredReport && structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
             )}
-            {(status === EXECUTION_REQUEST_STATUS_SUCCESS ||
-                status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) && (
-                <IngestedAssetsSection
-                    isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}
-                >
-                    {data?.executionRequest?.id && (
-                        <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
-                    )}
-                </IngestedAssetsSection>
-            )}
+            <IngestedAssetsSection
+                isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}
+            >
+                {data?.executionRequest?.id && (
+                    <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                )}
+            </IngestedAssetsSection>
             <LogsSection>
                 <SectionHeader level={5}>Logs</SectionHeader>
                 <SectionSubHeader>
