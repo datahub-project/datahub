@@ -67,8 +67,6 @@ const TypesSection = styled.div`
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    position: relative;
-    padding-top: 20px;
     width: 100%;
 `;
 
@@ -84,11 +82,20 @@ const EntityCountsContainer = styled(FlexContainer)`
     flex-wrap: wrap;
 `;
 
-const EntityCountsHeader = styled(Text)`
+const TypesHeaderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 16px;
+    position: relative;
+`;
+
+const TypesHeader = styled(Text)`
     position: absolute;
     top: 0;
-    left: 0;
+    left: calc(50% + 33px);
     margin-bottom: 0;
+    z-index: 1;
 `;
 
 const VerticalDivider = styled.div`
@@ -211,7 +218,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
         <>
             {error && <Message type="error" content="" />}
             <Heading type="h4" size="lg" weight="bold">
-                Ingested Assets
+                Assets
             </Heading>
             {loading && (
                 <Text color="gray" colorLevel={600}>
@@ -221,9 +228,14 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {!loading && total === 0 && <Text>No assets were ingested.</Text>}
             {!loading && total > 0 && (
                 <>
-                    <Text color="gray" colorLevel={600}>
-                        The following asset types were ingested during this run.
-                    </Text>
+                    <TypesHeaderContainer>
+                        <Text color="gray" colorLevel={600}>
+                            Types and counts for this ingestion run.
+                        </Text>
+                        <TypesHeader size="sm" color="gray" colorLevel={600} weight="bold">
+                            Types
+                        </TypesHeader>
+                    </TypesHeaderContainer>
                     <MainContainer>
                         <TotalContainer>
                             <TotalInfo>
@@ -240,9 +252,6 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                         </TotalContainer>
                         <VerticalDivider />
                         <TypesSection>
-                            <EntityCountsHeader size="xs" color="gray" colorLevel={600}>
-                                Types
-                            </EntityCountsHeader>
                             <EntityCountsContainer>
                                 {countsByEntityType.map((entityCount) => (
                                     <CardContainer key={entityCount.displayName}>
