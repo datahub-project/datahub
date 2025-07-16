@@ -5,15 +5,20 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
+const modalStyles = {
+    maxWidth: '1000px',
+    minWidth: '800px',
+    maxHeight: '90%',
+};
 interface Props {
     title: string;
     subtitle?: string;
-    onCreate: () => void;
+    onUpsert: () => void;
 }
 
-export default function BaseCreateModuleModal({ title, subtitle, children, onCreate }: React.PropsWithChildren<Props>) {
+export default function BaseCreateModuleModal({ title, subtitle, children, onUpsert }: React.PropsWithChildren<Props>) {
     const {
-        createModuleModalState: { close, isOpen },
+        createModuleModalState: { close, isOpen, isEditing },
     } = usePageTemplateContext();
 
     // Modal buttons configuration
@@ -25,10 +30,10 @@ export default function BaseCreateModuleModal({ title, subtitle, children, onCre
             onClick: close,
         },
         {
-            text: 'Create',
+            text: `${isEditing ? 'Update' : 'Create'}`,
             color: 'primary',
             variant: 'filled',
-            onClick: onCreate,
+            onClick: onUpsert,
         },
     ];
 
@@ -40,7 +45,8 @@ export default function BaseCreateModuleModal({ title, subtitle, children, onCre
             buttons={buttons}
             onCancel={close}
             maskClosable={false} // to avoid accidental clicks that closes the modal
-            style={{ minWidth: '50%', maxWidth: '80%', maxHeight: '90%' }}
+            style={modalStyles}
+            width="90%"
         >
             {children}
         </Modal>

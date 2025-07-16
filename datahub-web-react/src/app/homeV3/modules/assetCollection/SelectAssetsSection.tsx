@@ -1,10 +1,12 @@
-import { Checkbox, SearchBar, Text } from '@components';
+import { Checkbox, Loader, SearchBar, Text } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import AssetFilters from '@app/homeV3/modules/assetCollection/AssetFilters';
+import EmptySection from '@app/homeV3/modules/assetCollection/EmptySection';
 import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
+import { LoaderContainer } from '@app/homeV3/styledComponents';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -15,6 +17,7 @@ const AssetSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
 `;
 
 type Props = {
@@ -28,7 +31,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const [appliedFilters, setAppliedFilters] = useState<FieldToAppliedFieldFiltersMap>(new Map());
 
-    const { entities } = useGetAssetResults({ searchQuery, appliedFilters });
+    const { entities, loading } = useGetAssetResults({ searchQuery, appliedFilters });
 
     const handleSearchChange = (value: string) => {
         setSearchQuery(value);
@@ -47,12 +50,28 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                     {displayType}
                 </Text>
                 <Checkbox
+                    size="sm"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
                     onCheckboxChange={() => handleCheckboxChange(entity.urn)}
                 />
             </>
         );
     };
+
+    let content;
+    if (loading) {
+        content = (
+            <LoaderContainer>
+                <Loader />
+            </LoaderContainer>
+        );
+    } else if (entities && entities.length > 0) {
+        content = entities?.map((entity) => (
+            <EntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
+        ));
+    } else {
+        content = <EmptySection />;
+    }
 
     return (
         <AssetSection>
@@ -65,9 +84,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 appliedFilters={appliedFilters}
                 setAppliedFilters={setAppliedFilters}
             />
-            {entities?.map((entity) => (
-                <EntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
-            ))}
+            {content}
         </AssetSection>
     );
 };

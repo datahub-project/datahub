@@ -59,3 +59,16 @@ export const StyledIcon = styled(Icon)`
         cursor: pointer;
     }
 `;
+
+export const LoaderContainer = styled.div`
+    display: flex;
+    height: 50%;
+`;
+
+export const EmptyContainer = styled.div`
+    display: flex;
+    height: 50%;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+`;

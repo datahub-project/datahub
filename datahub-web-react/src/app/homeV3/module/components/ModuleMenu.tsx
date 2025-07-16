@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 
@@ -17,10 +18,21 @@ const StyledIcon = styled(Icon)`
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
-}
+}    
 
 export default function ModuleMenu({ module, position }: Props) {
-    const { removeModule } = usePageTemplateContext();
+    const { type } = module.properties;
+    const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
+
+
+    const {
+        createModuleModalState: { openToEdit },
+        removeModule,
+    } = usePageTemplateContext();
+
+    const handleEditModule = useCallback(() => {
+        openToEdit(type, module);
+    }, [module, openToEdit, type]);
 
     const handleDelete = useCallback(() => {
         removeModule({
@@ -34,15 +46,20 @@ export default function ModuleMenu({ module, position }: Props) {
             trigger={['click']}
             menu={{
                 items: [
-                    {
-                        title: 'Edit',
-                        key: 'edit',
-                        label: 'Edit',
-                        style: {
-                            color: colors.gray[600],
-                            fontSize: '14px',
-                        },
-                    },
+                    ...(canEdit
+                        ? [
+                              {
+                                  title: 'Edit',
+                                  key: 'edit',
+                                  label: 'Edit',
+                                  style: {
+                                      color: colors.gray[600],
+                                      fontSize: '14px',
+                                  },
+                                  onClick: handleEditModule,
+                              },
+                          ]
+                        : []),
                     {
                         title: 'Delete',
                         label: 'Delete',

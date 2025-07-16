@@ -16,7 +16,7 @@ export default function useGetAssetResults({ searchQuery, appliedFilters }: Prop
     const filters = useMemo(() => convertFiltersMapToFilters(appliedFilters), [appliedFilters]);
     const orFilters = generateOrFilters(UnionType.AND, filters);
 
-    const { data } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 query: searchQuery || '*',
@@ -34,5 +34,6 @@ export default function useGetAssetResults({ searchQuery, appliedFilters }: Prop
 
     return {
         entities,
+        loading,
     };
 }
