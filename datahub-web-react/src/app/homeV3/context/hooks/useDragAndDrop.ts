@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
 import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { useCallback, useState } from 'react';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ModulePositionInput } from '@app/homeV3/template/types';
@@ -24,7 +24,7 @@ export interface ActiveDragModule {
 
 export function useDragAndDrop() {
     const { moveModule } = usePageTemplateContext();
-    
+
     // State for tracking the currently dragged module
     const [activeModule, setActiveModule] = useState<ActiveDragModule | null>(null);
 
@@ -95,9 +95,9 @@ export function useDragAndDrop() {
     return {
         // State
         activeModule,
-        
+
         // Event handlers
         handleDragStart,
         handleDragEnd,
     };
-} 
+}

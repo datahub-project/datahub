@@ -15,6 +15,7 @@ vi.mock('@graphql/template.generated');
 vi.mock('antd', () => ({
     message: {
         error: vi.fn(() => ({ key: 'test-message' })),
+        warning: vi.fn(() => ({ key: 'test-message' })),
     },
 }));
 

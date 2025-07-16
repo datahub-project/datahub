@@ -24,13 +24,9 @@ function DragAndDropProvider({ children }: Props) {
     const { activeModule, handleDragStart, handleDragEnd } = useDragAndDrop();
 
     return (
-        <DndContext
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-        >
+        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             {children}
-            
+
             <DragOverlay>
                 {activeModule && (
                     <DragOverlayWrapper>
@@ -42,4 +38,4 @@ function DragAndDropProvider({ children }: Props) {
     );
 }
 
-export default memo(DragAndDropProvider); 
+export default memo(DragAndDropProvider);

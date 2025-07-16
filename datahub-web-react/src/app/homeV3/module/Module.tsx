@@ -1,4 +1,4 @@
-import React, { useMemo, memo } from 'react';
+import React, { memo, useMemo } from 'react';
 
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
@@ -10,7 +10,7 @@ import { DataHubPageModuleType } from '@types';
 
 function Module(props: ModuleProps) {
     const { module } = props;
-    
+
     // Memoize component selection to prevent re-evaluation on every render
     const Component = useMemo(() => {
         if (module.properties.type === DataHubPageModuleType.OwnedAssets) return YourAssetsModule;

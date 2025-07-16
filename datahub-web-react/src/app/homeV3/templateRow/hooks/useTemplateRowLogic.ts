@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
-
-import { useDragRowContext } from './useDragRowContext';
 
 interface ModulePosition {
     module: WrappedRow['modules'][0];
@@ -15,7 +14,7 @@ export function useTemplateRowLogic(row: WrappedRow, rowIndex: number) {
     const maxModulesPerRow = 3;
     const currentModuleCount = row.modules.length;
     const isRowFull = currentModuleCount >= maxModulesPerRow;
-    
+
     // Check if we're dragging from this same row
     const isDraggingFromSameRow = useDragRowContext(rowIndex);
 
@@ -45,12 +44,12 @@ export function useTemplateRowLogic(row: WrappedRow, rowIndex: number) {
         isRowFull,
         currentModuleCount,
         maxModulesPerRow,
-        
+
         // Drag state
         isDraggingFromSameRow,
         shouldDisableDropZones,
-        
+
         // Module data
         modulePositions,
     };
-} 
+}

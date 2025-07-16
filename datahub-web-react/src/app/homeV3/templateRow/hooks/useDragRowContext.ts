@@ -13,5 +13,5 @@ export function useDragRowContext(rowIndex: number): boolean {
     return useMemo(() => {
         const activeDragData = active?.data?.current as { position?: ModulePositionInput } | undefined;
         return activeDragData?.position?.rowIndex === rowIndex;
-    }, [active?.data?.current, rowIndex]);
-} 
+    }, [active?.data, rowIndex]);
+}

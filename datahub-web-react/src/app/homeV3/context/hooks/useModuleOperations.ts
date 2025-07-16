@@ -1,13 +1,11 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
-import { UpsertModuleInput } from '@app/homeV3/context/types';
+import { AddModuleInput, UpsertModuleInput, MoveModuleInput, RemoveModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
-
-import { AddModuleInput, CreateModuleInput, MoveModuleInput, RemoveModuleInput } from '../types';
+import { EntityType, PageModuleScope } from '@types';
 
 // Helper types for shared operations
 interface TemplateUpdateContext {

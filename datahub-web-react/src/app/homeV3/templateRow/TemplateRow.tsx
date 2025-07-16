@@ -1,10 +1,9 @@
 import React, { memo } from 'react';
 
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import RowLayout from '@app/homeV3/templateRow/components/RowLayout';
+import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
-
-import RowLayout from './components/RowLayout';
-import { useTemplateRowLogic } from './hooks/useTemplateRowLogic';
 
 interface Props {
     row: WrappedRow;

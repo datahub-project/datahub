@@ -42,7 +42,7 @@ function Template({ className }: Props) {
             <DragAndDropProvider>
                 <TemplateGrid wrappedRows={wrappedRows} modulesAvailableToAdd={modulesAvailableToAdd} />
             </DragAndDropProvider>
-            
+
             <StyledAddModulesButton
                 orientation="horizontal"
                 $hasRows={hasRows}

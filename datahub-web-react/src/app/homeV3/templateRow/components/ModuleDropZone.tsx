@@ -39,4 +39,4 @@ function ModuleDropZone({ rowIndex, moduleIndex, disabled }: Props) {
     return <DropZone ref={setNodeRef} $isOver={isOver} $canDrop={!disabled} />;
 }
 
-export default memo(ModuleDropZone); 
+export default memo(ModuleDropZone);

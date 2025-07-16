@@ -1,8 +1,8 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
-import { useDragAndDrop } from '@app/homeV3/context/hooks/useDragAndDrop';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { useDragAndDrop } from '@app/homeV3/context/hooks/useDragAndDrop';
 
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
@@ -59,6 +59,145 @@ describe('useDragAndDrop', () => {
         } as any);
     });
 
+    describe('activeModule state management', () => {
+        it('should initialize with null activeModule', () => {
+            const { result } = renderHook(() => useDragAndDrop());
+            
+            expect(result.current.activeModule).toBeNull();
+        });
+
+        it('should set activeModule on drag start', () => {
+            const { result } = renderHook(() => useDragAndDrop());
+
+            const mockDragStartEvent = {
+                active: {
+                    data: {
+                        current: {
+                            module: mockModule1,
+                            position: { rowIndex: 0, moduleIndex: 0 },
+                        },
+                    },
+                },
+            };
+
+            act(() => {
+                result.current.handleDragStart(mockDragStartEvent as any);
+            });
+
+            expect(result.current.activeModule).toEqual({
+                module: mockModule1,
+                position: { rowIndex: 0, moduleIndex: 0 },
+            });
+        });
+
+        it('should not set activeModule when drag data is missing', () => {
+            const { result } = renderHook(() => useDragAndDrop());
+
+            const mockDragStartEvent = {
+                active: {
+                    data: {
+                        current: null,
+                    },
+                },
+            };
+
+            act(() => {
+                result.current.handleDragStart(mockDragStartEvent as any);
+            });
+
+            expect(result.current.activeModule).toBeNull();
+        });
+
+        it('should clear activeModule on drag end', async () => {
+            const { result } = renderHook(() => useDragAndDrop());
+
+            // First set activeModule
+            const mockDragStartEvent = {
+                active: {
+                    data: {
+                        current: {
+                            module: mockModule1,
+                            position: { rowIndex: 0, moduleIndex: 0 },
+                        },
+                    },
+                },
+            };
+
+            act(() => {
+                result.current.handleDragStart(mockDragStartEvent as any);
+            });
+
+            expect(result.current.activeModule).not.toBeNull();
+
+            // Then clear it on drag end
+            const mockDragEndEvent = {
+                active: {
+                    data: {
+                        current: {
+                            module: mockModule1,
+                            position: { rowIndex: 0, moduleIndex: 0 },
+                        },
+                    },
+                },
+                over: {
+                    data: {
+                        current: {
+                            rowIndex: 0,
+                            moduleIndex: 1,
+                        },
+                    },
+                },
+            };
+
+            await act(async () => {
+                await result.current.handleDragEnd(mockDragEndEvent as any);
+            });
+
+            expect(result.current.activeModule).toBeNull();
+        });
+    });
+
+    describe('insertNewRow functionality', () => {
+        it('should pass insertNewRow flag to moveModule', async () => {
+            const { result } = renderHook(() => useDragAndDrop());
+
+            const mockDragEndEvent = {
+                active: {
+                    data: {
+                        current: {
+                            module: mockModule1,
+                            position: { rowIndex: 0, moduleIndex: 0 },
+                        },
+                    },
+                },
+                over: {
+                    data: {
+                        current: {
+                            rowIndex: 1,
+                            moduleIndex: 0,
+                            insertNewRow: true,
+                        },
+                    },
+                },
+            };
+
+            await act(async () => {
+                await result.current.handleDragEnd(mockDragEndEvent as any);
+            });
+
+            expect(mockMoveModule).toHaveBeenCalledWith({
+                module: mockModule1,
+                fromPosition: { rowIndex: 0, moduleIndex: 0 },
+                toPosition: {
+                    rowIndex: 1,
+                    moduleIndex: 0,
+                    rowSide: 'left',
+                },
+                insertNewRow: true,
+            });
+        });
+    });
+
     it('should call moveModule with correct parameters on drag end', async () => {
         const { result } = renderHook(() => useDragAndDrop());
 
@@ -93,6 +232,7 @@ describe('useDragAndDrop', () => {
                 moduleIndex: 1,
                 rowSide: 'right',
             },
+            insertNewRow: undefined,
         });
     });
 
@@ -184,6 +324,7 @@ describe('useDragAndDrop', () => {
                 moduleIndex: 0,
                 rowSide: 'left',
             },
+            insertNewRow: undefined,
         });
     });
-}); 
+});

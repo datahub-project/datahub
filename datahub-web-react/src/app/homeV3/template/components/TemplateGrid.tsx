@@ -1,10 +1,11 @@
 import React, { memo, useMemo } from 'react';
 
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import NewRowDropZone from '@app/homeV3/template/components/NewRowDropZone';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
-import NewRowDropZone from './NewRowDropZone';
+// import NewRowDropZone from './NewRowDropZone';
 
 interface Props {
     wrappedRows: WrappedRow[];
@@ -19,21 +20,19 @@ function TemplateGrid({ wrappedRows, modulesAvailableToAdd }: Props) {
         wrappedRows.forEach((row, i) => {
             // Add drop zone before the first row (for inserting at beginning)
             if (i === 0) {
-                result.push(<NewRowDropZone key={`drop-zone-before-${i}`} rowIndex={i} insertNewRow={true} />);
+                const initialDropKey = `drop-zone-before-${i}`;
+                result.push(<NewRowDropZone key={initialDropKey} rowIndex={i} insertNewRow />);
             }
 
             // Add the actual row
+            const rowKey = `templateRow-${i}`;
             result.push(
-                <TemplateRow
-                    key={`templateRow-${i}`}
-                    row={row}
-                    rowIndex={i}
-                    modulesAvailableToAdd={modulesAvailableToAdd}
-                />,
+                <TemplateRow key={rowKey} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />,
             );
 
             // Add drop zone after each row (for inserting between/after rows)
-            result.push(<NewRowDropZone key={`drop-zone-after-${i}`} rowIndex={i + 1} insertNewRow={true} />);
+            const finalDropKey = `drop-zone-after-${i}`;
+            result.push(<NewRowDropZone key={finalDropKey} rowIndex={i + 1} insertNewRow />);
         });
 
         return result;
@@ -42,4 +41,4 @@ function TemplateGrid({ wrappedRows, modulesAvailableToAdd }: Props) {
     return <>{templateRowsWithDropZones}</>;
 }
 
-export default memo(TemplateGrid); 
+export default memo(TemplateGrid);

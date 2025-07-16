@@ -6,9 +6,8 @@ import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import ModuleDropZone from '@app/homeV3/templateRow/components/ModuleDropZone';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
-
-import ModuleDropZone from './ModuleDropZone';
 
 const RowWrapper = styled.div`
     display: flex;
@@ -29,16 +28,15 @@ interface Props {
     modulesAvailableToAdd: ModulesAvailableToAdd;
 }
 
-// Memoized module wrapper to prevent unnecessary re-renders
-const ModuleWrapper = memo(function ModuleWrapper({
-    module,
-    position,
-}: {
+interface ModuleWrapperProps {
     module: WrappedRow['modules'][0];
     position: ModulePositionInput;
-}) {
-    return <Module module={module} position={position} />;
-});
+}
+
+// Memoized module wrapper to prevent unnecessary re-renders
+const ModuleWrapper = memo(({ module, position }: ModuleWrapperProps) => (
+    <Module module={module} position={position} />
+));
 
 function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesAvailableToAdd }: Props) {
     return (
@@ -77,4 +75,4 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesA
     );
 }
 
-export default memo(RowLayout); 
+export default memo(RowLayout);

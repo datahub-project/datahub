@@ -26,4 +26,4 @@ function NewRowDropZoneComponent({ rowIndex, insertNewRow = false }: Props) {
     return <NewRowDropZone ref={setNodeRef} $isOver={isOver} />;
 }
 
-export default memo(NewRowDropZoneComponent); 
+export default memo(NewRowDropZoneComponent);
