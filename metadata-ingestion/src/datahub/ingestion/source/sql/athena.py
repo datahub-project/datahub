@@ -305,7 +305,7 @@ class AthenaConfig(SQLCommonConfig):
 
     convert_simple_field_paths_to_v1 = pydantic.Field(
         default=False,
-        description="Convert simple field paths to datahub field path v1 format. Simple column paths are those that do not contain any nested fields.",
+        description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
     )
 
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
