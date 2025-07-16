@@ -16,7 +16,6 @@ const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.md} ${spacing.md} ${spacing.xsm} ${spacing.md};
     border-bottom: ${borders['1px']} ${colors.white};
-    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     user-select: none;
 
     /* Optimize for smooth dragging */
@@ -36,6 +35,11 @@ const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
         z-index: 1000;
         transform: translateZ(0) scale(1.02);
     `}
+`;
+
+const DragHandle = styled.div<{ $isDragging?: boolean }>`
+    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+    flex: 1;
 `;
 
 const FloatingRightHeaderSection = styled.div`
@@ -86,15 +90,18 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
     return (
         <ModuleContainer
             $height="316px"
+            ref={setNodeRef}
             style={{
                 opacity: isDragging ? 0.5 : 1,
                 transition: 'opacity 0.2s ease',
             }}
         >
-            <ModuleHeader ref={setNodeRef} {...listeners} {...attributes} $isDragging={isDragging}>
-                <ModuleName text={name} />
-                {/* TODO: implement description for modules CH-548 */}
-                {/* <ModuleDescription text={description} /> */}
+            <ModuleHeader $isDragging={isDragging}>
+                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                    <ModuleName text={name} />
+                    {/* TODO: implement description for modules CH-548 */}
+                    {/* <ModuleDescription text={description} /> */}
+                </DragHandle>
                 <FloatingRightHeaderSection>
                     <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>
