@@ -103,3 +103,31 @@ def test_quickstart_forced_not_a_version_tag():
 def test_quickstart_get_older_version():
     with pytest.raises(ClickException, match="Minimum supported version not met"):
         example_version_mapper.get_quickstart_execution_plan("v0.9.6")
+
+
+def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
+    """
+    Test that versions older than v1.2.0 get their composefile_git_ref set to the specific commit hash
+    that contains the profiles based resolved compose file.
+    This exercises line 168 in quickstart_versioning.py.
+    """
+    # Create a version mapping with a version older than v1.2.0
+    version_mapper = QuickstartVersionMappingConfig.parse_obj(
+        {
+            "quickstart_version_map": {
+                "v1.1.0": {
+                    "composefile_git_ref": "v1.1.0",
+                    "docker_tag": "v1.1.0",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+
+    execution_plan = version_mapper.get_quickstart_execution_plan("v1.1.0")
+    expected = QuickstartExecutionPlan(
+        docker_tag="v1.1.0",
+        composefile_git_ref="21726bc3341490f4182b904626c793091ac95edd",  # This should be the commit hash from line 168
+        mysql_tag="8.2",
+    )
+    assert execution_plan == expected

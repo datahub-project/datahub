@@ -749,6 +749,11 @@ type FeatureFlagsConfig {
   showHomePageRedesign: Boolean!
 
   """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
   Enables the redesign of the lineage v2 graph
   """
   lineageGraphV3: Boolean!
