@@ -4,9 +4,8 @@ import styled from 'styled-components';
 import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
 
-import { DataHubPageTemplateRow } from '@types';
+import { PageTemplateRowFragment } from '@graphql/template.generated';
 
 const RowWrapper = styled.div`
     display: flex;
@@ -16,21 +15,17 @@ const RowWrapper = styled.div`
 `;
 
 interface Props {
-    row: DataHubPageTemplateRow;
-    onAddModule?: (input: AddModuleHandlerInput) => void;
+    row: PageTemplateRowFragment;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
-    originRowIndex: number;
 }
 
-export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, rowIndex, originRowIndex }: Props) {
+export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
     return (
         <RowWrapper>
             <AddModuleButton
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
-                onAddModule={onAddModule}
-                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="left"
             />
@@ -42,8 +37,6 @@ export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, r
             <AddModuleButton
                 orientation="vertical"
                 modulesAvailableToAdd={modulesAvailableToAdd}
-                onAddModule={onAddModule}
-                originRowIndex={originRowIndex}
                 rowIndex={rowIndex}
                 rowSide="right"
             />
