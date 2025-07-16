@@ -50,13 +50,16 @@ describe("search", () => {
 
     // look for the high level tag filter first and select the more filter tag if it doesn't exist
     cy.get("[data-testid=filter-dropdown-Tag], [data-testid=more-filter-Tag]")
-      .eq(0)
+      .first()
       .click();
 
     // click and search for tag, save that tag
     cy.get("[data-testid=search-bar]").eq(1).type("cypress");
     cy.get("[data-testid=filter-option-Cypress]").click({ force: true });
-    cy.get("[data-testid=update-filters]").click({ force: true });
+    cy.get("[data-testid=update-filters]").click({
+      force: true,
+      multiple: true,
+    });
     cy.url().should(
       "include",
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress",
@@ -65,7 +68,10 @@ describe("search", () => {
     // select datasets filter
     cy.get("[data-testid=filter-dropdown-Type]").click({ force: true });
     cy.get("[data-testid=filter-option-Datasets]").click({ force: true });
-    cy.get("[data-testid=update-filters]").click({ force: true });
+    cy.get("[data-testid=update-filters]").click({
+      force: true,
+      multiple: true,
+    });
     cy.url().should(
       "include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___1=DATASET",
