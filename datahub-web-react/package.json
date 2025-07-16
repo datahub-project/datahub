@@ -186,12 +186,8 @@
         "prettier": "^3.5.3",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.1.11",
-<<<<<<< HEAD
         "tsc-files": "^1.1.4",
-        "vite": "^4.5.14",
-=======
         "vite": "^6",
->>>>>>> 3ab354eac4
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^3.0.0",
         "vite-plugin-svgr": "^4.3.0",

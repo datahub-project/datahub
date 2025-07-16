@@ -7,13 +7,9 @@ import {
     getDataProduct,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
-<<<<<<< HEAD
-    getPlatformName,
+    getPlatformNameFromEntityData,
     getPlatformUrnFromEntityUrn,
     getProposedItemsByType,
-=======
-    getPlatformNameFromEntityData,
->>>>>>> 3ab354eac4
     handleBatchError,
     isListSubset,
     isOutputPort,

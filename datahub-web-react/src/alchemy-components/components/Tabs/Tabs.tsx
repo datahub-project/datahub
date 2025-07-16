@@ -7,11 +7,12 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-<<<<<<< HEAD
 const StyledTabsPrimary = styled(AntTabs)<{
     $navMarginBottom?: number;
     $navMarginTop?: number;
     $containerHeight?: 'full' | 'auto';
+    $addPaddingLeft?: boolean;
+    $hideTabsHeader: boolean;
 }>`
     ${(props) =>
         props.$containerHeight === 'full'
@@ -21,10 +22,6 @@ const StyledTabsPrimary = styled(AntTabs)<{
             : `
         flex: 1;
     `}
-=======
-const StyledTabs = styled(AntTabs)<{ $addPaddingLeft?: boolean; $hideTabsHeader: boolean }>`
-    flex: 1;
->>>>>>> 3ab354eac4
     overflow: hidden;
 
     .ant-tabs-tab {
@@ -81,6 +78,8 @@ const StyledTabsSecondary = styled(AntTabs)<{
     $navMarginBottom?: number;
     $navMarginTop?: number;
     $containerHeight?: 'full' | 'auto';
+    $addPaddingLeft?: boolean;
+    $hideTabsHeader: boolean;
 }>`
     ${(props) =>
         props.$containerHeight === 'full'
@@ -99,9 +98,26 @@ const StyledTabsSecondary = styled(AntTabs)<{
         color: ${colors.gray[600]};
     }
 
-    .ant-tabs-tab + .ant-tabs-tab {
-        margin-left: 8px;
-    }
+    ${({ $addPaddingLeft }) =>
+        $addPaddingLeft
+            ? `
+            .ant-tabs-tab {
+                margin-left: 8px;
+            }
+            `
+            : `
+            .ant-tabs-tab + .ant-tabs-tab {
+                margin-left: 8px;
+            }
+        `}
+
+    ${({ $hideTabsHeader }) =>
+        $hideTabsHeader &&
+        `
+            .ant-tabs-nav {
+                display: none;
+            }
+        `}
 
     .ant-tabs-tab-active {
         background-color: ${(props) => props.theme.styles['primary-color-light']}80;
@@ -171,17 +187,14 @@ export interface Props {
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
     getCurrentUrl?: () => string;
-<<<<<<< HEAD
     secondary?: boolean;
     styleOptions?: {
         containerHeight?: 'full' | 'auto';
         navMarginBottom?: number;
         navMarginTop?: number;
     };
-=======
     addPaddingLeft?: boolean;
     hideTabsHeader?: boolean;
->>>>>>> 3ab354eac4
 }
 
 export function Tabs({
@@ -192,13 +205,10 @@ export function Tabs({
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
-<<<<<<< HEAD
     secondary,
     styleOptions,
-=======
     addPaddingLeft,
     hideTabsHeader,
->>>>>>> 3ab354eac4
 }: Props) {
     const { TabPane } = AntTabs;
 
@@ -244,14 +254,11 @@ export function Tabs({
         <StyledTabs
             activeKey={selectedTab}
             onChange={handleTabClick}
-<<<<<<< HEAD
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}
-=======
             $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
->>>>>>> 3ab354eac4
         >
             {tabs.map((tab) => {
                 return (

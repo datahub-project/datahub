@@ -95,15 +95,12 @@ export const ExecutionsTab = ({
         fetchPolicy: 'cache-and-network',
     });
 
-<<<<<<< HEAD
     useEffect(() => {
         if (selectedTab === TabType.RunHistory) {
             refetch();
         }
     }, [selectedTab, refetch]);
 
-=======
->>>>>>> 3ab354eac4
     const handleRollbackExecution = useRollbackExecution(refetch);
     const handleCancelExecution = useCancelExecution(refetch);
 

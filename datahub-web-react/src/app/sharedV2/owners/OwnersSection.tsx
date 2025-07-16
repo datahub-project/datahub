@@ -70,10 +70,7 @@ interface Props<T> {
     onChange: (owners: T[]) => void;
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
-<<<<<<< HEAD
     canEdit?: boolean;
-=======
->>>>>>> 3ab354eac4
     shouldSetOwnerEntities?: boolean;
 }
 
@@ -87,10 +84,7 @@ const OwnersSection = <T,>({
     onChange,
     sourceRefetch,
     isEditForm = false,
-<<<<<<< HEAD
     canEdit = true,
-=======
->>>>>>> 3ab354eac4
     shouldSetOwnerEntities = false,
 }: Props<T>) => {
     const entityRegistry = useEntityRegistry();

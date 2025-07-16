@@ -226,10 +226,7 @@ export const NameSourceStep = ({
                     onChange={setOwners}
                     sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
-<<<<<<< HEAD
                     canEdit={!!canEditSource}
-=======
->>>>>>> 3ab354eac4
                     shouldSetOwnerEntities
                 />
 

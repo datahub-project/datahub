@@ -55,11 +55,7 @@ export const Icon = ({
                     fontSize: getFontSize(size),
                     color: getColor(color, undefined, theme),
                 }}
-<<<<<<< HEAD
                 style={{ color: getColor(color, undefined, theme) }}
-=======
-                style={{ color: getColor(color) }}
->>>>>>> 3ab354eac4
                 weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
             />
         </IconWrapper>

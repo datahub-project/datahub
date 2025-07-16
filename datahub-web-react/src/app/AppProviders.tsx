@@ -1,11 +1,8 @@
 import React from 'react';
 
 import EntityRegistryProvider from '@app/EntityRegistryProvider';
-<<<<<<< HEAD
 import GlobalSettingsContextProvider from '@app/context/GlobalSettings/GlobalSettingsContextProvider';
-=======
 import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
->>>>>>> 3ab354eac4
 import UserContextProvider from '@app/context/UserContextProvider';
 import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
@@ -19,28 +16,11 @@ interface Props {
 
 export default function AppProviders({ children }: Props) {
     return (
-<<<<<<< HEAD
         <GlobalSettingsContextProvider>
             <AppConfigProvider>
-                <UserContextProvider>
-                    <EntityRegistryProvider>
-                        <EducationStepsProvider>
-                            <QuickFiltersProvider>
-                                <SearchContextProvider>
-                                    <NavBarProvider>{children}</NavBarProvider>
-                                </SearchContextProvider>
-                            </QuickFiltersProvider>
-                        </EducationStepsProvider>
-                    </EntityRegistryProvider>
-                </UserContextProvider>
-            </AppConfigProvider>
-        </GlobalSettingsContextProvider>
-=======
-        <AppConfigProvider>
-            <GlobalSettingsProvider>
-                <UserContextProvider>
-                    <EntityRegistryProvider>
-                        <BrowserTitleProvider>
+                <GlobalSettingsProvider>
+                    <UserContextProvider>
+                        <EntityRegistryProvider>
                             <EducationStepsProvider>
                                 <QuickFiltersProvider>
                                     <SearchContextProvider>
@@ -48,11 +28,10 @@ export default function AppProviders({ children }: Props) {
                                     </SearchContextProvider>
                                 </QuickFiltersProvider>
                             </EducationStepsProvider>
-                        </BrowserTitleProvider>
-                    </EntityRegistryProvider>
-                </UserContextProvider>
-            </GlobalSettingsProvider>
-        </AppConfigProvider>
->>>>>>> 3ab354eac4
+                        </EntityRegistryProvider>
+                    </UserContextProvider>
+                </GlobalSettingsProvider>
+            </AppConfigProvider>
+        </GlobalSettingsContextProvider>
     );
 }

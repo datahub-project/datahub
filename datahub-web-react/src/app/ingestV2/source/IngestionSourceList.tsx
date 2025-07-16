@@ -1,15 +1,8 @@
-<<<<<<< HEAD
 import { Button, Pagination, SearchBar, SimpleSelect, colors } from '@components';
 import { InputRef, message } from 'antd';
 import { X } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-=======
-import { Pagination, SearchBar, SimpleSelect } from '@components';
-import { InputRef, message } from 'antd';
-import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
->>>>>>> 3ab354eac4
 import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -35,10 +28,7 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
-<<<<<<< HEAD
 import { usePoolActionsForIngestionSourceList } from '@app/ingestV2/source/hooks.saas';
-=======
->>>>>>> 3ab354eac4
 import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
 import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
@@ -179,7 +169,6 @@ export const IngestionSourceList = ({
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
-<<<<<<< HEAD
 
     const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location]);
     const paramsQuery = useMemo(() => (params?.query as string) || undefined, [params]);
@@ -187,10 +176,6 @@ export const IngestionSourceList = ({
         () => (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined,
         [params],
     ); // SaaS only
-=======
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
->>>>>>> 3ab354eac4
     const history = useHistory();
 
     const [query, setQuery] = useState<undefined | string>(undefined);
@@ -242,7 +227,6 @@ export const IngestionSourceList = ({
         }
     }, [paramsQuery]);
 
-<<<<<<< HEAD
     // Reset the source type filter in the case of applying filters by links from another tabs
     // Query params should be changed
     useEffect(() => {
@@ -256,41 +240,6 @@ export const IngestionSourceList = ({
             }
         }
     }, [paramsQuery, paramsPoolFilter]);
-=======
-    const handleSearchInputChange = (value: string) => {
-        setSearchInput(value);
-
-        // Clear query param if user changes the search input
-        if (paramsQuery && value !== paramsQuery) {
-            const newParams = { ...params };
-            delete newParams.query;
-
-            history.replace({
-                pathname: location.pathname,
-                search: QueryString.stringify(newParams, { arrayFormat: 'comma' }),
-            });
-        }
-    };
-
-    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
-
-    const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
-    const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
-    const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
-    const [sourcesToRefetch, setSourcesToRefetch] = useState<Set<string>>(new Set());
-    const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
-    const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
-    const [totalSources, setTotalSources] = useState<number>(0);
-    const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
-    const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
-    const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
-    const [isModalWaiting, setIsModalWaiting] = useState<boolean>(false);
-
-    // Set of removed urns used to account for eventual consistency
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
-    const [sort, setSort] = useState<SortCriterion>();
->>>>>>> 3ab354eac4
 
     // Debounce the search query
     useDebounce(
@@ -352,14 +301,6 @@ export const IngestionSourceList = ({
 
     const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
     const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
-<<<<<<< HEAD
-=======
-    useEffect(() => {
-        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
-        setFinalSources(sources);
-        setTotalSources(data?.listIngestionSources?.total || 0);
-    }, [data?.listIngestionSources]);
->>>>>>> 3ab354eac4
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -782,10 +723,7 @@ export const IngestionSourceList = ({
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
                                 setSelectedTab={setSelectedTab}
-<<<<<<< HEAD
                                 saasProps={{ onViewPool }}
-=======
->>>>>>> 3ab354eac4
                             />
                         </TableContainer>
                         <PaginationContainer>

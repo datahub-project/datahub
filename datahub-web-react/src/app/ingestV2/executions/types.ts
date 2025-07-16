@@ -21,8 +21,3 @@ export interface ExecutionCancelInfo {
     executionUrn: string;
     sourceUrn: string;
 }
-
-export interface ExecutionCancelInfo {
-    executionUrn: string;
-    sourceUrn: string;
-}

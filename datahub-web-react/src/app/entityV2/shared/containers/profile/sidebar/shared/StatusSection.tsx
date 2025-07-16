@@ -10,15 +10,9 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
-<<<<<<< HEAD
 import { ACRYL_PLATFORM, ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { getPlatformName } from '@app/entityV2/shared/utils';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
-=======
-import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
->>>>>>> 3ab354eac4
+import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatformInstance, EntityType, SyncMechanism } from '@types';
 

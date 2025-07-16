@@ -3892,17 +3892,14 @@ export const mocks = [
                         manageBusinessAttributes: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
-<<<<<<< HEAD
+                        manageApplications: true,
+                        manageFeatures: true,
                         manageDocumentationForms: true,
                         viewDocumentationFormsPage: true,
                         manageOrganizationDisplayPreferences: true,
                         proposeCreateGlossaryTerm: true,
                         proposeCreateGlossaryNode: true,
                         canViewIngestionPage: true,
-=======
-                        manageApplications: true,
-                        manageFeatures: true,
->>>>>>> 3ab354eac4
                     },
                 },
             },
@@ -4191,17 +4188,14 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
-<<<<<<< HEAD
+    manageApplications: true,
+    manageFeatures: true,
     manageDocumentationForms: true,
     viewDocumentationFormsPage: true,
     manageOrganizationDisplayPreferences: true,
     proposeCreateGlossaryTerm: true,
     proposeCreateGlossaryNode: true,
     canViewIngestionPage: true,
-=======
-    manageApplications: true,
-    manageFeatures: true,
->>>>>>> 3ab354eac4
 };
 
 export const DomainMock1 = {

@@ -1,5 +1,5 @@
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { DataPlatform, EntityType } from '@src/types.generated';
 
 export type SubscriptionSiblingOptions = {
@@ -64,7 +64,7 @@ export const useSiblingOptionsForSubscriptions = (
         const newOption: SubscriptionSiblingOptions = {
             urn: sibling.urn,
             title:
-                getPlatformName(sibling) ??
+                getPlatformNameFromEntityData(sibling) ??
                 sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,

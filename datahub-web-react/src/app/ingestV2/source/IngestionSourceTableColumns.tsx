@@ -312,7 +312,6 @@ export function ActionsColumn({
                 <Icon
                     icon="Stop"
                     source="phosphor"
-<<<<<<< HEAD
                     weight="fill"
                     color="primary"
                     style={!canCancel ? { cursor: 'not-allowed' } : undefined}
@@ -321,13 +320,6 @@ export function ActionsColumn({
                             e.stopPropagation();
                             onCancel(record.lastExecUrn, record.urn);
                         }
-=======
-                    // weight="fill"
-                    color="primary"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onCancel(record.lastExecUrn, record.urn);
->>>>>>> 3ab354eac4
                     }}
                 />
             );
@@ -336,7 +328,6 @@ export function ActionsColumn({
             <Icon
                 icon="Play"
                 source="phosphor"
-<<<<<<< HEAD
                 weight="fill"
                 color={canExecute ? 'violet' : undefined}
                 style={canExecute ? {} : { cursor: 'not-allowed' }}
@@ -345,13 +336,6 @@ export function ActionsColumn({
                         e.stopPropagation();
                         onExecute(record.urn);
                     }
-=======
-                // weight="fill"
-                color="violet"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onExecute(record.urn);
->>>>>>> 3ab354eac4
                 }}
             />
         );

@@ -4,13 +4,13 @@ import React from 'react';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import analytics, { EventType } from '@src/app/analytics';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 
 const VIEW_DOCUMENTATION_LINK = 'https://datahubproject.io/integrations/';
 
 const MoreInfoModalContent = () => {
     const { statsEntity } = useStatsSectionsContext();
-    const platformName = getPlatformName(statsEntity as GenericEntityProperties);
+    const platformName = getPlatformNameFromEntityData(statsEntity as GenericEntityProperties);
 
     function sendAnalytics() {
         analytics.event({

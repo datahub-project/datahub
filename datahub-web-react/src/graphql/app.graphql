@@ -137,7 +137,6 @@ query appConfig {
             showIngestionPageRedesign
             showLineageExpandMore
             showHomePageRedesign
-<<<<<<< HEAD
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions
@@ -151,10 +150,6 @@ query appConfig {
             formsNotificationsEnabled
             lineageGraphV3
             viewIngestionSourcePrivilegesEnabled
-=======
-            showProductUpdates
-            lineageGraphV3
->>>>>>> 3ab354eac4
         }
         chromeExtensionConfig {
             enabled

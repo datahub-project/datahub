@@ -4,11 +4,8 @@ import { Redirect, Route, Switch } from 'react-router-dom';
 import { ActionRequestsPage } from '@app/actionrequest/ActionRequestsPage';
 import { ActionRequestsPage as ActionRequestsPageV2 } from '@app/actionrequestV2/ActionRequestsPage';
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
-<<<<<<< HEAD
-import { Automations } from '@app/automations/Automations';
-=======
 import { ManageApplications } from '@app/applications/ManageApplications';
->>>>>>> 3ab354eac4
+import { Automations } from '@app/automations/Automations';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
 import { useUserContext } from '@app/context/useUserContext';
