@@ -361,6 +361,20 @@ class SnowflakeV2Config(
         "Only applicable if `use_queries_v2` is enabled.",
     )
 
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
+        "This filters on the accessed objects in access_history.",
+    )
+
+    additional_database_names_allowlist: List[str] = Field(
+        default=[],
+        description="Additional database names (no pattern matching) to be included in the access_history filter. "
+        "Only applies if push_down_database_pattern_access_history=True. "
+        "These databases will be included in the filter being pushed down regardless of database_pattern settings."
+        "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
+    )
+
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
