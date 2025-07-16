@@ -1,4 +1,4 @@
-ARG KAFKA_DOCKER_VERSION=7.9.1
+ARG KAFKA_DOCKER_VERSION=8.0.0
 
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -10,10 +10,7 @@ ARG APACHE_DOWNLOAD_URL=null
 FROM confluentinc/cp-base-new:$KAFKA_DOCKER_VERSION AS confluent_base
 
 ARG MAVEN_CENTRAL_REPO_URL
-ARG SNAKEYAML_VERSION="2.0"
 
-RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
-  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
 
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
@@ -22,7 +19,7 @@ ARG ALPINE_REPO_URL
 ARG APACHE_DOWNLOAD_URL
 ARG GITHUB_REPO_URL
 
-ENV KAFKA_VERSION=3.7.2
+ENV KAFKA_VERSION=4.0.0
 ENV SCALA_VERSION=2.13
 
 LABEL name="kafka" version=${KAFKA_VERSION}
@@ -53,7 +50,13 @@ WORKDIR /opt/kafka
 
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
-COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
+COPY --from=confluent_base /etc/cp-base-new/log4j2.yaml /etc/cp-base-new/log4j2.yaml
+
+ARG MAVEN_CENTRAL_REPO_URL
+ARG SNAKEYAML_VERSION="2.4"
+RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
+  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
+
 
 ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.2/aws-msk-iam-auth-2.3.2-all.jar /usr/share/java/cp-base-new
 ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.2/aws-msk-iam-auth-2.3.2-all.jar /opt/kafka/libs
