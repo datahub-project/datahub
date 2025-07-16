@@ -142,7 +142,7 @@ type RenderIngestionContentsProps = {
     getLabel: (item: IngestionContentItem) => string;
 };
 
-const renderIngestionContents = ({ items, getKey, getLabel }: RenderIngestionContentsProps) => (
+const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => (
     <IngestionBoxesContainer>
         {items.map((item) => (
             <CardContainer key={getKey(item)}>
@@ -286,21 +286,21 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <Text weight="semiBold" size="md">
                                 Lineage
                             </Text>
-                            {renderIngestionContents({
-                                items: ingestionContents,
-                                getKey: (item) => item.title || '',
-                                getLabel: (item) => item.title || '',
-                            })}
+                            <IngestionContents
+                                items={ingestionContents}
+                                getKey={(item) => item.title || ''}
+                                getLabel={(item) => item.title || ''}
+                            />
                             {otherIngestionContents && (
                                 <>
                                     <Text weight="semiBold" size="md">
                                         Statistics
                                     </Text>
-                                    {renderIngestionContents({
-                                        items: otherIngestionContents,
-                                        getKey: (item) => item.type || '',
-                                        getLabel: (item) => item.type || '',
-                                    })}
+                                    <IngestionContents
+                                        items={otherIngestionContents}
+                                        getKey={(item) => item.type || ''}
+                                        getLabel={(item) => item.type || ''}
+                                    />
                                 </>
                             )}
                         </IngestionContentsContainer>
