@@ -91,10 +91,10 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
         <ModuleContainer
             $height="316px"
             ref={setNodeRef}
-            style={{
-                opacity: isDragging ? 0.5 : 1,
-                transition: 'opacity 0.2s ease',
-            }}
+            // style={{
+            //     opacity: isDragging ? 0.5 : 1,
+            //     transition: 'opacity 0.2s ease',
+            // }}
         >
             <ModuleHeader $isDragging={isDragging}>
                 <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>

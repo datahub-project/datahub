@@ -5,24 +5,9 @@ import { UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
-import { EntityType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
-export interface AddModuleInput {
-    module: PageModuleFragment;
-    position: ModulePositionInput;
-}
-
-export interface RemoveModuleInput {
-    moduleUrn: string;
-    position: ModulePositionInput;
-}
-
-export interface MoveModuleInput {
-    module: PageModuleFragment;
-    fromPosition: ModulePositionInput;
-    toPosition: ModulePositionInput;
-    insertNewRow?: boolean;
-}
+import { AddModuleInput, CreateModuleInput, MoveModuleInput, RemoveModuleInput } from '../types';
 
 // Helper types for shared operations
 interface TemplateUpdateContext {
@@ -142,6 +127,109 @@ const validateMoveModuleInput = (input: MoveModuleInput): string | null => {
     return null;
 };
 
+// Helper function to remove a module from rows and clean up empty rows
+function removeModuleFromRows(
+    rows: PageTemplateFragment['properties']['rows'],
+    fromPosition: ModulePositionInput,
+): { updatedRows: typeof rows; wasRowRemoved: boolean } {
+    if (!rows || fromPosition.rowIndex === undefined || fromPosition.moduleIndex === undefined) {
+        return { updatedRows: rows, wasRowRemoved: false };
+    }
+
+    const newRows = [...rows];
+    const fromRowIndex = fromPosition.rowIndex;
+
+    if (fromRowIndex >= newRows.length) {
+        return { updatedRows: newRows, wasRowRemoved: false };
+    }
+
+    const fromRow = { ...newRows[fromRowIndex] };
+    const fromModules = [...(fromRow.modules || [])];
+
+    // Remove the module
+    fromModules.splice(fromPosition.moduleIndex, 1);
+    fromRow.modules = fromModules;
+    newRows[fromRowIndex] = fromRow;
+
+    // If the row is now empty, remove it
+    if (fromModules.length === 0) {
+        newRows.splice(fromRowIndex, 1);
+        return { updatedRows: newRows, wasRowRemoved: true };
+    }
+
+    return { updatedRows: newRows, wasRowRemoved: false };
+}
+
+// Helper function to calculate adjusted row index after potential row removal
+function calculateAdjustedRowIndex(
+    fromPosition: ModulePositionInput,
+    toRowIndex: number,
+    wasRowRemoved: boolean,
+): number {
+    if (!wasRowRemoved || fromPosition.rowIndex === undefined || fromPosition.rowIndex >= toRowIndex) {
+        return toRowIndex;
+    }
+    return toRowIndex - 1;
+}
+
+// Helper function to insert module into rows with different strategies
+function insertModuleIntoRows(
+    rows: PageTemplateFragment['properties']['rows'],
+    module: PageModuleFragment,
+    toPosition: ModulePositionInput,
+    adjustedRowIndex: number,
+    insertNewRow?: boolean,
+): typeof rows {
+    const newRows = [...(rows || [])];
+    const { moduleIndex: toModuleIndex } = toPosition;
+
+    if (insertNewRow) {
+        // Insert a new row at the specified position
+        const newRow = { modules: [module] };
+        newRows.splice(adjustedRowIndex, 0, newRow);
+    } else if (adjustedRowIndex >= newRows.length) {
+        // Create new row at the end
+        newRows.push({ modules: [module] });
+    } else {
+        // Insert into existing row
+        const toRow = { ...newRows[adjustedRowIndex] };
+        const toModules = [...(toRow.modules || [])];
+        const insertIndex = toModuleIndex !== undefined ? toModuleIndex : toModules.length;
+
+        toModules.splice(insertIndex, 0, module);
+        toRow.modules = toModules;
+        newRows[adjustedRowIndex] = toRow;
+    }
+
+    return newRows;
+}
+
+// Helper function to validate move constraints (3-module limit)
+function validateModuleMoveConstraints(
+    template: PageTemplateFragment,
+    fromPosition: ModulePositionInput,
+    toPosition: ModulePositionInput,
+): string | null {
+    if (!template.properties?.rows || toPosition.rowIndex === undefined) {
+        return null;
+    }
+
+    const targetRow = template.properties.rows[toPosition.rowIndex];
+    if (!targetRow) {
+        return null;
+    }
+
+    const currentModuleCount = targetRow.modules?.length || 0;
+    const isDraggedFromSameRow = fromPosition.rowIndex === toPosition.rowIndex;
+
+    // Only enforce the 3-module limit when moving between different rows
+    if (!isDraggedFromSameRow && currentModuleCount >= 3) {
+        return 'Cannot move module: Target row already has maximum number of modules';
+    }
+
+    return null;
+}
+
 export function useModuleOperations(
     isEditingGlobalTemplate: boolean,
     personalTemplate: PageTemplateFragment | null,
@@ -188,7 +276,7 @@ export function useModuleOperations(
         ],
     );
 
-    // Helper function to move a module within or between rows in a template
+    // Simplified helper function to move a module within or between rows in a template
     const moveModuleInTemplate = useCallback(
         (
             template: PageTemplateFragment | null,
@@ -199,74 +287,29 @@ export function useModuleOperations(
         ): PageTemplateFragment | null => {
             if (!template) return null;
 
-            const newTemplate = { ...template };
-            const newRows = [...(newTemplate.properties?.rows || [])];
-
-            // Remove module from original position
-            if (fromPosition.rowIndex !== undefined && fromPosition.moduleIndex !== undefined) {
-                const fromRowIndex = fromPosition.rowIndex;
-                if (fromRowIndex < newRows.length) {
-                    const fromRow = { ...newRows[fromRowIndex] };
-                    const fromModules = [...(fromRow.modules || [])];
-
-                    // Remove the module
-                    fromModules.splice(fromPosition.moduleIndex, 1);
-
-                    fromRow.modules = fromModules;
-                    newRows[fromRowIndex] = fromRow;
-
-                    // If the row is now empty, remove it
-                    if (fromModules.length === 0) {
-                        newRows.splice(fromRowIndex, 1);
-                    }
-                }
-            }
-
-            // Add module to new position
-            const { rowIndex: toRowIndex, moduleIndex: toModuleIndex } = toPosition;
-
+            const { rowIndex: toRowIndex } = toPosition;
             if (toRowIndex === undefined) {
                 console.error('Target row index is required for move operation');
                 return null;
             }
 
-            // Adjust row index if we removed a row before the target row
-            const adjustedToRowIndex =
-                fromPosition.rowIndex !== undefined &&
-                fromPosition.rowIndex < toRowIndex &&
-                newRows[fromPosition.rowIndex]?.modules?.length === 0
-                    ? toRowIndex - 1
-                    : toRowIndex;
+            // Step 1: Remove module from original position
+            const { updatedRows, wasRowRemoved } = removeModuleFromRows(template.properties?.rows, fromPosition);
 
-            if (insertNewRow) {
-                // Insert a new row at the specified position
-                const newRow = {
-                    modules: [module],
-                };
-                newRows.splice(adjustedToRowIndex, 0, newRow);
-            } else if (adjustedToRowIndex >= newRows.length) {
-                // Create new row at the end
-                newRows.push({
-                    modules: [module],
-                });
-            } else {
-                const toRow = { ...newRows[adjustedToRowIndex] };
-                const toModules = [...(toRow.modules || [])];
+            // Step 2: Calculate adjusted target row index
+            const adjustedRowIndex = calculateAdjustedRowIndex(fromPosition, toRowIndex, wasRowRemoved);
 
-                // Insert at specific position or at the end
-                const insertIndex = toModuleIndex !== undefined ? toModuleIndex : toModules.length;
-                toModules.splice(insertIndex, 0, module);
+            // Step 3: Insert module into new position
+            const finalRows = insertModuleIntoRows(updatedRows, module, toPosition, adjustedRowIndex, insertNewRow);
 
-                toRow.modules = toModules;
-                newRows[adjustedToRowIndex] = toRow;
-            }
-
-            newTemplate.properties = {
-                ...newTemplate.properties,
-                rows: newRows,
+            // Step 4: Return updated template
+            return {
+                ...template,
+                properties: {
+                    ...template.properties,
+                    rows: finalRows,
+                },
             };
-
-            return newTemplate;
         },
         [],
     );
@@ -394,7 +437,7 @@ export function useModuleOperations(
         [upsertPageModuleMutation, addModule, isEditingModule],
     );
 
-    // Updates template state by moving a module and updates the appropriate template on the backend
+    // Simplified move module function with extracted validation and orchestration
     const moveModule = useCallback(
         (input: MoveModuleInput) => {
             // Validate input
@@ -414,24 +457,22 @@ export function useModuleOperations(
                 return;
             }
 
-            // Check if target row would exceed 3 modules (only when moving between different rows)
-            if (templateToUpdate.properties?.rows && toPosition.rowIndex !== undefined) {
-                const targetRow = templateToUpdate.properties.rows[toPosition.rowIndex];
-                if (targetRow) {
-                    const currentModuleCount = targetRow.modules?.length || 0;
-                    const isDraggedFromSameRow = fromPosition.rowIndex === toPosition.rowIndex;
-                    
-                    // Only enforce the 3-module limit when moving between different rows
-                    if (!isDraggedFromSameRow && currentModuleCount >= 3) {
-                        console.warn('Cannot move module: Target row already has maximum of 3 modules');
-                        message.warning('Cannot move module: Target row already has maximum number of modules');
-                        return;
-                    }
-                }
+            // Validate move constraints
+            const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);
+            if (constraintError) {
+                console.warn(`Move validation failed: ${constraintError}`);
+                message.warning(constraintError);
+                return;
             }
 
-            // Update template state
-            const updatedTemplate = moveModuleInTemplate(templateToUpdate, module, fromPosition, toPosition, insertNewRow);
+            // Execute the move operation
+            const updatedTemplate = moveModuleInTemplate(
+                templateToUpdate,
+                module,
+                fromPosition,
+                toPosition,
+                insertNewRow,
+            );
 
             if (!updatedTemplate) {
                 console.error('Failed to update template during move operation');

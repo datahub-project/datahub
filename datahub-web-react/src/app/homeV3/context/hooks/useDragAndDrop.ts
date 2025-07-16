@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { DragEndEvent } from '@dnd-kit/core';
+import { useCallback, useState } from 'react';
+import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ModulePositionInput } from '@app/homeV3/template/types';
@@ -17,10 +17,34 @@ export interface DroppableData {
     insertNewRow?: boolean; // If true, create a new row at this position
 }
 
+export interface ActiveDragModule {
+    module: PageModuleFragment;
+    position: ModulePositionInput;
+}
+
 export function useDragAndDrop() {
     const { moveModule } = usePageTemplateContext();
+    
+    // State for tracking the currently dragged module
+    const [activeModule, setActiveModule] = useState<ActiveDragModule | null>(null);
 
-    const handleDragEnd = useCallback(
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        const draggedData = event.active.data.current as
+            | {
+                  module?: PageModuleFragment;
+                  position?: ModulePositionInput;
+              }
+            | undefined;
+
+        if (draggedData?.module && draggedData?.position) {
+            setActiveModule({
+                module: draggedData.module,
+                position: draggedData.position,
+            });
+        }
+    }, []);
+
+    const processDragEnd = useCallback(
         async (event: DragEndEvent) => {
             const { active, over } = event;
 
@@ -58,7 +82,22 @@ export function useDragAndDrop() {
         [moveModule],
     );
 
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            // Clear the active module state first
+            setActiveModule(null);
+            // Then process the drag end logic
+            processDragEnd(event);
+        },
+        [processDragEnd],
+    );
+
     return {
+        // State
+        activeModule,
+        
+        // Event handlers
+        handleDragStart,
         handleDragEnd,
     };
 } 
