@@ -1,12 +1,18 @@
 from typing import List
 
+import pydantic
+import pytest
+
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
     HumanMessage,
     ReasoningMessage,
 )
-from datahub_integrations.chat.chat_session import FilteredProgressListener
+from datahub_integrations.chat.chat_session import (
+    FilteredProgressListener,
+    NextMessage,
+)
 
 
 def test_get_progress_steps_extracts_reasoning_messages() -> None:
@@ -102,3 +108,14 @@ def test_get_progress_steps_sanitizes_reasoning_messages() -> None:
     assert len(steps) == 2
     assert steps[0] == "Thinking about the question."
     assert steps[1] == "Processing the request."
+
+
+def test_message_too_long_raises() -> None:
+    with pytest.raises(pydantic.ValidationError, match="hard length limit"):
+        NextMessage(text="a" * 10000)
+
+
+def test_too_many_suggestions_raises() -> None:
+    suggestions = [chr(i) for i in range(ord("a"), ord("z") + 1)]  # [a, b, ..., z]
+    with pytest.raises(pydantic.ValidationError, match="Too many suggestions"):
+        NextMessage(text="This is a normal response", suggestions=suggestions)

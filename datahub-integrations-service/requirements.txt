@@ -312,7 +312,9 @@ jsonschema==4.21.1
 jsonschema-specifications==2023.12.1
     # via jsonschema
 loguru==0.7.2
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   sentry-sdk
 lxml==5.2.1
     # via reactpy
 lz4==4.4.4
@@ -551,8 +553,10 @@ s3transfer==0.13.0
     # via boto3
 sendgrid==6.11.0
     # via acryl-datahub-integrations
-sentry-sdk==1.45.0
-    # via acryl-datahub
+sentry-sdk==2.33.0
+    # via
+    #   acryl-datahub
+    #   acryl-datahub-integrations
 six==1.16.0
     # via
     #   avro-gen3

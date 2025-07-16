@@ -1,7 +1,8 @@
+import dataclasses
 import functools
 import json
 import re
-from typing import Optional, Tuple
+from typing import Optional
 
 import fastapi
 import slack_bolt
@@ -325,7 +326,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
         # Call the Slack API method to unfurl the link.
         # See https://api.slack.com/docs/message-link-unfurling#link_unfurling_with_api
-        response = app.client.chat_unfurl(
+        app.client.chat_unfurl(
             channel=event["channel"],
             ts=event["message_ts"],
             unfurls={
@@ -333,9 +334,6 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
             },
             # user_auth_url='...',
         )
-
-        # Log the API call response
-        logger.debug(response)
 
     @app.message("test-acryl-bot")
     def handle_test_message(message: dict, say: Say) -> None:
@@ -786,7 +784,7 @@ def get_slack_request_handler() -> SlackRequestHandler:
 @public_router.post("/slack/events")
 async def slack_event_endpoint(req: fastapi.Request) -> fastapi.Response:
     body = await req.body()
-    logger.debug(f"Received slack event: {body!r}\nHeaders: {req.headers}")
+    logger.debug(f"Received slack event: {body!r}")
 
     return await get_slack_request_handler().handle(req)
 
@@ -794,7 +792,7 @@ async def slack_event_endpoint(req: fastapi.Request) -> fastapi.Response:
 @public_router.post("/slack/actions")
 async def slack_action_endpoint(req: fastapi.Request) -> fastapi.Response:
     body = await req.body()
-    logger.debug(f"Received slack action: {body!r}\nHeaders: {req.headers}")
+    logger.debug(f"Received slack action: {body!r}")
 
     return await get_slack_request_handler().handle(req)
 
@@ -806,12 +804,20 @@ async def slack_command_endpoint(req: fastapi.Request) -> fastapi.Response:
     # headers = req.headers.mutablecopy()
     # headers["content-type"] = "application/x-www-form-urlencoded"
     # req._headers = headers
-    logger.debug(f"Received slack command: {body!r}\nHeaders: {req.headers}")
+    logger.debug(f"Received slack command: {body!r}")
 
     return await get_slack_request_handler().handle(req)
 
 
-def parse_slack_message_url(url: str) -> Optional[Tuple[str, str, str, Optional[str]]]:
+@dataclasses.dataclass
+class SlackMessageUrl:
+    workspace_name: str
+    conversation_id: str
+    message_id: str
+    thread_ts: Optional[str]
+
+
+def parse_slack_message_url(url: str) -> Optional[SlackMessageUrl]:
     # Parse the url using regex.
     # https://regex101.com/r/QxS5d3/2
 
@@ -823,7 +829,12 @@ def parse_slack_message_url(url: str) -> Optional[Tuple[str, str, str, Optional[
 
     workspace_name, conversation_id, message_id, thread_ts = matches.groups()
 
-    return workspace_name, conversation_id, message_id, thread_ts
+    return SlackMessageUrl(
+        workspace_name=workspace_name,
+        conversation_id=conversation_id,
+        message_id=message_id,
+        thread_ts=thread_ts,
+    )
 
 
 class SlackLinkPreview(BaseModel):
@@ -845,29 +856,29 @@ class SlackLinkPreview(BaseModel):
     threadBaseMessageText: Optional[str] = None
 
 
-def get_slack_link_preview(url: str) -> SlackLinkPreview:
+def get_slack_link_preview(raw_url: str) -> SlackLinkPreview:
     app = get_slack_app(slack_config.get_config())
 
-    parsed_url = parse_slack_message_url(url)
-    if not parsed_url:
+    url = parse_slack_message_url(raw_url)
+    if not url:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid slack message url")
-
-    workspace_name, conversation_id, message_id, thread_ts = parsed_url
 
     try:
         # First, get the conversation (channel/DM/MPIM) info.
         # TODO: Add caching around this.
-        conversation = app.client.conversations_info(channel=conversation_id).validate()
+        conversation = app.client.conversations_info(
+            channel=url.conversation_id
+        ).validate()
         conversation_name = conversation["channel"]["name"]
 
         # Next, get the message info.
-        slack_message_ts: str = message_id[:-6] + "." + message_id[-6:]
+        slack_message_ts: str = url.message_id[:-6] + "." + url.message_id[-6:]
         oldest = None
-        if thread_ts:
-            slack_message_ts, oldest = thread_ts, slack_message_ts
+        if url.thread_ts:
+            slack_message_ts, oldest = url.thread_ts, slack_message_ts
 
         messages = app.client.conversations_replies(
-            channel=conversation_id,
+            channel=url.conversation_id,
             ts=slack_message_ts,
             oldest=oldest,
             limit=1,
@@ -875,7 +886,7 @@ def get_slack_link_preview(url: str) -> SlackLinkPreview:
             include_all_metadata=True,
         ).validate()["messages"]
 
-        if thread_ts and len(messages) == 2:
+        if url.thread_ts and len(messages) == 2:
             thread_base_message, message = messages
         elif messages[0].get("thread_ts"):
             thread_base_message = message = messages[0]
@@ -901,12 +912,12 @@ def get_slack_link_preview(url: str) -> SlackLinkPreview:
             author_image_url = message["icons"].get("image_48")
 
         preview = SlackLinkPreview(
-            url=url,
+            url=raw_url,
             timestamp=datetime_to_ts_millis(slack_ts_to_datetime(message["ts"])),
             text=message["text"],
             authorName=author_name,
             authorImageUrl=author_image_url,
-            workspaceName=workspace_name,
+            workspaceName=url.workspace_name,
             channelName=conversation_name,
         )
         if thread_base_message:
@@ -920,5 +931,5 @@ def get_slack_link_preview(url: str) -> SlackLinkPreview:
         logger.exception(f"Error getting slack message preview: {error_message}")
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"You do not have permission to view conversation {conversation_id} message {message_id}: {error_message}",
+            f"You do not have permission to view conversation {url.conversation_id} message {url.message_id}: {error_message}",
         ) from e

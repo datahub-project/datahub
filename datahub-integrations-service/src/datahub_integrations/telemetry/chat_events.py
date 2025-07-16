@@ -45,10 +45,11 @@ class ChatbotInteractionEvent(BaseEvent):
     slack_message_id: str
     slack_user_id: str
     slack_user_name: str
-    slack_email: Optional[str] = None
+    # TODO: Add slack_email: Optional[str] = None
     message_contents: str
     response_contents: Optional[str] = None
     response_error: Optional[str] = None
+    response_generation_duration_sec: Optional[float]
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
 

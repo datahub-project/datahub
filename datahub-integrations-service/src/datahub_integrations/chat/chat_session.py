@@ -19,7 +19,7 @@ import mlflow.tracing
 from datahub.sdk.main_client import DataHubClient
 from fastmcp import FastMCP
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
@@ -42,7 +42,17 @@ from datahub_integrations.slack.utils.string import truncate
 
 assert MLFLOW_INITIALIZED
 MAX_TOOL_CALLS = 20
-MESSAGE_LENGTH_SOFT_LIMIT = 2000
+
+# The soft limit is passed to the LLM's prompt, in an effort
+# to have it be concise.
+MESSAGE_LENGTH_SOFT_LIMIT = 1500
+# The hard limit is derived from Slack's limits, where the Slack "section"
+# block's text field has a limit of 3000 characters.
+# See https://api.slack.com/reference/block-kit/blocks#section
+MESSAGE_LENGTH_HARD_LIMIT = 3000 - 100  # 100 is a buffer
+assert MESSAGE_LENGTH_HARD_LIMIT >= 1.5 * MESSAGE_LENGTH_SOFT_LIMIT
+
+_MAX_SUGGESTIONS = 4
 
 _CHATBOT_MODEL = get_bedrock_model_env_variable(
     "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
@@ -61,7 +71,25 @@ class ChatSessionError(Exception):
 
 class NextMessage(BaseModel):
     text: str
-    suggestions: List[str]
+    suggestions: List[str] = []
+
+    @field_validator("text", mode="after")
+    @classmethod
+    def validate_text(cls, v: str) -> str:
+        if len(v) > MESSAGE_LENGTH_HARD_LIMIT:
+            raise ValueError(
+                f"Text length exceeds hard length limit of {MESSAGE_LENGTH_HARD_LIMIT}"
+            )
+        return v
+
+    @field_validator("suggestions", mode="after")
+    @classmethod
+    def validate_suggestions(cls, v: List[str]) -> List[str]:
+        if len(v) > _MAX_SUGGESTIONS:
+            raise ValueError(
+                f"Too many suggestions provided. Please provide at most {_MAX_SUGGESTIONS} suggestions."
+            )
+        return v
 
 
 def respond_to_user(next_message: NextMessage) -> NextMessage:
@@ -77,6 +105,8 @@ Respond to the user with a message formatted using Markdown. \
 However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported.
 
 The first reference to each entity must be formatted as a link to the entity in DataHub.
+
+You may also provide up to {_MAX_SUGGESTIONS} suggestions for questions the user may want to ask as a follow up, but this is not required.
 
 IMPORTANT: Keep your response concise and under {MESSAGE_LENGTH_SOFT_LIMIT} characters. \
 If you need to provide more information, focus on the most relevant points and summarize the rest. \

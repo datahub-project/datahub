@@ -3,6 +3,7 @@ from typing import Callable, List, Optional, Tuple
 import slack_sdk
 import slack_sdk.errors
 from datahub.sdk.main_client import DataHubClient
+from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 from pydantic import BaseModel
 from slack_bolt import App
@@ -20,10 +21,7 @@ from datahub_integrations.slack.command.mention_helpers import (
     fetch_thread_history,
 )
 from datahub_integrations.slack.config import slack_config
-from datahub_integrations.slack.constants import (
-    DATAHUB_SLACK_ICON_URL,
-    MESSAGE_LENGTH_HARD_LIMIT,
-)
+from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.telemetry.chat_events import (
     ChatbotInteractionEvent,
@@ -88,6 +86,9 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     channel_id = event.channel_id
     response_ts = None
+
+    timer = PerfTimer()
+    timer.start()
 
     try:
         # Send a placeholder message to indicate we're processing
@@ -155,11 +156,12 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 slack_user_name=user_name,
                 message_contents=event.message_text,
                 response_contents=message,
+                response_generation_duration_sec=timer.elapsed_seconds(),
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
-        logger.exception(f"Failed to send slack response to channel: {channel_id}")
+        logger.exception(f"Failed to send Slack response to channel {channel_id}: {e}")
         if response_ts is not None:
             app.client.chat_update(
                 channel=channel_id,
@@ -180,6 +182,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 message_contents=event.message_text,
                 response_contents=None,
                 response_error=f"{type(e).__name__}: {str(e)}",
+                response_generation_duration_sec=timer.elapsed_seconds(),
             )
         )
 
@@ -254,9 +257,6 @@ def _build_response(
 ) -> List[dict]:
     # Prepare blocks for the response
     blocks: List[dict] = []
-
-    # Truncate message if it's too long.
-    message = truncate(message, max_length=MESSAGE_LENGTH_HARD_LIMIT)
 
     # Create the main message block with user mention
     blocks.append(

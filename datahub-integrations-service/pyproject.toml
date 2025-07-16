@@ -17,6 +17,7 @@ dependencies = [
 	"uvicorn[standard]>=0.23.2",
 	"pydantic>=2.10.0",
 	"loguru",
+	"sentry-sdk[loguru]",
 	"build",
 	# Slack.
 	"slack-bolt",

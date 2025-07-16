@@ -578,6 +578,7 @@ loguru==0.7.2
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   sentry-sdk
 lxml==5.2.1
     # via
     #   -r requirements.txt
@@ -1059,10 +1060,12 @@ sendgrid==6.11.0
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-sentry-sdk==1.45.0
+sentry-sdk==2.33.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-integrations
 setuptools==69.5.1
     # via acryl-datahub-integrations (pyproject.toml)
 six==1.16.0
