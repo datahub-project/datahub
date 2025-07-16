@@ -37,6 +37,7 @@ export interface MoveModuleInput {
     module: PageModuleFragment;
     fromPosition: ModulePositionInput;
     toPosition: ModulePositionInput;
+    insertNewRow?: boolean;
 }
 
 // Context state shape

@@ -14,6 +14,7 @@ interface DraggedModuleData {
 export interface DroppableData {
     rowIndex: number;
     moduleIndex?: number; // If undefined, drop at the end of the row
+    insertNewRow?: boolean; // If true, create a new row at this position
 }
 
 export function useDragAndDrop() {
@@ -51,6 +52,7 @@ export function useDragAndDrop() {
                 module: draggedData.module,
                 fromPosition: draggedData.position,
                 toPosition,
+                insertNewRow: droppableData.insertNewRow,
             });
         },
         [moveModule],

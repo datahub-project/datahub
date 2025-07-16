@@ -21,6 +21,7 @@ export interface MoveModuleInput {
     module: PageModuleFragment;
     fromPosition: ModulePositionInput;
     toPosition: ModulePositionInput;
+    insertNewRow?: boolean;
 }
 
 // Helper types for shared operations
@@ -194,6 +195,7 @@ export function useModuleOperations(
             module: PageModuleFragment,
             fromPosition: ModulePositionInput,
             toPosition: ModulePositionInput,
+            insertNewRow?: boolean,
         ): PageTemplateFragment | null => {
             if (!template) return null;
 
@@ -236,8 +238,14 @@ export function useModuleOperations(
                     ? toRowIndex - 1
                     : toRowIndex;
 
-            if (adjustedToRowIndex >= newRows.length) {
-                // Create new row
+            if (insertNewRow) {
+                // Insert a new row at the specified position
+                const newRow = {
+                    modules: [module],
+                };
+                newRows.splice(adjustedToRowIndex, 0, newRow);
+            } else if (adjustedToRowIndex >= newRows.length) {
+                // Create new row at the end
                 newRows.push({
                     modules: [module],
                 });
@@ -397,7 +405,7 @@ export function useModuleOperations(
                 return;
             }
 
-            const { module, fromPosition, toPosition } = input;
+            const { module, fromPosition, toPosition, insertNewRow } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
 
             if (!templateToUpdate) {
@@ -423,7 +431,7 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = moveModuleInTemplate(templateToUpdate, module, fromPosition, toPosition);
+            const updatedTemplate = moveModuleInTemplate(templateToUpdate, module, fromPosition, toPosition, insertNewRow);
 
             if (!updatedTemplate) {
                 console.error('Failed to update template during move operation');

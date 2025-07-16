@@ -21,7 +21,7 @@ import { DataHubPageTemplateRow } from '@types';
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
-    gap: ${spacing.md};
+    gap: ${spacing.xsm};
 `;
 
 // Additional margin to have width of content excluding side buttons
@@ -30,37 +30,15 @@ const StyledAddModulesButton = styled(AddModuleButton)<{ $hasRows?: boolean }>`
 `;
 
 const NewRowDropZone = styled.div<{ $isOver?: boolean }>`
-    min-height: 60px;
-    border-radius: 8px;
-    margin: 0 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s ease;
-    border: 2px dashed transparent;
-
+    
     ${({ $isOver }) =>
         $isOver &&
         `
-        background-color: rgba(59, 130, 246, 0.1);
-        border-color: #3b82f6;
-        min-height: 80px;
+        border: 2px solid #CAC3F1;
     `}
 `;
 
-const NewRowDropText = styled.div<{ $isOver?: boolean }>`
-    color: #6b7280;
-    font-size: 14px;
-    text-align: center;
-    transition: all 0.2s ease;
-
-    ${({ $isOver }) =>
-        $isOver &&
-        `
-        color: #3b82f6;
-        font-weight: 500;
-    `}
-`;
 
 // Styled wrapper for drag overlay to make it look like it's floating
 const DragOverlayWrapper = styled.div`
@@ -78,21 +56,27 @@ interface Props {
 }
 
 // Memoized new row drop zone component
-const NewRowDropZoneComponent = memo(function NewRowDropZoneComponent({ rowIndex }: { rowIndex: number }) {
-    const { isOver, setNodeRef } = useDroppable({
-        id: `new-row-drop-zone-${rowIndex}`,
+const NewRowDropZoneComponent = memo(function NewRowDropZoneComponent({ 
+    rowIndex, 
+    insertNewRow = false 
+}: { 
+    rowIndex: number;
+    insertNewRow?: boolean;
+}) {
+    const {
+        isOver,
+        setNodeRef,
+    } = useDroppable({
+        id: `new-row-drop-zone-${rowIndex}${insertNewRow ? '-insert' : ''}`,
         data: {
             rowIndex,
             moduleIndex: 0, // First position in new row
+            insertNewRow, // Flag to indicate this should create a new row at this position
         },
     });
 
     return (
-        <NewRowDropZone ref={setNodeRef} $isOver={isOver}>
-            <NewRowDropText $isOver={isOver}>
-                {isOver ? 'Drop here to create a new row' : 'Drop a module here to create a new row'}
-            </NewRowDropText>
-        </NewRowDropZone>
+        <NewRowDropZone ref={setNodeRef} $isOver={isOver} />
     );
 });
 
@@ -136,19 +120,44 @@ function Template({ className }: Props) {
         [handleDragEnd],
     );
 
-    // Memoize the template rows to prevent unnecessary re-renders
-    const templateRows = useMemo(
-        () =>
-            wrappedRows.map((row, i) => (
-                <TemplateRow
+    // Memoize the template rows with drop zones between them
+    const templateRowsWithDropZones = useMemo(() => {
+        const result: React.ReactElement[] = [];
+        
+        wrappedRows.forEach((row, i) => {
+            // Add drop zone before the first row (for inserting at beginning)
+            if (i === 0) {
+                result.push(
+                    <NewRowDropZoneComponent 
+                        key={`drop-zone-before-${i}`}
+                        rowIndex={i}
+                        insertNewRow={true}
+                    />
+                );
+            }
+            
+            // Add the actual row
+            result.push(
+                <TemplateRow 
                     key={`templateRow-${i}`}
-                    row={row}
-                    rowIndex={i}
-                    modulesAvailableToAdd={modulesAvailableToAdd}
+                    row={row} 
+                    rowIndex={i} 
+                    modulesAvailableToAdd={modulesAvailableToAdd} 
                 />
-            )),
-        [wrappedRows, modulesAvailableToAdd],
-    );
+            );
+            
+            // Add drop zone after each row (for inserting between/after rows)
+            result.push(
+                <NewRowDropZoneComponent 
+                    key={`drop-zone-after-${i}`}
+                    rowIndex={i + 1}
+                    insertNewRow={true}
+                />
+            );
+        });
+        
+        return result;
+    }, [wrappedRows, modulesAvailableToAdd]);
 
     return (
         <Wrapper className={className}>
@@ -157,11 +166,8 @@ function Template({ className }: Props) {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEndWithCleanup}
             >
-                {templateRows}
-
-                {/* Drop zone for creating new rows */}
-                <NewRowDropZoneComponent rowIndex={wrappedRows.length} />
-
+                {templateRowsWithDropZones}
+                
                 <DragOverlay>
                     {activeModule && (
                         <DragOverlayWrapper>
