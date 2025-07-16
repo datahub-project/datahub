@@ -2,11 +2,11 @@ import { Input, TextArea } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 
-import { ModuleInfo } from '@app/homeV3/modules/types';
+import { FormValues } from '@app/homeV3/modules/assetCollection/types';
 
 interface Props {
     form: FormInstance;
-    formValues?: Partial<ModuleInfo>;
+    formValues?: FormValues;
 }
 
 const ModuleDetailsForm = ({ form, formValues }: Props) => {

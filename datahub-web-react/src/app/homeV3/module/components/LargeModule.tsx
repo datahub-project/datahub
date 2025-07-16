@@ -65,7 +65,7 @@ export default function LargeModule({ children, module, loading, onClickViewAll 
                 {/* TODO: implement description for modules CH-548 */}
                 {/* <ModuleDescription text={description} /> */}
                 <FloatingRightHeaderSection>
-                    <ModuleMenu />
+                    <ModuleMenu module={module} />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
             <Content $hasViewAll={!!onClickViewAll}>

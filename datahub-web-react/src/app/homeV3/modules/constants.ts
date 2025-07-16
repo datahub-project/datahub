@@ -76,3 +76,8 @@ export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModul
     DataHubPageModuleType.OwnedAssets,
     DataHubPageModuleType.AssetCollection,
 ];
+
+export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
+    DataHubPageModuleType.OwnedAssets,
+    DataHubPageModuleType.Domains,
+];

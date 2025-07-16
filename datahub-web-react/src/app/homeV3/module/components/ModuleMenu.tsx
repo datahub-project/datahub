@@ -1,7 +1,12 @@
 import { Icon, colors } from '@components';
 import { Dropdown } from 'antd';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
+
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+
+import { PageModuleFragment } from '@graphql/template.generated';
 
 const StyledIcon = styled(Icon)`
     :hover {
@@ -9,21 +14,42 @@ const StyledIcon = styled(Icon)`
     }
 ` as typeof Icon;
 
-export default function ModuleMenu() {
+interface Props {
+    module: PageModuleFragment;
+}
+
+export default function ModuleMenu({ module }: Props) {
+    const { type } = module.properties;
+
+    const {
+        createModuleModalState: { openToEdit },
+    } = usePageTemplateContext();
+
+    const handleEditModule = useCallback(() => {
+        openToEdit(type, module);
+    }, [module, openToEdit, type]);
+
+    const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
+
     return (
         <Dropdown
             trigger={['click']}
             menu={{
                 items: [
-                    {
-                        title: 'Edit',
-                        key: 'edit',
-                        label: 'Edit',
-                        style: {
-                            color: colors.gray[600],
-                            fontSize: '14px',
-                        },
-                    },
+                    ...(canEdit
+                        ? [
+                              {
+                                  title: 'Edit',
+                                  key: 'edit',
+                                  label: 'Edit',
+                                  style: {
+                                      color: colors.gray[600],
+                                      fontSize: '14px',
+                                  },
+                                  onClick: handleEditModule,
+                              },
+                          ]
+                        : []),
                     {
                         title: 'Delete',
                         label: 'Delete',

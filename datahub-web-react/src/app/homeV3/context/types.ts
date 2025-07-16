@@ -5,6 +5,7 @@ import { DataHubPageModuleType, PageModuleScope } from '@types';
 
 // Input types for the methods
 export interface CreateModuleInput {
+    urn?: string;
     name: string;
     type: DataHubPageModuleType;
     scope?: PageModuleScope;
@@ -23,6 +24,9 @@ export interface CreateModuleModalState {
     position: ModulePositionInput | null;
     open: (moduleType: DataHubPageModuleType, position: ModulePositionInput) => void;
     close: () => void;
+    isEditing: boolean;
+    initialState: PageModuleFragment | null;
+    openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
 }
 
 // Context state shape

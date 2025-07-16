@@ -1,19 +1,13 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
+
+
+import { CreateModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
-
-// Input types for the methods
-export interface CreateModuleInput {
-    name: string;
-    type: DataHubPageModuleType;
-    scope?: PageModuleScope;
-    params?: any; // Module-specific parameters
-    position: ModulePositionInput;
-}
+import { EntityType, PageModuleScope } from '@types';
 
 export interface AddModuleInput {
     module: PageModuleFragment;
@@ -30,12 +24,14 @@ export function useModuleOperations(
         templateToUpdate: PageTemplateFragment | null,
         module: PageModuleFragment,
         position: ModulePositionInput,
+        isEditing: boolean,
     ) => PageTemplateFragment | null,
     upsertTemplate: (
         templateToUpsert: PageTemplateFragment | null,
         isPersonal: boolean,
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
+    isEditingModule: boolean,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
 
@@ -54,7 +50,7 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position);
+            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position, isEditingModule);
 
             // Update local state immediately for optimistic UI
             if (isPersonal) {
@@ -79,17 +75,18 @@ export function useModuleOperations(
             isEditingGlobalTemplate,
             personalTemplate,
             globalTemplate,
+            updateTemplateWithModule,
+            isEditingModule,
+            upsertTemplate,
             setPersonalTemplate,
             setGlobalTemplate,
-            updateTemplateWithModule,
-            upsertTemplate,
         ],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
     const createModule = useCallback(
         (input: CreateModuleInput) => {
-            const { name, type, scope = PageModuleScope.Personal, params = {}, position } = input;
+            const { name, type, scope = PageModuleScope.Personal, params = {}, position, urn } = input;
 
             // Create the module first
             const moduleInput = {
@@ -97,6 +94,7 @@ export function useModuleOperations(
                 type,
                 scope,
                 params,
+                urn,
             };
 
             upsertPageModuleMutation({
@@ -105,8 +103,8 @@ export function useModuleOperations(
                 .then((moduleResult) => {
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
-                        console.error('Failed to create module');
-                        message.error('Failed to create module');
+                        console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`);
+                        message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                         return;
                     }
 
@@ -129,11 +127,11 @@ export function useModuleOperations(
                     });
                 })
                 .catch((error) => {
-                    console.error('Failed to create module:', error);
-                    message.error('Failed to create module', error);
+                    console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
+                    message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`, error);
                 });
         },
-        [upsertPageModuleMutation, addModule],
+        [upsertPageModuleMutation, addModule, isEditingModule],
     );
 
     return {

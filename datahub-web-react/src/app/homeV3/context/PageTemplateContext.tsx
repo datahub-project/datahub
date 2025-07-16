@@ -34,6 +34,9 @@ export const PageTemplateProvider = ({
     // Template operations
     const { updateTemplateWithModule, upsertTemplate } = useTemplateOperations();
 
+    // Modal state
+    const createModuleModalState = useCreateModuleModalState();
+
     // Module operations
     const { addModule, createModule } = useModuleOperations(
         isEditingGlobalTemplate,
@@ -43,9 +46,8 @@ export const PageTemplateProvider = ({
         setGlobalTemplate,
         updateTemplateWithModule,
         upsertTemplate,
+        createModuleModalState.isEditing,
     );
-
-    const createModuleModalState = useCreateModuleModalState();
 
     const value = useMemo(
         () => ({
