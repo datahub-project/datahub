@@ -359,6 +359,12 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
             count: totalDatasetUsageStatisticsCount,
             percent: datasetUsageStatisticsPercent,
         });
+    } else {
+        result.push({
+            type: 'Usage',
+            count: 0,
+            percent: '0%',
+        });
     }
 
     if (result.length === 0) {

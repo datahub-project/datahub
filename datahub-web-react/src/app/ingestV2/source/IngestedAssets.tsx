@@ -150,7 +150,12 @@ const renderIngestionContents = ({ items, getKey, getLabel }: RenderIngestionCon
                     <Text size="xl" weight="bold" color="gray" colorLevel={800} style={{ marginRight: 10 }}>
                         {formatNumber(item.count)}
                     </Text>
-                    <Pill size="sm" variant="version" color="white" label={`${item.percent} of Total`} />
+                    <Pill
+                        size="sm"
+                        variant="version"
+                        color="white"
+                        label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
+                    />
                 </IngestionBoxTopRow>
                 <Text size="md" color="gray" colorLevel={600}>
                     {getLabel(item)}
