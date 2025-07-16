@@ -10,25 +10,17 @@ const FiltersContainer = styled.div`
 
 type Props = {
     searchQuery: string | undefined;
-    appliedFilters: FieldToAppliedFieldFiltersMap;
-    setAppliedFilters: React.Dispatch<React.SetStateAction<FieldToAppliedFieldFiltersMap>>;
+    appliedFilters?: FieldToAppliedFieldFiltersMap;
+    updateFieldFilters?: AppliedFieldFilterUpdater;
 };
 
-const AssetFilters = ({ searchQuery, appliedFilters, setAppliedFilters }: Props) => {
-    const updateFieldAppliedFilters: AppliedFieldFilterUpdater = (field, value) => {
-        setAppliedFilters((prev) => {
-            const next = new Map(prev);
-            next.set(field, value);
-            return next;
-        });
-    };
-
+const AssetFilters = ({ searchQuery, appliedFilters, updateFieldFilters }: Props) => {
     return (
         <FiltersContainer>
             <Filters
                 query={searchQuery ?? '*'}
                 appliedFilters={appliedFilters}
-                updateFieldAppliedFilters={updateFieldAppliedFilters}
+                updateFieldAppliedFilters={updateFieldFilters}
             />
         </FiltersContainer>
     );

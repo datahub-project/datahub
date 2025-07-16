@@ -9,7 +9,7 @@ import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
 interface Props {
     searchQuery: string | undefined;
-    appliedFilters: FieldToAppliedFieldFiltersMap;
+    appliedFilters?: FieldToAppliedFieldFiltersMap;
 }
 
 export default function useGetAssetResults({ searchQuery, appliedFilters }: Props) {
@@ -30,7 +30,7 @@ export default function useGetAssetResults({ searchQuery, appliedFilters }: Prop
         },
     });
 
-    const entities = data?.searchAcrossEntities?.searchResults.map((res) => res.entity) || [];
+    const entities = data?.searchAcrossEntities?.searchResults?.map((res) => res.entity) || [];
 
     return {
         entities,
