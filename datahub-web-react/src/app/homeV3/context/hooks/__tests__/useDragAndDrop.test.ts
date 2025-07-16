@@ -25,29 +25,6 @@ const mockModule1 = {
     },
 };
 
-const mockModule2 = {
-    urn: 'urn:li:pageModule:2',
-    type: EntityType.DatahubPageModule,
-    properties: {
-        name: 'Module 2',
-        type: DataHubPageModuleType.Domains,
-        visibility: { scope: PageModuleScope.Personal },
-        params: {},
-    },
-};
-
-const mockTemplate = {
-    urn: 'urn:li:pageTemplate:test',
-    type: EntityType.DatahubPageTemplate,
-    properties: {
-        rows: [
-            {
-                modules: [mockModule1, mockModule2],
-            },
-        ],
-    },
-};
-
 describe('useDragAndDrop', () => {
     const mockMoveModule = vi.fn();
 
@@ -62,7 +39,7 @@ describe('useDragAndDrop', () => {
     describe('activeModule state management', () => {
         it('should initialize with null activeModule', () => {
             const { result } = renderHook(() => useDragAndDrop());
-            
+
             expect(result.current.activeModule).toBeNull();
         });
 

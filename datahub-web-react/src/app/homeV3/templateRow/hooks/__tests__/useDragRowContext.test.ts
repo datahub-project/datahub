@@ -1,3 +1,4 @@
+import { useDndContext } from '@dnd-kit/core';
 import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
@@ -7,8 +8,6 @@ import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowConte
 vi.mock('@dnd-kit/core', () => ({
     useDndContext: vi.fn(),
 }));
-
-import { useDndContext } from '@dnd-kit/core';
 const mockUseDndContext = vi.mocked(useDndContext);
 
 describe('useDragRowContext', () => {
@@ -144,10 +143,9 @@ describe('useDragRowContext', () => {
             },
         } as any);
 
-        const { result, rerender } = renderHook(
-            ({ rowIndex }) => useDragRowContext(rowIndex),
-            { initialProps: { rowIndex: 0 } }
-        );
+        const { result, rerender } = renderHook(({ rowIndex }) => useDragRowContext(rowIndex), {
+            initialProps: { rowIndex: 0 },
+        });
 
         expect(result.current).toBe(false);
 
@@ -174,10 +172,10 @@ describe('useDragRowContext', () => {
         const { result, rerender } = renderHook(() => useDragRowContext(0));
 
         const firstResult = result.current;
-        
+
         // Re-render with same mock data
         rerender();
-        
+
         const secondResult = result.current;
 
         // Values should be the same
@@ -203,4 +201,4 @@ describe('useDragRowContext', () => {
 
         expect(result.current).toBe(false);
     });
-}); 
+});

@@ -813,6 +813,7 @@ describe('useModuleOperations', () => {
             const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
+                scope: PageModuleScope.Personal,
                 position,
             };
 
@@ -868,6 +869,7 @@ describe('useModuleOperations', () => {
             const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
+                scope: PageModuleScope.Personal,
                 position,
             };
 

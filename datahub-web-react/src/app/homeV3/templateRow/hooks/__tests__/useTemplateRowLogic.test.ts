@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
+import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
 import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
@@ -10,8 +11,6 @@ import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 vi.mock('@app/homeV3/templateRow/hooks/useDragRowContext', () => ({
     useDragRowContext: vi.fn(),
 }));
-
-import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
 const mockUseDragRowContext = vi.mocked(useDragRowContext);
 
 describe('useTemplateRowLogic', () => {
@@ -107,7 +106,7 @@ describe('useTemplateRowLogic', () => {
             const { result } = renderHook(() => useTemplateRowLogic(row, 1));
 
             expect(result.current.modulePositions).toHaveLength(2);
-            
+
             // First module (index 0) should be on left
             expect(result.current.modulePositions[0]).toEqual({
                 module: row.modules[0],
@@ -137,7 +136,7 @@ describe('useTemplateRowLogic', () => {
 
             const { result } = renderHook(() => useTemplateRowLogic(row, 2));
 
-            const keys = result.current.modulePositions.map(pos => pos.key);
+            const keys = result.current.modulePositions.map((pos) => pos.key);
             expect(keys).toEqual(['urn:li:module:0-0', 'urn:li:module:1-1', 'urn:li:module:2-2']);
             expect(new Set(keys).size).toBe(3); // All keys are unique
         });
@@ -147,14 +146,14 @@ describe('useTemplateRowLogic', () => {
             mockUseDragRowContext.mockReturnValue(false);
 
             const { result, rerender } = renderHook(() => useTemplateRowLogic(row, 0));
-            
+
             const firstRender = result.current.modulePositions;
-            
+
             // Re-render with same inputs
             rerender();
-            
+
             const secondRender = result.current.modulePositions;
-            
+
             // Should be the same reference (memoized)
             expect(firstRender).toBe(secondRender);
         });
@@ -176,10 +175,9 @@ describe('useTemplateRowLogic', () => {
             const row = createMockRow(1);
             mockUseDragRowContext.mockReturnValue(false);
 
-            const { result, rerender } = renderHook(
-                ({ rowIndex }) => useTemplateRowLogic(row, rowIndex),
-                { initialProps: { rowIndex: 0 } }
-            );
+            const { result, rerender } = renderHook(({ rowIndex }) => useTemplateRowLogic(row, rowIndex), {
+                initialProps: { rowIndex: 0 },
+            });
 
             expect(result.current.modulePositions[0].position.rowIndex).toBe(0);
 
@@ -189,4 +187,4 @@ describe('useTemplateRowLogic', () => {
             expect(result.current.modulePositions[0].position.rowIndex).toBe(2);
         });
     });
-}); 
+});

@@ -8,7 +8,7 @@ import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
 import { ModuleProps } from '@app/homeV3/module/types';
 
-const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
+const ModuleHeader = styled.div`
     position: relative;
     display: flex;
     flex-direction: column;
@@ -26,15 +26,6 @@ const ModuleHeader = styled.div<{ $isDragging?: boolean }>`
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
     }
-
-    ${({ $isDragging }) =>
-        $isDragging &&
-        `
-        background: linear-gradient(180deg, #f0f8ff 0%, #e6f3ff 100%);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 1000;
-        transform: translateZ(0) scale(1.02);
-    `}
 `;
 
 const DragHandle = styled.div<{ $isDragging?: boolean }>`
@@ -88,15 +79,8 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
     });
 
     return (
-        <ModuleContainer
-            $height="316px"
-            ref={setNodeRef}
-            // style={{
-            //     opacity: isDragging ? 0.5 : 1,
-            //     transition: 'opacity 0.2s ease',
-            // }}
-        >
-            <ModuleHeader $isDragging={isDragging}>
+        <ModuleContainer $height="316px" ref={setNodeRef}>
+            <ModuleHeader>
                 <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
                     <ModuleName text={name} />
                     {/* TODO: implement description for modules CH-548 */}
