@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -12,6 +11,7 @@ import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -47,22 +47,21 @@ const SubHeaderParagraph = styled(Typography.Paragraph)`
 `;
 
 const StatusSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${colors.gray[1400]};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
 const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
-    ${({ isFirstSection }) => !isFirstSection && `border-top: 1px solid ${ANTD_GRAY[4]};`}
+    border-bottom: 1px solid ${colors.gray[1400]};
+    ${({ isFirstSection }) => !isFirstSection && `border-top: 1px solid ${colors.gray[1400]};`}
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
 const RecipeSection = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
     padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;
@@ -78,21 +77,18 @@ const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
 
-const DetailsContainer = styled.div<DetailsContainerProps>`
-    margin-bottom: -25px;
-    ${(props) =>
-        props.areDetailsExpandable &&
-        !props.showExpandedDetails &&
-        `
-        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
-    `}
-`;
+const DetailsContainer = styled.div`
+    margin-top: 12px;
 
-type DetailsContainerProps = {
-    showExpandedDetails: boolean;
-    areDetailsExpandable: boolean;
-};
+    pre {
+        background-color: ${colors.gray[1500]};
+        border: 1px solid ${colors.gray[1400]};
+        border-radius: 8px;
+        padding: 16px;
+        margin: 0;
+        color: ${colors.gray[1700]};
+    }
+`;
 
 export const SummaryTab = ({
     urn,
@@ -170,7 +166,7 @@ export const SummaryTab = ({
                         </Button>
                     </ButtonGroup>
                 </SectionSubHeader>
-                <DetailsContainer areDetailsExpandable={areLogsExpandable} showExpandedDetails={false}>
+                <DetailsContainer>
                     <Typography.Paragraph ellipsis>
                         <pre>{`${logs}${areLogsExpandable ? '...' : ''}`}</pre>
                     </Typography.Paragraph>
@@ -194,10 +190,7 @@ export const SummaryTab = ({
                             </Button>
                         </ButtonGroup>
                     </SectionSubHeader>
-                    <DetailsContainer
-                        areDetailsExpandable={isRecipeExpandable}
-                        showExpandedDetails={showExpandedRecipe}
-                    >
+                    <DetailsContainer>
                         <Typography.Paragraph ellipsis>
                             <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>

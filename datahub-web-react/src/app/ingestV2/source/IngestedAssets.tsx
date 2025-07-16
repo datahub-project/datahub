@@ -153,8 +153,8 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
                     </Text>
                     <Pill
                         size="sm"
-                        variant="version"
-                        color="white"
+                        variant="filled"
+                        color="gray"
                         label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
                     />
                 </IngestionBoxTopRow>
