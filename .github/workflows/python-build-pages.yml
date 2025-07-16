@@ -6,16 +6,20 @@ on:
     paths:
       - ".github/workflows/python-build-pages.yml"
       - "metadata-ingestion/**"
+      - "datahub-actions/**"
       - "metadata-ingestion-modules/**"
       - "metadata-models/**"
+      - "python-build/**"
   pull_request:
     branches:
       - "**"
     paths:
       - ".github/workflows/python-build-pages.yml"
       - "metadata-ingestion/**"
+      - "datahub-actions/**"
       - "metadata-ingestion-modules/**"
       - "metadata-models/**"
+      - "python-build/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

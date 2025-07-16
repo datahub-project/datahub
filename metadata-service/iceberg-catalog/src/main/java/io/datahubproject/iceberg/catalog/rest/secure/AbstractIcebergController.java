@@ -1,7 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
 import com.datahub.authentication.Authentication;
@@ -14,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataHubRestCatalog;
 import io.datahubproject.iceberg.catalog.DataOperation;
@@ -31,8 +31,10 @@ import javax.inject.Named;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.ForbiddenException;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
@@ -40,6 +42,7 @@ public class AbstractIcebergController {
   @Autowired protected EntityService entityService;
   @Autowired private EntitySearchService searchService;
   @Autowired private SecretService secretService;
+  @Autowired private CacheEvictionService cacheEvictionService;
 
   @Inject
   @Named("cachingCredentialProvider")
@@ -65,6 +68,7 @@ public class AbstractIcebergController {
     }
 
     EntitySpec entitySpec = new EntitySpec(DATASET_ENTITY_NAME, urn.get().toString());
+
     try {
       return authorize(
           operationContext,
@@ -77,6 +81,35 @@ public class AbstractIcebergController {
       throw new ForbiddenException(
           "Data operation %s not authorized on %s",
           operation, fullTableName(warehouse.getPlatformInstance(), tableIdentifier));
+    }
+  }
+
+  protected PoliciesConfig.Privilege authorize(
+      OperationContext operationContext,
+      DataHubIcebergWarehouse warehouse,
+      Namespace namespace,
+      DataOperation operation,
+      boolean returnHighestPrivilege) {
+
+    if (!entityService.exists(
+        operationContext, containerUrn(warehouse.getPlatformInstance(), namespace))) {
+      throw new NoSuchNamespaceException("Namespace does not exist: " + namespace);
+    }
+
+    EntitySpec entitySpec =
+        new EntitySpec(
+            CONTAINER_ENTITY_NAME,
+            containerUrn(warehouse.getPlatformInstance(), namespace).toString());
+    try {
+      return authorize(
+          operationContext,
+          entitySpec,
+          platformInstanceEntitySpec(warehouse.getPlatformInstance()),
+          operation,
+          returnHighestPrivilege);
+    } catch (ForbiddenException e) {
+      // specify namespace in error message instead of container-urn
+      throw new ForbiddenException("Data operation %s not authorized on %s", operation, namespace);
     }
   }
 
@@ -104,20 +137,9 @@ public class AbstractIcebergController {
         returnHighestPrivilege ? operation.descendingPrivileges : operation.ascendingPrivileges;
 
     for (PoliciesConfig.Privilege privilege : privileges) {
-      if ((entitySpec.getType().equals(DATASET_ENTITY_NAME)
-              && PoliciesConfig.DATASET_PRIVILEGES.getPrivileges().contains(privilege)
-          || (entitySpec.getType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)
-              && PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES
-                  .getPrivileges()
-                  .contains(privilege)))) {
-        if (AuthUtil.isAuthorized(operationContext, privilege, entitySpec)) {
-          return privilege;
-        }
-      } else if (entitySpec.getType().equals(DATASET_ENTITY_NAME)
-          && PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES.getPrivileges().contains(privilege)) {
-        if (AuthUtil.isAuthorized(operationContext, privilege, platformInstanceEntitySpec)) {
-          return privilege;
-        }
+      if (AuthUtil.isAuthorized(operationContext, privilege, entitySpec)
+          || AuthUtil.isAuthorized(operationContext, privilege, platformInstanceEntitySpec)) {
+        return privilege;
       }
     }
 
@@ -136,7 +158,11 @@ public class AbstractIcebergController {
       String platformInstance, Function<DataHubRestCatalog, R> function) {
     DataHubIcebergWarehouse warehouse =
         DataHubIcebergWarehouse.of(
-            platformInstance, entityService, secretService, systemOperationContext);
+            platformInstance,
+            entityService,
+            secretService,
+            cacheEvictionService,
+            systemOperationContext);
     return catalogOperation(warehouse, systemOperationContext, function);
   }
 
@@ -178,7 +204,7 @@ public class AbstractIcebergController {
   protected DataHubIcebergWarehouse warehouse(
       String platformInstance, OperationContext operationContext) {
     return DataHubIcebergWarehouse.of(
-        platformInstance, entityService, secretService, operationContext);
+        platformInstance, entityService, secretService, cacheEvictionService, operationContext);
   }
 
   protected RuntimeException noSuchEntityException(

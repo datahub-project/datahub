@@ -1,18 +1,22 @@
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Maybe } from 'graphql/jsutils/Maybe';
-import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './ColoredBackgroundPlatformIconGroup';
-import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import EntityHeader from './EntityHeader';
-import { PreviewType } from '../entity/Entity';
-import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '../../types.generated';
-import { EntityMenuActions } from '../entityV2/Entity';
-import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
-import { GenericEntityProperties } from '../entity/shared/types';
-import ContextPath from './ContextPath';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+
+import { PreviewType } from '@app/entity/Entity';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityMenuActions } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import ColoredBackgroundPlatformIconGroup, {
+    PlatformContentWrapper,
+} from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
+import ContextPath from '@app/previewV2/ContextPath';
+import EntityHeader from '@app/previewV2/EntityHeader';
+import { ActionsAndStatusSection } from '@app/previewV2/shared';
+
+import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '@types';
 
 const RowContainer = styled.div`
     display: flex;
@@ -68,11 +72,8 @@ interface Props {
     logoUrls?: Maybe<string | undefined>[];
     logoUrl?: string;
     previewData: GenericEntityProperties | null;
-    platformInstanceId?: string;
-    typeIcon?: JSX.Element;
     finalType?: string | undefined;
     parentEntities?: Entity[] | null;
-    contentRef: React.RefObject<HTMLDivElement>;
     browsePaths?: BrowsePathV2 | undefined;
 }
 
@@ -98,11 +99,8 @@ export const CompactView = ({
     previewType,
     urn,
     entityType,
-    platformInstanceId,
-    typeIcon,
     finalType,
-    parentEntities, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    contentRef,
+    parentEntities,
     browsePaths,
 }: Props) => {
     return (
@@ -153,15 +151,11 @@ export const CompactView = ({
                     <div />
                 )}
                 <ContextPath
-                    instanceId={platformInstanceId}
-                    typeIcon={typeIcon}
-                    type={finalType}
+                    displayedEntityType={finalType}
                     entityType={entityType}
                     browsePaths={browsePaths}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
                     entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                    previewType={previewType}
                     isCompactView
                 />
             </RowContainer>

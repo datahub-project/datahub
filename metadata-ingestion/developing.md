@@ -9,7 +9,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 ### Requirements
 
-1. Python 3.8+ must be installed in your host environment.
+1. Python 3.9+ must be installed in your host environment.
 2. Java 17 (gradle won't work with newer or older versions)
 3. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
@@ -155,8 +155,8 @@ Instead, we recommend using UI-based ingestion or isolating the ingestion pipeli
 The syntax for installing plugins is slightly different in development. For example:
 
 ```diff
-- pip install 'acryl-datahub[bigquery,datahub-rest]'
-+ pip install -e '.[bigquery,datahub-rest]'
+- uv pip install 'acryl-datahub[bigquery,datahub-rest]'
++ uv pip install -e '.[bigquery,datahub-rest]'
 ```
 
 ## Architecture
@@ -180,7 +180,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
-# Assumes: pip install -e '.[dev]' and venv is activated
+# Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
 ruff check src/ tests/
 mypy src/ tests/
 ```
@@ -247,11 +247,8 @@ In order to ensure that the configs are consistent and easy to use, we have a fe
 ```shell
 # Follow standard install from source procedure - see above.
 
-# Install, including all dev requirements.
-pip install -e '.[dev]'
-
-# For running integration tests, you can use
-pip install -e '.[integration-tests]'
+# Install all dev and test requirements.
+../gradlew :metadata-ingestion:installDevTest
 
 # Run the full testing suite
 pytest -vv

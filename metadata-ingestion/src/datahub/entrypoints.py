@@ -10,6 +10,7 @@ import click
 import datahub._version as datahub_version
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
+    enable_auto_decorators,
     fixup_gms_url,
     generate_access_token,
     make_shim_command,
@@ -37,7 +38,7 @@ from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
@@ -49,8 +50,9 @@ MAX_CONTENT_WIDTH = 120
 
 if sys.version_info >= (3, 12):
     click.secho(
-        "Python versions above 3.11 are not tested with. Please use Python 3.11.",
+        "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
         fg="red",
+        err=True,
     )
 
 
@@ -109,7 +111,6 @@ def datahub(
     default=False,
     help="If passed will show server config. Assumes datahub init has happened.",
 )
-@telemetry.with_telemetry()
 def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
@@ -117,7 +118,7 @@ def version(include_server: bool = False) -> None:
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
     if include_server:
-        server_config = get_default_graph().get_config()
+        server_config = get_default_graph(ClientMode.CLI).get_config()
         click.echo(f"Server config: {server_config}")
 
 
@@ -129,7 +130,6 @@ def version(include_server: bool = False) -> None:
     default=False,
     help="If passed then uses password to initialise token.",
 )
-@telemetry.with_telemetry()
 def init(use_password: bool = False) -> None:
     """Configure which datahub instance to connect to"""
 
@@ -215,6 +215,9 @@ except ImportError as e:
     datahub.add_command(
         make_shim_command("actions", "run `pip install acryl-datahub-actions`")
     )
+
+# Adding telemetry and upgrade decorators to all commands
+enable_auto_decorators(datahub)
 
 
 def main(**kwargs):

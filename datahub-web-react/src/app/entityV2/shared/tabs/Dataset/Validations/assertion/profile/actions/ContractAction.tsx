@@ -1,19 +1,22 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ActionItem } from './ActionItem';
-import { Assertion, DataContract } from '../../../../../../../../../types.generated';
-import { useUpsertDataContractMutation } from '../../../../../../../../../graphql/contract.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { useIsContractsEnabled } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/useIsContractsEnabled';
 import {
     buildAddAssertionToContractMutationVariables,
     buildRemoveAssertionFromContractMutationVariables,
-} from '../../../contract/builder/utils';
-import { getDataContractCategoryFromAssertion, isAssertionPartOfContract } from '../../../contract/utils';
-import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
-import { useIsContractsEnabled } from './useIsContractsEnabled';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
+import {
+    getDataContractCategoryFromAssertion,
+    isAssertionPartOfContract,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+
+import { useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { Assertion, DataContract } from '@types';
 
 const StyledMinusOutlined = styled(MinusOutlined)`
     && {

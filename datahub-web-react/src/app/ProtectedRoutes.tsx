@@ -1,20 +1,24 @@
-import React, { useEffect } from 'react';
-import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
 import { Layout } from 'antd';
+import React, { useEffect } from 'react';
+import { Route, Switch, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import DataHubTitle from './DataHubTitle';
-import { HomePage } from './home/HomePage';
-import { HomePage as HomePageV2 } from './homeV2/HomePage';
-import { SearchRoutes } from './SearchRoutes';
-import EmbedRoutes from './EmbedRoutes';
-import { NEW_ROUTE_MAP, PageRoutes } from '../conf/Global';
-import { useIsThemeV2, useSetThemeIsV2 } from './useIsThemeV2';
-import { getRedirectUrl } from '../conf/utils';
-import { IntroduceYourself } from './homeV2/introduce/IntroduceYourself';
-import { useSetUserTitle } from './identity/user/useUserTitle';
-import { useSetUserPersona } from './homeV2/persona/useUserPersona';
-import { useSetNavBarRedesignEnabled } from './useShowNavBarRedesign';
-import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
+
+import DataHubTitle from '@app/DataHubTitle';
+import EmbedRoutes from '@app/EmbedRoutes';
+import { SearchRoutes } from '@app/SearchRoutes';
+import { HomePage } from '@app/home/HomePage';
+import { HomePage as HomePageV2 } from '@app/homeV2/HomePage';
+import { IntroduceYourself } from '@app/homeV2/introduce/IntroduceYourself';
+import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { HomePage as HomePageV3 } from '@app/homeV3/HomePage';
+import { useSetUserTitle } from '@app/identity/user/useUserTitle';
+import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
+import { useSetAppTheme } from '@app/useSetAppTheme';
+import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
+import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
+import { getRedirectUrl } from '@conf/utils';
 
 const StyledLayout = styled(Layout)`
     background-color: transparent;
@@ -24,14 +28,23 @@ const StyledLayout = styled(Layout)`
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
+    useSetAppTheme();
     useSetThemeIsV2();
     useSetUserPersona();
     useSetUserTitle();
     useSetNavBarRedesignEnabled();
 
     const isThemeV2 = useIsThemeV2();
-    const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
+    const { config } = useAppConfig();
+    const showHomepageRedesign = config.featureFlags.showHomePageRedesign;
 
+    let FinalHomePage;
+
+    if (isThemeV2) {
+        FinalHomePage = showHomepageRedesign ? HomePageV3 : HomePageV2;
+    } else {
+        FinalHomePage = HomePage;
+    }
     const location = useLocation();
     const history = useHistory();
 

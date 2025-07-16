@@ -5,7 +5,7 @@ import {
     encodeComma,
     getDataProduct,
     getNumberWithOrdinal,
-    getPlatformName,
+    getPlatformNameFromEntityData,
     handleBatchError,
     isListSubset,
     notEmpty,
@@ -13,7 +13,7 @@ import {
     summaryHasStats,
     truncate,
     urlEncodeUrn,
-} from '../../utils';
+} from '@app/entityV2/shared/utils';
 
 describe('dictToQueryStringParams', () => {
     it('should convert dictionary to query string', () => {
@@ -120,7 +120,7 @@ describe('getPlatformName', () => {
                 name: 'teradata',
             },
         };
-        expect(getPlatformName(entityData)).toBe('Teradata');
+        expect(getPlatformNameFromEntityData(entityData)).toBe('Teradata');
     });
 });
 

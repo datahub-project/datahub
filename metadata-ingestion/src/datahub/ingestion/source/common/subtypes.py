@@ -1,4 +1,9 @@
+import logging
+from typing import Any, Dict
+
 from datahub.utilities.str_enum import StrEnum
+
+logger = logging.getLogger(__name__)
 
 
 class DatasetSubTypes(StrEnum):
@@ -25,6 +30,9 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    API_ENDPOINT = "API Endpoint"
+    SLACK_CHANNEL = "Slack Channel"
+    PROJECTIONS = "Projections"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -44,12 +52,15 @@ class DatasetContainerSubTypes(StrEnum):
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
+    NAMESPACE = "Namespace"  # Iceberg
 
 
 class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
+    TABLEAU_SITE = "Site"
+    TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
@@ -60,11 +71,21 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
 
 
+class FlowContainerSubTypes(StrEnum):
+    MSSQL_JOB = "Job"
+    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+
+
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
+    MSSQL_JOBSTEP = "Job Step"
+    STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
+    DASHBOARD = "Dashboard"
+    CHART = "Chart"
+
     # Generic SubTypes
     REPORT = "Report"
 
@@ -85,3 +106,58 @@ class BIAssetSubTypes(StrEnum):
     # SAP Analytics Cloud
     SAC_STORY = "Story"
     SAC_APPLICATION = "Application"
+
+    # Hex
+    HEX_PROJECT = "Project"
+    HEX_COMPONENT = "Component"
+
+
+class MLAssetSubTypes(StrEnum):
+    MLFLOW_TRAINING_RUN = "ML Training Run"
+    MLFLOW_EXPERIMENT = "ML Experiment"
+    VERTEX_EXPERIMENT = "Experiment"
+    VERTEX_EXPERIMENT_RUN = "Experiment Run"
+    VERTEX_EXECUTION = "Execution"
+
+    VERTEX_MODEL = "ML Model"
+    VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_TRAINING_JOB = "Training Job"
+    VERTEX_ENDPOINT = "Endpoint"
+    VERTEX_DATASET = "Dataset"
+    VERTEX_PROJECT = "Project"
+    VERTEX_PIPELINE = "Pipeline Job"
+    VERTEX_PIPELINE_TASK = "Pipeline Task"
+    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
+
+
+def create_source_capability_modifier_enum():
+    all_values: Dict[str, Any] = {}
+    source_enums = [
+        DatasetSubTypes,
+        DatasetContainerSubTypes,
+        BIContainerSubTypes,
+        FlowContainerSubTypes,
+        JobContainerSubTypes,
+        BIAssetSubTypes,
+        MLAssetSubTypes,
+    ]
+
+    for enum_class in source_enums:
+        for member in enum_class:  # type: ignore[var-annotated]
+            if member.name in all_values:
+                logger.debug(
+                    f"Warning: {member.name} already exists with value {all_values[member.name]}, skipping {member.value}"
+                )
+                continue
+            all_values[member.name] = member.value
+
+    enum_code = "class SourceCapabilityModifier(StrEnum):\n"
+    for name, value in all_values.items():
+        enum_code += f'    {name} = "{value}"\n'
+
+    exec(enum_code, globals())
+    return globals()["SourceCapabilityModifier"]
+
+
+# This will have all values from the enums above
+SourceCapabilityModifier = create_source_capability_modifier_enum()

@@ -10,7 +10,7 @@ from datahub.api.entities.corpgroup.corpgroup import (
 )
 from datahub.cli.specific.file_loader import load_file
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -34,13 +34,12 @@ def group() -> None:
     help="When set, writes to the editable section of the metadata graph, overwriting writes from the UI",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path, override_editable: bool) -> None:
     """Create or Update a Group with embedded Users"""
 
     config_dict = load_file(file)
     group_configs = config_dict if isinstance(config_dict, list) else [config_dict]
-    with get_default_graph() as emitter:
+    with get_default_graph(ClientMode.CLI) as emitter:
         for group_config in group_configs:
             try:
                 datahub_group = CorpGroup.parse_obj(group_config)

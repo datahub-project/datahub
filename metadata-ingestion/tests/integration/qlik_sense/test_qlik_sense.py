@@ -1,13 +1,15 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response: Dict[str, Dict] = {
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/api-keys": {
             "method": "GET",
@@ -557,7 +559,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         if api_vs_response[url].get("response_list"):
             request_mock.register_uri(
                 api_vs_response[url]["method"],
@@ -990,10 +992,13 @@ def mock_websocket_response(*args, **kwargs):
 
 @pytest.fixture(scope="module")
 def mock_websocket_send_request():
-    with patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
-    ) as mock_websocket_send_request, patch(
-        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+    with (
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
+        ) as mock_websocket_send_request,
+        patch(
+            "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+        ),
     ):
         mock_websocket_send_request.side_effect = mock_websocket_response
         yield mock_websocket_send_request

@@ -7,16 +7,13 @@ import com.linkedin.dataset.DatasetProperties;
 import datahub.client.MetadataWriteResponse;
 import datahub.client.kafka.containers.KafkaContainer;
 import datahub.client.kafka.containers.SchemaRegistryContainer;
-import datahub.client.kafka.containers.ZookeeperContainer;
 import datahub.event.MetadataChangeProposalWrapper;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import java.io.IOException;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.stream.Stream;
 import org.apache.avro.Schema;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
@@ -33,7 +30,6 @@ public class KafkaEmitterTest {
 
   private static Network network;
 
-  private static ZookeeperContainer zookeeperContainer;
   private static KafkaContainer kafkaContainer;
   private static SchemaRegistryContainer schemaRegistryContainer;
   private static KafkaEmitterConfig config;
@@ -43,20 +39,20 @@ public class KafkaEmitterTest {
   @BeforeClass
   public static void confluentSetup() throws Exception {
     network = Network.newNetwork();
-    zookeeperContainer = new ZookeeperContainer().withNetwork(network);
-    kafkaContainer =
-        new KafkaContainer(zookeeperContainer.getInternalUrl())
-            .withNetwork(network)
-            .dependsOn(zookeeperContainer);
+
+    // Start Kafka with KRaft (no Zookeeper needed)
+    kafkaContainer = new KafkaContainer().withNetwork(network);
+    kafkaContainer.start();
+
+    // Schema Registry now only depends on Kafka
     schemaRegistryContainer =
-        new SchemaRegistryContainer(
-                zookeeperContainer.getInternalUrl(), kafkaContainer.getInternalBootstrapServers())
+        new SchemaRegistryContainer(kafkaContainer.getInternalBootstrapServers())
             .withNetwork(network)
-            .dependsOn(zookeeperContainer, kafkaContainer);
+            .dependsOn(kafkaContainer);
     schemaRegistryContainer.start();
 
-    String bootstrap = createTopics(kafkaContainer.getBootstrapServers());
-    createKafkaEmitter(bootstrap);
+    createTopics(kafkaContainer.getBootstrapServers());
+    createKafkaEmitter(kafkaContainer.getBootstrapServers());
     registerSchemaRegistryTypes();
   }
 
@@ -100,25 +96,18 @@ public class KafkaEmitterTest {
     schemaRegistryClient.register(mcpSchema.getFullName(), mcpSchema);
   }
 
-  private static String createTopics(Stream<String> bootstraps) {
+  private static void createTopics(String bootstrap)
+      throws ExecutionException, InterruptedException {
     short replicationFactor = 1;
     int partitions = 1;
-    return bootstraps
-        .parallel()
-        .map(
-            bootstrap -> {
-              try {
-                createAdminClient(bootstrap)
-                    .createTopics(singletonList(new NewTopic(TOPIC, partitions, replicationFactor)))
-                    .all()
-                    .get();
-                return bootstrap;
-              } catch (RuntimeException | InterruptedException | ExecutionException ex) {
-                return null;
-              }
-            })
-        .filter(Objects::nonNull)
-        .findFirst()
+
+    Properties props = new Properties();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+    AdminClient adminClient = KafkaAdminClient.create(props);
+
+    adminClient
+        .createTopics(singletonList(new NewTopic(TOPIC, partitions, replicationFactor)))
+        .all()
         .get();
   }
 

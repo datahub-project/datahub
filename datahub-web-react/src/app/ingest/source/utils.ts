@@ -1,19 +1,22 @@
+import { colors } from '@components';
 import {
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    CloseCircleOutlined,
-    LoadingOutlined,
-    StopOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+    ArrowCounterClockwise,
+    ArrowsCounterClockwise,
+    Checks,
+    ClockClockwise,
+    Prohibit,
+    Spinner,
+    X,
+} from 'phosphor-react';
 import YAML from 'yamljs';
-import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
-import { EntityType, ExecutionRequestResult, FacetMetadata } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
-import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
-import { SourceConfig } from './builder/types';
-import { StructuredReport, StructuredReportLogEntry, StructuredReportItemLevel } from './types';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
+import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+
+import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
+import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -58,23 +61,23 @@ export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
-export const getExecutionRequestStatusIcon = (status: string) => {
+export const getExecutionRequestStatusIcon = (status?: string) => {
     return (
-        (status === RUNNING && LoadingOutlined) ||
-        (status === SUCCESS && CheckCircleOutlined) ||
-        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
-        (status === FAILURE && CloseCircleOutlined) ||
-        (status === CANCELLED && StopOutlined) ||
-        (status === UP_FOR_RETRY && ClockCircleOutlined) ||
-        (status === ROLLED_BACK && WarningOutlined) ||
-        (status === ROLLING_BACK && LoadingOutlined) ||
-        (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        (status === ABORTED && CloseCircleOutlined) ||
-        ClockCircleOutlined
+        (status === RUNNING && Spinner) ||
+        (status === SUCCESS && Checks) ||
+        (status === SUCCEEDED_WITH_WARNINGS && Checks) ||
+        (status === FAILURE && X) ||
+        (status === CANCELLED && Prohibit) ||
+        (status === UP_FOR_RETRY && ClockClockwise) ||
+        (status === ROLLED_BACK && ArrowCounterClockwise) ||
+        (status === ROLLING_BACK && ArrowsCounterClockwise) ||
+        (status === ROLLBACK_FAILED && X) ||
+        (status === ABORTED && X) ||
+        ClockClockwise
     );
 };
 
-export const getExecutionRequestStatusDisplayText = (status: string) => {
+export const getExecutionRequestStatusDisplayText = (status?: string) => {
     return (
         (status === RUNNING && 'Running') ||
         (status === SUCCESS && 'Succeeded') ||
@@ -115,19 +118,19 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (status: string) => {
+export const getExecutionRequestStatusDisplayColor = (status?: string) => {
     return (
-        (status === RUNNING && REDESIGN_COLORS.BLUE) ||
-        (status === SUCCESS && 'green') ||
-        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
-        (status === FAILURE && 'red') ||
-        (status === UP_FOR_RETRY && 'orange') ||
-        (status === CANCELLED && ANTD_GRAY[9]) ||
-        (status === ROLLED_BACK && 'orange') ||
-        (status === ROLLING_BACK && 'orange') ||
-        (status === ROLLBACK_FAILED && 'red') ||
-        (status === ABORTED && 'red') ||
-        ANTD_GRAY[7]
+        (status === RUNNING && colors.blue[1000]) ||
+        (status === SUCCESS && colors.green[500]) ||
+        (status === SUCCEEDED_WITH_WARNINGS && colors.yellow[500]) ||
+        (status === FAILURE && colors.red[500]) ||
+        (status === UP_FOR_RETRY && colors.violet[600]) ||
+        (status === CANCELLED && colors.gray[1700]) ||
+        (status === ROLLED_BACK && colors.yellow[500]) ||
+        (status === ROLLING_BACK && colors.yellow[500]) ||
+        (status === ROLLBACK_FAILED && colors.red[500]) ||
+        (status === ABORTED && colors.red[500]) ||
+        colors.gray[1700]
     );
 };
 
@@ -228,22 +231,140 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 };
 
-export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
-    // 1. Extract Serialized Structured Report
+const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): any | null => {
     const structuredReportStr = result?.structuredReport?.serializedValue;
-
     if (!structuredReportStr) {
         return null;
     }
+    try {
+        return JSON.parse(structuredReportStr);
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
+};
 
-    // 2. Convert into JSON
-    const structuredReportObject = JSON.parse(structuredReportStr);
+export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
+    // 1. Extract Serialized Structured Report
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
 
     // 3. Transform into the typed model that we have.
     const structuredReport = transformToStructuredReport(structuredReportObject);
 
     // 4. Return JSON report
     return structuredReport;
+};
+
+/**
+ * This function is used to get the total number of entities ingested from the structured report.
+ *
+ * @param result - The result of the execution request.
+ * @returns {number | null}
+ */
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
+
+    try {
+        return structuredReportObject.sink.report.total_records_written;
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
+};
+
+/** *
+ * This function is used to get the entities ingested by type from the structured report.
+ * It returns an array of objects with the entity type and the count of entities ingested.
+ *
+ * Example input:
+ *
+ * {
+ *     "source": {
+ *         "report": {
+ *             "aspects": {
+ *                 "container": {
+ *                     "containerProperties": 156,
+ *                     ...
+ *                     "container": 117
+ *                 },
+ *                 "dataset": {
+ *                     "datasetProperties": 1505,
+ *                     ...
+ *                     "operation": 1521
+ *                 },
+ *                 ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *
+ * Example output:
+ *
+ * [
+ *     {
+ *         "count": 156,
+ *         "displayName": "container"
+ *     },
+ *     ...
+ * ]
+ *
+ * @param result - The result of the execution request.
+ * @returns {EntityTypeCount[] | null}
+ */
+export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
+    const structuredReportObject = extractStructuredReportPOJO(result);
+    if (!structuredReportObject) {
+        return null;
+    }
+
+    try {
+        /**
+         * This is what the aspects object looks like in the structured report:
+         *
+         * "aspects": {
+         *     "container": {
+         *         "containerProperties": 156,
+         *         ...
+         *         "container": 117
+         *     },
+         *     "dataset": {
+         *         "status": 1505,
+         *         "schemaMetadata": 1505,
+         *         "datasetProperties": 1505,
+         *         "container": 1505,
+         *         ...
+         *         "operation": 1521
+         *     },
+         *     ...
+         * }
+         */
+        const entities = structuredReportObject.source.report.aspects;
+        const entitiesIngestedByType: { [key: string]: number } = {};
+        Object.entries(entities).forEach(([entityName, aspects]) => {
+            // Get the max count of all the sub-aspects for this entity type.
+            entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+        });
+
+        if (Object.keys(entitiesIngestedByType).length === 0) {
+            return null;
+        }
+
+        return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
+            count,
+            displayName: entityName,
+        }));
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
 };
 
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
@@ -273,7 +394,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-type EntityTypeCount = {
+export type EntityTypeCount = {
     count: number;
     displayName: string;
 };

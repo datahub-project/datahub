@@ -1,7 +1,8 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
+
 import { EntityType } from '@types';
-import { getContextPath } from './getContextPath';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -48,7 +49,7 @@ describe('getContextPath', () => {
     it('returns empty array by default', () => {
         const entityData = {};
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual([]);
     });
 
@@ -60,7 +61,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_CONTAINERS.containers);
     });
 
@@ -72,7 +73,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_DOMAINS.domains);
     });
 
@@ -84,7 +85,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_NODES.nodes);
     });
 
@@ -96,7 +97,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual([PARENT]);
     });
 });

@@ -34,6 +34,8 @@ export enum PageRoutes {
     INTRODUCE = '/introduce',
     // Temporary route to view all data products
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
+    MANAGE_TAGS = '/tags',
+    MANAGE_APPLICATIONS = '/applications',
 }
 
 export enum HelpLinkRoutes {

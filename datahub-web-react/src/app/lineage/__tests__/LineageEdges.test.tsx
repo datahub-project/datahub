@@ -1,9 +1,10 @@
 import { render } from '@testing-library/react';
 import React from 'react';
-import { dataset1, dataset4WithLineage } from '../../../Mocks';
-import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import LineageEdges from '../manage/LineageEdges';
-import { Direction } from '../types';
+
+import LineageEdges from '@app/lineage/manage/LineageEdges';
+import { Direction } from '@app/lineage/types';
+import { dataset1, dataset4WithLineage } from '@src/Mocks';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 const mockEntityRegistry = getTestEntityRegistry();
 vi.mock('../../useEntityRegistry', () => ({
@@ -18,8 +19,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -34,8 +35,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -54,8 +55,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Downstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -75,8 +76,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[dataset4WithLineage.upstream.relationships[1].entity]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -97,8 +98,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[dataset1]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 

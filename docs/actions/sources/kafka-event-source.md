@@ -11,24 +11,23 @@ the unique `name` provided inside the Action configuration file.
 
 This means that you can easily scale-out Actions processing by sharing the same Action configuration file across
 multiple nodes or processes. As long as the `name` of the Action is the same, each instance of the Actions framework will subscribe as a member in the same Kafka Consumer Group, which allows for load balancing the
-topic traffic across consumers which each consume independent [partitions](https://developer.confluent.io/learn-kafka/apache-kafka/partitions/#kafka-partitioning). 
+topic traffic across consumers which each consume independent [partitions](https://developer.confluent.io/learn-kafka/apache-kafka/partitions/#kafka-partitioning).
 
-Because the Kafka Event Source uses consumer groups by default, actions using this source will be **stateful**. 
-This means that Actions will keep track of their processing offsets of the upstream Kafka topics. If you 
+Because the Kafka Event Source uses consumer groups by default, actions using this source will be **stateful**.
+This means that Actions will keep track of their processing offsets of the upstream Kafka topics. If you
 stop an Action and restart it sometime later, it will first "catch up" by processing the messages that the topic
-has received since the Action last ran. Be mindful of this - if your Action is computationally expensive, it may be preferable to start consuming from the end of the log, instead of playing catch up. The easiest way to achieve this is to simply rename the Action inside the Action configuration file - this will create a new Kafka Consumer Group which will begin processing new messages at the end of the log (latest policy). 
+has received since the Action last ran. Be mindful of this - if your Action is computationally expensive, it may be preferable to start consuming from the end of the log, instead of playing catch up. The easiest way to achieve this is to simply rename the Action inside the Action configuration file - this will create a new Kafka Consumer Group which will begin processing new messages at the end of the log (latest policy).
 
 ### Processing Guarantees
 
 This event source implements an "ack" function which is invoked if and only if an event is successfully processed
 by the Actions framework, meaning that the event made it through the Transformers and into the Action without
-any errors. Under the hood, the "ack" method synchronously commits Kafka Consumer Offsets on behalf of the Action. This means that by default, the framework provides *at-least once* processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action. 
+any errors. Under the hood, the "ack" method synchronously commits Kafka Consumer Offsets on behalf of the Action. This means that by default, the framework provides _at-least once_ processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action.
 
 If you've configured your Action pipeline `failure_mode` to be `CONTINUE` (the default), then events which
-fail to be processed will simply be logged to a `failed_events.log` file for further investigation (dead letter queue). The Kafka Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages. 
+fail to be processed will simply be logged to a `failed_events.log` file for further investigation (dead letter queue). The Kafka Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages.
 
 If you've configured your Action pipeline `failure_mode` to be `THROW`, then events which fail to be processed result in an Action Pipeline error. This in turn terminates the pipeline before committing offsets back to Kafka. Thus the message will not be marked as "processed" by the Action consumer.
-
 
 ## Supported Events
 
@@ -37,10 +36,9 @@ The Kafka Event Source produces
 - [Entity Change Event V1](../events/entity-change-event.md)
 - [Metadata Change Log V1](../events/metadata-change-log-event.md)
 
-
 ## Configure the Event Source
 
-Use the following config(s) to get started with the Kafka Event Source. 
+Use the following config(s) to get started with the Kafka Event Source.
 
 ```yml
 name: "pipeline-name"
@@ -51,18 +49,18 @@ source:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
-      # Dictionary of freeform consumer configs propagated to underlying Kafka Consumer 
-      consumer_config: 
-          #security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
-          #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
-          #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
-          #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
-          #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
-          #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
+      # Dictionary of freeform consumer configs propagated to underlying Kafka Consumer
+      consumer_config:
+        #security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+        #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
+        #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
+        #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
+        #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
+        #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
     # Topic Routing - which topics to read from.
     topic_routes:
-      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLog_v1 events. 
-      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1} # Topic name for PlatformEvent_v1 events. 
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLog_v1 events.
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1} # Topic name for PlatformEvent_v1 events.
 action:
   # action configs
 ```
@@ -79,6 +77,43 @@ action:
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
 </details>
 
+## Schema Registry Configuration
+
+The Kafka Event Source requires a schema registry to deserialize events. There are several ways to configure the schema registry:
+
+### Default Schema Registry
+
+When using the default schema registry that comes with DataHub, you can use the internal URL:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "http://datahub-datahub-gms:8080/schema-registry/api/"
+```
+
+Note: If you're running this outside the DataHub cluster, you'll need to map this internal URL to an externally accessible URL.
+
+### External Schema Registry
+
+For external schema registries (like Confluent Cloud), you'll need to provide the full URL and any necessary authentication:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "https://your-schema-registry-url"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+```
+
+### AWS Glue Schema Registry
+
+If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](/docs/deploy/aws#aws-glue-schema-registry) for details.
 
 ## FAQ
 

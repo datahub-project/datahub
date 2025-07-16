@@ -1,10 +1,10 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest import mock
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-23 07:00:00"
 
@@ -103,7 +103,11 @@ def execute_queries_response(request, context):
         }
 
 
-def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_admin_api(
+    request_mock: Any, override_data: Optional[dict] = None
+) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
             "method": "GET",
@@ -260,7 +264,7 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,

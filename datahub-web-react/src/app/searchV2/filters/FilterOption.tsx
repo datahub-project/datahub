@@ -2,35 +2,39 @@ import { CaretUpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Entity, EntityType } from '../../../types.generated';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import { formatNumber } from '../../shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    DOMAINS_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
-    MAX_COUNT_VAL,
-    TYPE_NAMES_FILTER_NAME,
-} from '../utils/constants';
-import ParentEntities from './ParentEntities';
-import { Label } from './styledComponents';
-import { FilterOptionType } from './types';
+
+import colors from '@components/theme/foundations/colors';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { Label } from '@app/searchV2/filters/styledComponents';
+import { FilterOptionType } from '@app/searchV2/filters/types';
 import {
     FilterEntityIcon,
     getFilterIconAndLabel,
     getParentEntities,
     isAnyOptionSelected,
     isFilterOptionSelected,
-} from './utils';
+} from '@app/searchV2/filters/utils';
+import {
+    DOMAINS_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    MAX_COUNT_VAL,
+    TYPE_NAMES_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
     display: flex;
     align-items: center;
     border-radius: 8px;
     margin: 0px 4px;
+
     label {
         padding: 12px;
         width: 100%;
@@ -38,8 +42,8 @@ const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
         display: flex;
         align-items: center;
     }
-    ${(props) => props.addPadding && 'padding-left: 16px;'}
 
+    ${(props) => props.addPadding && 'padding-left: 16px;'}
     &:hover {
         background-color: ${ANTD_GRAY[3]};
     }
@@ -47,12 +51,14 @@ const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
 
 const StyledCheckbox = styled(Checkbox)`
     font-size: 14px;
+
     .ant-checkbox-inner {
         border-color: ${ANTD_GRAY[7]};
     }
+
     .ant-checkbox-checked {
         .ant-checkbox-inner {
-            border-color: ${SEARCH_COLORS.TITLE_PURPLE};
+            border-color: ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;
@@ -107,11 +113,13 @@ const ArrowButton = styled(Button)<{ isOpen: boolean }>`
 
 const ParentWrapper = styled.div`
     max-width: 220px;
+    font-size: 12px;
 `;
 
 const LabelWrapper = styled.div`
     line-height: normal;
 `;
+
 interface Props {
     filterOption: FilterOptionType;
     selectedFilterOptions: FilterOptionType[];
@@ -183,7 +191,17 @@ export default function FilterOption({
                                 </ParentWrapper>
                             )}
                             <LabelCountWrapper>
-                                <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
+                                <Label
+                                    ellipsis={{
+                                        tooltip: {
+                                            title: label,
+                                            showArrow: false,
+                                            color: 'white',
+                                            overlayInnerStyle: { color: colors.gray[1700] },
+                                        },
+                                    }}
+                                    style={{ maxWidth: 150 }}
+                                >
                                     {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
                                 </Label>
                                 {includeCount && <CountText>{getCountText()}</CountText>}

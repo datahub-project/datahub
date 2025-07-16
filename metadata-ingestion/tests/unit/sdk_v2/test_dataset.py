@@ -21,7 +21,7 @@ from datahub.metadata.urns import (
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.dataset import Dataset
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
+from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "dataset_golden"
 
@@ -113,6 +113,10 @@ def _build_complex_dataset() -> Dataset:
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
+        links=[
+            "https://example.com/doc1",
+            ("https://example.com/doc2", "Documentation 2"),
+        ],
         tags=[
             TagUrn("tag1"),
             TagUrn("tag2"),
@@ -148,13 +152,11 @@ def _build_complex_dataset() -> Dataset:
 
     # Check standard aspects.
     assert d.subtype == "Table"
+    assert d.owners is not None and len(d.owners) == 1
+    assert d.links is not None and len(d.links) == 2
+    assert d.tags is not None and len(d.tags) == 2
+    assert d.terms is not None and len(d.terms) == 1
     assert d.domain == DomainUrn("Marketing")
-    assert d.tags is not None
-    assert len(d.tags) == 2
-    assert d.terms is not None
-    assert len(d.terms) == 1
-    assert d.owners is not None
-    assert len(d.owners) == 1
 
     assert len(d.schema) == 2
 
@@ -177,6 +179,12 @@ def _build_complex_dataset() -> Dataset:
     )
     assert d["field2"].terms is not None
     assert len(d["field2"].terms) == 2
+
+    # Add assertions for links
+    assert d.links is not None
+    assert len(d.links) == 2
+    assert d.links[0].url == "https://example.com/doc1"
+    assert d.links[1].url == "https://example.com/doc2"
 
     return d
 
@@ -369,3 +377,88 @@ def test_browse_path() -> None:
     assert d.browse_path == path
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_browse_path_golden.json")
+
+
+def test_links_add_remove() -> None:
+    d = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        schema=[
+            ("field1", "string"),
+            ("field2", "int64", "field2 description"),
+        ],
+        links=[
+            "https://example.com/doc1",
+            ("https://example.com/doc2", "Documentation 2"),
+        ],
+    )
+
+    # Test initial state
+    assert d.links is not None
+    assert len(d.links) == 2
+    assert d.links[0].url == "https://example.com/doc1"
+    assert d.links[0].description == "https://example.com/doc1"
+    assert d.links[1].url == "https://example.com/doc2"
+    assert d.links[1].description == "Documentation 2"
+
+    # Test link add/remove flows
+    for _ in range(2):  # Second iteration should be a no-op
+        d.add_link(("https://example.com/doc3", "Documentation 3"))
+        assert len(d.links) == 3
+        assert d.links[2].url == "https://example.com/doc3"
+        assert d.links[2].description == "Documentation 3"
+
+    for _ in range(2):  # Second iteration should be a no-op
+        d.remove_link("https://example.com/doc1")
+        assert len(d.links) == 2
+        assert d.links[0].url == "https://example.com/doc2"
+        assert d.links[1].url == "https://example.com/doc3"
+
+    assert_entity_golden(d, _GOLDEN_DIR / "test_links_add_remove_golden.json")
+
+
+def test_structured_properties() -> None:
+    """
+    Test structured properties initialization and manipulation
+    """
+    # Test initialization with structured properties
+    d1 = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        structured_properties={
+            "urn:li:structuredProperty:sp1": ["value1"],
+            "urn:li:structuredProperty:sp2": ["value2"],
+        },
+    )
+
+    # Verify initialization
+    assert d1.structured_properties is not None
+    assert len(d1.structured_properties) == 2
+
+    # Test adding/updating via set_structured_property
+    d2 = Dataset(platform="bigquery", name="proj.dataset.table2")
+
+    # Add first property
+    d2.set_structured_property("urn:li:structuredProperty:sp1", ["value1"])
+
+    # Add second property
+    d2.set_structured_property("urn:li:structuredProperty:sp2", ["value2"])
+
+    # Update first property
+    d2.set_structured_property("urn:li:structuredProperty:sp1", ["updated_value"])
+
+    # Verify properties
+    assert d2.structured_properties is not None
+    assert len(d2.structured_properties) == 2
+
+    # Check final state
+    sp_dict = {prop.propertyUrn: prop.values for prop in d2.structured_properties}
+
+    assert sp_dict == {
+        "urn:li:structuredProperty:sp1": ["updated_value"],
+        "urn:li:structuredProperty:sp2": ["value2"],
+    }
+
+    assert_entity_golden(
+        d2, _GOLDEN_DIR / "test_structured_properties_golden.json", ["time"]
+    )

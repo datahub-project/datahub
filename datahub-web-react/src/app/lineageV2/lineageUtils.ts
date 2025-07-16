@@ -1,9 +1,11 @@
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useLocation } from 'react-router-dom';
-import { EntityType, SchemaField } from '../../types.generated';
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { getFieldPathFromSchemaFieldUrn } from '../entityV2/schemaField/utils';
+
+import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
+import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType, SchemaField } from '@types';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {
@@ -100,6 +102,15 @@ function splitEntityId(entity_id: string): string[] {
     return parts;
 }
 
+export function getLineageUrl(
+    urn: string,
+    type: EntityType,
+    location: ReturnType<typeof useLocation>,
+    entityRegistry: EntityRegistry,
+) {
+    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
+}
+
 export function useGetLineageUrl(urn?: string, type?: EntityType) {
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
@@ -107,5 +118,6 @@ export function useGetLineageUrl(urn?: string, type?: EntityType) {
     if (!urn || !type) {
         return '';
     }
-    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
+
+    return getLineageUrl(urn, type, location, entityRegistry);
 }

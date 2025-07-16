@@ -1035,7 +1035,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               AspectsBatchImpl.builder()
                   .retrieverContext(opContext.getRetrieverContext())
                   .items(List.of(item))
-                  .build(),
+                  .build(opContext),
               true,
               true);
         });
@@ -1124,7 +1124,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 AspectsBatchImpl.builder()
                     .retrieverContext(opContext.getRetrieverContext())
                     .items(List.of(item))
-                    .build(),
+                    .build(opContext),
                 true,
                 true));
 
@@ -1231,7 +1231,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1283,7 +1283,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1341,7 +1341,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1352,6 +1352,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    SystemMetadataUtils.setNoOp(expectedMetadata2, false);
     assertTrue(
         DataTemplateUtil.areEqual(
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
@@ -1393,7 +1394,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata2 =
         AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", null, "2");
     SystemMetadata expectedMetadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2");
+        SystemMetadataUtils.setNoOp(
+            AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2"),
+            false);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1409,7 +1412,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1436,7 +1439,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1516,7 +1519,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1574,7 +1577,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1594,6 +1597,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
             metadata1));
 
+    SystemMetadataUtils.setNoOp(expectedMetadata2, true);
     assertTrue(
         DataTemplateUtil.areEqual(
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
@@ -1679,7 +1683,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               AspectsBatchImpl.builder()
                   .retrieverContext(opContext.getRetrieverContext())
                   .items(List.of(item))
-                  .build(),
+                  .build(opContext),
               true,
               true);
         });
@@ -1728,7 +1732,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -2435,7 +2439,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item1, item2))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2525,7 +2529,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2534,7 +2538,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchRemoveNonExistent))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2642,7 +2646,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2651,7 +2655,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd3, patchAdd2, patchAdd1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2731,7 +2735,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2740,7 +2744,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchAdd2)) // duplicate
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2796,7 +2800,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchRemove))
-                .build(),
+                .build(opContext),
             false,
             true);
 
@@ -2853,7 +2857,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchAdd))
-                .build(),
+                .build(opContext),
             false,
             true);
 
@@ -2987,6 +2991,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   @Test
   public void testFailedAspectValidation() throws Exception {
+    final OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null) // mocked
+            .buildSystemContext();
+
     try (MockedStatic<Span> mockedStatic = Mockito.mockStatic(Span.class)) {
       Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testFailedAspectValidation");
 
@@ -3015,7 +3024,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                   .auditStamp(TEST_AUDIT_STAMP)
                   // Set invalid version to trigger validation failure
                   .headers(Map.of("If-Version-Match", "-10000"))
-                  .build(opContext.getAspectRetriever()));
+                  .build(testContext.getAspectRetriever()));
 
       // Create a mock Future that completes successfully
       @SuppressWarnings("unchecked")
@@ -3029,11 +3038,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
       // Execute the ingest which should trigger validation failures
       _entityServiceImpl.ingestAspects(
-          opContext,
+          testContext,
           AspectsBatchImpl.builder()
-              .retrieverContext(opContext.getRetrieverContext())
+              .retrieverContext(testContext.getRetrieverContext())
               .items(items)
-              .build(),
+              .build(testContext),
           true,
           true);
 
@@ -3045,7 +3054,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify failed MCP production
       verify(_mockProducer, times(1))
           .produceFailedMetadataChangeProposalAsync(
-              eq(opContext), any(MCPItem.class), any(Set.class));
+              eq(testContext), any(MCPItem.class), any(Set.class));
 
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();

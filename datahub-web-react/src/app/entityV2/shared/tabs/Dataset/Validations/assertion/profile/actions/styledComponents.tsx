@@ -10,6 +10,7 @@ const getColor = ({ isExpandedView, primary }: { isExpandedView?: boolean; prima
     if (primary) return '#fff';
     return isExpandedView ? '#000' : '#5280e8';
 };
+
 const getBorder = ({ isExpandedView, primary }: { isExpandedView?: boolean; primary?: boolean }) => {
     if (isExpandedView) return 'none';
     return primary ? '1px solid #5280e8' : '1px solid #f0f0f0';

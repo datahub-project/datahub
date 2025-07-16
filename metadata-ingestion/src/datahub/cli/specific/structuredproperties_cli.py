@@ -11,7 +11,7 @@ from datahub.api.entities.structuredproperties.structuredproperties import (
     StructuredProperties,
 )
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -29,11 +29,10 @@ def properties() -> None:
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path) -> None:
     """Upsert structured properties in DataHub."""
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         StructuredProperties.create(str(file), graph)
 
 
@@ -43,12 +42,11 @@ def upsert(file: Path) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get structured properties from DataHub"""
     urn = Urn.make_structured_property_urn(urn)
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             structuredproperties: StructuredProperties = (
                 StructuredProperties.from_datahub(graph=graph, urn=urn)
@@ -70,7 +68,7 @@ def get(urn: str, to_file: str) -> None:
 )
 @click.option("--details/--no-details", is_flag=True, default=True)
 @click.option("--to-file", required=False, type=str)
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def list(details: bool, to_file: str) -> None:
     """List structured properties in DataHub"""
 
@@ -117,7 +115,7 @@ def list(details: bool, to_file: str) -> None:
         with open(file, "w") as fp:
             yaml.dump(serialized_objects, fp)
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if details:
             logger.info(
                 "Listing structured properties with details. Use --no-details for urns only"

@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/generated/ingestion/sources/mssql for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/mssql for complete documentation
 source:
   type: mssql
   config:
@@ -7,7 +7,7 @@ source:
     password: test!Password
     database: DemoData
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

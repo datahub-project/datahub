@@ -3,16 +3,16 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths-ignore:
       - "docs/**"
       - "**.md"
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Run at midnight UTC every day
   release:
     types: [published]
 
@@ -24,10 +24,10 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
-      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request'}}
+      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
@@ -106,17 +106,21 @@ jobs:
             -x :datahub-web-react:build \
             -x :metadata-integration:java:datahub-schematron:cli:test \
             --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
           ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
-          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahuyb-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
       - name: Generate tz artifact name
         run: echo "NAME_TZ=$(echo ${{ matrix.timezone }} | tr '/' '-')" >> $GITHUB_ENV
@@ -132,7 +136,7 @@ jobs:
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' && github.event_name != 'release') }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -143,8 +147,22 @@ jobs:
           flags: backend
           name: ${{ matrix.command }}
           verbose: true
+      - name: Upload backend coverage to Codecov on release
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && github.event_name == 'release' ) }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: backend
+          name: ${{ matrix.command }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
       - name: Upload frontend coverage to Codecov
-        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{  (matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' && github.event_name != 'release') }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -155,13 +173,33 @@ jobs:
           flags: frontend
           name: ${{ matrix.command }}
           verbose: true
+
+      - name: Upload frontend coverage to Codecov on Release
+        if: ${{  (matrix.command == 'frontend' &&  github.event_name == 'release') }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: ${{ matrix.command }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'release'  }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release'  }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
-  quickstart-compose-validation:
+  docker-codegen-validation:
     runs-on: ubuntu-latest
     needs: setup
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
@@ -173,6 +211,8 @@ jobs:
           python-version: "3.10"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
+      - name: Docker Snippet Validation
+        run: python python-build/generate_ingestion_docker.py --check
 
   event-file:
     runs-on: ubuntu-latest

@@ -1,12 +1,13 @@
 import { Button } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 
-import SidebarBackArrow from '../../../../../../images/sidebarBackArrow.svg?react';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { SEARCH_COLORS } from '../../../constants';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useCustomTheme } from '@src/customThemeContext';
+
+import SidebarBackArrow from '@images/sidebarBackArrow.svg?react';
 
 const Container = styled.div`
     display: flex;
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function EntityProfileSidebarSearchHeader({ showViewDetails = true }: Props) {
+    const { theme } = useCustomTheme();
     const entitySidebarContext = useContext(EntitySidebarContext);
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -43,7 +45,7 @@ export default function EntityProfileSidebarSearchHeader({ showViewDetails = tru
                 <Button
                     size="small"
                     type="primary"
-                    color={SEARCH_COLORS.TITLE_PURPLE}
+                    color={theme?.styles['primary-color']}
                     href={entityRegistry.getEntityUrl(entityType, urn)}
                 >
                     View more

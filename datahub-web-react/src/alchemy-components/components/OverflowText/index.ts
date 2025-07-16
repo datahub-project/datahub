@@ -1,0 +1,1 @@
+export { OverflowText } from './OverflowText';

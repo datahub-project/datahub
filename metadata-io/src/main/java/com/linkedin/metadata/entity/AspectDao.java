@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -142,21 +143,27 @@ public interface AspectDao {
           .equals(currentVersion0.getSystemMetadataVersion())) {
 
         inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
-
-        // add trace - overwrite if version incremented
-        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
       }
 
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
+      boolean isNoOp =
+          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
+      // update trace
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+
       if (!Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
-          || !Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate())) {
+          || !isNoOp) {
+        // update no-op used for tracing
+        SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
         updated = updateAspect(txContext, newAspect);
       }
 
       return Pair.of(inserted, updated);
     } else {
       // initial insert
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
       Optional<EntityAspect> inserted = insertAspect(txContext, newAspect, ASPECT_LATEST_VERSION);
       return Pair.of(Optional.empty(), inserted);
     }
@@ -264,14 +271,25 @@ public interface AspectDao {
     return runInTransactionWithRetry(block, maxTransactionRetry);
   }
 
-  default void incrementWriteMetrics(String aspectName, long count, long bytes) {
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)))
-        .inc(count);
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)))
-        .inc(bytes);
+  default void incrementWriteMetrics(
+      OperationContext opContext, String aspectName, long count, long bytes) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)),
+                    count));
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
+                    bytes));
   }
 }

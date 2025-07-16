@@ -129,7 +129,7 @@ def assert_field_paths_match(
 )
 def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):
     fields = avro_schema_to_mce_fields(schema)
-    assert 1 == len(fields)
+    assert len(fields) == 1
     assert fields[0].nullable
 
 
@@ -375,6 +375,8 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
         "[version=2.0].[type=union].[type=Person].[type=string].firstname",
         "[version=2.0].[type=union].[type=Person].[type=string].lastname",
         "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].streetAddress",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -762,7 +764,7 @@ def test_logical_types_fully_specified_in_type():
         json.dumps(schema), default_nullable=True
     )
     assert len(fields) == 1
-    assert "[version=2.0].[type=test].[type=bytes].name" == fields[0].fieldPath
+    assert fields[0].fieldPath == "[version=2.0].[type=test].[type=bytes].name"
     assert isinstance(fields[0].type.type, NumberTypeClass)
 
 
@@ -880,3 +882,168 @@ def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     assert fields[8].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
         ["urn:li:glossaryTerm:Address"]
     )
+
+
+def test_jsonProps_propagation():
+    jsonProps_schema = """
+{
+    "type": "record",
+    "name": "record.name",
+    "namespace": "namespace",
+    "fields": [
+        {
+            "name": "non_optional_field",
+            "type": {
+                "type": "bytes",
+                "scale": 0,
+                "precision": 8,
+                "logicalType": "decimal"
+            }
+        },
+        {
+            "name": "optional_field",
+            "type": [
+                "null",
+                {
+                    "type": "long",
+                    "logicalType": "timestamp-millis"
+                }
+            ],
+            "default": null
+        }
+    ]
+}
+"""
+    fields: List[SchemaField] = avro_schema_to_mce_fields(jsonProps_schema)
+    assert len(fields) == 2
+
+    # required field
+    assert fields[0].jsonProps is not None
+    assert "logicalType" in json.loads(fields[0].jsonProps)
+    assert json.loads(fields[0].jsonProps)["logicalType"] == "decimal"
+    # optional field
+    assert fields[1].jsonProps is not None
+    assert "logicalType" in json.loads(fields[1].jsonProps)
+    assert json.loads(fields[1].jsonProps)["logicalType"] == "timestamp-millis"
+
+
+def test_avro_schema_array_reference_to_record_type():
+    """Test for arrays referencing record types by name."""
+    # This schema defines Address record inline first, then references it by name in array
+    schema = """
+{
+    "type": "record",
+    "name": "Person",
+    "fields": [
+        {
+            "name": "name",
+            "type": "string"
+        },
+        {
+            "name": "address",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "Address",
+                    "fields": [
+                        {"name": "street", "type": "string"},
+                        {"name": "city", "type": "string"},
+                        {"name": "zipCode", "type": "string"}
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "addresses",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "Address"
+                }
+            ]
+        }
+    ]
+}
+"""
+    fields = avro_schema_to_mce_fields(schema)
+
+    # Expected field paths - both direct reference and array reference should have same nested fields
+    expected_field_paths = [
+        "[version=2.0].[type=Person].[type=string].name",
+        "[version=2.0].[type=Person].[type=Address].address",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].street",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].city",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].zipCode",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
+    ]
+
+    assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_avro_schema_array_reference_to_record_type_elsewhere():
+    """Test for arrays referencing record types by name where the record is defined elsewhere
+    and then referenced by name in the array items.
+    """
+    # Schema that should reproduce the issue - Address defined separately from its usage
+    schema = """
+[
+    {
+        "type": "record",
+        "name": "Address",
+        "fields": [
+            {"name": "street", "type": "string"},
+            {"name": "city", "type": "string"},
+            {"name": "zipCode", "type": "string"}
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Person",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "address",
+                "type": ["null", "Address"]
+            },
+            {
+                "name": "addresses",
+                "type": [
+                    "null",
+                    {
+                        "type": "array",
+                        "items": "Address"
+                    }
+                ]
+            }
+        ]
+    }
+]
+"""
+    fields = avro_schema_to_mce_fields(schema)
+
+    # Expected behavior (after fix) - array reference should include child fields
+    expected_field_paths = [
+        "[version=2.0].[type=union]",
+        "[version=2.0].[type=union].[type=Address].[type=string].street",
+        "[version=2.0].[type=union].[type=Address].[type=string].city",
+        "[version=2.0].[type=union].[type=Address].[type=string].zipCode",
+        "[version=2.0].[type=union].[type=Person].[type=string].name",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].street",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].zipCode",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
+    ]
+
+    assert_field_paths_match(fields, expected_field_paths)

@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { AndFilterInput } from '../../../types.generated';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '../../searchV2/utils/types';
-import DownloadAsCsvModal from '../../entityV2/shared/components/styled/search/DownloadAsCsvModal';
-import EditButton from './EditButton';
-import DownloadButton from './DownloadButton';
+import styled from 'styled-components';
+
+import DownloadAsCsvModal from '@app/entityV2/shared/components/styled/search/DownloadAsCsvModal';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
+import DownloadButton from '@app/sharedV2/search/DownloadButton';
+import EditButton from '@app/sharedV2/search/EditButton';
+
+import { AndFilterInput } from '@types';
+
+const ButtonContainer = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+`;
 
 type Props = {
     filters: AndFilterInput[];
@@ -29,12 +38,16 @@ export default function SearchMenuItems({
 
     return (
         <>
-            <DownloadButton
-                disabled={totalResultsIsZero}
-                isDownloadingCsv={isDownloadingCsv}
-                setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
-            />
-            {setShowSelectMode && <EditButton setShowSelectMode={setShowSelectMode} disabled={totalResultsIsZero} />}
+            <ButtonContainer>
+                <DownloadButton
+                    disabled={totalResultsIsZero}
+                    isDownloadingCsv={isDownloadingCsv}
+                    setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
+                />
+                {setShowSelectMode && (
+                    <EditButton setShowSelectMode={setShowSelectMode} disabled={totalResultsIsZero} />
+                )}
+            </ButtonContainer>
             <DownloadAsCsvModal
                 downloadSearchResults={downloadSearchResults}
                 filters={filters}

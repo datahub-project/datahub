@@ -1,13 +1,13 @@
 /* eslint-disable prefer-template */
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
+
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { EntitySidebarTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { SEARCH_COLORS } from '../../../constants';
-import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
-import { EntitySidebarTabs } from './EntitySidebarTabs';
-import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -23,18 +23,18 @@ export const StyledEntitySidebarContainer = styled.div<{
             ? props.theme.styles['box-shadow-navbar-redesign']
             : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
+    ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
-        /* Hide scrollbar for Chrome, Safari, and Opera */
+    /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
     }
 
     margin: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.isFocused ? '6px 5px 5px 9px' : '4px 4px 4px 8px';
+            return '4px 4px 4px 8px';
         }
-        return props.isFocused ? '12px 12px 12px 0px' : '0px 0px 0px 0px';
+        return '0px 0px 0px 0px';
     }};
     ${(props) =>
         props.$isShowNavBarRedesign && `border-radius: ${props.theme.styles['border-radius-navbar-redesign']};`}
@@ -52,8 +52,6 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     overflow: hidden;
     height: 100%;
     display: flex;
-    border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
-    border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
 `;
 
 const Body = styled.div`
@@ -87,19 +85,30 @@ const ContentContainer = styled.div<{ isVisible: boolean }>`
     overflow: auto;
     display: flex;
     flex-direction: column;
+    /* Remove fixed height to allow proper flex behavior */
     /* hide the scrollbar */
-
     ::-webkit-scrollbar {
         display: none; /* for Chrome, Safari and Opera */
     }
-
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
 `;
 
-const TabsContainer = styled.div``;
+const TabsContainer = styled.div`
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+`;
 
-const Tabs = styled.div``;
+const Tabs = styled.div`
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+`;
 
 interface Props {
     type?: 'card' | 'default';
@@ -107,7 +116,6 @@ interface Props {
     tabs: EntitySidebarTab[];
     backgroundColor?: string;
     contextType?: TabContextType;
-    hideCollapse?: boolean;
     width?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
     className?: string;
@@ -119,7 +127,6 @@ export default function EntityProfileSidebar({
     tabs,
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
-    hideCollapse = false,
     width,
     headerDropdownItems,
     className,
@@ -145,9 +152,7 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
-                    {!hideCollapse && (
-                        <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
-                    )}
+                    <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
                     <Body>
                         {selectedTab && (
                             <Content>
@@ -166,7 +171,6 @@ export default function EntityProfileSidebar({
                             tabs={tabs}
                             selectedTab={selectedTab}
                             onSelectTab={(name) => setSelectedTabName(name)}
-                            hideCollapse={contextType === TabContextType.CHROME_SIDEBAR}
                         />
                     </Tabs>
                 </TabsContainer>

@@ -1,16 +1,15 @@
-const number = Math.floor(Math.random() * 100000);
-const accound_id = `account${number}`;
-const warehouse_id = `warehouse${number}`;
-const username = `user${number}`;
-const password = `password${number}`;
-const role = `role${number}`;
-const ingestion_source_name = `ingestion source ${number}`;
-
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
   });
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
+    const number = Math.floor(Math.random() * 100000);
+    const accound_id = `account${number}`;
+    const warehouse_id = `warehouse${number}`;
+    const username = `user${number}`;
+    const role = `role${number}`;
+    const ingestion_source_name = `ingestion source ${number}`;
+
     // Navigate to the manage ingestion page → secrets
     cy.loginWithCredentials();
     cy.skipIntroducePage();
@@ -50,7 +49,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Next").click();
     cy.get(".ant-collapse-item").should("be.visible");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
-    cy.get("button").contains("Save").click();
+    cy.clickOptionWithTestId("ingestion-source-save-button");
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
     cy.waitTextVisible(ingestion_source_name);
     cy.get("button").contains("Pending...").should("be.visible");
@@ -72,7 +71,7 @@ describe("managing secrets for ingestion creation", () => {
       `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
     ).click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
-    cy.get("button").contains("Yes").click();
+    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click();
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
 

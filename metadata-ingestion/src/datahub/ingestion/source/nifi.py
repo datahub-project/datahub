@@ -72,7 +72,7 @@ NIFI = "nifi"
 # and here - https://github.com/psf/requests/issues/1573
 class SSLAdapter(HTTPAdapter):
     def __init__(self, certfile, keyfile, password=None):
-        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self.context.load_cert_chain(
             certfile=certfile, keyfile=keyfile, password=password
         )
@@ -703,7 +703,7 @@ class NifiSource(StatefulIngestionSourceBase):
             if (
                 component.nifi_type is NifiType.PROCESSOR
                 and component.type
-                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS.keys()
+                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS
             ) or component.nifi_type not in [
                 NifiType.PROCESSOR,
                 NifiType.REMOTE_INPUT_PORT,
@@ -977,7 +977,7 @@ class NifiSource(StatefulIngestionSourceBase):
                     )
 
             for incoming_from in incoming:
-                if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
+                if incoming_from in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
@@ -994,7 +994,7 @@ class NifiSource(StatefulIngestionSourceBase):
                     )
 
             for outgoing_to in outgoing:
-                if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
+                if outgoing_to in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
@@ -1234,11 +1234,14 @@ class NifiSource(StatefulIngestionSourceBase):
         job_type: str,
         description: Optional[str],
         job_properties: Optional[Dict[str, str]] = None,
-        inlets: List[str] = [],
-        outlets: List[str] = [],
-        inputJobs: List[str] = [],
+        inlets: Optional[List[str]] = None,
+        outlets: Optional[List[str]] = None,
+        inputJobs: Optional[List[str]] = None,
         status: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        inlets = inlets or []
+        outlets = outlets or []
+        inputJobs = inputJobs or []
         logger.debug(f"Begining construction of job workunit for {job_urn}")
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}

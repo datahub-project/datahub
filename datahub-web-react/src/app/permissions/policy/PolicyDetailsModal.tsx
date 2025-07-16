@@ -1,18 +1,20 @@
+import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '../../../types.generated';
-import { useAppConfig } from '../../useAppConfig';
+
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     convertLegacyResourceFilter,
-    getFieldValues,
     getFieldCondition,
+    getFieldValues,
     mapResourceTypeToDisplayName,
-} from './policyUtils';
-import AvatarsGroup from '../AvatarsGroup';
-import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
+} from '@app/permissions/policy/policyUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -79,6 +81,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const resourceFilterCondition =
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
+    const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
 
     const {
         config: { policiesConfig },
@@ -122,11 +125,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
-                <div>
-                    {actors?.resolvedOwnershipTypes?.map((type) => (
-                        <PoliciesTag>{type.info.name}</PoliciesTag>
-                    ))}
-                </div>
+                <div>{actors?.resolvedOwnershipTypes?.map((type) => <PoliciesTag>{type.info.name}</PoliciesTag>)}</div>
             );
         }
         return <PoliciesTag>Yes - All owners</PoliciesTag>;
@@ -208,6 +207,19 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`domain-${value.value}-${key}`}>
+                                            {getEntityTag(value)}
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
+                        <div>
+                            <Typography.Title level={5}>Containers</Typography.Title>
+                            <ThinDivider />
+                            {(containers?.length &&
+                                containers.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`containers-${value.value}-${key}`}>
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );

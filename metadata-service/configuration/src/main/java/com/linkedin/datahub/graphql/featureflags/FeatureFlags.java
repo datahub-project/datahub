@@ -36,4 +36,13 @@ public class FeatureFlags {
   private boolean showAutoCompleteResults = false;
   private boolean dataProcessInstanceEntityEnabled = true;
   private boolean entityVersioning = false;
+  private boolean showHasSiblingsFilter = false;
+  private boolean showSearchBarAutocompleteRedesign = false;
+  private boolean showManageTags = false;
+  private boolean showIntroducePage = false;
+  private boolean showIngestionPageRedesign = false;
+  private boolean showLineageExpandMore = true;
+  private boolean showHomePageRedesign = false;
+  private boolean lineageGraphV3 = true;
+  private boolean showProductUpdates = false;
 }

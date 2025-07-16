@@ -1,11 +1,13 @@
-import React from 'react';
 import { LockOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../shared/constants';
-import { MemberCount } from './GroupSidebar';
-import { EntityRelationshipsResult } from '../../../types.generated';
+
+import { MemberCount } from '@app/entityV2/group/GroupSidebar';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import { EntityRelationshipsResult } from '@types';
 
 const GroupHeader = styled.div`
     position: relative;
@@ -43,13 +45,13 @@ export const GroupInfoHeaderSection = ({
     isExternalGroup,
     groupName,
 }: Props) => {
-    const groupMemberRelationshipsCount = groupMemberRelationships?.count || 0;
+    const groupMemberRelationshipsTotal = groupMemberRelationships?.total || 0;
     return (
         <GroupHeader>
             <Tooltip title={groupName}>
                 <GroupName level={3}>{groupName}</GroupName>
             </Tooltip>
-            {groupMemberRelationshipsCount > 0 && <MemberCount>{groupMemberRelationships?.count} members</MemberCount>}
+            {groupMemberRelationshipsTotal > 0 && <MemberCount>{groupMemberRelationshipsTotal} members</MemberCount>}
             {isExternalGroup && (
                 <Tooltip
                     title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}

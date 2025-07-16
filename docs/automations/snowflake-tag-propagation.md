@@ -6,15 +6,14 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
-
 
 ## Introduction
 
 Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
-both columns and tables back to Snowflake. This automation is available in DataHub Cloud (Acryl) only.
+both columns and tables back to Snowflake. This automation is available in DataHub Cloud only.
 
 ## Capabilities
 
@@ -27,10 +26,9 @@ both columns and tables back to Snowflake. This automation is available in DataH
 ### Permissions Required for Tag Management
 
 - `CREATE TAG`: Required to create new tags in Snowflake.
-Ensure the user or role has this privilege on the specific schema or database where tags will be created.
+  Ensure the user or role has this privilege on the specific schema or database where tags will be created.
 - `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
-This permission must be granted at the database, schema, or object level depending on the scope.
-
+  This permission must be granted at the database, schema, or object level depending on the scope.
 
 ### Permissions Required for Object Access
 
@@ -56,7 +54,6 @@ GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHU
 GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 ```
 
-
 ## Enabling Snowflake Tag Sync
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
@@ -81,7 +78,7 @@ GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DAT
 
 ## Propagating for Existing Assets
 
-You can back-fill historical data for existing assets to ensure that all existing column and table Tags and Glossary Terms are propagated to Snowflake.
+You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms are propagated to Snowflake.
 Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
 
 To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
@@ -96,8 +93,14 @@ and then click "Initialize".
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating
-descriptions going forward, you can skip this step.
+This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
+terms going forward, you can skip this step.
+
+:::info
+
+The back-filling of tags will be available in a future release.
+
+:::
 
 ## Viewing Propagated Tags
 

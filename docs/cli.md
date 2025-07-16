@@ -6,7 +6,7 @@ toc_max_heading_level: 4
 
 # DataHub CLI
 
-DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [Acryl Data](https://acryldata.io) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
+DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [DataHub](https://datahub.com) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
 
 ## Installation
 
@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.8+
+# Requires Python 3.9+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -123,8 +123,8 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 
 #### ingest list-source-runs
 
-The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
-start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+The `list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name,
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based
 filtering or the --source option to filter by source name (partial or complete matches are supported).
 
 ```shell
@@ -285,6 +285,7 @@ DATAHUB_DEBUG=false
 A group of commands to interact with containers in DataHub.
 
 e.g. You can use this to apply a tag to all datasets recursively in this container.
+
 ```shell
 datahub container tag --container-urn "urn:li:container:0e9e46bd6d5cf645f33d5a8f0254bc2d" --tag-urn "urn:li:tag:tag1"
 datahub container domain --container-urn "urn:li:container:3f2effd1fbe154a4d60b597263a41e41" --domain-urn  "urn:li:domain:ajsajo-b832-4ab3-8881-7ed5e991a44c"
@@ -296,6 +297,59 @@ datahub container term --container-urn "urn:li:container:3f2effd1fbe154a4d60b597
 
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
 The `check` command allows you to check if all plugins are loaded correctly as well as validate an individual MCE-file.
+
+#### restore-indices
+
+This command allows you to restore indices for one or more `urn`.
+
+```shell
+datahub --debug check restore-indices --urn "URN"
+```
+
+It can also take `--file` argument that points to a file that has list of urns like
+
+```shell
+datahub check restore-indices --file ./urn.txt
+```
+
+where urn.txt is like this
+
+```urn.txt
+urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.schema1.test_all_nulls,PROD)
+urn:li:dataset:(urn:li:dataPlatform:platform1,test_db.schema2.test_complex_types,PROD)
+urn:li:dataset:(urn:li:dataPlatform:redshift,test_db.schema3.test_few_rows,PROD)
+```
+
+#### get-kafka-consumer-offsets
+
+This required DataHub Cloud `0.3.12.x` or above version.
+
+```shell
+datahub check get-kafka-consumer-offsets
+```
+
+which can give can print out the details of lag in kafka topics.
+
+```
+{'mcl': {'generic-mae-consumer-job-client': {'MetadataChangeLog_Versioned_v1': {'metrics': {'avgLag': 36,
+                                                                                            'maxLag': 36,
+                                                                                            'medianLag': 36,
+                                                                                            'totalLag': 36},
+                                                                                'partitions': {'0': {'lag': 36,
+                                                                                                     'offset': 257318}}}}},
+ 'mcl-timeseries': {'generic-mae-consumer-job-client': {'MetadataChangeLog_Timeseries_v1': {'metrics': {'avgLag': 0,
+                                                                                                        'maxLag': 0,
+                                                                                                        'medianLag': 0,
+                                                                                                        'totalLag': 0},
+                                                                                            'partitions': {'0': {'lag': 0,
+                                                                                                                 'offset': 113}}}}},
+ 'mcp': {'generic-mce-consumer-job-client': {'MetadataChangeProposal_v1': {'metrics': {'avgLag': 7222149,
+                                                                                       'maxLag': 7222149,
+                                                                                       'medianLag': 7222149,
+                                                                                       'totalLag': 7222149},
+                                                                           'partitions': {'0': {'lag': 7222149,
+                                                                                                'offset': 250254}}}}}}
+```
 
 ### delete
 
@@ -404,21 +458,17 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 
 ### dataset (Dataset Entity)
 
-The `dataset` command allows you to interact with the dataset entity.
-
-The `get` operation can be used to read in a dataset into a yaml file.
+The `dataset` command allows you to interact with Dataset entities in DataHub, including creating, updating, retrieving, and validating Dataset metadata.
 
 ```shell
-datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
-```
+# Get a dataset and write to YAML file
+datahub dataset get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,example_table,PROD)" --to-file dataset.yaml
 
-The `upsert` operation can be used to create a new user or update an existing one.
-
-```shell
+# Create or update dataset from YAML file
 datahub dataset upsert -f dataset.yaml
 ```
 
-An example of `dataset.yaml` would look like as in [dataset.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml).
+➡️ [Learn more about the dataset command](./cli-commands/dataset.md)
 
 ### user (User Entity)
 
@@ -726,7 +776,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
+Please see our [Integrations page](https://docs.datahub.com/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |

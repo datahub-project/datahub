@@ -10,7 +10,7 @@ from okta.models import Group, User
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.okta import OktaConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -58,12 +58,13 @@ def run_ingest(
     mocked_functions_reference,
     recipe,
 ):
-    with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient"
-    ) as MockClient, patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+    with (
+        patch("datahub.ingestion.source.identity.okta.OktaClient") as MockClient,
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(MockClient=MockClient)

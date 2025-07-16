@@ -1,6 +1,6 @@
 const nevigateGlossaryPage = () => {
   cy.visit("/glossary");
-  cy.waitTextVisible("Business Glossary");
+  cy.get('[data-testid="glossaryPageV2"]').should("be.visible");
 };
 
 const applyAdvancedSearchFilter = (filterType, value) => {
@@ -45,7 +45,7 @@ const elementVisibility = () => {
 
 const enterKeyInSearchBox = (text) => {
   cy.get('[data-testid="search-input"]')
-    .eq(2)
+    .last()
     .should("be.visible")
     .click()
     .type(`${text}{enter}`);
@@ -82,7 +82,7 @@ describe("glossaryTerm", () => {
   it("can apply filters on related entities", () => {
     cy.clickOptionWithText("CypressNode");
     cy.clickOptionWithText("GlossaryNewTerm");
-    cy.clickOptionWithSpecificClass(".anticon.anticon-appstore", 0);
+    cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     elementVisibility();
     cy.clickOptionWithSpecificClass(".anticon-filter", 0);
     cy.waitTextVisible("Filter");
@@ -102,7 +102,7 @@ describe("glossaryTerm", () => {
   it("can search related entities by a specific tag using advanced search", () => {
     cy.clickOptionWithText("CypressNode");
     cy.clickOptionWithText("GlossaryNewTerm");
-    cy.clickOptionWithSpecificClass(".anticon.anticon-appstore", 0);
+    cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     elementVisibility();
     applyAdvancedSearchFilter("Tag", "Cypress");
     elementVisibility();

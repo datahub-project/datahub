@@ -12,6 +12,7 @@ public class Constants {
 
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
@@ -97,6 +98,7 @@ public class Constants {
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String APPLICATION_ENTITY_NAME = "application";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -258,6 +260,7 @@ public class Constants {
       "editableMlPrimaryKeyProperties";
 
   // Policy
+  public static final String DATAHUB_POLICY_KEY_ASPECT_NAME = "dataHubPolicyKey";
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   // Role
@@ -368,6 +371,10 @@ public class Constants {
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
+  // Application
+  public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
+
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
@@ -451,11 +458,24 @@ public class Constants {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  // Template
+  public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
+  public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageTemplateProperties";
+
+  // Module
+  public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
+  public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageModuleProperties";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
 
   // Authorization
+  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
+  // the  spring property "authorization.restApiAuthorization" from application.yaml for
+  // consistency. The spring property can be initialized by this env var (among other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
@@ -494,6 +514,9 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Index names
+  public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
   public static final String MDC_ASPECT_NAME = "aspectName";
@@ -501,6 +524,10 @@ public class Constants {
   public static final String MDC_CHANGE_TYPE = "changeType";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
   private Constants() {}
 }

@@ -1,25 +1,32 @@
 package io.datahubproject.iceberg.catalog;
 
-import static com.linkedin.metadata.Constants.CONTAINER_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.DataHubRestCatalog.*;
+import static io.datahubproject.iceberg.catalog.Utils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.common.AuditStamp;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.SubTypes;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.container.Container;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
+import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.*;
 import java.util.HashMap;
@@ -30,7 +37,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.rest.requests.UpdateNamespacePropertiesRequest;
 import org.apache.iceberg.rest.responses.UpdateNamespacePropertiesResponse;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -42,65 +48,112 @@ public class DataHubRestCatalogTest {
 
   @Mock private EntitySearchService searchService;
 
+  @Mock private CacheEvictionService cacheEvictionService;
+
   @Mock private OperationContext operationContext;
 
   @Mock private DataHubIcebergWarehouse warehouse;
 
   @Mock private CredentialProvider credentialProvider;
 
+  @Mock private IcebergBatch mockIcebergBatch;
+  @Mock private AspectsBatch mockAspectsBatch;
+
   private DataHubRestCatalog catalog;
+
+  private final Urn testUser = new CorpuserUrn("urn:li:corpuser:testUser");
+
+  private final String platformInstanceName = "test-platform";
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    when(warehouse.getPlatformInstance()).thenReturn("test-platform");
+    when(warehouse.getPlatformInstance()).thenReturn(platformInstanceName);
     String warehouseRoot = "s3://data/warehouse/";
     when(warehouse.getDataRoot()).thenReturn(warehouseRoot);
     catalog =
         new DataHubRestCatalog(
-            entityService, searchService, operationContext, warehouse, credentialProvider);
+            entityService, searchService, operationContext, warehouse, credentialProvider) {
+          @Override
+          IcebergBatch newIcebergBatch(OperationContext operationContext) {
+            return mockIcebergBatch;
+          }
+        };
+
+    ActorContext actorContext = mock(ActorContext.class);
+    when(operationContext.getActorContext()).thenReturn(actorContext);
+    when(actorContext.getActorUrn()).thenReturn(testUser);
+
+    when(mockIcebergBatch.asAspectsBatch()).thenReturn(mockAspectsBatch);
   }
 
   @Test
   public void testCreateNamespace_SingleLevel() throws Exception {
     Namespace namespace = Namespace.of("db1");
-    Map<String, String> properties = Map.of();
+    Map<String, String> properties = Map.of("a", "b");
+
+    Urn containerUrn = containerUrn(platformInstanceName, namespace);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.createEntity(
+            eq(containerUrn),
+            eq(CONTAINER_ENTITY_NAME),
+            eq(CONTAINER_PROPERTIES_ASPECT_NAME),
+            eq(
+                new ContainerProperties()
+                    .setName(namespace.levels()[namespace.length() - 1])
+                    .setCustomProperties(new StringMap(properties)))))
+        .thenReturn(entityBatch);
+
+    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
+        .thenReturn(List.of());
 
     catalog.createNamespace(namespace, properties);
 
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(entityService, times(3))
-        .ingestProposal(
-            eq(operationContext), mcpCaptor.capture(), any(AuditStamp.class), eq(false));
-
-    List<MetadataChangeProposal> mcps = mcpCaptor.getAllValues();
-
-    MetadataChangeProposal subTypesMcp = mcps.get(0);
-    assertEquals(subTypesMcp.getAspectName(), "subTypes");
-
-    MetadataChangeProposal containerPropertiesMcp = mcps.get(1);
-    assertEquals(containerPropertiesMcp.getAspectName(), "containerProperties");
+    verify(entityBatch).platformInstance(eq(platformInstanceName));
+    verify(entityBatch)
+        .aspect(SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray("Namespace")));
+    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
   }
 
   @Test
   public void testCreateNamespace_MultiLevel() throws Exception {
     Namespace namespace = Namespace.of("db1", "schema1");
-    Map<String, String> properties = Map.of();
+    Map<String, String> properties = Map.of("a", "b");
+    Urn containerUrn = containerUrn(platformInstanceName, namespace);
+    Urn parent = containerUrn(platformInstanceName, Namespace.of("db1"));
 
-    when(entityService.exists(eq(operationContext), any(Urn.class))).thenReturn(true);
+    when(entityService.exists(eq(operationContext), eq(parent))).thenReturn(true);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.createEntity(
+            eq(containerUrn),
+            eq(CONTAINER_ENTITY_NAME),
+            eq(CONTAINER_PROPERTIES_ASPECT_NAME),
+            eq(
+                new ContainerProperties()
+                    .setName(namespace.levels()[namespace.length() - 1])
+                    .setCustomProperties(new StringMap(properties)))))
+        .thenReturn(entityBatch);
+
+    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
+        .thenReturn(List.of());
 
     catalog.createNamespace(namespace, properties);
 
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(entityService, times(4))
-        .ingestProposal(
-            eq(operationContext), mcpCaptor.capture(), any(AuditStamp.class), eq(false));
+    verify(entityBatch).platformInstance(eq(platformInstanceName));
+    verify(entityBatch).aspect(CONTAINER_ASPECT_NAME, new Container().setContainer(parent));
+    verify(entityBatch)
+        .aspect(SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray("Namespace")));
+    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
+    verify(entityService).exists(eq(operationContext), eq(parent));
+  }
 
-    List<MetadataChangeProposal> mcps = mcpCaptor.getAllValues();
-    MetadataChangeProposal containerMcp = mcps.get(0);
-    assertEquals(containerMcp.getAspectName(), "container");
+  private DataPlatformInstance dataPlatformInstance() {
+    DataPlatformInstance platformInstance = new DataPlatformInstance();
+    platformInstance.setPlatform(platformUrn());
+    platformInstance.setInstance(platformInstanceUrn(platformInstanceName));
+    return platformInstance;
   }
 
   @Test(expectedExceptions = NoSuchNamespaceException.class)
@@ -225,8 +278,8 @@ public class DataHubRestCatalogTest {
     SearchResult mockResult = mock(SearchResult.class);
     List<SearchEntity> entitiesList =
         Arrays.asList(
-            createSearchEntity("urn:li:container:iceberg__parent.ns1"),
-            createSearchEntity("urn:li:container:iceberg__parent.ns2"));
+            createSearchEntity("urn:li:container:iceberg__platformInstance.parent.ns1"),
+            createSearchEntity("urn:li:container:iceberg__platformInstance.parent.ns2"));
     SearchEntityArray entities = new SearchEntityArray();
     entities.addAll(entitiesList);
     when(mockResult.getEntities()).thenReturn(entities);
@@ -356,20 +409,8 @@ public class DataHubRestCatalogTest {
             .remove("toRemove1")
             .build();
 
-    UpdateNamespacePropertiesResponse response =
-        catalog.updateNamespaceProperties(namespace, request);
+    Urn containerUrn = containerUrn(platformInstanceName, namespace);
 
-    assertTrue(response.removed().contains("toRemove1"));
-    assertTrue(response.updated().contains("new1"));
-    assertTrue(response.missing().isEmpty());
-
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(entityService, atLeastOnce())
-        .ingestProposal(
-            eq(operationContext), mcpCaptor.capture(), any(AuditStamp.class), eq(false));
-
-    // Verify the final properties
     ContainerProperties expectedProps =
         new ContainerProperties()
             .setName("ns1")
@@ -379,10 +420,22 @@ public class DataHubRestCatalogTest {
                         "existing1", "value1",
                         "new1", "newValue1")));
 
-    List<MetadataChangeProposal> mcps = mcpCaptor.getAllValues();
-    MetadataChangeProposal finalMcp = mcps.get(mcps.size() - 1);
-    assertEquals(finalMcp.getAspectName(), "containerProperties");
-    // Note: You might need to add more specific verification of the serialized aspect
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.updateEntity(eq(containerUrn), eq(CONTAINER_ENTITY_NAME)))
+        .thenReturn(entityBatch);
+
+    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
+        .thenReturn(List.of());
+
+    UpdateNamespacePropertiesResponse response =
+        catalog.updateNamespaceProperties(namespace, request);
+
+    assertTrue(response.removed().contains("toRemove1"));
+    assertTrue(response.updated().contains("new1"));
+    assertTrue(response.missing().isEmpty());
+
+    verify(entityBatch).aspect(eq(CONTAINER_PROPERTIES_ASPECT_NAME), eq(expectedProps));
+    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
   }
 
   // Helper method for creating mock search entities

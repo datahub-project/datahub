@@ -35,6 +35,12 @@ query getMe {
                         urn
                     }
                 }
+                homePage {
+                    pageTemplate {
+                        ...pageTemplateFields
+                    }
+                    dismissedAnnouncementUrns
+                }
             }
         }
         platformPrivileges {
@@ -51,6 +57,7 @@ query getMe {
             manageGlossaries
             manageUserCredentials
             manageTags
+            viewManageTags
             createDomains
             createTags
             manageGlobalViews
@@ -60,6 +67,8 @@ query getMe {
             manageBusinessAttributes
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageApplications
+            manageFeatures
         }
     }
 }

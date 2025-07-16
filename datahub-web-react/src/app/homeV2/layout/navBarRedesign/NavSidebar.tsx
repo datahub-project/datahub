@@ -1,11 +1,5 @@
-import React, { useContext, useEffect } from 'react';
-import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
-import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
-import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
-import { EntityType } from '@src/types.generated';
 import {
+    AppWindow,
     BookBookmark,
     Gear,
     Globe,
@@ -13,23 +7,38 @@ import {
     Question,
     SignOut,
     SquaresFour,
+    Tag,
     TextColumns,
     TrendUp,
     UserCircle,
 } from '@phosphor-icons/react';
+import React, { useContext, useEffect } from 'react';
 import styled, { useTheme } from 'styled-components';
-import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
+import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
+import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
+import {
+    NavBarMenuDropdownItemElement,
+    NavBarMenuItemTypes,
+    NavBarMenuItems,
+} from '@app/homeV2/layout/navBarRedesign/types';
+import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
-import AcrylIcon from '../../../../images/acryl-light-mark.svg?react';
-import { useUserContext } from '../../../context/useUserContext';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
-import { useAppConfig } from '../../../useAppConfig';
-import NavBarHeader from './NavBarHeader';
-import NavBarMenu from './NavBarMenu';
-import NavSkeleton from './NavBarSkeleton';
-import { NavBarMenuDropdownItemElement, NavBarMenuItems, NavBarMenuItemTypes } from './types';
-import { useNavBarContext } from './NavBarContext';
-import useSelectedKey from './useSelectedKey';
+import { getColor } from '@src/alchemy-components/theme/utils';
+import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
+import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
+import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
+import { EntityType } from '@src/types.generated';
+
+import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -86,6 +95,9 @@ export const NavSidebar = () => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+    const showManageTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
@@ -135,6 +147,24 @@ export const NavSidebar = () => {
                         additionalLinksForPathMatching: entityRegistry
                             .getGlossaryEntities()
                             .map((entity) => `/${entity.getPathName()}/:urn`),
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Tags',
+                        key: 'tag',
+                        icon: <Tag />,
+                        selectedIcon: <Tag weight="fill" />,
+                        link: PageRoutes.MANAGE_TAGS,
+                        isHidden: !showManageTags,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Applications',
+                        key: 'applications',
+                        icon: <AppWindow />,
+                        selectedIcon: <AppWindow weight="fill" />,
+                        link: PageRoutes.MANAGE_APPLICATIONS,
+                        isHidden: !(appConfig.config.visualConfig.application?.showApplicationInNavigation ?? false),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -268,8 +298,8 @@ export const NavSidebar = () => {
                 focusable="false"
             >
                 <linearGradient id="menu-item-selected-gradient" x2="1" y2="1">
-                    <stop offset="20%" stopColor="#7565d6" />
-                    <stop offset="80%" stopColor="#5340cc" />
+                    <stop offset="1%" stopColor={getColor('primary', 300, themeConfig)} />
+                    <stop offset="99%" stopColor={getColor('primary', 500, themeConfig)} />
                 </linearGradient>
             </svg>
         );

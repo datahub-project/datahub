@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -79,6 +80,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -147,7 +149,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
     DashboardInfoClass,
@@ -527,6 +528,14 @@ class TableauConfig(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
+    emit_all_published_datasources: bool = Field(
+        default=False,
+        description="Ingest all published data sources. When False (default), only ingest published data sources that belong to an ingested workbook.",
+    )
+    emit_all_embedded_datasources: bool = Field(
+        default=False,
+        description="Ingest all embedded data sources. When False (default), only ingest embedded data sources that belong to an ingested workbook.",
+    )
 
     env: str = Field(
         default=builder.DEFAULT_ENV,
@@ -612,10 +621,14 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: bool = Field(
-        True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. "
-        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
+        default=["worksheet", "dashboard"],
+        description=(
+            "When enabled, hidden worksheets and dashboards are ingested into Datahub."
+            " If a dashboard or worksheet is hidden in Tableau the luid is blank."
+            " A list of asset types can also be specified, to only ingest those hidden assets."
+            " Current options supported are 'worksheet' and 'dashboard'."
+        ),
     )
 
     tags_for_hidden_assets: List[str] = Field(
@@ -856,16 +869,29 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLEAU_PROJECT,
+        SourceCapabilityModifier.TABLEAU_SITE,
+        SourceCapabilityModifier.TABLEAU_WORKBOOK,
+    ],
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
     "Dashboard/Chart view counts, enabled using extract_usage_stats config",
+    subtype_modifier=[
+        SourceCapabilityModifier.DASHBOARD,
+        SourceCapabilityModifier.CHART,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on.",
+    "Enabled by default via stateful ingestion.",
 )
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
@@ -874,6 +900,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 
@@ -1348,6 +1375,26 @@ class TableauSiteSource:
         # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
         return not dashboard_or_view.get(c.LUID)
 
+    def _should_ingest_worksheet(self, worksheet: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "worksheet" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(worksheet)
+        )
+
+    def _should_ingest_dashboard(self, dashboard: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "dashboard" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(dashboard)
+        )
+
     def get_connection_object_page(
         self,
         query: str,
@@ -1369,7 +1416,9 @@ class TableauSiteSource:
         `fetch_size:` The number of records to retrieve from Tableau
             Server in a single API call, starting from the current cursor position on Tableau Server.
         """
-        retries_remaining = retries_remaining or self.config.max_retries
+        retries_remaining = (
+            self.config.max_retries if retries_remaining is None else retries_remaining
+        )
 
         logger.debug(
             f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
@@ -1540,7 +1589,7 @@ class TableauSiteSource:
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
                         retry_on_auth_error=True,
-                        retries_remaining=retries_remaining,
+                        retries_remaining=retries_remaining - 1,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
@@ -1562,8 +1611,9 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         page_size: int,
-        query_filter: dict = {},
+        query_filter: Optional[dict] = None,
     ) -> Iterable[dict]:
+        query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,
@@ -1622,7 +1672,7 @@ class TableauSiteSource:
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
                 project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-                if project_luid not in self.tableau_project_registry.keys():
+                if project_luid not in self.tableau_project_registry:
                     wrk_name: Optional[str] = workbook.get(c.NAME)
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
@@ -1910,11 +1960,7 @@ class TableauSiteSource:
                     if upstream_col.get(c.TABLE)
                     else None
                 )
-                if (
-                    name
-                    and upstream_table_id
-                    and upstream_table_id in table_id_to_urn.keys()
-                ):
+                if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)
@@ -2150,32 +2196,32 @@ class TableauSiteSource:
                     else []
                 )
 
-                # The Tableau SQL parser much worse than our sqlglot based parser,
-                # so relying on metadata parsed by Tableau from SQL queries can be
-                # less accurate. This option allows us to ignore Tableau's parser and
-                # only use our own.
-                if self.config.force_extraction_of_lineage_from_custom_sql_queries:
-                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
+                tableau_table_list = csql.get(c.TABLES, [])
+                if self.config.force_extraction_of_lineage_from_custom_sql_queries or (
+                    not tableau_table_list
+                    and self.config.extract_lineage_from_unsupported_custom_sql_queries
+                ):
+                    if not tableau_table_list:
+                        # custom sql tables may contain unsupported sql, causing incomplete lineage
+                        # we extract the lineage from the raw queries
+                        logger.debug(
+                            "Parsing TLL & CLL from custom sql (tableau metadata incomplete)"
+                        )
+                    else:
+                        # The Tableau SQL parser is much worse than our sqlglot based parser,
+                        # so relying on metadata parsed by Tableau from SQL queries can be
+                        # less accurate. This option allows us to ignore Tableau's parser and
+                        # only use our own.
+                        logger.debug("Parsing TLL & CLL from custom sql (forced)")
+
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql, columns
                     )
                 else:
-                    tables = csql.get(c.TABLES, [])
-
-                    if tables:
-                        # lineage from custom sql -> datasets/tables #
-                        yield from self._create_lineage_to_upstream_tables(
-                            csql_urn, tables, datasource
-                        )
-                    elif (
-                        self.config.extract_lineage_from_unsupported_custom_sql_queries
-                    ):
-                        logger.debug("Extracting TLL & CLL from custom sql")
-                        # custom sql tables may contain unsupported sql, causing incomplete lineage
-                        # we extract the lineage from the raw queries
-                        yield from self._create_lineage_from_unsupported_csql(
-                            csql_urn, csql, columns
-                        )
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tableau_table_list, datasource
+                    )
 
             #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
@@ -2213,7 +2259,6 @@ class TableauSiteSource:
             yield self.get_metadata_change_event(dataset_snapshot)
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
-                aspect_name=c.SUB_TYPES,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
 
@@ -2256,7 +2301,7 @@ class TableauSiteSource:
         # It is possible due to https://github.com/tableau/server-client-python/issues/1210
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] not in self.datasource_project_map.keys()
+            and ds[c.LUID] not in self.datasource_project_map
             and self.report.get_all_datasources_query_failed
         ):
             logger.debug(
@@ -2268,7 +2313,7 @@ class TableauSiteSource:
 
         if (
             ds.get(c.LUID)
-            and ds[c.LUID] in self.datasource_project_map.keys()
+            and ds[c.LUID] in self.datasource_project_map
             and self.datasource_project_map[ds[c.LUID]] in self.tableau_project_registry
         ):
             return self.datasource_project_map[ds[c.LUID]]
@@ -2378,7 +2423,6 @@ class TableauSiteSource:
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
             yield self.get_metadata_change_proposal(
                 csql_urn,
-                aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
             self.report.num_tables_with_upstream_lineage += 1
@@ -2564,7 +2608,6 @@ class TableauSiteSource:
         )
         yield self.get_metadata_change_proposal(
             csql_urn,
-            aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
         self.report.num_tables_with_upstream_lineage += 1
@@ -2610,14 +2653,10 @@ class TableauSiteSource:
     def get_metadata_change_proposal(
         self,
         urn: str,
-        aspect_name: str,
         aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
         return MetadataChangeProposalWrapper(
-            entityType=c.DATASET,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn,
-            aspectName=aspect_name,
             aspect=aspect,
         ).as_workunit()
 
@@ -2725,7 +2764,6 @@ class TableauSiteSource:
                 )
                 yield self.get_metadata_change_proposal(
                     datasource_urn,
-                    aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
                 self.report.num_tables_with_upstream_lineage += 1
@@ -2744,7 +2782,6 @@ class TableauSiteSource:
         yield self.get_metadata_change_event(dataset_snapshot)
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
-            aspect_name=c.SUB_TYPES,
             aspect=SubTypesClass(
                 typeNames=(
                     ["Embedded Data Source"]
@@ -2830,7 +2867,11 @@ class TableauSiteSource:
         return datasource
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_all_published_datasources
+            else {c.ID_WITH_IN: self.datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=published_datasource_graphql_query,
@@ -3062,7 +3103,7 @@ class TableauSiteSource:
             query_filter=sheets_filter,
             page_size=self.config.effective_sheet_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+            if self._should_ingest_worksheet(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
@@ -3255,7 +3296,7 @@ class TableauSiteSource:
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
-        if project_luid and project_luid in self.tableau_project_registry.keys():
+        if project_luid and project_luid in self.tableau_project_registry:
             parent_key = self.gen_project_key(project_luid)
         else:
             workbook_id: Optional[str] = workbook.get(c.ID)
@@ -3383,7 +3424,7 @@ class TableauSiteSource:
             query_filter=dashboards_filter,
             page_size=self.config.effective_dashboard_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+            if self._should_ingest_dashboard(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
@@ -3523,7 +3564,11 @@ class TableauSiteSource:
         return browse_paths
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        datasource_filter = (
+            {}
+            if self.config.emit_all_embedded_datasources
+            else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+        )
 
         for datasource in self.get_connection_objects(
             query=embedded_datasource_graphql_query,
@@ -3635,7 +3680,7 @@ class TableauSiteSource:
                 container_key=project_key,
                 name=project_.name,
                 description=project_.description,
-                sub_types=[c.PROJECT],
+                sub_types=[BIContainerSubTypes.TABLEAU_PROJECT],
                 parent_container_key=parent_project_key,
             )
 
@@ -3653,7 +3698,7 @@ class TableauSiteSource:
         yield from gen_containers(
             container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
-            sub_types=[c.SITE],
+            sub_types=[BIContainerSubTypes.TABLEAU_SITE],
         )
 
     def _fetch_groups(self):

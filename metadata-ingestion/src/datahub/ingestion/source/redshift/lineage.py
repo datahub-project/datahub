@@ -813,9 +813,13 @@ class RedshiftLineageExtractor:
             )
 
         tablename = table.name
-        if table.type == "EXTERNAL_TABLE":
+        if (
+            table.is_external_table()
+            and schema.is_external_schema()
+            and schema.external_platform
+        ):
             # external_db_params = schema.option
-            upstream_platform = schema.type.lower()
+            upstream_platform = schema.external_platform.lower()
             catalog_upstream = UpstreamClass(
                 mce_builder.make_dataset_urn_with_platform_instance(
                     upstream_platform,

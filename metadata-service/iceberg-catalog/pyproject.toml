@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=78.1.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -44,3 +44,9 @@ disallow_untyped_defs = false
 
 [tool.pyright]
 extraPaths = ['tests']
+
+[tool.pytest.ini_options]
+markers = [
+	"quick: marks limited tests for a quick validation",
+	"serial",
+]

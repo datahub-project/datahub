@@ -118,7 +118,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "login": "mary.jane@test.com",
+                            "mobilePhone": "666-415-1337"
+                        },
                         "active": true,
                         "displayName": "Mary Jane",
                         "email": "mary.jane@test.com",
@@ -127,7 +130,8 @@
                         "firstName": "Mary",
                         "lastName": "Jane",
                         "fullName": "Mary Jane",
-                        "countryCode": "us"
+                        "countryCode": "us",
+                        "system": false
                     }
                 },
                 {
@@ -189,13 +193,17 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "login": "john.doe@test.com",
+                            "mobilePhone": "555-415-1337"
+                        },
                         "active": true,
                         "displayName": "JDoe",
                         "email": "john.doe@test.com",
                         "firstName": "John",
                         "lastName": "Doe",
-                        "fullName": "John Doe"
+                        "fullName": "John Doe",
+                        "system": false
                     }
                 },
                 {

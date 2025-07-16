@@ -52,7 +52,16 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn, TagUrn
+from datahub.metadata.urns import (
+    ChartUrn,
+    DashboardUrn,
+    DataFlowUrn,
+    DataJobUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    OwnershipTypeUrn,
+    TagUrn,
+)
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -117,9 +126,7 @@ def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
 
 
 def make_data_platform_urn(platform: str) -> str:
-    if platform.startswith("urn:li:dataPlatform:"):
-        return platform
-    return f"urn:li:dataPlatform:{platform}"
+    return DataPlatformUrn(platform).urn()
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
@@ -236,7 +243,7 @@ def make_user_urn(username: str) -> str:
     Makes a user urn if the input is not a user or group urn already
     """
     return (
-        f"urn:li:corpuser:{username}"
+        f"urn:li:corpuser:{UrnEncoder.encode_string(username)}"
         if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
     )
@@ -249,7 +256,7 @@ def make_group_urn(groupname: str) -> str:
     if groupname and groupname.startswith(("urn:li:corpGroup:", "urn:li:corpuser:")):
         return groupname
     else:
-        return f"urn:li:corpGroup:{groupname}"
+        return f"urn:li:corpGroup:{UrnEncoder.encode_string(groupname)}"
 
 
 def make_tag_urn(tag: str) -> str:
@@ -301,7 +308,12 @@ def make_data_flow_urn(
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
-    return f"urn:li:dataJob:({flow_urn},{job_id})"
+    data_flow_urn = DataFlowUrn.from_string(flow_urn)
+    data_job_urn = DataJobUrn.create_from_ids(
+        data_flow_urn=data_flow_urn.urn(),
+        job_id=job_id,
+    )
+    return data_job_urn.urn()
 
 
 def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
@@ -324,10 +336,11 @@ def make_dashboard_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:dashboard:({platform},{name})"
+    return DashboardUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
@@ -342,10 +355,11 @@ def make_chart_urn(
     platform: str, name: str, platform_instance: Optional[str] = None
 ) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    if platform_instance:
-        return f"urn:li:chart:({platform},{platform_instance}.{name})"
-    else:
-        return f"urn:li:chart:({platform},{name})"
+    return ChartUrn.create_from_ids(
+        platform=platform,
+        name=name,
+        platform_instance=platform_instance,
+    ).urn()
 
 
 def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
@@ -393,7 +407,8 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
-        return OwnershipTypeClass.CUSTOM, ownership_type
+        ownership_type_urn = OwnershipTypeUrn.from_string(ownership_type)
+        return OwnershipTypeClass.CUSTOM, ownership_type_urn.urn()
     ownership_type = ownership_type.upper()
     if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None

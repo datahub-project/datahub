@@ -58,6 +58,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.telemetry",
       "com.linkedin.gms.factory.trace",
       "com.linkedin.gms.factory.kafka.trace",
+      "com.linkedin.gms.factory.system_telemetry"
     })
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
@@ -76,6 +77,7 @@ public class CommonApplicationConfig {
             // HTTP Configuration
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
+            httpConfig.setSendServerVersion(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
             // Configure URI compliance to allow encoded slashes

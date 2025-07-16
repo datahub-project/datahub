@@ -36,7 +36,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
     BigQueryV2Config,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -54,7 +54,8 @@ def random_email():
     )
 
 
-def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
+def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) -> dict:
+    source_config_override = source_config_override or {}
     return {
         "source": {
             "type": "bigquery",

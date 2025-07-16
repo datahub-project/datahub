@@ -62,6 +62,9 @@ fragment dataFlowFields on DataFlow {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    subTypes {
+        typeNames
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -127,6 +130,48 @@ query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
                         }
                         deprecation {
                             ...deprecationFields
+                        }
+                        subTypes {
+                            typeNames
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getDataFlowDag(
+    $urn: String!
+    $start: Int
+    $count: Int
+    $separateSiblings: Boolean
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $includeGhostEntities: Boolean = false
+) {
+    dataFlow(urn: $urn) {
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    urn
+                    type
+                    ... on EntityWithRelationships {
+                        upstream: lineage(
+                            input: {
+                                direction: UPSTREAM
+                                start: 0
+                                count: 1000
+                                separateSiblings: $separateSiblings
+                                startTimeMillis: $startTimeMillis
+                                endTimeMillis: $endTimeMillis
+                                includeGhostEntities: $includeGhostEntities
+                            }
+                        ) {
+                            ...lineageV2Result
                         }
                     }
                 }

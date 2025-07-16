@@ -1,10 +1,13 @@
+import { Modal, Typography } from 'antd';
 import React from 'react';
-import { Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import CopyQuery from './CopyQuery';
-import { ANTD_GRAY } from '../../../constants';
-import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -81,9 +84,11 @@ export default function QueryModal({ query, title, description, showDetails = tr
             bodyStyle={MODAL_BODY_STYLE}
             data-testid="query-modal"
             footer={
-                <Button onClick={onClose} type="text" data-testid="query-modal-close-button">
-                    Close
-                </Button>
+                <ModalButtonContainer>
+                    <Button variant="text" onClick={onClose} data-testid="query-modal-close-button">
+                        Close
+                    </Button>
+                </ModalButtonContainer>
             }
         >
             <QueryActions>

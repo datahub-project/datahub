@@ -1,26 +1,28 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
+import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { TimeWindowSize } from '@app/shared/time/timeUtils';
+
 import {
+    ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
+    DataPlatform,
     DataProduct,
+    Dataset,
     DatasetProfile,
+    DatasetProperties,
     DatasetStatsSummary,
     DateInterval,
     Entity,
     EntityRelationshipsResult,
     EntityType,
-    SearchResult,
-    DatasetProperties,
-    ChartProperties,
     Operation,
-    Dataset,
-} from '../../../types.generated';
-
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
-import { TimeWindowSize } from '../../shared/time/timeUtils';
-import { TITLE_CASE_EXCEPTION_WORDS } from './constants';
+    SearchResult,
+} from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -88,22 +90,20 @@ export const singularizeCollectionName = (collectionName: string): string => {
     return collectionName;
 };
 
-export function getPlatformName(entityData: GenericEntityProperties | null) {
-    const platformNames = entityData?.siblingPlatforms?.map(
-        (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-    );
-    return (
-        platformNames?.[0] ||
-        entityData?.platform?.properties?.displayName ||
-        capitalizeFirstLetterOnly(entityData?.platform?.name)
-    );
+export function getPlatformNameFromEntityData(entityData: GenericEntityProperties | null) {
+    const platformNames = entityData?.siblingPlatforms?.map((platform) => getPlatformName(platform));
+    return platformNames?.[0] || getPlatformName(entityData?.platform);
+}
+
+export function getPlatformName(platform: DataPlatform | undefined | null) {
+    return platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name);
 }
 
 export function getExternalUrlDisplayName(entity: GenericEntityProperties | null) {
     // Scoping these constants
     const GITHUB_LINK = 'github.com';
     const GITHUB_NAME = 'GitHub';
-    const GITLAB_LINK = 'gitlab.com';
+    const GITLAB_LINK = 'gitlab.';
     const GITLAB_NAME = 'GitLab';
 
     const externalUrl = entity?.properties?.externalUrl;
@@ -327,3 +327,68 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
     )?.description;
     return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
 };
+
+/**
+ * Type guard for entity type
+ */
+export function isEntityType(entityType?: string | null): entityType is EntityType {
+    if (entityType === undefined) return false;
+    if (entityType === null) return false;
+
+    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
+    return possibleValues.includes(entityType);
+}
+
+const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
+const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
+const NESTED_URN_TYPES = ['schemaField'];
+
+export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
+    const [, , entityType, ...entityIdsStr] = urn.split(':');
+    const entityIds = splitEntityId(entityIdsStr.join(':'));
+    if (PLATFORM_URN_TYPES.includes(entityType)) {
+        return entityIds[0];
+    }
+    if (TRUNCATED_PLATFORM_TYPES.includes(entityType)) {
+        return `urn:li:dataPlatform:${entityIds[0]}`;
+    }
+    if (NESTED_URN_TYPES.includes(entityType)) {
+        return getPlatformUrnFromEntityUrn(entityIds[0]);
+    }
+    return undefined;
+}
+
+/** Mimics metadata-ingestion function in _urn_base.py */
+function splitEntityId(entity_id: string): string[] {
+    if (!(entity_id.startsWith('(') && entity_id.endsWith(')'))) {
+        return [entity_id];
+    }
+    const parts: string[] = [];
+    let startParentCount = 1;
+    let partStart = 1;
+    for (let i = 1; i < entity_id.length; i++) {
+        const c = entity_id[i];
+        if (c === '(') {
+            startParentCount += 1;
+        } else if (c === ')') {
+            startParentCount -= 1;
+            if (startParentCount < 0) {
+                throw new Error(`${entity_id}, mismatched paren nesting`);
+            }
+        } else if (c === ',' && startParentCount === 1) {
+            if (i - partStart <= 0) {
+                throw new Error(`${entity_id}, empty part disallowed`);
+            }
+            parts.push(entity_id.slice(partStart, i));
+            partStart = i + 1;
+        }
+    }
+
+    if (startParentCount !== 0) {
+        throw new Error(`${entity_id}, mismatched paren nesting`);
+    }
+
+    parts.push(entity_id.slice(partStart, -1));
+
+    return parts;
+}

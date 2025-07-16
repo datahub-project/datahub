@@ -7,6 +7,8 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
@@ -23,10 +25,13 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -36,6 +41,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -53,13 +60,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -69,6 +80,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 @Import(SearchCommonTestConfiguration.class)
@@ -78,7 +90,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Qualifier("queryOperationContext")
   private OperationContext operationContext;
 
-  public static SearchConfiguration testQueryConfig;
+  public static ElasticSearchConfiguration testQueryConfig;
   public static List<String> validHighlightingFields = List.of("urn", "foreignKey");
   public static StringArray customHighlightFields =
       new StringArray(
@@ -89,9 +101,6 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
               ""));
 
   static {
-    testQueryConfig = new SearchConfiguration();
-    testQueryConfig.setMaxTermBucketSize(20);
-
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
     exactMatchConfiguration.setExclusive(false);
     exactMatchConfiguration.setExactFactor(10.0f);
@@ -109,9 +118,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
-    testQueryConfig.setExactMatch(exactMatchConfiguration);
-    testQueryConfig.setWordGram(wordGramConfiguration);
-    testQueryConfig.setPartial(partialConfiguration);
+    testQueryConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                    .maxTermBucketSize(20)
+                    .exactMatch(exactMatchConfiguration)
+                    .wordGram(wordGramConfiguration)
+                    .partial(partialConfiguration)
+                    .build())
+            .build();
   }
 
   @Test
@@ -119,7 +135,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler datasetHandler =
         SearchRequestHandler.getBuilder(
-            operationContext, entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext,
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     /*
       Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -137,14 +158,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testCustomHighlights() {
-    EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
             operationContext,
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
-            mock(QueryFilterRewriteChain.class));
+            mock(QueryFilterRewriteChain.class),
+            TEST_SEARCH_SERVICE_CONFIG);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -155,10 +176,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertNotNull(sourceBuilder.highlighter());
-    assertEquals(4, sourceBuilder.highlighter().fields().size());
+    assertEquals(sourceBuilder.highlighter().fields().size(), 8);
     assertTrue(
         sourceBuilder.highlighter().fields().stream()
             .map(HighlightBuilder.Field::name)
@@ -174,7 +195,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -184,7 +206,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -220,7 +242,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -231,7 +254,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             0,
             10,
-            null);
+            List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -294,7 +317,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
     final String nestedAggString =
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
@@ -322,21 +346,21 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     AggregationBuilder expectedTextFieldAggregationBuilder =
         AggregationBuilders.terms("textFieldOverride")
             .field("textFieldOverride.keyword")
-            .size(testQueryConfig.getMaxTermBucketSize());
+            .size(testQueryConfig.getSearch().getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder =
         AggregationBuilders.terms("_entityType")
             .field(ES_INDEX_FIELD)
-            .size(testQueryConfig.getMaxTermBucketSize())
+            .size(testQueryConfig.getSearch().getMaxTermBucketSize())
             .minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder =
         AggregationBuilders.terms(nestedAggString)
             .field(ES_INDEX_FIELD)
-            .size(testQueryConfig.getMaxTermBucketSize())
+            .size(testQueryConfig.getSearch().getMaxTermBucketSize())
             .minDocCount(0)
             .subAggregation(
                 AggregationBuilders.terms(nestedAggString)
                     .field("textFieldOverride.keyword")
-                    .size(testQueryConfig.getMaxTermBucketSize()));
+                    .size(testQueryConfig.getSearch().getMaxTermBucketSize()));
 
     for (AggregationBuilder builder : aggregationBuilders) {
       if (builder.getName().equals("textFieldOverride")
@@ -368,7 +392,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(),
             testQueryConfig,
             null,
-            QueryFilterRewriteChain.EMPTY);
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -412,7 +437,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     } else {
@@ -426,7 +451,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       0,
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     }
@@ -482,7 +507,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     } else {
@@ -496,7 +521,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       0,
                       10,
-                      null)
+                      List.of())
                   .source()
                   .query();
     }
@@ -718,7 +743,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "glossaryTerms",
             "editedFieldTags",
             "displayName",
-            "title");
+            "title",
+            "applications");
 
     Map<EntityType, Set<String>> expectedQueryByDefault =
         ImmutableMap.<EntityType, Set<String>>builder()
@@ -789,7 +815,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           operationContext.getEntityRegistry().getEntitySpec(EntityTypeMapper.getName(entityType));
       SearchRequestHandler handler =
           SearchRequestHandler.getBuilder(
-              operationContext, entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+              operationContext,
+              entitySpec,
+              testQueryConfig,
+              null,
+              QueryFilterRewriteChain.EMPTY,
+              TEST_SEARCH_SERVICE_CONFIG);
 
       Set<String> unexpected = new HashSet<>(handler.getDefaultQueryFieldNames());
       unexpected.removeAll(expectedEntityQueryByDefault);
@@ -1004,6 +1035,390 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
   }
 
+  @Test
+  public void testApplyResultLimitInSearchRequest() {
+    // Create a custom SearchConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                new LimitConfig()
+                    .setResults(
+                        new ResultsLimitConfig().setMax(40).setApiDefault(40).setStrict(false)))
+            .build();
+
+    // Create a handler with our test configuration
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Test with count below limit
+    int requestedSize = 30;
+    SearchRequest searchRequest =
+        limitHandler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "test query",
+            null,
+            null,
+            0,
+            requestedSize,
+            List.of());
+
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+
+    // Verify the requested size was used (not limited)
+    assertEquals(sourceBuilder.size(), requestedSize);
+
+    // Test with count above limit (non-strict)
+    requestedSize = 100;
+    searchRequest =
+        limitHandler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "test query",
+            null,
+            null,
+            0,
+            requestedSize,
+            List.of());
+
+    sourceBuilder = searchRequest.source();
+
+    // Verify the max limit was applied
+    assertEquals(sourceBuilder.size(), 40);
+  }
+
+  @Test
+  public void testApplyResultLimitWithStrictConfiguration() {
+    // Create a SearchConfiguration with strict limits
+    SearchServiceConfiguration strictConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(30).setApiDefault(30).setStrict(true))
+                    .build())
+            .build();
+
+    // Create a handler with our strict configuration
+    SearchRequestHandler strictHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            strictConfig);
+
+    // Test with count at the limit
+    int requestedSize = 30;
+    SearchRequest searchRequest =
+        strictHandler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "test query",
+            null,
+            null,
+            0,
+            requestedSize,
+            List.of());
+
+    SearchSourceBuilder sourceBuilder = searchRequest.source();
+
+    // Verify exact limit was used
+    assertEquals(sourceBuilder.size(), 30);
+
+    // Test with count exceeding the limit in strict mode
+    // This should throw an IllegalArgumentException
+    try {
+      requestedSize = 50;
+      strictHandler.getSearchRequest(
+          operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+          "test query",
+          null,
+          null,
+          0,
+          requestedSize,
+          List.of());
+      Assert.fail(
+          "Should throw IllegalArgumentException when count exceeds limit with strict config");
+    } catch (IllegalArgumentException e) {
+      // Expected exception
+      assertTrue(e.getMessage().contains("Result count exceeds limit of 30"));
+    }
+  }
+
+  @Test
+  public void testApplyResultLimitInFilterRequest() {
+    // Create a SearchConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                new LimitConfig()
+                    .setResults(
+                        new ResultsLimitConfig().setMax(25).setApiDefault(25).setStrict(false)))
+            .build();
+
+    // Create a handler with our test configuration
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            TEST_ES_SEARCH_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Create a filter
+    Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "mysql");
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))));
+
+    // Test with size below limit
+    int requestedSize = 20;
+    SearchRequest filterRequest =
+        limitHandler.getFilterRequest(operationContext, filter, null, 0, requestedSize);
+
+    SearchSourceBuilder sourceBuilder = filterRequest.source();
+
+    // Verify the requested size was used (not limited)
+    assertEquals(sourceBuilder.size(), requestedSize);
+
+    // Test with size above limit
+    requestedSize = 50;
+    filterRequest = limitHandler.getFilterRequest(operationContext, filter, null, 0, requestedSize);
+
+    sourceBuilder = filterRequest.source();
+
+    // Verify the max limit was applied
+    assertEquals(sourceBuilder.size(), 25);
+  }
+
+  @Test
+  public void testExtractResultWithNullSize() {
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test with null size
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, null);
+
+    // Should use the default from the service config
+    assertEquals(
+        result.getPageSize().intValue(),
+        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getFrom().intValue(), 0);
+    assertEquals(result.getNumEntities().intValue(), 100);
+  }
+
+  @Test
+  public void testExtractResultWithLimitConfiguration() {
+    // Create a custom SearchServiceConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().max(50).apiDefault(30).strict(false).build())
+                    .build())
+            .build();
+
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(200L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+
+    // Test with size above limit
+    SearchResult result =
+        limitHandler.extractResult(
+            operationContext, mockResponse, null, 0, 100); // Requesting 100, but max is 50
+
+    // Should be limited to 30, applying default
+    assertEquals(result.getPageSize().intValue(), 30);
+
+    // Test with size below limit
+    result = limitHandler.extractResult(operationContext, mockResponse, null, 0, 25);
+
+    // Should use the requested size
+    assertEquals(result.getPageSize().intValue(), 25);
+
+    // Test with null size - should use API default
+    result = limitHandler.extractResult(operationContext, mockResponse, null, 0, null);
+
+    // Should use the API default (30)
+    assertEquals(result.getPageSize().intValue(), 30);
+  }
+
+  @Test
+  public void testExtractScrollResultWithNullSize() {
+    // Create a mock SearchResponse
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test with null size
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
+
+    // Should use the default from the service config default
+    assertEquals(
+        result.getPageSize().intValue(),
+        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    assertEquals(result.getNumEntities().intValue(), 100);
+  }
+
+  @Test
+  public void testExtractScrollResultWithLimitConfiguration() {
+    // Create a custom SearchServiceConfiguration with specific limits
+    SearchServiceConfiguration limitConfig =
+        TEST_SEARCH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().max(40).apiDefault(40).strict(false).build())
+                    .build())
+            .build();
+
+    SearchRequestHandler limitHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            limitConfig);
+
+    // Test with size above limit
+    ScrollResult result = verifyScrollResultSize(limitHandler, 40, 80, true);
+
+    // Should be limited to 40 as the default
+    assertEquals(result.getPageSize().intValue(), 40);
+    assertNotNull(result.getScrollId()); // Should have next scroll ID since we have full page
+
+    // Test with size below limit - partial page
+    result = verifyScrollResultSize(limitHandler, 15, 20, false);
+
+    // Should use the requested size
+    assertEquals(result.getPageSize().intValue(), 20);
+    assertFalse(result.hasScrollId()); // No next scroll ID since results < page size
+
+    // Test with null size - should use API default
+    result = verifyScrollResultSize(limitHandler, 40, null, true);
+
+    // Should use the API default (40)
+    assertEquals(result.getPageSize().intValue(), 40);
+    assertNotNull(result.getScrollId()); // Should have next scroll ID
+  }
+
+  @Test
+  public void testExtractScrollResultPaginationLogic() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    // Test when results equal page size - should have scroll ID
+    ScrollResult result = verifyScrollResultSize(handler, 10, 10, true);
+
+    assertEquals(result.getPageSize().intValue(), 10);
+    assertNotNull(result.getScrollId());
+
+    // Test when results less than page size - should NOT have scroll ID
+    result = verifyScrollResultSize(handler, 5, 10, false);
+
+    assertEquals(result.getPageSize().intValue(), 10);
+    assertFalse(result.hasScrollId());
+  }
+
+  // Helper method to create scroll results with specific sizes
+  private ScrollResult verifyScrollResultSize(
+      SearchRequestHandler handler,
+      int actualResults,
+      Integer requestedSize,
+      boolean expectScrollId) {
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    // Create array of mock hits
+    SearchHit[] hits = new SearchHit[actualResults];
+    for (int i = 0; i < actualResults; i++) {
+      SearchHit mockHit = mock(SearchHit.class);
+      when(mockHit.getSourceAsMap())
+          .thenReturn(
+              ImmutableMap.of(
+                  "urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,test" + i + ",PROD)"));
+      when(mockHit.getScore()).thenReturn(1.0f);
+      when(mockHit.getHighlightFields()).thenReturn(ImmutableMap.of());
+      when(mockHit.getMatchedQueries()).thenReturn(new String[0]);
+      when(mockHit.getSortValues()).thenReturn(new Object[] {"sortValue" + i});
+      hits[i] = mockHit;
+    }
+    when(mockHits.getHits()).thenReturn(hits);
+
+    return handler.extractScrollResult(
+        operationContext, mockResponse, null, "5m", requestedSize, true);
+  }
+
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
     return getQuery(filterCriterion, TestEntitySpecBuilder.getSpec(), true);
   }
@@ -1019,7 +1434,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            operationContext, entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext,
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     return (BoolQueryBuilder)
         requestHandler
@@ -1031,7 +1451,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 null,
                 0,
                 10,
-                null)
+                List.of())
             .source()
             .query();
   }
@@ -1047,7 +1467,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
-            operationContext, entitySpec, testQueryConfig, null, QueryFilterRewriteChain.EMPTY);
+            operationContext,
+            entitySpec,
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     return (BoolQueryBuilder)
         requestHandler

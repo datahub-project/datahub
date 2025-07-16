@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
+requires = ["setuptools>=78.1.1", "wheel", "pip>=21.0.0"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py39"
 exclude = [
     ".git",
     "venv",

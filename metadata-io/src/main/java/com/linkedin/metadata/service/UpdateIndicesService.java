@@ -21,13 +21,11 @@ import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -52,11 +50,10 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateIndicesService implements SearchIndicesService {
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
-  private final EntitySearchService entitySearchService;
+  private final ElasticSearchService elasticSearchService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataService systemMetadataService;
   private final SearchDocumentTransformer searchDocumentTransformer;
-  private final EntityIndexBuilders entityIndexBuilders;
   @Nonnull private final String idHashAlgo;
 
   @Getter private final boolean searchDiffMode;
@@ -78,19 +75,17 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
       @Nonnull String idHashAlgo) {
     this(
         updateGraphIndicesService,
-        entitySearchService,
+        elasticSearchService,
         timeseriesAspectService,
         systemMetadataService,
         searchDocumentTransformer,
-        entityIndexBuilders,
         idHashAlgo,
         true,
         true,
@@ -99,21 +94,19 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
       @Nonnull String idHashAlgo,
       boolean searchDiffMode,
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
     this.updateGraphIndicesService = updateGraphIndicesService;
-    this.entitySearchService = entitySearchService;
+    this.elasticSearchService = elasticSearchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.systemMetadataService = systemMetadataService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.entityIndexBuilders = entityIndexBuilders;
     this.idHashAlgo = idHashAlgo;
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
@@ -229,7 +222,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
       if (newDefinition.getEntityTypes().size() > 0) {
-        entityIndexBuilders
+        elasticSearchService
             .buildReindexConfigsWithNewStructProp(urn, newDefinition)
             .forEach(
                 reindexState -> {
@@ -238,7 +231,7 @@ public class UpdateIndicesService implements SearchIndicesService {
                         "Applying new structured property {} to index {}",
                         newDefinition,
                         reindexState.name());
-                    entityIndexBuilders.getIndexBuilder().applyMappings(reindexState, false);
+                    elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
                   } catch (IOException e) {
                     throw new RuntimeException(e);
                   }
@@ -339,7 +332,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     } catch (Exception e) {
       log.error(
           "Error in getting documents for urn: {} from aspect: {}", urn, aspectSpec.getName(), e);
-      MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC, 1));
       return;
     }
 
@@ -348,7 +345,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    final String docId = entityIndexBuilders.getIndexConvention().getEntityDocumentId(urn);
+    final String docId = elasticSearchService.getIndexConvention().getEntityDocumentId(urn);
 
     if (searchDiffMode
         && (systemMetadata == null
@@ -365,7 +362,11 @@ public class UpdateIndicesService implements SearchIndicesService {
               urn,
               aspectSpec.getName(),
               e);
-          MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
+          opContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC, 1));
         }
       }
 
@@ -376,7 +377,11 @@ public class UpdateIndicesService implements SearchIndicesService {
               "No changes detected for search document for urn: {} aspect: {}",
               urn,
               aspectSpec.getName());
-          MetricUtils.counter(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC).inc();
+          opContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC, 1));
           return;
         }
       }
@@ -387,7 +392,7 @@ public class UpdateIndicesService implements SearchIndicesService {
                 searchDocument.get(), previousSearchDocument.orElse(null))
             .toString();
 
-    entitySearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+    elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
   }
 
   /** Process snapshot and update time-series index */
@@ -458,7 +463,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     if (isKeyAspect) {
-      entitySearchService.deleteDocument(opContext, entityName, docId);
+      elasticSearchService.deleteDocument(opContext, entityName, docId);
       return;
     }
 
@@ -478,6 +483,6 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    entitySearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
   }
 }

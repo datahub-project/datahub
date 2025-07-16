@@ -1,10 +1,9 @@
 import React from 'react';
 
-import { getFontSize, getColor, getRotationTransform } from '@components/theme/utils';
-
-import { IconProps, IconPropsDefaults } from './types';
-import { IconWrapper } from './components';
-import { getIconNames, getIconComponent } from './utils';
+import { IconWrapper } from '@components/components/Icon/components';
+import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
+import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
+import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
 export const iconDefaults: IconPropsDefaults = {
     source: 'material',
@@ -21,6 +20,7 @@ export const Icon = ({
     size = iconDefaults.size,
     color = iconDefaults.color,
     rotate = iconDefaults.rotate,
+    weight,
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
@@ -53,6 +53,7 @@ export const Icon = ({
                     color: getColor(color),
                 }}
                 style={{ color: getColor(color) }}
+                weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
             />
         </IconWrapper>
     );

@@ -13,12 +13,12 @@ import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
@@ -81,8 +81,6 @@ public class MCLSpringCommonTestConfiguration {
   @MockBean(name = "duheKafkaConsumerFactory")
   public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
 
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
-
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(
       final EntityRegistry entityRegistry,
@@ -109,4 +107,6 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean(name = "traceAdminClient")
   public AdminClient traceAdminClient;
+
+  @MockBean public MetricUtils metricUtils;
 }

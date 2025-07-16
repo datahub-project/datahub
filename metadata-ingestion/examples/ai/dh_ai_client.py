@@ -6,6 +6,7 @@ import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
     DataProcessInstanceOutput,
@@ -14,6 +15,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
+    EdgeClass,
 )
 from datahub.metadata.urns import (
     ContainerUrn,
@@ -255,7 +257,7 @@ class DatahubAIClient:
         version_props = {
             "version": version_tag,
             "versionSet": str(version_set_urn),
-            "sortId": "AAAAAAAA",
+            "sortId": str(version_tag).zfill(10),
         }
 
         # Add alias if provided
@@ -266,21 +268,9 @@ class DatahubAIClient:
             models.VersionPropertiesClass, version_props
         )
 
-        # Create version set properties
-        version_set_properties = models.VersionSetPropertiesClass(
-            latest=str(model_urn),
-            versioningScheme="ALPHANUMERIC_GENERATED_BY_DATAHUB",
-        )
-
         mcps = [
             self._create_mcp(
                 str(model_urn), properties, "mlModel", "mlModelProperties"
-            ),
-            self._create_mcp(
-                str(version_set_urn),
-                version_set_properties,
-                "versionSet",
-                "versionSetProperties",
             ),
             self._create_mcp(
                 str(model_urn), version_properties, "mlModel", "versionProperties"
@@ -305,7 +295,9 @@ class DatahubAIClient:
                 models.ContainerPropertiesClass, kwargs
             )
 
-        container_subtype = models.SubTypesClass(typeNames=["ML Experiment"])
+        container_subtype = models.SubTypesClass(
+            typeNames=[MLAssetSubTypes.MLFLOW_EXPERIMENT]
+        )
         browse_path = models.BrowsePathsV2Class(path=[])
         platform_instance = models.DataPlatformInstanceClass(platform=str(platform_urn))
 
@@ -331,15 +323,16 @@ class DatahubAIClient:
         dpi_urn = f"urn:li:dataProcessInstance:{run_id}"
 
         # Create basic properties and aspects
-        aspects = [
-            (
-                properties
-                or self._create_properties_class(
-                    models.DataProcessInstancePropertiesClass, kwargs
-                )
-            ),
-            models.SubTypesClass(typeNames=["ML Training Run"]),
-        ]
+        aspects: List[Any] = []
+
+        # Only add properties if they are provided
+        if properties is not None:
+            aspects.append(properties)
+
+        # Always add the subtype
+        aspects.append(
+            models.SubTypesClass(typeNames=[MLAssetSubTypes.MLFLOW_TRAINING_RUN])
+        )
 
         # Add training run properties if provided
         if training_run_properties:
@@ -429,7 +422,13 @@ class DatahubAIClient:
             entity_urn=run_urn,
             entity_type="dataProcessInstance",
             aspect_name="dataProcessInstanceInput",
-            aspect=DataProcessInstanceInput(inputs=dataset_urns),
+            aspect=DataProcessInstanceInput(
+                inputs=[],
+                inputEdges=[
+                    EdgeClass(destinationUrn=str(dataset_urn))
+                    for dataset_urn in dataset_urns
+                ],
+            ),
         )
         self._emit_mcps(mcp)
         logger.info(f"Added input datasets to run {run_urn}")
@@ -440,7 +439,13 @@ class DatahubAIClient:
             entity_urn=run_urn,
             entity_type="dataProcessInstance",
             aspect_name="dataProcessInstanceOutput",
-            aspect=DataProcessInstanceOutput(outputs=dataset_urns),
+            aspect=DataProcessInstanceOutput(
+                outputEdges=[
+                    EdgeClass(destinationUrn=str(dataset_urn))
+                    for dataset_urn in dataset_urns
+                ],
+                outputs=[],
+            ),
         )
         self._emit_mcps(mcp)
         logger.info(f"Added output datasets to run {run_urn}")

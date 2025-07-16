@@ -45,7 +45,6 @@
     "dotenv": "^16.0.1",
     "framer-motion": "^11.5.4",
     "markdown-link-check": "^3.11.2",
-    "markprompt": "^0.1.7",
     "react": "^18.2.0",
     "react-dom": "18.2.0",
     "react-use-draggable-scroll": "^0.4.7",

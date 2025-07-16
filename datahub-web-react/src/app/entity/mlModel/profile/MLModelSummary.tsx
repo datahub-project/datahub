@@ -1,16 +1,19 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { Pill } from '@components/components/Pills';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { notEmpty } from '@app/entity/shared/utils';
+import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components/theme';
-import moment from 'moment';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { MlHyperParam, MlMetric, EntityType } from '../../../../types.generated';
-import { useBaseEntity } from '../../shared/EntityContext';
-import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
-import { InfoItem } from '../../shared/components/styled/InfoItem';
-import { notEmpty } from '../../shared/utils';
-import { Pill } from '../../../../alchemy-components/components/Pills';
+
+import { GetMlModelQuery } from '@graphql/mlModel.generated';
+import { EntityType, MlHyperParam, MlMetric } from '@types';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -26,9 +29,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 const InfoItemContent = styled.div`
     padding-top: 8px;
     width: 100px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+    overflow-wrap: break-word;
 `;
 
 const JobLink = styled(Link)`
@@ -87,21 +88,13 @@ export default function MLModelSummary() {
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Registered At">
-                        <InfoItemContent>
-                            {model?.properties?.created?.time
-                                ? moment(model.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
-                        </InfoItemContent>
+                        <TimestampPopover timestamp={model?.properties?.created?.time} title="Registered At" />
                     </InfoItem>
                     <InfoItem title="Last Modified At">
-                        <InfoItemContent>
-                            {model?.properties?.lastModified?.time
-                                ? moment(model.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
-                        </InfoItemContent>
+                        <TimestampPopover timestamp={model?.properties?.lastModified?.time} title="Last Modified At" />
                     </InfoItem>
                     <InfoItem title="Created By">
-                        <InfoItemContent>{model?.properties?.created?.actor}</InfoItemContent>
+                        <InfoItemContent>{model?.properties?.created?.actor || '-'}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <InfoItemContainer justifyContent="left">

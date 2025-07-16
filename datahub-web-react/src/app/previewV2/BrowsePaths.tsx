@@ -1,121 +1,114 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import { Popover } from '@components';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { BrowsePathEntry, BrowsePathV2 } from '../../types.generated';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { Ellipsis, StyledTooltip } from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
-import ContextPathEntityLink from './ContextPathEntityLink';
-import { PreviewType } from '../entityV2/Entity';
-import { ContextPathSeparator } from './ContextPathSeparator';
 
-export const PlatformText = styled.div<{
-    $maxWidth?: number;
-    $previewType?: Maybe<PreviewType>;
-    $isCompactView?: boolean;
-}>`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
-    white-space: nowrap;
-    font-family: Mulish;
-    font-style: normal;
-    font-weight: 500;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    ${(props) => (props.$isCompactView ? '12px' : '13px')}
-    ${(props) => props.$maxWidth && `max-width: ${props.$maxWidth}px;`}
-`;
+import ContextPathEntry from '@app/previewV2/ContextPathEntry';
+import ContextPathSeparator from '@app/previewV2/ContextPathSeparator';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-export function getParentBrowsePathNames(browsePaths?: Maybe<BrowsePathEntry>[] | null) {
-    let parentNames = '';
-    if (browsePaths) {
-        [...browsePaths].reverse().forEach((path, index) => {
-            if (path?.name) {
-                if (index !== 0) {
-                    parentNames += ' > ';
-                }
-                parentNames += path.name;
-            }
-        });
-    }
-    return parentNames;
-}
-
-const PlatFormTitle = styled.span`
-    display: inline-block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
-`;
+import { Entity, EntityType } from '@types';
 
 const ParentNodesWrapper = styled.div`
     align-items: center;
     white-space: nowrap;
     text-overflow: ellipsis;
     display: flex;
-    max-width: 460px;
-    text-overflow: ellipsis;
     overflow: hidden;
 `;
 
+interface Entry {
+    name?: string;
+    entity?: Entity | null;
+}
+
 interface Props {
-    previewType?: Maybe<PreviewType>;
-    browsePaths?: Maybe<BrowsePathV2> | undefined;
-    contentRef: React.RefObject<HTMLDivElement>;
-    isContentTruncated: boolean;
+    entries: Entry[];
+    hideIcons?: boolean;
     linksDisabled?: boolean;
+    numVisible?: number;
+    hidePopover?: boolean;
 }
 
-const BrowsePathSection = ({ path, linksDisabled }: { path: BrowsePathEntry } & Pick<Props, 'linksDisabled'>) => {
-    if (!path.entity) {
-        return <PlatFormTitle>{path.name}</PlatFormTitle>;
-    }
+export default function BrowsePaths(props: Props) {
+    const { entries, hideIcons, linksDisabled, numVisible, hidePopover } = props;
+
+    const [areChildrenTruncated, setAreChildrenTruncated] = useState({});
+    const showEllipsis = !!(numVisible && entries.length > numVisible);
+    const showPopover = (Object.values(areChildrenTruncated).includes(true) || showEllipsis) && !hidePopover;
+    const truncatedEntries = entries.slice(numVisible ? entries.length - numVisible : 0);
+
+    if (!truncatedEntries?.length) return null;
     return (
-        <ContextPathEntityLink
-            key={path?.entity?.urn}
-            entity={path?.entity}
-            style={{ fontSize: '12px' }}
-            linkDisabled={linksDisabled}
-        />
-    );
-};
-
-function BrowsePaths(props: Props) {
-    const { previewType, browsePaths, contentRef, isContentTruncated, linksDisabled } = props;
-
-    const parentPath = browsePaths?.path?.[0];
-    const remainingParentPaths = browsePaths?.path && browsePaths.path.slice(1, browsePaths.path.length);
-
-    return (
-        <StyledTooltip
-            title={getParentBrowsePathNames(browsePaths?.path)}
-            overlayStyle={isContentTruncated ? {} : { display: 'none' }}
-            maxWidth={previewType === PreviewType.HOVER_CARD ? 300 : 620}
+        <Popover
+            zIndex={1051} // .ant-select-dropdown is 1050
+            content={
+                showPopover ? <BrowsePaths {...props} hidePopover numVisible={undefined} linksDisabled={false} /> : null
+            }
         >
-            {isContentTruncated && <Ellipsis>...</Ellipsis>}
-            {/* To avoid rendering a empty div */}
-            {(parentPath || remainingParentPaths) && (
-                <ParentNodesWrapper ref={contentRef}>
-                    {parentPath && (
-                        <PlatformText>
-                            <BrowsePathSection path={parentPath} linksDisabled={linksDisabled} />
-                            {remainingParentPaths && remainingParentPaths?.length > 0 && <ContextPathSeparator />}
-                        </PlatformText>
-                    )}
-                    {remainingParentPaths &&
-                        remainingParentPaths.map((container, index) => {
-                            return (
-                                <PlatformText>
-                                    <BrowsePathSection path={container} linksDisabled={linksDisabled} />
-                                    {index < remainingParentPaths.length - 1 && <ContextPathSeparator />}
-                                </PlatformText>
-                            );
-                        })}
-                </ParentNodesWrapper>
-            )}
-        </StyledTooltip>
+            <ParentNodesWrapper>
+                {showEllipsis && (
+                    <>
+                        <span>...</span>
+                        <ContextPathSeparator />
+                    </>
+                )}
+                {truncatedEntries?.map((entry, index) => (
+                    <SingleBrowsePath
+                        key={index} // eslint-disable-line react/no-array-index-key -- order should not change
+                        entry={entry}
+                        index={index}
+                        isLast={index === truncatedEntries.length - 1}
+                        setAreChildrenTruncated={setAreChildrenTruncated}
+                        hideIcons={hideIcons}
+                        linksDisabled={linksDisabled}
+                    />
+                ))}
+            </ParentNodesWrapper>
+        </Popover>
     );
 }
 
-export default BrowsePaths;
+interface SingleBrowsePathsProps extends Pick<Props, 'hideIcons' | 'linksDisabled'> {
+    entry: Entry;
+    index: number;
+    isLast: boolean;
+    setAreChildrenTruncated: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+}
+
+function SingleBrowsePath({
+    entry,
+    index,
+    isLast,
+    setAreChildrenTruncated,
+    hideIcons,
+    linksDisabled,
+}: SingleBrowsePathsProps) {
+    const entityRegistry = useEntityRegistry();
+
+    const hasDataPlatformInstance =
+        entry.name?.includes('dataPlatformInstance') || entry.entity?.type === EntityType.DataPlatformInstance;
+    const setIsTruncated = React.useCallback(
+        (v: boolean) =>
+            setAreChildrenTruncated((prev) => ({
+                ...prev,
+                [index]: v,
+            })),
+        [index, setAreChildrenTruncated],
+    );
+
+    const { entity } = entry;
+    return (
+        <>
+            <ContextPathEntry
+                key={entity?.urn || entry.name}
+                name={entity ? entityRegistry.getDisplayName(entity.type, entity) : entry.name}
+                linkUrl={entity ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
+                isLast={isLast}
+                hideIcon={hideIcons}
+                linkDisabled={linksDisabled || hasDataPlatformInstance}
+                setIsTruncated={setIsTruncated}
+            />
+            {!isLast && <ContextPathSeparator />}
+        </>
+    );
+}

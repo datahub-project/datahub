@@ -1,18 +1,21 @@
-import React, { useContext, useState } from 'react';
-import { Button, Layout } from 'antd';
-import styled from 'styled-components';
 import { ArrowRight } from '@phosphor-icons/react';
-import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
-import { SearchBar } from './SearchBar';
-import { AutoCompleteResultForEntity } from '../../types.generated';
-import { EntityRegistry } from '../../entityRegistryContext';
-import { useAppConfig } from '../useAppConfig';
-import OnboardingContext from '../onboarding/OnboardingContext';
-import { useNavBarContext } from '../homeV2/layout/navBarRedesign/NavBarContext';
-import NavBarToggler from '../homeV2/layout/navBarRedesign/NavBarToggler';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import useSearchViewAll from './useSearchViewAll';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { Button, Layout } from 'antd';
+import React, { useContext, useState } from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { SearchBar } from '@app/searchV2/SearchBar';
+import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
+import useSearchViewAll from '@app/searchV2/useSearchViewAll';
+import { useAppConfig } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AutoCompleteResultForEntity } from '@types';
 
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
@@ -27,7 +30,7 @@ const getStyles = ($isShowNavBarRedesign?: boolean) => {
             padding: 0,
             display: 'flex',
             justifyContent: 'center',
-            width: $isShowNavBarRedesign ? '439px' : '620px',
+            width: $isShowNavBarRedesign ? '648px' : '620px',
             minWidth: '400px',
         },
     };
@@ -48,17 +51,25 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
     background-color: transparent;
     height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
-    ${(props) => {
-        if (!props.$isShowNavBarRedesign) return '';
-        return `padding-left: ${props.$isNavBarCollapsed ? '68px;' : '270px'};`;
-    }}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         margin-top: 8px;
         gap: 16px;
         flex-direction: row;
-        transition: padding 250ms ease-in-out;
+
+        // preventing of NavBar's overlapping
+        position: relative;
+        padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};
+        left: ${props.$isNavBarCollapsed ? '-112px' : '-270px'};
+        transition: none;
+        @media only screen and (min-width: 1280px) {
+            padding-left: 540px;
+            left: -270px;
+        }
+        @media only screen and (max-width: 1200px) {
+            transition: padding 250ms ease-in-out;
+        }
     `}
     ${(props) => props.$isShowNavBarRedesign && !props.$isNavBarCollapsed && 'justify-content: space-between;'}
     align-items: center;
@@ -76,10 +87,10 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     align-items: center;
+    justify-content: center;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        justify-content: center;
         margin-left: 80px;
         margin-top: 6px;
     `}
@@ -106,6 +117,11 @@ const StyledButton = styled(Button)`
     }
 `;
 
+const NavBarTogglerWrapper = styled.div`
+    position: fixed;
+    left: 68px;
+`;
+
 type Props = {
     initialQuery: string;
     placeholderText: string;
@@ -113,6 +129,7 @@ type Props = {
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     entityRegistry: EntityRegistry;
+    hideSearchBar?: boolean;
 };
 
 /**
@@ -125,6 +142,7 @@ export const SearchHeader = ({
     onSearch,
     onQueryChange,
     entityRegistry,
+    hideSearchBar,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -135,40 +153,49 @@ export const SearchHeader = ({
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const styles = getStyles(isShowNavBarRedesign);
 
+    const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
+    const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
+
     return (
         <>
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
-                    {isShowNavBarRedesign && isCollapsed && <NavBarToggler />}
-                    <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-                        <SearchBar
-                            isLoading={isUserInitializing || !appConfig.loaded}
-                            id={V2_SEARCH_BAR_ID}
-                            style={styles.searchBoxContainer}
-                            autoCompleteStyle={styles.searchBox}
-                            inputStyle={styles.input}
-                            initialQuery={initialQuery}
-                            placeholderText={placeholderText}
-                            suggestions={suggestions}
-                            onSearch={onSearch}
-                            onQueryChange={onQueryChange}
-                            entityRegistry={entityRegistry}
-                            setIsSearchBarFocused={setIsSearchBarFocused}
-                            viewsEnabled={viewsEnabled}
-                            isShowNavBarRedesign={isShowNavBarRedesign}
-                            combineSiblings
-                            fixAutoComplete
-                            showQuickFilters
-                            showViewAllResults
-                            showCommandK
-                        />
-                        {isShowNavBarRedesign && (
-                            <StyledButton type="link" onClick={searchViewAll}>
-                                View all <ArrowRight />
-                            </StyledButton>
-                        )}
-                    </SearchBarContainer>
+                    {isShowNavBarRedesign && isCollapsed && (
+                        <NavBarTogglerWrapper>
+                            <NavBarToggler />
+                        </NavBarTogglerWrapper>
+                    )}
+                    {!hideSearchBar && (
+                        <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            <FinalSearchBar
+                                isLoading={isUserInitializing || !appConfig.loaded}
+                                id={V2_SEARCH_BAR_ID}
+                                style={styles.searchBoxContainer}
+                                autoCompleteStyle={styles.searchBox}
+                                inputStyle={styles.input}
+                                initialQuery={initialQuery}
+                                placeholderText={placeholderText}
+                                suggestions={suggestions}
+                                onSearch={onSearch}
+                                onQueryChange={onQueryChange}
+                                entityRegistry={entityRegistry}
+                                setIsSearchBarFocused={setIsSearchBarFocused}
+                                viewsEnabled={viewsEnabled}
+                                isShowNavBarRedesign={isShowNavBarRedesign}
+                                combineSiblings
+                                fixAutoComplete
+                                showQuickFilters
+                                showViewAllResults
+                                showCommandK
+                            />
+                            {isShowNavBarRedesign && (
+                                <StyledButton type="link" onClick={searchViewAll}>
+                                    View all <ArrowRight />
+                                </StyledButton>
+                            )}
+                        </SearchBarContainer>
+                    )}
                 </Header>
             </Wrapper>
         </>

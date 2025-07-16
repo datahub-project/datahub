@@ -1,45 +1,47 @@
-import snowflakeLogo from '../../../../images/snowflakelogo.png';
-import bigqueryLogo from '../../../../images/bigquerylogo.png';
-import redshiftLogo from '../../../../images/redshiftlogo.png';
-import kafkaLogo from '../../../../images/kafkalogo.png';
-import lookerLogo from '../../../../images/lookerlogo.svg';
-import tableauLogo from '../../../../images/tableaulogo.png';
-import mysqlLogo from '../../../../images/mysqllogo-2.png';
-import postgresLogo from '../../../../images/postgreslogo.png';
-import mongodbLogo from '../../../../images/mongodblogo.png';
-import azureLogo from '../../../../images/azure-ad.png';
-import oktaLogo from '../../../../images/oktalogo.png';
-import glueLogo from '../../../../images/gluelogo.png';
-import oracleLogo from '../../../../images/oraclelogo.png';
-import hiveLogo from '../../../../images/hivelogo.png';
-import supersetLogo from '../../../../images/supersetlogo.png';
-import athenaLogo from '../../../../images/awsathenalogo.png';
-import mssqlLogo from '../../../../images/mssqllogo.png';
-import clickhouseLogo from '../../../../images/clickhouselogo.png';
-import cockroachdbLogo from '../../../../images/cockroachdblogo.png';
-import trinoLogo from '../../../../images/trinologo.png';
-import dbtLogo from '../../../../images/dbtlogo.png';
-import dremioLogo from '../../../../images/dremiologo.png';
-import druidLogo from '../../../../images/druidlogo.png';
-import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
-import feastLogo from '../../../../images/feastlogo.png';
-import mariadbLogo from '../../../../images/mariadblogo.png';
-import metabaseLogo from '../../../../images/metabaselogo.png';
-import powerbiLogo from '../../../../images/powerbilogo.png';
-import modeLogo from '../../../../images/modelogo.png';
-import databricksLogo from '../../../../images/databrickslogo.png';
-import verticaLogo from '../../../../images/verticalogo.png';
-import mlflowLogo2 from '../../../../images/mlflowlogo2.png';
-import dynamodbLogo from '../../../../images/dynamodblogo.png';
-import fivetranLogo from '../../../../images/fivetranlogo.png';
-import csvLogo from '../../../../images/csv-logo.png';
-import qlikLogo from '../../../../images/qliklogo.png';
-import sigmaLogo from '../../../../images/sigmalogo.png';
-import sacLogo from '../../../../images/saclogo.svg';
-import cassandraLogo from '../../../../images/cassandralogo.png';
-import datahubLogo from '../../../../images/datahublogo.png';
-import neo4j from '../../../../images/neo4j.png';
-import msfabricLogo from '../../../../images/msfabric.png';
+import athenaLogo from '@images/awsathenalogo.png';
+import azureLogo from '@images/azure-ad.png';
+import bigqueryLogo from '@images/bigquerylogo.png';
+import cassandraLogo from '@images/cassandralogo.png';
+import clickhouseLogo from '@images/clickhouselogo.png';
+import cockroachdbLogo from '@images/cockroachdblogo.png';
+import csvLogo from '@images/csv-logo.png';
+import databricksLogo from '@images/databrickslogo.png';
+import datahubLogo from '@images/datahublogo.png';
+import dbtLogo from '@images/dbtlogo.png';
+import dremioLogo from '@images/dremiologo.png';
+import druidLogo from '@images/druidlogo.png';
+import dynamodbLogo from '@images/dynamodblogo.png';
+import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import feastLogo from '@images/feastlogo.png';
+import fivetranLogo from '@images/fivetranlogo.png';
+import glueLogo from '@images/gluelogo.png';
+import hiveLogo from '@images/hivelogo.png';
+import kafkaLogo from '@images/kafkalogo.png';
+import lookerLogo from '@images/lookerlogo.svg';
+import mariadbLogo from '@images/mariadblogo.png';
+import metabaseLogo from '@images/metabaselogo.png';
+import mlflowLogo2 from '@images/mlflowlogo2.png';
+import modeLogo from '@images/modelogo.png';
+import mongodbLogo from '@images/mongodblogo.png';
+import msfabricLogo from '@images/msfabric.png';
+import mssqlLogo from '@images/mssqllogo.png';
+import mysqlLogo from '@images/mysqllogo-2.png';
+import neo4j from '@images/neo4j.png';
+import oktaLogo from '@images/oktalogo.png';
+import oracleLogo from '@images/oraclelogo.png';
+import postgresLogo from '@images/postgreslogo.png';
+import powerbiLogo from '@images/powerbilogo.png';
+import presetLogo from '@images/presetlogo.svg';
+import qlikLogo from '@images/qliklogo.png';
+import redshiftLogo from '@images/redshiftlogo.png';
+import sacLogo from '@images/saclogo.svg';
+import sigmaLogo from '@images/sigmalogo.png';
+import snowflakeLogo from '@images/snowflakelogo.png';
+import supersetLogo from '@images/supersetlogo.png';
+import tableauLogo from '@images/tableaulogo.png';
+import trinoLogo from '@images/trinologo.png';
+import vertexAI from '@images/vertexai.png';
+import verticaLogo from '@images/verticalogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -98,6 +100,8 @@ export const POSTGRES = 'postgres';
 export const POSTGRES_URN = `urn:li:dataPlatform:${POSTGRES}`;
 export const POWER_BI = 'powerbi';
 export const POWER_BI_URN = `urn:li:dataPlatform:${POWER_BI}`;
+export const PRESET = 'preset';
+export const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
 export const REDSHIFT = 'redshift';
 export const REDSHIFT_USAGE = 'redshift-usage';
 export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
@@ -141,6 +145,8 @@ export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
 export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
+export const VERTEX_AI = 'vertexai';
+export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const MSFABRIC = 'msfabric';
 export const MSFABRIC_URN = `urn:li:dataPlatform:${MSFABRIC}`;
 
@@ -171,6 +177,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,
     [POWER_BI_URN]: powerbiLogo,
+    [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
     [TABLEAU_URN]: tableauLogo,
@@ -188,6 +195,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [MSFABRIC_URN]: msfabricLogo,
+    [VERTEXAI_URN]: vertexAI,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

@@ -28,7 +28,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeline.TimelineService;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
@@ -48,11 +48,12 @@ import org.springframework.http.ResponseEntity;
 
 @TestConfiguration
 public class OpenAPIEntityTestConfiguration {
-  @MockBean TraceContext traceContext;
+  @MockBean SystemTelemetryContext systemTelemetryContext;
 
   @Bean
-  public TracingInterceptor tracingInterceptor(final TraceContext traceContext) {
-    return new TracingInterceptor(traceContext);
+  public TracingInterceptor tracingInterceptor(
+      final SystemTelemetryContext systemTelemetryContext) {
+    return new TracingInterceptor(systemTelemetryContext);
   }
 
   @Bean

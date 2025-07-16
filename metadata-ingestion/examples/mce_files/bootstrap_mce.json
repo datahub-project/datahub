@@ -610,6 +610,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": "table where each row represents a single log event",
+              "qualifiedName": "a.b.c",
               "uri": null,
               "tags": [],
               "customProperties": {
@@ -3578,7 +3579,7 @@
               "content": {
                   "title": "Join DataHub Slack",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
+                  "link": "https://datahub.com/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
                   "media": {
                       "type": "IMAGE",
                       "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
@@ -3605,7 +3606,7 @@
               "content": {
                   "title": "View Docs",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/docs",
+                  "link": "https://docs.datahub.com/docs",
                   "media": {
                       "type": "IMAGE",
                       "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
@@ -3632,10 +3633,10 @@
               "content": {
                   "title": "Upcoming Events",
                   "type": "LINK",
-                  "link": "https://datahubproject.io/events",
+                  "link": "https://datahub.com/events/",
                   "media": {
                       "type": "IMAGE",
-                      "location": "https://datahubproject.io/img/acryl-logo-transparent-mark.svg"
+                      "location": "https://docs.datahub.com/img/datahub-logo-color-mark.svg"
                   }
               },
               "created": 1712547268882,

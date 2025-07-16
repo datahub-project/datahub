@@ -1,27 +1,32 @@
 # DataHub UI Application-Specific GraphQL Types
 
 extend type Query {
-    """
-    Fetch details associated with the authenticated user, provided via an auth cookie or header
-    """
-    me: AuthenticatedUser
+  """
+  Fetch details associated with the authenticated user, provided via an auth cookie or header
+  """
+  me: AuthenticatedUser
 
-    """
-    Fetch configurations
-    Used by DataHub UI
-    """
-    appConfig: AppConfig
+  """
+  Fetch configurations
+  Used by DataHub UI
+  """
+  appConfig: AppConfig
 
-    """
-    Fetch the Global Settings related to the Views feature.
-    Requires the 'Manage Global Views' Platform Privilege.
-    """
-    globalViewsSettings: GlobalViewsSettings
+  """
+  Fetch the Global Settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  globalViewsSettings: GlobalViewsSettings
 
-    """
-    Fetch the global settings related to the docs propagation feature.
-    """
-    docPropagationSettings: DocPropagationSettings
+  """
+  Fetch the global settings related to the docs propagation feature.
+  """
+  docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
 }
 
 extend type Mutation {
@@ -34,7 +39,14 @@ extend type Mutation {
   """
   Update the doc propagation settings.
   """
-  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
+  updateDocPropagationSettings(
+    input: UpdateDocPropagationSettingsInput!
+  ): Boolean!
+
+  """
+  Update the applications settings.
+  """
+  updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 }
 
 """
@@ -132,6 +144,11 @@ type PlatformPrivileges {
   manageTags: Boolean!
 
   """
+  Whether the user should be able to view the tags management page.
+  """
+  viewManageTags: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete global views.
   """
   manageGlobalViews: Boolean!
@@ -140,7 +157,7 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
-  
+
   """
   Whether the user can create and delete posts pinned to the home page.
   """
@@ -165,6 +182,70 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage applications.
+  """
+  manageApplications: Boolean!
+
+  """
+  Whether the user can manage platform features.
+  """
+  manageFeatures: Boolean!
+}
+
+"""
+Variants of APIs used in the Search bar to get data
+"""
+enum SearchBarAPI {
+  AUTOCOMPLETE_FOR_MULTIPLE
+  SEARCH_ACROSS_ENTITIES
+}
+
+"""
+Configurations related to the Search bar
+"""
+type SearchBarConfig {
+  """
+  API variant
+  """
+  apiVariant: SearchBarAPI!
+}
+
+"""
+Variants of APIs used in the Search bar to get data
+"""
+enum PersonalSidebarSection {
+  """
+  The section containing groups you are in
+  """
+  YOUR_GROUPS
+  """
+  The section containing assets you own
+  """
+  YOUR_ASSETS
+  """
+  The section containing domains you own
+  """
+  YOUR_DOMAINS
+  """
+  The section containing glossary nodes you own
+  """
+  YOUR_GLOSSARY_NODES
+  """
+  The section containing tags you own
+  """
+  YOUR_TAGS
+}
+
+"""
+Configurations related to the Search bar
+"""
+type HomePageConfig {
+  """
+  The section that comes first on the personal sidebar on the homepage
+  """
+  firstInPersonalSidebar: PersonalSidebarSection!
 }
 
 """
@@ -228,6 +309,11 @@ type AppConfig {
   viewsConfig: ViewsConfig!
 
   """
+  Configurations related to the Search bar
+  """
+  searchBarConfig: SearchBarConfig!
+
+  """
   Feature flags telling the UI whether a feature is enabled or not
   """
   featureFlags: FeatureFlagsConfig!
@@ -236,6 +322,11 @@ type AppConfig {
   Configuration related to the DataHub Chrome Extension
   """
   chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configuration related to the home page
+  """
+  homePageConfig: HomePageConfig!
 }
 
 """
@@ -276,6 +367,36 @@ type VisualConfig {
   Configuration for search results
   """
   searchResult: SearchResultsVisualConfig
+
+  """
+  Show full title in lineage view by default
+  """
+  showFullTitleInLineage: Boolean
+
+  """
+  Configuration for custom theme-ing
+  """
+  theme: ThemeConfig
+
+  """
+  Configuration for the application sidebar section
+  """
+  application: ApplicationConfig
+}
+
+"""
+Configuration for the application sidebar section
+"""
+type ApplicationConfig {
+  """
+  Whether to show the application sidebar section even when empty
+  """
+  showSidebarSectionWhenEmpty: Boolean
+
+  """
+  Whether to show the application in the navigation sidebar
+  """
+  showApplicationInNavigation: Boolean
 }
 
 """
@@ -287,7 +408,6 @@ type QueriesTabConfig {
   """
   queriesTabResultSize: Int
 }
-
 
 """
 Configuration for different entity profiles
@@ -314,10 +434,10 @@ type EntityProfileConfig {
 Configuration for a search result
 """
 type SearchResultsVisualConfig {
-    """
-    Whether a search result should highlight the name/description if it was matched on those fields.
-    """
-    enableNameHighlight: Boolean
+  """
+  Whether a search result should highlight the name/description if it was matched on those fields.
+  """
+  enableNameHighlight: Boolean
 }
 
 """
@@ -359,7 +479,6 @@ type AuthConfig {
   """
   tokenAuthEnabled: Boolean!
 }
-
 
 """
 Configurations related to the Policies Feature
@@ -498,7 +617,7 @@ type FeatureFlagsConfig {
   lineageGraphV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
   """
@@ -593,6 +712,51 @@ type FeatureFlagsConfig {
   If turned on, exposes the versioning feature by allowing users to link entities in the UI.
   """
   entityVersioningEnabled: Boolean!
+
+  """
+  If turned on, show the "has siblings" filter in search
+  """
+  showHasSiblingsFilter: Boolean!
+
+  """
+  If turned on, show the redesigned search bar's autocomplete
+  """
+  showSearchBarAutocompleteRedesign: Boolean!
+
+  """
+  If enabled, users will be able to view the tags management experience
+  """
+  showManageTags: Boolean!
+
+  """
+  If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  """
+  showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
+  If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
+
+  """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
 }
 
 """
@@ -615,6 +779,16 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update global applications settings.
+"""
+input UpdateApplicationsSettingsInput {
+  """
+  Whether the Applications feature is enabled
+  """
+  enabled: Boolean
 }
 
 """
@@ -651,3 +825,22 @@ type ChromeExtensionConfig {
   lineageEnabled: Boolean!
 }
 
+"""
+Configuration for any custom theme-ing
+"""
+type ThemeConfig {
+  """
+  The optional custom theme ID to determine which theme config we use in the frontend
+  """
+  themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
+}

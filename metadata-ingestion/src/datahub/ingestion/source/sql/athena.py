@@ -29,26 +29,38 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.athena_properties_extractor import (
+    AthenaPropertiesExtractor,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    MapTypeClass,
+    RecordTypeClass,
+)
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 try:
     from typing_extensions import override
@@ -280,6 +292,11 @@ class AthenaConfig(SQLCommonConfig):
         description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
     )
 
+    extract_partitions_using_create_statements: bool = pydantic.Field(
+        default=False,
+        description="Extract partitions using the `SHOW CREATE TABLE` statement instead of querying the table's partitions directly. This needs to be enabled to extract Iceberg partitions. If extraction fails it falls back to the default partition extraction. This is experimental.",
+    )
+
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
@@ -320,8 +337,18 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
-@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Supported for S3 tables",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Supported for S3 tables",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
@@ -396,7 +423,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location", None)
+        location: Optional[str] = custom_properties.get("location")
         if location is not None:
             if location.startswith("s3://"):
                 location = make_s3_urn(location, self.config.env)
@@ -482,22 +509,37 @@ class AthenaSource(SQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        if not self.config.extract_partitions:
+        if (
+            not self.config.extract_partitions
+            and not self.config.extract_partitions_using_create_statements
+        ):
             return None
 
         if not self.cursor:
             return None
 
-        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
-        )
+        if self.config.extract_partitions_using_create_statements:
+            try:
+                partitions = self._get_partitions_create_table(schema, table)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get partitions from create table statement for {schema}.{table} because of {e}. Falling back to SQLAlchemy.",
+                    exc_info=True,
+                )
 
-        partitions = []
-        for key in metadata.partition_keys:
-            if key.name:
-                partitions.append(key.name)
+                # If we can't get create table statement, we fall back to SQLAlchemy
+                partitions = self._get_partitions_sqlalchemy(schema, table)
+        else:
+            partitions = self._get_partitions_sqlalchemy(schema, table)
+
         if not partitions:
             return []
+
+        if (
+            not self.config.profiling.enabled
+            or not self.config.profiling.partition_profiling_enabled
+        ):
+            return partitions
 
         with self.report.report_exc(
             message="Failed to extract partition details",
@@ -524,6 +566,56 @@ class AthenaSource(SQLAlchemySource):
 
         return partitions
 
+    def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        try:
+            res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
+        except Exception as e:
+            # Athena does not support SHOW CREATE TABLE for views
+            # and will throw an error. We need to handle this case
+            # and caller needs to fallback to sqlalchemy's get partitions call.
+            logger.debug(
+                f"Failed to get table properties for {schema}.{table}: {e}",
+                exc_info=True,
+            )
+            raise e
+        rows = res.fetchall()
+
+        # Concatenate all rows into a single string with newlines
+        create_table_statement = "\n".join(row[0] for row in rows)
+
+        try:
+            athena_table_info = AthenaPropertiesExtractor.get_table_properties(
+                create_table_statement
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse table properties for {schema}.{table}: {e} and statement: {create_table_statement}",
+                exc_info=True,
+            )
+            raise e
+
+        partitions = []
+        if (
+            athena_table_info.partition_info
+            and athena_table_info.partition_info.simple_columns
+        ):
+            partitions = [
+                ci.name for ci in athena_table_info.partition_info.simple_columns
+            ]
+        return partitions
+
+    def _get_partitions_sqlalchemy(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
+        return partitions
+
     # Overwrite to modify the creation of schema fields
     def get_schema_fields_for_column(
         self,
@@ -538,24 +630,25 @@ class AthenaSource(SQLAlchemySource):
             column_name=column["name"],
             column_type=column["type"],
             inspector=inspector,
-            description=column.get("comment", None),
+            description=column.get("comment"),
             nullable=column.get("nullable", True),
-            is_part_of_key=(
-                True
-                if (
-                    pk_constraints is not None
-                    and isinstance(pk_constraints, dict)
-                    and column["name"] in pk_constraints.get("constrained_columns", [])
-                )
-                else False
+            is_part_of_key=bool(
+                pk_constraints is not None
+                and isinstance(pk_constraints, dict)
+                and column["name"] in pk_constraints.get("constrained_columns", [])
             ),
-            is_partitioning_key=(
-                True
-                if (partition_keys is not None and column["name"] in partition_keys)
-                else False
+            is_partitioning_key=bool(
+                partition_keys is not None and column["name"] in partition_keys
             ),
         )
-
+        if isinstance(
+            fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
+        ):
+            return fields
+        else:
+            fields[0].fieldPath = get_simple_field_path_from_v2_field_path(
+                fields[0].fieldPath
+            )
         return fields
 
     def generate_partition_profiler_query(

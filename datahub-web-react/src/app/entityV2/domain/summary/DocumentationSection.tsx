@@ -1,13 +1,15 @@
 import { EditOutlined, ExpandAltOutlined, FileOutlined } from '@ant-design/icons';
-import { Button, Divider, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
-import { AddLinkModal } from '../../shared/components/styled/AddLinkModal';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import { ANTD_GRAY } from '../../shared/constants';
-import { LinkList } from '../../shared/tabs/Documentation/components/LinkList';
-import { Editor } from '../../shared/tabs/Documentation/components/editor/Editor';
+
+import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Button } from '@src/alchemy-components';
 
 const Header = styled.div`
     display: flex;
@@ -66,7 +68,7 @@ export const DocumentationSection = () => {
                 </Title>
                 {hasDescription && (
                     <Button
-                        type="text"
+                        variant="text"
                         onClick={() =>
                             routeToTab({
                                 tabName: 'Documentation',
@@ -82,13 +84,13 @@ export const DocumentationSection = () => {
             <Documentation>
                 {(hasDescription && <Editor content={description} readOnly />) || (
                     <EmptyTab tab="documentation">
+                        <AddLinkModal refetch={refetch} />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                         >
                             <EditOutlined /> Add Documentation
                         </Button>
-                        <AddLinkModal refetch={refetch} />
                     </EmptyTab>
                 )}
                 <LinkList refetch={refetch} />

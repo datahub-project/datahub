@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -14,7 +15,6 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
@@ -30,6 +30,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -153,10 +154,11 @@ public class AspectsBatchImpl implements AspectsBatch {
 
   private static BatchItem patchDiscriminator(MCPItem mcpItem, AspectRetriever aspectRetriever) {
     if (ChangeType.PATCH.equals(mcpItem.getChangeType())) {
-      return PatchItemImpl.PatchItemImplBuilder.build(
-          mcpItem.getMetadataChangeProposal(),
-          mcpItem.getAuditStamp(),
-          aspectRetriever.getEntityRegistry());
+      return PatchItemImpl.builder()
+          .build(
+              mcpItem.getMetadataChangeProposal(),
+              mcpItem.getAuditStamp(),
+              aspectRetriever.getEntityRegistry());
     }
     return ChangeItemImpl.builder()
         .build(mcpItem.getMetadataChangeProposal(), mcpItem.getAuditStamp(), aspectRetriever);
@@ -195,22 +197,18 @@ public class AspectsBatchImpl implements AspectsBatch {
                   mcp -> {
                     try {
                       if (alternateMCPValidation) {
-                        EntitySpec entitySpec =
-                            retrieverContext
-                                .getAspectRetriever()
-                                .getEntityRegistry()
-                                .getEntitySpec(mcp.getEntityType());
                         return ProposedItem.builder()
-                            .metadataChangeProposal(mcp)
-                            .entitySpec(entitySpec)
-                            .auditStamp(auditStamp)
-                            .build();
+                            .build(
+                                mcp,
+                                auditStamp,
+                                retrieverContext.getAspectRetriever().getEntityRegistry());
                       }
                       if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                        return PatchItemImpl.PatchItemImplBuilder.build(
-                            mcp,
-                            auditStamp,
-                            retrieverContext.getAspectRetriever().getEntityRegistry());
+                        return PatchItemImpl.builder()
+                            .build(
+                                mcp,
+                                auditStamp,
+                                retrieverContext.getAspectRetriever().getEntityRegistry());
                       } else {
                         return ChangeItemImpl.builder()
                             .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
@@ -241,19 +239,23 @@ public class AspectsBatchImpl implements AspectsBatch {
       return result;
     }
 
-    public AspectsBatchImpl build() {
+    public AspectsBatchImpl build(@Nullable AuthorizationSession session) {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
       this.nonRepeatedItems = filterRepeats(this.items);
 
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext);
+          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext, session);
       if (!exceptions.isEmpty()) {
         throw new ValidationException("Failed to validate MCP due to: " + exceptions);
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+    }
+
+    private AspectsBatchImpl build() {
+      return null;
     }
   }
 

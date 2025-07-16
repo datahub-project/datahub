@@ -7,11 +7,18 @@ dependencies {
   api project(':metadata-utils')
   api project(':metadata-auth:auth-api')
 
+  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
+  // latest caffeine 3.1.8 compatible
+  api 'nl.basjes.parse.useragent:yauaa:7.29.0'
+
   implementation externalDependency.slf4jApi
   implementation externalDependency.servletApi
   implementation spec.product.pegasus.restliServer
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
+  api externalDependency.jacksonDataBind
+  api externalDependency.jacksonJDK8
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

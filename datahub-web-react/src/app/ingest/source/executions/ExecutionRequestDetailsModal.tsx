@@ -1,26 +1,28 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
-import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { downloadFile } from '../../../search/utils/csvUtils';
-import { Message } from '../../../shared/Message';
-import IngestedAssets from '../IngestedAssets';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import IngestedAssets from '@app/ingest/source/IngestedAssets';
+import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
 import {
+    RUNNING,
+    SUCCEEDED_WITH_WARNINGS,
+    SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
     getIngestionSourceStatus,
     getStructuredReport,
-    RUNNING,
-    SUCCESS,
-    SUCCEEDED_WITH_WARNINGS,
-} from '../utils';
-import { ExecutionRequestResult } from '../../../../types.generated';
-import { StructuredReport } from './reporting/StructuredReport';
+} from '@app/ingest/source/utils';
+import { downloadFile } from '@app/search/utils/csvUtils';
+import { Message } from '@app/shared/Message';
+
+import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
+import { ExecutionRequestResult } from '@types';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -176,14 +178,14 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Sync Details</StyledTitle>
+                    <StyledTitle level={4}>Execution Run Details</StyledTitle>
                 </HeaderSection>
             }
             open={open}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading sync details..." />}
-            {error && message.error('Failed to load sync details :(')}
+            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
+            {error && message.error('Failed to load execution run details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
@@ -193,7 +195,9 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 </StatusSection>
                 {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
-                        {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
+                        {data?.executionRequest?.id && (
+                            <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                        )}
                     </IngestedAssetsSection>
                 )}
                 <LogsSection>

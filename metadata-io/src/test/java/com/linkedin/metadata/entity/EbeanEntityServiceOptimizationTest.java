@@ -31,8 +31,6 @@ import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-// single threaded to prevent sql logging collisions
-@Test(singleThreaded = true)
 public class EbeanEntityServiceOptimizationTest {
   /*
    Counts for ORM optimization calculations
@@ -68,7 +66,7 @@ public class EbeanEntityServiceOptimizationTest {
   public void setupTest() {
     Database server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
-    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
@@ -81,7 +79,9 @@ public class EbeanEntityServiceOptimizationTest {
   public void testEmptyORMOptimization() {
     // empty batch
     assertSQL(
-        AspectsBatchImpl.builder().retrieverContext(opContext.getRetrieverContext()).build(),
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .build(opContext),
         0,
         0,
         0,
@@ -108,7 +108,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         nonExistingBaseCount + 1,
         1,
         0,
@@ -130,7 +130,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -157,7 +157,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         0,
         1,
@@ -179,7 +179,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .auditStamp(TEST_AUDIT_STAMP)
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,
@@ -208,7 +208,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build(),
+            .build(opContext),
         existingBaseCount + 2,
         1,
         1,
@@ -232,22 +232,31 @@ public class EbeanEntityServiceOptimizationTest {
 
     try {
       entityService.ingestProposal(opContext, batch, false);
-      List<String> txnLog =
-          LoggedSql.collect().stream()
-              .filter(sql -> sql.startsWith("txn[]"))
-              .collect(
-                  ArrayList::new,
-                  (ArrayList<String> list, String sql) -> {
-                    // fold into previous line
-                    if (sql.startsWith("txn[]  -- ")) {
-                      String current = list.get(list.size() - 1);
-                      list.set(list.size() - 1, current + "\n" + sql);
-                    } else {
-                      list.add(sql);
-                    }
-                  },
-                  ArrayList::addAll);
+      // First collect all SQL statements that start with "txn[]"
+      List<String> allSqlStatements = new ArrayList<>();
+      for (String sqlGroup : new ArrayList<>(LoggedSql.collect())) {
+        // Split by "txn[]" but preserve the prefix
+        String[] parts = sqlGroup.split("(?=txn\\[\\])");
+        for (String part : parts) {
+          if (part.startsWith("txn[]")) {
+            allSqlStatements.add(part);
+          }
+        }
+      }
 
+      // Then process them to fold comments into previous lines
+      List<String> txnLog = new ArrayList<>();
+      for (String sql : allSqlStatements) {
+        if (sql.startsWith("txn[]  -- ") && !txnLog.isEmpty()) {
+          // Append this comment to the previous statement
+          int lastIndex = txnLog.size() - 1;
+          String current = txnLog.get(lastIndex);
+          txnLog.set(lastIndex, current + "\n" + sql);
+        } else {
+          // Add as a new statement
+          txnLog.add(sql);
+        }
+      }
       // Get the captured SQL statements
       Map<String, List<String>> statementMap =
           txnLog.stream()
@@ -270,29 +279,41 @@ public class EbeanEntityServiceOptimizationTest {
           statementMap.getOrDefault("UNKNOWN", List.of()).size(),
           0,
           String.format(
-              "(%s) Expected all SQL statements to be categorized: %s",
-              description, statementMap.get("UNKNOWN")));
+              "(%s) Expected all SQL statements to be categorized:\n%s",
+              description, formatUnknownStatements(statementMap.get("UNKNOWN"))));
       assertEquals(
           statementMap.getOrDefault("SELECT", List.of()).size(),
           expectedSelectCount,
           String.format(
-              "(%s) Expected SELECT SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("SELECT")));
+              "(%s) Expected SELECT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("SELECT"))));
       assertEquals(
           statementMap.getOrDefault("INSERT", List.of()).size(),
           expectedInsertCount,
           String.format(
-              "(%s) Expected INSERT SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("INSERT")));
+              "(%s) Expected INSERT SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("INSERT"))));
       assertEquals(
           statementMap.getOrDefault("UPDATE", List.of()).size(),
           expectedUpdateCount,
           String.format(
-              "(%s), Expected UPDATE SQL count mismatch filtering for (%s): %s",
-              description, mustInclude, statementMap.get("UPDATE")));
+              "(%s), Expected UPDATE SQL count mismatch filtering for (%s):\n%s",
+              description, mustInclude, formatUnknownStatements(statementMap.get("UPDATE"))));
     } finally {
       // Ensure logging is stopped even if assertions fail
       LoggedSql.stop();
     }
+  }
+
+  private static String formatUnknownStatements(List<String> statements) {
+    if (statements == null || statements.isEmpty()) {
+      return "  No unknown statements";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < statements.size(); i++) {
+      builder.append("  ").append(i + 1).append(". ").append(statements.get(i)).append("\n");
+    }
+    return builder.toString();
   }
 }

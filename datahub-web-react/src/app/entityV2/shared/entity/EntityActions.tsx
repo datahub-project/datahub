@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
-import { Button, message } from 'antd';
-import { Tooltip } from '@components';
-import styled from 'styled-components/macro';
 import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
-import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityCapabilityType } from '../../Entity';
-import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
-import { handleBatchError } from '../utils';
-import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '../EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../../../types.generated';
+import { Button, Tooltip } from '@components';
+import { message } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components/macro';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useBatchSetApplicationMutation } from '@graphql/application.generated';
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
+import { EntityType } from '@types';
 
 export enum EntityActionItem {
     /**
@@ -34,6 +37,10 @@ export enum EntityActionItem {
      * Add a new Glossary Node as child
      */
     ADD_CHILD_GLOSSARY_NODE,
+    /**
+     * Batch add an Application to a set of assets
+     */
+    BATCH_ADD_APPLICATION,
 }
 
 const ButtonWrapper = styled.div`
@@ -45,37 +52,6 @@ const ButtonWrapper = styled.div`
 
     & button:hover {
         opacity: 0.9;
-    }
-`;
-
-const TransparentButton = styled(Button)`
-    color: #533fd1;
-    font-size: 12px;
-    box-shadow: none;
-    border-color: #533fd1;
-    padding: 10px 20px;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: #533fd1;
-        color: #533fd1;
-    }
-`;
-
-const PrimaryButton = styled(Button)`
-    color: #ffffff;
-    font-size: 12px;
-    box-shadow: none;
-    border-color: #533fd1;
-    background-color: #533fd1;
-    padding: 10px 20px;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: #533fd1;
-        background-color: #533fd1;
     }
 `;
 
@@ -101,9 +77,11 @@ function EntityActions(props: Props) {
     const [isBatchSetDataProductModalVisible, setIsBatchSetDataProductModalVisible] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isBatchSetApplicationModalVisible, setIsBatchSetApplicationModalVisible] = useState(false);
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
+    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -215,6 +193,40 @@ function EntityActions(props: Props) {
             });
     };
 
+    const batchSetApplication = (entityUrns: Array<string>) => {
+        batchSetApplicationMutation({
+            variables: {
+                input: {
+                    applicationUrn: urn,
+                    resourceUrns: entityUrns,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    setIsBatchSetApplicationModalVisible(false);
+                    message.loading({ content: 'Updating...', duration: 3 });
+                    setTimeout(() => {
+                        message.success({
+                            content: `Added assets to Application!`,
+                            duration: 3,
+                        });
+                        refetchForEntity?.();
+                        setShouldRefetchEmbeddedListSearch?.(true);
+                    }, 3000);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add assets to Application. An unknown error occurred.`,
+                        duration: 3,
+                    }),
+                );
+            });
+    };
+
     const { entityData } = useEntityData();
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
@@ -223,24 +235,24 @@ function EntityActions(props: Props) {
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
                     <Tooltip title="Add Glossary Term to Assets" showArrow={false} placement="bottom">
-                        <TransparentButton
-                            size="large"
+                        <Button
+                            variant="outline"
                             onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}
                             data-testid="glossary-batch-add"
                         >
                             <LinkOutlined /> Add to Assets
-                        </TransparentButton>
+                        </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
                     <Tooltip title="Add Assets to Domain" showArrow={false} placement="bottom">
-                        <TransparentButton
-                            size="large"
+                        <Button
+                            variant="outline"
                             onClick={() => setIsBatchSetDomainModalVisible(true)}
                             data-testid="domain-batch-add"
                         >
                             <LinkOutlined /> Add to Assets
-                        </TransparentButton>
+                        </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
@@ -250,33 +262,35 @@ function EntityActions(props: Props) {
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
+                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
                             <LinkOutlined />
                             Add Assets
-                        </TransparentButton>
+                        </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
                     <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
-                        <TransparentButton
+                        <Button
                             data-testid="add-term-group-button-v2"
-                            size="large"
+                            variant="outline"
                             onClick={() => setIsCreateNodeModalVisible(true)}
                         >
                             <StyledPlusOutlined /> Add Term Group
-                        </TransparentButton>
+                        </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
                     <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
-                        <PrimaryButton
-                            data-testid="add-term-button"
-                            type="primary"
-                            size="large"
-                            onClick={() => setIsCreateTermModalVisible(true)}
-                        >
+                        <Button data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
                             <StyledPlusOutlined /> Add Term
-                        </PrimaryButton>
+                        </Button>
+                    </Tooltip>
+                )}
+                {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
+                    <Tooltip title="Add Assets to Application" showArrow={false} placement="bottom">
+                        <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
+                            <LinkOutlined /> Add to Assets
+                        </Button>
                     </Tooltip>
                 )}
             </ButtonWrapper>
@@ -299,6 +313,17 @@ function EntityActions(props: Props) {
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
+                    )}
+                />
+            )}
+            {isBatchSetApplicationModalVisible && (
+                <SearchSelectModal
+                    titleText="Add assets to Application"
+                    continueText="Add"
+                    onContinue={batchSetApplication}
+                    onCancel={() => setIsBatchSetApplicationModalVisible(false)}
+                    fixedEntityTypes={Array.from(
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS),
                     )}
                 />
             )}

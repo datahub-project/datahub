@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,7 +34,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
@@ -43,8 +43,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -63,8 +62,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
 import org.testng.annotations.BeforeMethod;
@@ -93,13 +91,12 @@ public class UpdateIndicesHookTest {
   static final long LAST_OBSERVED_3 = 789L;
   private UpdateIndicesHook updateIndicesHook;
   private GraphService mockGraphService;
-  private EntitySearchService mockEntitySearchService;
+  private ElasticSearchService mockEntitySearchService;
   private TimeseriesAspectService mockTimeseriesAspectService;
   private SystemMetadataService mockSystemMetadataService;
   private SearchDocumentTransformer searchDocumentTransformer;
   private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
-  private EntityIndexBuilders mockEntityIndexBuilders;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
   private UpdateIndicesHook reprocessUIHook;
@@ -112,20 +109,18 @@ public class UpdateIndicesHookTest {
   public void setupTest() {
     actorUrn = UrnUtils.getUrn(TEST_ACTOR_URN);
     mockGraphService = mock(ElasticSearchGraphService.class);
-    mockEntitySearchService = mock(EntitySearchService.class);
+    mockEntitySearchService = mock(ElasticSearchService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
     mockSystemMetadataService = mock(SystemMetadataService.class);
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
-    mockEntityIndexBuilders = mock(EntityIndexBuilders.class);
 
-    when(mockEntityIndexBuilders.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
+    when(mockEntitySearchService.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
 
-    ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    when(mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_ES_SEARCH_CONFIG);
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
@@ -133,9 +128,7 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders,
             "MD5");
-
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
@@ -175,7 +168,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -214,7 +207,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
@@ -245,7 +238,6 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders,
             "MD5");
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
@@ -264,7 +256,7 @@ public class UpdateIndicesHookTest {
         .removeEdgesFromNode(
             any(OperationContext.class),
             Mockito.eq(downstreamUrn),
-            Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
             Mockito.eq(
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),

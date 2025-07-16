@@ -13,7 +13,9 @@ from pydantic import BaseModel
 from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.server_config_util import RestServiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ class ServerVersionStats(BaseModel):
     current: VersionStats
     latest: Optional[VersionStats] = None
     current_server_type: Optional[str] = None
+    current_server_default_cli_version: Optional[VersionStats] = None
 
 
 class ClientVersionStats(BaseModel):
@@ -42,7 +45,7 @@ class DataHubVersionStats(BaseModel):
     client: ClientVersionStats
 
 
-async def get_client_version_stats():
+async def get_client_version_stats() -> ClientVersionStats:
     import aiohttp
 
     current_version_string = __version__
@@ -50,6 +53,7 @@ async def get_client_version_stats():
     client_version_stats: ClientVersionStats = ClientVersionStats(
         current=VersionStats(version=current_version, release_date=None), latest=None
     )
+
     async with aiohttp.ClientSession() as session:
         pypi_url = "https://pypi.org/pypi/acryl_datahub/json"
         async with session.get(pypi_url) as resp:
@@ -109,7 +113,7 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
+async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
     import aiohttp
 
     headers = {
@@ -124,19 +128,20 @@ async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
         config_endpoint = f"{gms_url}/config"
         async with session.get(config_endpoint, headers=headers) as dh_response:
             dh_response_json = await dh_response.json()
-            return dh_response_json
+            return RestServiceConfig(raw_config=dh_response_json)
 
 
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
-) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
+) -> Tuple[Optional[str], Optional[Version], Optional[str], Optional[datetime]]:
     import aiohttp
 
-    server_config = None
+    server_config: Optional[RestServiceConfig] = None
     if not server:
         try:
             # let's get the server from the cli config
             client_config = load_client_config()
+            client_config.client_mode = ClientMode.CLI
             host = client_config.server
             token = client_config.token
             server_config = await get_server_config(host, token)
@@ -148,17 +153,13 @@ async def get_server_version_stats(
 
     server_type = None
     server_version: Optional[Version] = None
+    current_server_default_cli_version = None
     current_server_release_date = None
     if server_config:
-        server_version_string = (
-            server_config.get("versions", {})
-            .get("acryldata/datahub", {})
-            .get("version")
-        )
-        commit_hash = (
-            server_config.get("versions", {}).get("acryldata/datahub", {}).get("commit")
-        )
-        server_type = server_config.get("datahub", {}).get("serverType", "unknown")
+        server_version_string = server_config.service_version
+        commit_hash = server_config.commit_hash
+        server_type = server_config.server_type
+        current_server_default_cli_version = server_config.default_cli_version
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
                 headers={"Accept": "application/vnd.github.v3+json"}
@@ -173,7 +174,12 @@ async def get_server_version_stats(
         if server_version_string and server_version_string.startswith("v"):
             server_version = Version(server_version_string[1:])
 
-    return (server_type, server_version, current_server_release_date)
+    return (
+        server_type,
+        server_version,
+        current_server_default_cli_version,
+        current_server_release_date,
+    )
 
 
 def retrieve_version_stats(
@@ -216,6 +222,7 @@ async def _retrieve_version_stats(
     (
         current_server_type,
         current_server_version,
+        current_server_default_cli_version,
         current_server_release_date,
     ) = results[2]
 
@@ -224,6 +231,14 @@ async def _retrieve_version_stats(
         server_version_stats = ServerVersionStats(
             current=VersionStats(
                 version=current_server_version, release_date=current_server_release_date
+            ),
+            current_server_default_cli_version=(
+                VersionStats(
+                    version=Version(current_server_default_cli_version),
+                    release_date=None,
+                )
+                if current_server_default_cli_version
+                else None
             ),
             latest=(
                 VersionStats(version=last_server_version, release_date=last_server_date)
@@ -257,21 +272,14 @@ def valid_client_version(version: Version) -> bool:
     """Only version strings like 0.4.5 and 0.6.7.8 are valid. 0.8.6.7rc1 is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
-    if version.major == 0 and version.minor in [8, 9, 10, 11]:
-        return True
-
-    return False
+    return True
 
 
 def valid_server_version(version: Version) -> bool:
     """Only version strings like 0.8.x, 0.9.x or 0.10.x are valid. 0.1.x is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
-
-    if version.major == 0 and version.minor in [8, 9, 10]:
-        return True
-
-    return False
+    return True
 
 
 def is_client_server_compatible(client: VersionStats, server: VersionStats) -> int:
@@ -291,6 +299,27 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
         return server.version.minor - client.version.minor
     else:
         return server.version.micro - client.version.micro
+
+
+def is_server_default_cli_ahead(version_stats: DataHubVersionStats) -> bool:
+    """
+    Check if the server default CLI version is ahead of the current CLI version.
+    Returns True if server default CLI is newer and both versions are valid.
+    """
+    if not version_stats.server.current_server_default_cli_version:
+        return False
+
+    current_cli = version_stats.client.current
+    server_default_cli = version_stats.server.current_server_default_cli_version
+
+    is_valid_client_version = valid_client_version(current_cli.version)
+    is_valid_server_version = valid_client_version(server_default_cli.version)
+
+    if not (is_valid_client_version and is_valid_server_version):
+        return False
+
+    compatibility_result = is_client_server_compatible(current_cli, server_default_cli)
+    return compatibility_result > 0
 
 
 def _maybe_print_upgrade_message(
@@ -379,7 +408,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"➡️  Upgrade via \"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif client_server_compat == 0 and encourage_cli_upgrade:
         with contextlib.suppress(Exception):
@@ -389,7 +419,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"You seem to be running an old version of datahub cli: {current_version} {get_days(current_release_date)}. Latest version is {latest_version} {get_days(latest_release_date)}.\nUpgrade via \"pip install -U 'acryl-datahub'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif encourage_quickstart_upgrade:
         try:
@@ -429,6 +460,8 @@ def check_upgrade_post(
 
 
 def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
+    log.debug(f"Checking upgrade for {func.__module__}.{func.__name__}")
+
     @wraps(func)
     def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         with PerfTimer() as timer:

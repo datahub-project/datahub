@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { ANTD_GRAY } from '../../../constants';
-import DescriptionSection from '../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import { getPlatformName } from '../../../utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 
 const LINE_LIMIT = 10;
 
@@ -19,7 +20,7 @@ const Title = styled.div`
 
 export default function SourceDescription() {
     const { entityData } = useEntityData();
-    const platformName = getPlatformName(entityData);
+    const platformName = getPlatformNameFromEntityData(entityData);
     const sourceDescription = entityData?.properties?.description;
 
     if (!sourceDescription || !entityData?.platform) return null;

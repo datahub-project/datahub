@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Custom URN Types",
+            "urn": "urn:li:glossaryNode:Custom-URN-Types",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
@@ -42,21 +42,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Custom URN Types.Mixed URN Types",
+            "urn": "urn:li:glossaryTerm:Custom-URN-Types.Mixed-URN-Types",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Mixed URN Types",
                         "definition": "Term with custom URN types",
-                        "parentNode": "urn:li:glossaryNode:Custom URN Types",
+                        "parentNode": "urn:li:glossaryNode:Custom-URN-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -88,21 +88,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Custom URN Types.Mixed Standard and URN",
+            "urn": "urn:li:glossaryTerm:Custom-URN-Types.Mixed-Standard-and-URN",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Mixed Standard and URN",
                         "definition": "Term with both standard and URN types",
-                        "parentNode": "urn:li:glossaryNode:Custom URN Types",
+                        "parentNode": "urn:li:glossaryNode:Custom-URN-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -133,13 +133,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:Custom URN Types",
+    "entityUrn": "urn:li:glossaryNode:Custom-URN-Types",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -149,13 +149,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Custom URN Types.Mixed Standard and URN",
+    "entityUrn": "urn:li:glossaryTerm:Custom-URN-Types.Mixed-Standard-and-URN",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -165,13 +165,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Custom URN Types.Mixed URN Types",
+    "entityUrn": "urn:li:glossaryTerm:Custom-URN-Types.Mixed-URN-Types",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -181,7 +181,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ugsgt3",
         "lastRunId": "no-run-id-provided"
     }
 }

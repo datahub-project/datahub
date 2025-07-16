@@ -5,6 +5,7 @@ export enum SizeValues {
     md = 'md',
     lg = 'lg',
     xl = 'xl',
+    inherit = 'inherit',
 }
 export type SizeOptions = keyof typeof SizeValues;
 export function getSizeName(size: SizeOptions): string {
@@ -26,6 +27,7 @@ export function getSizeName(size: SizeOptions): string {
 
 // Color types
 export interface Color {
+    0: string;
     100: string;
     200: string;
     300: string;
@@ -37,14 +39,14 @@ export interface Color {
     900: string;
     1000: string;
     1100: string;
-    1200: string;
-    1300: string;
-    1400: string;
-    1500: string;
-    1600: string;
-    1700: string;
-    1800: string;
-    1900: string;
+    1200?: string;
+    1300?: string;
+    1400?: string;
+    1500?: string;
+    1600?: string;
+    1700?: string;
+    1800?: string;
+    1900?: string;
 }
 
 export enum ColorValues {
@@ -56,6 +58,7 @@ export enum ColorValues {
     blue = 'blue',
     yellow = 'yellow',
     gray = 'gray',
+    primary = 'primary',
 }
 
 export type ColorOptions = keyof typeof ColorValues;
@@ -73,16 +76,18 @@ export enum FontSizeValues {
     '2xl' = '2xl',
     '3xl' = '3xl',
     '4xl' = '4xl',
+    inherit = 'inherit',
 }
-export type FontSizeOptions = keyof typeof FontSizeValues;
+export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
 export type FontColorOptions = MiscColorOptions | ColorOptions;
+export type FontColorLevelOptions = keyof Color;
 
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 export type BoxShadowOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'dropdown' | 'none';
 
-export type SpacingOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+export type SpacingOptions = 'none' | 'normal' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 
 export type RotationOptions = '0' | '90' | '180' | '270';
 

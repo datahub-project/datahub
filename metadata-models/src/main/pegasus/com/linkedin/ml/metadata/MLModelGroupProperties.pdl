@@ -5,6 +5,7 @@ import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.TimeStamp
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with an ML Model Group
@@ -12,7 +13,7 @@ import com.linkedin.common.TimeStamp
 @Aspect = {
   "name": "mlModelGroupProperties"
 }
-record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo {
+record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, ExternalReference {
 
   /**
    * Display name of the MLModelGroup

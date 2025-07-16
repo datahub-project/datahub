@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import List
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from pyathena import OperationalError
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
 
@@ -81,6 +83,8 @@ def test_athena_get_table_properties():
             "aws_region": "us-west-1",
             "s3_staging_dir": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
+            "profiling": {"enabled": True, "partition_profiling_enabled": True},
+            "extract_partitions_using_create_statements": True,
         }
     )
     schema: str = "test_schema"
@@ -108,17 +112,33 @@ def test_athena_get_table_properties():
 
     mock_cursor = mock.MagicMock()
     mock_inspector = mock.MagicMock()
-    mock_inspector.engine.raw_connection().cursor.return_value = mock_cursor
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
 
+    class MockCursorResult:
+        def __init__(self, data: List, description: List):
+            self._data = data
+            self._description = description
+
+        def __iter__(self):
+            """Makes the object iterable, which allows list() to work"""
+            return iter(self._data)
+
+        @property
+        def description(self):
+            """Returns the description as requested"""
+            return self._description
+
+    mock_result = MockCursorResult(
+        data=[["2023", "12"]], description=[["year"], ["month"]]
+    )
     # Mock partition query results
-    mock_cursor.execute.return_value.description = [
-        ["year"],
-        ["month"],
+    mock_cursor.execute.side_effect = [
+        OperationalError("First call fails"),
+        mock_result,
     ]
-    mock_cursor.execute.return_value.__iter__.return_value = [["2023", "12"]]
+    mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
@@ -148,13 +168,16 @@ def test_athena_get_table_properties():
     assert partitions == ["year", "month"]
 
     # Verify the correct SQL query was generated for partitions
+    expected_create_table_query = "SHOW CREATE TABLE `test_schema`.`test_table`"
+
     expected_query = """\
 select year,month from "test_schema"."test_table$partitions" \
 where CAST(year as VARCHAR) || '-' || CAST(month as VARCHAR) = \
 (select max(CAST(year as VARCHAR) || '-' || CAST(month as VARCHAR)) \
 from "test_schema"."test_table$partitions")"""
-    mock_cursor.execute.assert_called_once()
-    actual_query = mock_cursor.execute.call_args[0][0]
+    assert mock_cursor.execute.call_count == 2
+    assert expected_create_table_query == mock_cursor.execute.call_args_list[0][0][0]
+    actual_query = mock_cursor.execute.call_args_list[1][0][0]
     assert actual_query == expected_query
 
     # Verify partition cache was populated correctly
@@ -211,8 +234,8 @@ def test_column_type_decimal():
     result = CustomAthenaRestDialect()._get_column_type(type_="decimal(10,2)")
 
     assert isinstance(result, types.DECIMAL)
-    assert 10 == result.precision
-    assert 2 == result.scale
+    assert result.precision == 10
+    assert result.scale == 2
 
 
 def test_column_type_complex_combination():

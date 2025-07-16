@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import importlib.metadata
 import json
 import logging
 import re
@@ -51,6 +52,7 @@ from typing_extensions import Concatenate, ParamSpec
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
@@ -83,6 +85,30 @@ if TYPE_CHECKING:
     from pyathena.cursor import Cursor
 
 assert MARKUPSAFE_PATCHED
+
+# We need to ensure that acryl-great-expectations is installed
+# and great-expectations is not installed.
+try:
+    acryl_gx_version = bool(importlib.metadata.distribution("acryl-great-expectations"))
+except importlib.metadata.PackageNotFoundError:
+    acryl_gx_version = False
+
+try:
+    original_gx_version = bool(importlib.metadata.distribution("great-expectations"))
+except importlib.metadata.PackageNotFoundError:
+    original_gx_version = False
+
+if acryl_gx_version and original_gx_version:
+    raise RuntimeError(
+        "acryl-great-expectations and great-expectations cannot both be installed because their files will conflict. "
+        "You will need to (1) uninstall great-expectations and (2) re-install acryl-great-expectations. "
+        "See https://github.com/pypa/pip/issues/4625."
+    )
+elif original_gx_version:
+    raise RuntimeError(
+        "We expect acryl-great-expectations to be installed, but great-expectations is installed instead."
+    )
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 _original_get_column_median = SqlAlchemyDataset.get_column_median
@@ -94,7 +120,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -170,20 +195,27 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == BIGQUERY:
+    elif (
+        self.engine.dialect.name.lower() == BIGQUERY
+        or self.engine.dialect.name.lower() == SNOWFLAKE
+    ):
         element_values = self.engine.execute(
             sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
                 self._table
             )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == SNOWFLAKE:
-        element_values = self.engine.execute(
-            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
-                self._table
-            )
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
         )
-        return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
@@ -381,12 +413,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             col = col_dict["name"]
             self.column_types[col] = str(col_dict["type"])
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not self.config._allow_deny_patterns.allowed(
-                f"{self.dataset_name}.{col}"
+            if (
+                not self.config._allow_deny_patterns.allowed(
+                    f"{self.dataset_name}.{col}"
+                )
+                or not self.config.profile_nested_fields
+                and "." in col
             ):
-                ignored_columns_by_pattern.append(col)
-            # We try to ignore nested columns as well
-            elif not self.config.profile_nested_fields and "." in col:
                 ignored_columns_by_pattern.append(col)
             elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
@@ -613,6 +646,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         )
                     ).scalar()
                 )
+            elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            sa.text(
+                                f"approx_percentile(`{column}`, 0.5) as approx_median"
+                            )
+                        ).select_from(self.dataset._table)
+                    ).scalar()
+                )
             elif self.dataset.engine.dialect.name.lower() == BIGQUERY:
                 column_profile.median = str(
                     self.dataset.engine.execute(
@@ -701,11 +744,41 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
+            results = self.dataset.engine.execute(
+                sa.select(
+                    [
+                        sa.column(column),
+                        sa.func.count(sa.column(column)),
+                    ]
+                )
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .group_by(sa.column(column))
+            ).fetchall()
+
             column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                ValueFrequencyClass(value=str(value), frequency=int(count))
+                for value, count in results
             ]
+            # sort so output is deterministic. don't do it in SQL because not all column
+            # types are sortable in SQL (such as JSON data types on Athena/Trino).
+            column_profile.distinctValueFrequencies = sorted(
+                column_profile.distinctValueFrequencies, key=lambda x: x.value
+            )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.report_warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
@@ -1140,26 +1213,34 @@ class DatahubGEProfiler:
             f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
         )
 
-        with PerfTimer() as timer, unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-            get_column_unique_count_dh_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
-            _get_column_quantiles_bigquery_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
-            _get_column_quantiles_awsathena_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
-            _get_column_median_patch,
-        ), concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_workers
-        ) as async_executor, SQLAlchemyQueryCombiner(
-            enabled=self.config.query_combiner_enabled,
-            catch_exceptions=self.config.catch_exceptions,
-            is_single_row_query_method=_is_single_row_query_method,
-            serial_execution_fallback_enabled=True,
-        ).activate() as query_combiner:
+        with (
+            PerfTimer() as timer,
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_dh_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                _get_column_quantiles_bigquery_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
+                _get_column_quantiles_awsathena_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
+                _get_column_median_patch,
+            ),
+            concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as async_executor,
+            SQLAlchemyQueryCombiner(
+                enabled=self.config.query_combiner_enabled,
+                catch_exceptions=self.config.catch_exceptions,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
             # Submit the profiling requests to the thread pool executor.
             async_profiles = collections.deque(
                 async_executor.submit(
@@ -1362,12 +1443,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)
@@ -1408,7 +1489,7 @@ class DatahubGEProfiler:
             },
         )
 
-        if platform == BIGQUERY or platform == DATABRICKS:
+        if platform in (BIGQUERY, DATABRICKS):
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")
@@ -1562,7 +1643,7 @@ def _get_columns_to_ignore_sampling(
         name=dataset_name, platform=platform, env=env
     )
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
     if dataset_tags:

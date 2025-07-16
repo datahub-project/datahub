@@ -71,6 +71,31 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        lastRun: runs(start: 0, count: 1) {
+            count
+            start
+            total
+            runs {
+                urn
+                type
+                properties {
+                    created {
+                        time
+                        actor
+                    }
+                }
+                state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+                    status
+                    attempt
+                    result {
+                        resultType
+                        nativeResultType
+                    }
+                    timestampMillis
+                    durationMillis
+                }
+            }
+        }
     }
     ... on DataFlow {
         exists
@@ -103,6 +128,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         status {
             removed
+        }
+        deprecation {
+            ...deprecationFields
         }
         health {
             ...entityHealth
@@ -216,6 +244,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         subTypes {
             typeNames
         }
+        deprecation {
+            ...deprecationFields
+        }
         health {
             ...entityHealth
         }
@@ -263,6 +294,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+            query
+            transformOperation
         }
         health {
             ...entityHealth
@@ -694,6 +727,11 @@ fragment entityLineageV2 on Entity {
             ...lineageV2Result
         }
     }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
     ... on SchemaFieldEntity {
         fieldPath
         parent {
@@ -893,7 +931,7 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
+            count: 2000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: UPSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
@@ -911,7 +949,7 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
+            count: 2000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: DOWNSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }

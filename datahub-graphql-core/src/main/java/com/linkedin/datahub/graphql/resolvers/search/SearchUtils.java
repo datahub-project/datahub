@@ -92,7 +92,7 @@ public class SearchUtils {
           EntityType.NOTEBOOK,
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.SCHEMA_FIELD,
-          EntityType.DATA_PLATFORM_INSTANCE);
+          EntityType.APPLICATION);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -113,7 +113,8 @@ public class SearchUtils {
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT,
           EntityType.DOMAIN,
-          EntityType.BUSINESS_ATTRIBUTE);
+          EntityType.BUSINESS_ATTRIBUTE,
+          EntityType.APPLICATION);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
@@ -378,6 +379,8 @@ public class SearchUtils {
       Integer inputCount,
       String scrollId,
       String inputKeepAlive,
+      List<SortCriterion> sortCriteria,
+      List<String> facets,
       String className) {
 
     final List<EntityType> entityTypes =
@@ -431,7 +434,15 @@ public class SearchUtils {
           try {
             final ScrollResult scrollResult =
                 _entityClient.scrollAcrossEntities(
-                    context, finalEntityNames, query, finalFilters, scrollId, keepAlive, count);
+                    context,
+                    finalEntityNames,
+                    query,
+                    finalFilters,
+                    scrollId,
+                    keepAlive,
+                    sortCriteria,
+                    count,
+                    facets);
             return UrnScrollResultsMapper.map(inputContext, scrollResult);
           } catch (Exception e) {
             log.warn(
@@ -518,14 +529,7 @@ public class SearchUtils {
           try {
             final SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context,
-                    finalEntityNames,
-                    query,
-                    finalFilters,
-                    start,
-                    count,
-                    sortCriteria,
-                    null);
+                    context, finalEntityNames, query, finalFilters, start, count, sortCriteria);
             return UrnSearchResultsMapper.map(inputContext, searchResult);
           } catch (Exception e) {
             log.warn(

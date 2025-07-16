@@ -9,6 +9,7 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
     capability,
     config_class,
@@ -17,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
@@ -26,6 +26,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
+    DBTSourceReport,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -262,16 +263,16 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
+    report: DBTSourceReport  # nothing cloud-specific in the report
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DBTCloudConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
+        return cls(config, ctx)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -405,8 +406,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if node["resourceType"] in {"model", "seed", "snapshot"}:
             status = node["status"]
             if status is None and materialization != "ephemeral":
-                self.report.report_warning(
-                    key, "node is missing a status, schema metadata will be incomplete"
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                    log=False,
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.

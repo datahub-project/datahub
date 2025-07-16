@@ -11,8 +11,8 @@ DataHub’s GraphQL API is designed to power the UI. The following guidelines ar
 
 ### Query Optimizations
 
-> One of GraphQL's biggest advantages over a traditional REST API is its support for **declarative data fetching**. Each component can (and should) query exactly the fields it requires to render, with no superfluous data sent over the network. If instead your root component executes a single, enormous query to obtain data for all of its children, it might query on behalf of components that *aren't even rendered* given the current state. This can result in a delayed response, and it drastically reduces the likelihood that the query's result can be reused by a **server-side response cache**. [[ref](https://www.apolloGraphQL.com/docs/react/data/operation-best-practices#query-only-the-data-you-need-where-you-need-it)]
->
+> One of GraphQL's biggest advantages over a traditional REST API is its support for **declarative data fetching**. Each component can (and should) query exactly the fields it requires to render, with no superfluous data sent over the network. If instead your root component executes a single, enormous query to obtain data for all of its children, it might query on behalf of components that _aren't even rendered_ given the current state. This can result in a delayed response, and it drastically reduces the likelihood that the query's result can be reused by a **server-side response cache**. [[ref](https://www.apolloGraphQL.com/docs/react/data/operation-best-practices#query-only-the-data-you-need-where-you-need-it)]
+
 1. Minimize over-fetching by only requesting data needed to be displayed.
 2. Limit result counts and use pagination (additionally see section below on `Deep Pagination`).
 3. Avoid deeply nested queries and instead break out queries into separate requests for the nested objects.
@@ -29,11 +29,18 @@ This technique makes maintaining your GraphQL queries much more doable. For exam
 
 ## Search Query Best Practices
 
-### Deep Pagination:  search* vs scroll* APIs
+### Deep Pagination: search* vs scroll* APIs
 
-`search*` APIs such as [`searchAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#searchacrossentities) are designed for minimal pagination (< ~50). They do not perform well for deep pagination requests. Use the equivalent `scroll*` APIs such as [`scrollAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#scrollacrossentities) when expecting the need to paginate deeply into the result set.
+`search*` APIs such as [`searchAcrossEntities`](https://docs.datahub.com/docs/GraphQL/queries/#searchacrossentities) are designed for minimal pagination (< ~50). They do not perform well for deep pagination requests. Use the equivalent `scroll*` APIs such as [`scrollAcrossEntities`](https://docs.datahub.com/docs/GraphQL/queries/#scrollacrossentities) when expecting the need to paginate deeply into the result set.
 
-Note: that it is impossible to use `search*` for paginating beyond 10k results.
+:::note
+It is impossible to use `search*` for paginating beyond 10k results.
+:::
+
+:::caution
+In order to `scroll*` through the entire result set it is required to use a stable sort order. This means using `_score` as
+the first sort order cannot be used. Use the `urn` field as the sort order instead.
+:::
 
 #### Examples
 
@@ -52,9 +59,10 @@ Page 1 Request:
       count: 2
       query: "*"
       orFilters: [
-        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
+        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] }
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
       ]
+      sortInput: { sortCriteria: [{ field: "urn", sortOrder: ASCENDING }] }
     }
   ) {
     nextScrollId
@@ -108,9 +116,10 @@ Page 2 Request:
       count: 2
       query: "*"
       orFilters: [
-        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
+        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] }
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
       ]
+      sortInput: { sortCriteria: [{ field: "urn", sortOrder: ASCENDING }] }
     }
   ) {
     nextScrollId
@@ -152,6 +161,7 @@ Page 2 Result:
   "extensions": {}
 }
 ```
+
 </TabItem>
 
 <TabItem value="Search" label="Search">
@@ -162,11 +172,11 @@ Page 1 Request:
   searchAcrossEntities(
     input: {
       types: [DATASET, CHART]
-      count: 2,
+      count: 2
       start: 0
       query: "*"
       orFilters: [
-        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
+        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] }
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
       ]
     }
@@ -216,11 +226,11 @@ Page 2 Request:
   searchAcrossEntities(
     input: {
       types: [DATASET, CHART]
-      count: 2,
+      count: 2
       start: 2
       query: "*"
       orFilters: [
-        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] },
+        { and: [{ field: "name", condition: CONTAIN, values: ["pet"] }] }
         { and: [{ field: "title", condition: CONTAIN, values: ["pet"] }] }
       ]
     }
@@ -262,12 +272,13 @@ Page 2 Response:
   "extensions": {}
 }
 ```
+
 </TabItem>
 </Tab>
 
 ### SearchFlags: Highlighting and Aggregation
 
-When performing queries which accept [`searchFlags`](https://datahubproject.io/docs/GraphQL/inputObjects#searchflags) and highlighting and aggregation is not needed, be sure to disable these flags.
+When performing queries which accept [`searchFlags`](https://docs.datahub.com/docs/GraphQL/inputObjects#searchflags) and highlighting and aggregation is not needed, be sure to disable these flags.
 
 - skipHighlighting: true
 - skipAggregates: true
@@ -282,7 +293,13 @@ Example for skipping highlighting and aggregates, typically used for scrolling s
 ```graphql
 {
   scrollAcrossEntities(
-    input: {types: [DATASET], count: 2, query: "pet", searchFlags: {skipAggregates: true, skipHighlighting: true}}
+    input: {
+      types: [DATASET]
+      count: 2
+      query: "pet"
+      searchFlags: { skipAggregates: true, skipHighlighting: true }
+      sortInput: { sortCriteria: [{ field: "urn", sortOrder: ASCENDING }] }
+    }
   ) {
     searchResults {
       entity {
@@ -362,7 +379,12 @@ Custom highlighting can be used for searchAcrossEntities when only a limited num
 ```graphql
 {
   searchAcrossEntities(
-    input: {types: [DATASET], count: 2, query: "pet", searchFlags: {customHighlightingFields: ["description"]}}
+    input: {
+      types: [DATASET]
+      count: 2
+      query: "pet"
+      searchFlags: { customHighlightingFields: ["description"] }
+    }
   ) {
     searchResults {
       entity {
@@ -430,17 +452,21 @@ Response:
 </TabItem>
 </Tab>
 
-
 ### Aggregation
 
-When aggregation is required with `searchAcrossEntities`, it is possible to set the `count` to 0 to avoid fetching the top search hits, only returning the aggregations. Alternatively [aggregateAcrossEntities](https://datahubproject.io/docs/GraphQL/queries#aggregateacrossentities) provides counts and can provide faster results from server-side caching.
+When aggregation is required with `searchAcrossEntities`, it is possible to set the `count` to 0 to avoid fetching the top search hits, only returning the aggregations. Alternatively [aggregateAcrossEntities](https://docs.datahub.com/docs/GraphQL/queries#aggregateacrossentities) provides counts and can provide faster results from server-side caching.
 
 Request:
 
 ```graphql
 {
   searchAcrossEntities(
-    input: {types: [DATASET], count: 0, query: "pet", searchFlags: {skipHighlighting: true}}
+    input: {
+      types: [DATASET]
+      count: 0
+      query: "pet"
+      searchFlags: { skipHighlighting: true }
+    }
   ) {
     searchResults {
       entity {
@@ -688,8 +714,8 @@ There are two primary ways to query lineage:
 - Recommended for all lineage queries
 - Only the shortest path is guaranteed to show up in `paths`
 - Supports querying indirect lineage (depth > 1)
-    - Depending on the fanout of the lineage, 3+ hops may not return data, use 1-hop queries for the fastest response times.
-    - Specify using a filter with name `"degree"` and values `"1"` , `"2"`, and / or `"3+"`
+  - Depending on the fanout of the lineage, 3+ hops may not return data, use 1-hop queries for the fastest response times.
+  - Specify using a filter with name `"degree"` and values `"1"` , `"2"`, and / or `"3+"`
 
 The following examples are demonstrated using sample data for `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
 
@@ -709,7 +735,17 @@ Request:
 ```graphql
 {
   searchAcrossLineage(
-    input: {urn: "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)", query: "*", count: 10, start: 0, direction: UPSTREAM, orFilters: [{and: [{field: "degree", condition: EQUAL, values: ["1"]}]}], searchFlags: {skipAggregates: true, skipHighlighting: true}}
+    input: {
+      urn: "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+      query: "*"
+      count: 10
+      start: 0
+      direction: UPSTREAM
+      orFilters: [
+        { and: [{ field: "degree", condition: EQUAL, values: ["1"] }] }
+      ]
+      searchFlags: { skipAggregates: true, skipHighlighting: true }
+    }
   ) {
     start
     count
@@ -771,6 +807,7 @@ Response:
   "extensions": {}
 }
 ```
+
 </TabItem>
 
 <TabItem value="Upstream2" label="2-Hop Upstream">
@@ -781,7 +818,17 @@ Request:
 ```graphql
 {
   searchAcrossLineage(
-    input: {urn: "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)", query: "*", count: 10, start: 0, direction: UPSTREAM, orFilters: [{and: [{field: "degree", condition: EQUAL, values: ["1","2"]}]}], searchFlags: {skipAggregates: true, skipHighlighting: true}}
+    input: {
+      urn: "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+      query: "*"
+      count: 10
+      start: 0
+      direction: UPSTREAM
+      orFilters: [
+        { and: [{ field: "degree", condition: EQUAL, values: ["1", "2"] }] }
+      ]
+      searchFlags: { skipAggregates: true, skipHighlighting: true }
+    }
   ) {
     start
     count
@@ -888,7 +935,12 @@ The following examples are based on the sample lineage graph shown here:
 Example Request:
 
 ```graphql
-query getBulkEntityLineageV2($urns: [String!]! = ["urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)", "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"]) {
+query getBulkEntityLineageV2(
+  $urns: [String!]! = [
+    "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
+    "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
+  ]
+) {
   entities(urns: $urns) {
     urn
     type
@@ -900,7 +952,7 @@ query getBulkEntityLineageV2($urns: [String!]! = ["urn:li:dataJob:(urn:li:dataFl
       properties {
         name
       }
-      upstream: lineage(input: {direction: UPSTREAM, start: 0, count: 10}) {
+      upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 10 }) {
         total
         relationships {
           type
@@ -910,7 +962,9 @@ query getBulkEntityLineageV2($urns: [String!]! = ["urn:li:dataJob:(urn:li:dataFl
           }
         }
       }
-      downstream: lineage(input: {direction: DOWNSTREAM, start: 0, count: 10}) {
+      downstream: lineage(
+        input: { direction: DOWNSTREAM, start: 0, count: 10 }
+      ) {
         total
         relationships {
           type

@@ -158,4 +158,46 @@ describe("impact analysis", () => {
     );
     cy.contains("temperature_etl_2");
   });
+
+  it("editing upstream lineage will redirect to visual view with edit modal open", () => {
+    cy.login();
+    cy.visit(
+      `/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`,
+    );
+
+    // Wait for the page to load
+    cy.contains("SampleCypressKafkaDataset").should("be.visible");
+
+    // Click on a node that has the lineage edit menu
+    cy.get('[data-testid="lineage-edit-menu-button"]').first().click();
+
+    // Click on Edit Upstream option
+    cy.get('[data-testid="edit-upstream-lineage"]').click();
+
+    // Verify the edit modal is open
+    cy.contains(
+      "Select the Upstreams to add to SampleCypressKafkaDataset",
+    ).should("be.visible");
+  });
+
+  it("editing downstream lineage will redirect to visual view with edit modal open", () => {
+    cy.login();
+    cy.visit(
+      `/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`,
+    );
+
+    // Wait for the page to load
+    cy.contains("SampleCypressKafkaDataset").should("be.visible");
+
+    // Click on a node that has the lineage edit menu
+    cy.get('[data-testid="lineage-edit-menu-button"]').first().click();
+
+    // Click on Edit Downstream option
+    cy.get('[data-testid="edit-downstream-lineage"]').click();
+
+    // Verify the edit modal is open
+    cy.contains(
+      "Select the Downstreams to add to SampleCypressKafkaDataset",
+    ).should("be.visible");
+  });
 });

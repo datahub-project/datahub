@@ -2,7 +2,6 @@ import contextlib
 import datetime
 import logging
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
@@ -15,7 +14,6 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Set,
     Type,
     TypeVar,
     Union,
@@ -27,7 +25,7 @@ from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
@@ -36,19 +34,21 @@ from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import ExamplesReport, Report
 from datahub.ingestion.api.source_helpers import (
+    AutoSystemMetadata,
     auto_browse_path_v2,
     auto_fix_duplicate_schema_field_paths,
     auto_fix_empty_field_paths,
     auto_lowercase_urns,
     auto_materialize_referenced_tags_terms,
     auto_status_aspect,
+    auto_workunit,
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sdk.entity import Entity
+from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -72,6 +72,7 @@ class SourceCapability(Enum):
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
+    TEST_CONNECTION = "Test Connection"
 
 
 class StructuredLogLevel(Enum):
@@ -186,19 +187,10 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(Report):
+class SourceReport(ExamplesReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
-
-    _urns_seen: Set[str] = field(default_factory=set)
-    entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
-    aspects: Dict[str, Dict[str, int]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
-    )
-    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
-    )
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -216,33 +208,10 @@ class SourceReport(Report):
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
+        if not isinstance(wu, MetadataWorkUnit):
+            return
 
-        if isinstance(wu, MetadataWorkUnit):
-            urn = wu.get_urn()
-
-            # Specialized entity reporting.
-            if not isinstance(wu.metadata, MetadataChangeEvent):
-                mcps = [wu.metadata]
-            else:
-                mcps = list(mcps_from_mce(wu.metadata))
-
-            for mcp in mcps:
-                entityType = mcp.entityType
-                aspectName = mcp.aspectName
-
-                if urn not in self._urns_seen:
-                    self._urns_seen.add(urn)
-                    self.entities[entityType].append(urn)
-
-                if aspectName is not None:  # usually true
-                    self.aspects[entityType][aspectName] += 1
-                    self.aspect_urn_samples[entityType][aspectName].append(urn)
-                    if isinstance(mcp.aspect, UpstreamLineageClass):
-                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                        if upstream_lineage.fineGrainedLineages:
-                            self.aspect_urn_samples[entityType][
-                                "fineGrainedLineages"
-                            ].append(urn)
+        super()._store_workunit_data(wu)
 
     def report_warning(
         self,
@@ -261,9 +230,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=True
+            StructuredLogLevel.WARN, message, title, context, exc, log=log
         )
 
     def report_failure(
@@ -321,6 +291,7 @@ class SourceReport(Report):
             )
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
@@ -332,6 +303,43 @@ class SourceReport(Report):
             "warnings": Report.to_pure_python_obj(self.warnings),
             "infos": Report.to_pure_python_obj(self.infos),
         }
+
+    @staticmethod
+    def _discretize_dict_values(
+        nested_dict: Dict[str, Dict[str, int]],
+    ) -> Dict[str, Dict[str, int]]:
+        """Helper method to discretize values in a nested dictionary structure."""
+        result = {}
+        for outer_key, inner_dict in nested_dict.items():
+            discretized_dict: Dict[str, int] = {}
+            for inner_key, count in inner_dict.items():
+                discretized_dict[inner_key] = stats.discretize(count)
+            result[outer_key] = discretized_dict
+        return result
+
+    def get_aspects_dict(self) -> Dict[str, Dict[str, int]]:
+        """Convert the nested defaultdict aspects to a regular dict for serialization."""
+        return self._discretize_dict_values(self.aspects)
+
+    def get_aspects_by_subtypes_dict(self) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Get aspect counts grouped by entity type and subtype."""
+        return self._discretize_dict_values_nested(self.aspects_by_subtypes)
+
+    @staticmethod
+    def _discretize_dict_values_nested(
+        nested_dict: Dict[str, Dict[str, Dict[str, int]]],
+    ) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Helper method to discretize values in a nested dictionary structure with three levels."""
+        result = {}
+        for outer_key, middle_dict in nested_dict.items():
+            discretized_middle_dict: Dict[str, Dict[str, int]] = {}
+            for middle_key, inner_dict in middle_dict.items():
+                discretized_inner_dict: Dict[str, int] = {}
+                for inner_key, count in inner_dict.items():
+                    discretized_inner_dict[inner_key] = stats.discretize(count)
+                discretized_middle_dict[middle_key] = discretized_inner_dict
+            result[outer_key] = discretized_middle_dict
+        return result
 
     def compute_stats(self) -> None:
         super().compute_stats()
@@ -416,12 +424,9 @@ class Source(Closeable, metaclass=ABCMeta):
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
         browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.flags.generate_browse_path_v2
-        ):
+        if self.ctx.flags.generate_browse_path_v2:
             browse_path_processor = self._get_browse_path_processor(
-                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
+                self.ctx.flags.generate_browse_path_v2_dry_run
             )
 
         auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
@@ -472,11 +477,15 @@ class Source(Closeable, metaclass=ABCMeta):
         return stream
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        workunit_processors = self.get_workunit_processors()
+        workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
         return self._apply_workunit_processors(
-            self.get_workunit_processors(), self.get_workunits_internal()
+            workunit_processors, auto_workunit(self.get_workunits_internal())
         )
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
@@ -498,7 +507,7 @@ class Source(Closeable, metaclass=ABCMeta):
         pass
 
     def close(self) -> None:
-        pass
+        self.get_report().close()
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()

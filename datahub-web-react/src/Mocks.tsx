@@ -1,64 +1,66 @@
 import React from 'react';
-import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
-import { GetDataFlowDocument } from './graphql/dataFlow.generated';
-import { GetDataJobDocument } from './graphql/dataJob.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+
+import { Entity } from '@app/entity/Entity';
+import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ViewBuilderState } from '@app/entity/view/types';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { FetchedEntity } from '@app/lineage/types';
+import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+
+import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
+import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
+import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
+import { GetDataJobDocument } from '@graphql/dataJob.generated';
+import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
+import { GetMeDocument } from '@graphql/me.generated';
+import { GetMlModelDocument } from '@graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from '@graphql/mlModelGroup.generated';
+import { GetGrantedPrivilegesDocument } from '@graphql/policy.generated';
+import { GetQuickFiltersDocument } from '@graphql/quickFilters.generated';
+import { ListRecommendationsDocument } from '@graphql/recommendations.generated';
 import {
-    GetAutoCompleteResultsDocument,
     GetAutoCompleteMultipleResultsDocument,
+    GetAutoCompleteResultsDocument,
     GetSearchResultsDocument,
-    GetSearchResultsQuery,
     GetSearchResultsForMultipleDocument,
     GetSearchResultsForMultipleQuery,
-} from './graphql/search.generated';
-import { GetUserDocument } from './graphql/user.generated';
+    GetSearchResultsQuery,
+} from '@graphql/search.generated';
+import { GetTagDocument } from '@graphql/tag.generated';
+import { GetUserDocument } from '@graphql/user.generated';
 import {
-    Dataset,
-    DataFlow,
-    DataJob,
-    GlossaryTerm,
-    GlossaryNode,
-    EntityType,
-    PlatformType,
-    MlModel,
-    MlModelGroup,
-    SchemaFieldDataType,
-    ScenarioType,
-    RecommendationRenderType,
-    RelationshipDirection,
-    Container,
-    PlatformPrivileges,
-    FilterOperator,
     AppConfig,
-    EntityPrivileges,
     BusinessAttribute,
-    EntityRelationshipsResult,
-    Maybe,
-    SearchResult,
-    DataHubViewType,
-    LogicalOperator,
+    Container,
+    DataFlow,
     DataHubView,
     DataHubViewFilter,
+    DataHubViewType,
+    DataJob,
+    Dataset,
+    EntityPrivileges,
+    EntityRelationshipsResult,
+    EntityType,
+    FilterOperator,
     GlobalTags,
-    OwnershipType,
+    GlossaryNode,
+    GlossaryTerm,
+    LogicalOperator,
+    Maybe,
+    MlModel,
+    MlModelGroup,
     Owner,
-} from './types.generated';
-import { GetTagDocument } from './graphql/tag.generated';
-import { GetMlModelDocument } from './graphql/mlModel.generated';
-import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
-import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
-import { ListRecommendationsDocument } from './graphql/recommendations.generated';
-import { FetchedEntity } from './app/lineage/types';
-import { DEFAULT_APP_CONFIG } from './appConfigContext';
-import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
-import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
-import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
-import { Entity } from './app/entity/Entity';
-import { GenericEntityProperties } from './app/entity/shared/types';
-import { ViewBuilderState } from './app/entity/view/types';
-import { EntityCapabilityType } from './app/entityV2/Entity';
+    OwnershipType,
+    PlatformPrivileges,
+    PlatformType,
+    RecommendationRenderType,
+    RelationshipDirection,
+    ScenarioType,
+    SchemaFieldDataType,
+    SearchResult,
+} from '@types';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
@@ -127,6 +129,7 @@ export const user1 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     properties: null,
@@ -199,6 +202,7 @@ const user2 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     info: null,
@@ -331,6 +335,7 @@ export const dataset1 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     health: [],
     assertions: null,
@@ -427,6 +432,7 @@ export const dataset2 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     health: [],
     assertions: null,
@@ -668,6 +674,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     lineage: null,
     relationships: null,
@@ -1136,6 +1143,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm1',
                 __typename: 'CustomPropertiesEntry',
             },
         ],
@@ -1407,6 +1415,7 @@ export const dataFlow1 = {
         },
     },
     domain: null,
+    application: null,
     deprecation: null,
     autoRenderAspects: [],
     activeIncidents: null,
@@ -1494,6 +1503,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
+    application: null,
     status: null,
     deprecation: null,
     autoRenderAspects: [],
@@ -1660,6 +1670,7 @@ export const dataJob2 = {
         ],
     },
     domain: null,
+    application: null,
     upstream: null,
     downstream: null,
     deprecation: null,
@@ -1733,6 +1744,7 @@ export const dataJob3 = {
         ],
     },
     domain: null,
+    application: null,
     upstream: null,
     downstream: null,
     status: null,
@@ -3709,6 +3721,7 @@ export const mocks = [
                         manageIdentities: true,
                         manageDomains: true,
                         manageTags: true,
+                        viewManageTags: true,
                         createDomains: true,
                         createTags: true,
                         manageUserCredentials: true,
@@ -3726,6 +3739,8 @@ export const mocks = [
                         manageBusinessAttributes: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
+                        manageApplications: true,
+                        manageFeatures: true,
                     },
                 },
             },
@@ -4000,6 +4015,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlossaries: true,
     manageUserCredentials: true,
     manageTags: true,
+    viewManageTags: true,
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
@@ -4009,6 +4025,8 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageApplications: true,
+    manageFeatures: true,
 };
 
 export const DomainMock1 = {

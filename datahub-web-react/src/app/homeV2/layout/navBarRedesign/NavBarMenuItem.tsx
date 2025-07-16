@@ -1,9 +1,12 @@
-import React from 'react';
 import { Menu, MenuItemProps, Tooltip } from 'antd';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors, Badge, Text } from '@src/alchemy-components';
-import { NavBarMenuBaseItem } from './types';
+
+import { getColor } from '@components/theme/utils';
+
+import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
+import { Badge, Text, colors } from '@src/alchemy-components';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
@@ -18,6 +21,15 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         display: flex;
         align-items: center;
         ${(props) => props.isCollapsed && 'width: 36px;'}
+        @media (max-height: 935px) {
+            margin: 4px 0;
+        }
+        @media (max-height: 890px) {
+            margin: 2px 0;
+        }
+        @media (max-height: 835px) {
+            margin: 0;
+        }
     }
 
     && svg {
@@ -68,7 +80,10 @@ const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     height: ${(props) => props.$size ?? 20}px;
 
     && svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) =>
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles['primary-color']};`
+                : 'color: #8088a3;'}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
     }
@@ -78,7 +93,11 @@ const StyledText = styled(Text)<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(#7565d6 20%, #5340cc 80%);
+        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor(
+            'primary',
+            500,
+            props.theme,
+        )} 99%);
         background-clip: text;
         -webkit-text-fill-color: transparent;
     `}
@@ -94,7 +113,7 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     position: absolute;
     width: 10px;
     height: 10px;
-    background: ${colors.violet[500]};
+    background: ${(props) => props.theme.styles['primary-color']};
     border-radius: 6px;
     border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
     top: 6px;
@@ -138,7 +157,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                         <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
                             {item.title}
                         </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="violet" />}
+                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="primary" />}
                     </ItemTitleContentWrapper>
                 )}
             </StyledMenuItem>

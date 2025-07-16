@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -39,12 +40,14 @@ from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, Logging
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.transformer.system_metadata_transformer import (
-    SystemMetadataTransformer,
-)
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.upgrade.upgrade import (
+    is_server_default_cli_ahead,
+    retrieve_version_stats,
+)
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
@@ -138,9 +141,8 @@ class CliReport(Report):
 
 
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
-
     return DatahubRestSink(ctx, sink_config)
 
 
@@ -173,10 +175,14 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        with contextlib.ExitStack() as exit_stack, contextlib.ExitStack() as inner_exit_stack:
+        with (
+            contextlib.ExitStack() as exit_stack,
+            contextlib.ExitStack() as inner_exit_stack,
+        ):
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
+                    self.config.datahub_api.client_mode = ClientMode.INGESTION
                     self.graph = exit_stack.enter_context(
                         DataHubGraph(self.config.datahub_api)
                     )
@@ -285,9 +291,6 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
-        # Add the system metadata transformer at the end of the list.
-        self.transformers.append(SystemMetadataTransformer(self.ctx))
-
     def _configure_reporting(self, report_to: Optional[str]) -> None:
         if self.dry_run:
             # In dry run mode, we don't want to report anything.
@@ -343,6 +346,44 @@ class Pipeline:
                 reporter.on_start(ctx=self.ctx)
             except Exception as e:
                 logger.warning("Reporting failed on start", exc_info=e)
+
+    def _warn_old_cli_version(self) -> None:
+        """
+        Check if the server default CLI version is ahead of the CLI version being used.
+        If so, add a warning to the report.
+        """
+
+        try:
+            version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        except RuntimeError as e:
+            # Handle case where there's no event loop available (e.g., in ThreadPoolExecutor)
+            if "no current event loop" in str(e):
+                logger.debug("Skipping version check - no event loop available")
+                return
+            raise
+
+        if not version_stats or not self.graph:
+            return
+
+        if is_server_default_cli_ahead(version_stats):
+            server_default_version = (
+                version_stats.server.current_server_default_cli_version.version
+                if version_stats.server.current_server_default_cli_version
+                else None
+            )
+            current_version = version_stats.client.current.version
+
+            logger.debug(f"""
+                client_version: {current_version}
+                server_default_version: {server_default_version}
+                server_default_cli_ahead: True
+            """)
+
+            self.source.get_report().warning(
+                title="Server default CLI version is ahead of CLI version",
+                message="Please upgrade the CLI version being used",
+                context=f"Server Default CLI version: {server_default_version}, Used CLI version: {current_version}",
+            )
 
     def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
@@ -400,6 +441,7 @@ class Pipeline:
         return False
 
     def run(self) -> None:
+        self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
@@ -409,6 +451,10 @@ class Pipeline:
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
+
+            self.exit_stack.enter_context(
+                change_default_attribution(KnownAttribution.INGESTION)
+            )
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
@@ -502,7 +548,7 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
+                self.sink.flush()
                 self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
@@ -521,10 +567,8 @@ class Pipeline:
         Evaluates the commit_policy for each committable in the context and triggers the commit operation
         on the committable if its required commit policies are satisfied.
         """
-        has_errors: bool = (
-            True
-            if self.source.get_report().failures or self.sink.get_report().failures
-            else False
+        has_errors: bool = bool(
+            self.source.get_report().failures or self.sink.get_report().failures
         )
         has_warnings: bool = bool(
             self.source.get_report().warnings or self.sink.get_report().warnings
@@ -558,18 +602,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:
@@ -578,11 +624,17 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().get_aspects_dict()
+        source_aspects_by_subtype = (
+            self.source.get_report().get_aspects_by_subtypes_dict()
+        )
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
+                "source_aspects_by_subtype": source_aspects_by_subtype,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []

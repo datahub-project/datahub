@@ -1,8 +1,16 @@
 package io.datahubproject.metadata.context;
 
+import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_API_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
+
 import com.google.common.net.HttpHeaders;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collection;
@@ -16,14 +24,29 @@ import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import nl.basjes.parse.useragent.UserAgent;
+import nl.basjes.parse.useragent.UserAgentAnalyzer;
 
 @Slf4j
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class RequestContext implements ContextInterface {
+  public static final UserAgentAnalyzer UAA =
+      UserAgentAnalyzer.newBuilder()
+          .hideMatcherLoadStats()
+          .addResources("datahub_user_agents.yaml")
+          .withFields(UserAgent.AGENT_CLASS, UserAgent.AGENT_NAME)
+          .withCache(1000)
+          .build();
+
   @Nonnull
-  public static final RequestContext TEST =
-      RequestContext.builder().requestID("test").requestAPI(RequestAPI.TEST).build();
+  public static final RequestContextBuilder TEST =
+      RequestContext.builder()
+          .actorUrn("")
+          .sourceIP("")
+          .userAgent("")
+          .requestID("test")
+          .requestAPI(RequestAPI.TEST);
 
   @Nonnull private final String actorUrn;
   @Nonnull private final String sourceIP;
@@ -36,9 +59,12 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String requestID;
 
   @Nonnull private final String userAgent;
-  @Builder.Default private boolean validated = true;
+  @Nonnull private final String agentClass;
+  @Nonnull private final String agentName;
+  @Nullable private final MetricUtils metricUtils;
 
   public RequestContext(
+      MetricUtils metricUtils,
       @Nonnull String actorUrn,
       @Nonnull String sourceIP,
       @Nonnull RequestAPI requestAPI,
@@ -49,8 +75,37 @@ public class RequestContext implements ContextInterface {
     this.requestAPI = requestAPI;
     this.requestID = requestID;
     this.userAgent = userAgent;
+    this.metricUtils = metricUtils;
+
+    /*
+     *         "Browser",
+     *         "Robot",
+     *         "Crawler",
+     *         "Mobile App",
+     *         "Email Client",
+     *         "Library",
+     *         "Hacker",
+     *         "Unknown",
+     *         // DataHub Specific below
+     *         "CLI",
+     *         "INGESTION",
+     *         "SDK"
+     */
+    if (this.userAgent != null && !this.userAgent.isEmpty()) {
+      UserAgent ua = UAA.parse(this.userAgent);
+      this.agentClass = ua.get(UserAgent.AGENT_CLASS).getValue();
+      this.agentName = ua.get(UserAgent.AGENT_NAME).getValue();
+    } else {
+      this.agentClass = "Unknown";
+      this.agentName = "Unknown";
+    }
+
     // Uniform common logging of requests across APIs
     log.info(toString());
+    // API metrics
+    if (metricUtils != null) {
+      captureAPIMetrics(metricUtils, this);
+    }
   }
 
   @Override
@@ -59,19 +114,28 @@ public class RequestContext implements ContextInterface {
   }
 
   public static class RequestContextBuilder {
-    private RequestContext build() {
 
+    public RequestContext build() {
       // Add context for tracing
       Span.current()
-          .setAttribute("user.id", this.actorUrn)
-          .setAttribute("request.api", this.requestAPI.toString())
-          .setAttribute("request.id", this.requestID);
+          .setAttribute(USER_ID_ATTR, this.actorUrn)
+          .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
+          .setAttribute(REQUEST_ID_ATTR, this.requestID);
+      Optional.ofNullable(Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
+          .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
+      Optional.ofNullable(Context.current().get(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY))
+          .ifPresent(eventSource -> eventSource.set(sourceIP));
 
       return new RequestContext(
-          this.actorUrn, this.sourceIP, this.requestAPI, this.requestID, this.userAgent);
+          this.metricUtils,
+          this.actorUrn,
+          this.sourceIP,
+          this.requestAPI,
+          this.requestID,
+          this.userAgent);
     }
 
-    public RequestContext buildGraphql(
+    public RequestContextBuilder buildGraphql(
         @Nonnull String actorUrn,
         @Nonnull HttpServletRequest request,
         @Nonnull String queryName,
@@ -81,15 +145,15 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.GRAPHQL);
       requestID(buildRequestId(queryName, Set.of()));
       userAgent(extractUserAgent(request));
-      return build();
+      return this;
     }
 
-    public RequestContext buildRestli(
+    public RequestContextBuilder buildRestli(
         @Nonnull String actorUrn, @Nullable ResourceContext resourceContext, String action) {
       return buildRestli(actorUrn, resourceContext, action, (String) null);
     }
 
-    public RequestContext buildRestli(
+    public RequestContextBuilder buildRestli(
         @Nonnull String actorUrn,
         @Nullable ResourceContext resourceContext,
         String action,
@@ -98,7 +162,7 @@ public class RequestContext implements ContextInterface {
           actorUrn, resourceContext, action, entityName == null ? null : List.of(entityName));
     }
 
-    public RequestContext buildRestli(
+    public RequestContextBuilder buildRestli(
         @Nonnull String actorUrn,
         @Nullable ResourceContext resourceContext,
         @Nonnull String action,
@@ -110,7 +174,7 @@ public class RequestContext implements ContextInterface {
           entityNames == null ? null : Arrays.stream(entityNames).collect(Collectors.toList()));
     }
 
-    public RequestContext buildRestli(
+    public RequestContextBuilder buildRestli(
         @Nonnull String actorUrn,
         @Nullable ResourceContext resourceContext,
         String action,
@@ -120,10 +184,10 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
       userAgent(resourceContext == null ? "" : extractUserAgent(resourceContext));
-      return build();
+      return this;
     }
 
-    public RequestContext buildOpenapi(
+    public RequestContextBuilder buildOpenapi(
         @Nonnull String actorUrn,
         @Nonnull HttpServletRequest request,
         @Nonnull String action,
@@ -132,7 +196,7 @@ public class RequestContext implements ContextInterface {
           actorUrn, request, action, entityName == null ? null : List.of(entityName));
     }
 
-    public RequestContext buildOpenapi(
+    public RequestContextBuilder buildOpenapi(
         @Nonnull String actorUrn,
         @Nullable HttpServletRequest request,
         @Nonnull String action,
@@ -142,7 +206,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
       userAgent(request == null ? "" : extractUserAgent(request));
-      return build();
+      return this;
     }
 
     private static String buildRequestId(
@@ -174,6 +238,28 @@ public class RequestContext implements ContextInterface {
     }
   }
 
+  private static void captureAPIMetrics(MetricUtils metricUtils, RequestContext requestContext) {
+    // System user?
+    final String userCategory;
+    if (SYSTEM_ACTOR.equals(requestContext.actorUrn)) {
+      userCategory = "system";
+    } else if (DATAHUB_ACTOR.equals(requestContext.actorUrn)) {
+      userCategory = "admin";
+    } else {
+      userCategory = "regular";
+    }
+
+    if (requestContext.getRequestAPI() != RequestAPI.TEST && metricUtils != null) {
+      metricUtils.increment(
+          String.format(
+              "requestContext_%s_%s_%s",
+              userCategory,
+              requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", ""),
+              requestContext.getRequestAPI().toString().toLowerCase()),
+          1);
+    }
+  }
+
   @Override
   public String toString() {
     return "RequestContext{"
@@ -190,6 +276,9 @@ public class RequestContext implements ContextInterface {
         + '\''
         + ", userAgent='"
         + userAgent
+        + '\''
+        + ", agentClass='"
+        + agentClass
         + '\''
         + '}';
   }

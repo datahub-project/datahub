@@ -12,8 +12,10 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,7 +46,7 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
     final UpdateIncidentInput input =
         bindArgument(environment.getArgument("input"), UpdateIncidentInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // Check whether the incident exists.
@@ -79,7 +81,9 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void verifyAuthorizationOrThrow(
@@ -116,18 +120,19 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     if (input.getDescription() != null) {
       info.setDescription(input.getDescription());
     }
-    if (input.getPriority() != null) {
-      info.setPriority(IncidentUtils.mapIncidentPriority(input.getPriority()));
-    }
-    if (input.getAssigneeUrns() != null) {
-      info.setAssignees(IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp));
-    }
     if (input.getStatus() != null) {
       info.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     }
     if (input.getResourceUrns() != null && !input.getResourceUrns().isEmpty()) {
       info.setEntities(new UrnArray(IncidentUtils.stringsToUrns(input.getResourceUrns())));
     }
+
+    info.setPriority(
+        IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.REMOVE_IF_NULL);
+
+    info.setAssignees(
+        IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
+        SetMode.REMOVE_IF_NULL);
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {

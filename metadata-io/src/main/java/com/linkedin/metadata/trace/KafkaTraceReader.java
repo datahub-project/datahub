@@ -1,6 +1,6 @@
 package com.linkedin.metadata.trace;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -10,7 +10,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
 import io.datahubproject.openapi.v1.models.TraceWriteStatus;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -36,12 +39,13 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.protocol.types.SchemaException;
+import org.apache.kafka.common.utils.Utils;
 
 @Slf4j
 @SuperBuilder
@@ -62,7 +66,14 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
   private final Cache<TopicPartition, OffsetAndMetadata> offsetCache =
       Caffeine.newBuilder()
           .maximumSize(100) // unlikely to have more than 100 partitions
-          .expireAfterWrite(Duration.ofMinutes(5)) // Shorter expiry for offsets
+          .expireAfterWrite(
+              Duration.ofMinutes(5)) // Short expiry since end offsets change frequently
+          .build();
+  private final Cache<TopicPartition, Long> endOffsetCache =
+      Caffeine.newBuilder()
+          .maximumSize(100) // Match the size of offsetCache
+          .expireAfterWrite(
+              Duration.ofSeconds(5)) // Short expiry since end offsets change frequently
           .build();
 
   public KafkaTraceReader(
@@ -216,6 +227,219 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
       log.error("Error processing parallel trace requests", e);
       throw new RuntimeException("Failed to process parallel trace requests", e);
     }
+  }
+
+  /**
+   * Returns the current consumer group offsets for all partitions of the topic.
+   *
+   * @param skipCache Whether to skip the cache when fetching offsets
+   * @return Map of TopicPartition to OffsetAndMetadata, empty map if no offsets found or error
+   *     occurs
+   */
+  public Map<TopicPartition, OffsetAndMetadata> getAllPartitionOffsets(boolean skipCache) {
+    final String consumerGroupId = getConsumerGroupId();
+    if (consumerGroupId == null) {
+      log.warn("Cannot get partition offsets: consumer group ID is null");
+      return Collections.emptyMap();
+    }
+
+    try {
+      // Get all topic partitions first
+      Map<String, KafkaFuture<TopicDescription>> topicInfo =
+          adminClient.describeTopics(Collections.singletonList(getTopicName())).topicNameValues();
+
+      if (topicInfo == null || !topicInfo.containsKey(getTopicName())) {
+        log.error("Failed to get topic information for topic: {}", getTopicName());
+        return Collections.emptyMap();
+      }
+
+      // Create a list of all TopicPartitions
+      List<TopicPartition> allPartitions =
+          topicInfo.get(getTopicName()).get(timeoutSeconds, TimeUnit.SECONDS).partitions().stream()
+              .map(partitionInfo -> new TopicPartition(getTopicName(), partitionInfo.partition()))
+              .collect(Collectors.toList());
+
+      // For each partition that exists in the cache and wasn't requested to skip,
+      // pre-populate the result map
+      Map<TopicPartition, OffsetAndMetadata> result = new HashMap<>();
+      if (!skipCache) {
+        for (TopicPartition partition : allPartitions) {
+          OffsetAndMetadata cached = offsetCache.getIfPresent(partition);
+          if (cached != null) {
+            result.put(partition, cached);
+          }
+        }
+      }
+
+      // If we have all partitions from cache and aren't skipping cache, return early
+      if (!skipCache && result.size() == allPartitions.size()) {
+        return result;
+      }
+
+      // Get all offsets for the consumer group
+      ListConsumerGroupOffsetsResult offsetsResult =
+          adminClient.listConsumerGroupOffsets(consumerGroupId);
+      if (offsetsResult == null) {
+        log.error("Failed to get consumer group offsets for group: {}", consumerGroupId);
+        return result;
+      }
+
+      Map<TopicPartition, OffsetAndMetadata> fetchedOffsets =
+          offsetsResult.partitionsToOffsetAndMetadata().get(timeoutSeconds, TimeUnit.SECONDS);
+
+      if (fetchedOffsets == null) {
+        log.error("Null offsets returned for consumer group: {}", consumerGroupId);
+        return result;
+      }
+
+      // Filter to only keep offsets for our topic
+      Map<TopicPartition, OffsetAndMetadata> topicOffsets =
+          fetchedOffsets.entrySet().stream()
+              .filter(entry -> entry.getKey().topic().equals(getTopicName()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      // Update the cache for each offset
+      for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : topicOffsets.entrySet()) {
+        offsetCache.put(entry.getKey(), entry.getValue());
+      }
+
+      // Return all offsets
+      return topicOffsets;
+    } catch (Exception e) {
+      log.error("Error fetching all partition offsets for topic {}", getTopicName(), e);
+      return Collections.emptyMap();
+    }
+  }
+
+  /**
+   * Returns the end offsets (latest offsets) for all partitions of the topic.
+   *
+   * @param skipCache Whether to skip the cache when fetching end offsets
+   * @return Map of TopicPartition to end offset, empty map if no offsets found or error occurs
+   */
+  public Map<TopicPartition, Long> getEndOffsets(boolean skipCache) {
+    try {
+      // Get all topic partitions first (reuse the same approach as in getAllPartitionOffsets)
+      Map<String, KafkaFuture<TopicDescription>> topicInfo =
+          adminClient.describeTopics(Collections.singletonList(getTopicName())).topicNameValues();
+
+      if (topicInfo == null || !topicInfo.containsKey(getTopicName())) {
+        log.error("Failed to get topic information for topic: {}", getTopicName());
+        return Collections.emptyMap();
+      }
+
+      // Create a list of all TopicPartitions
+      List<TopicPartition> allPartitions =
+          topicInfo.get(getTopicName()).get(timeoutSeconds, TimeUnit.SECONDS).partitions().stream()
+              .map(partitionInfo -> new TopicPartition(getTopicName(), partitionInfo.partition()))
+              .collect(Collectors.toList());
+
+      // Pre-populate result map from cache if not skipping cache
+      Map<TopicPartition, Long> result = new HashMap<>();
+      if (!skipCache) {
+        for (TopicPartition partition : allPartitions) {
+          Long cached = endOffsetCache.getIfPresent(partition);
+          if (cached != null) {
+            result.put(partition, cached);
+          }
+        }
+
+        // If we have all partitions from cache and aren't skipping cache, return early
+        if (result.size() == allPartitions.size()) {
+          return result;
+        }
+      } else {
+        // If skipping cache, invalidate all entries for these partitions
+        for (TopicPartition partition : allPartitions) {
+          endOffsetCache.invalidate(partition);
+        }
+      }
+
+      // Fetch missing end offsets using a consumer
+      try (Consumer<String, GenericRecord> consumer = consumerSupplier.get()) {
+        // Determine which partitions we need to fetch
+        List<TopicPartition> partitionsToFetch =
+            allPartitions.stream()
+                .filter(partition -> skipCache || !result.containsKey(partition))
+                .collect(Collectors.toList());
+
+        if (!partitionsToFetch.isEmpty()) {
+          // Assign partitions to the consumer
+          consumer.assign(partitionsToFetch);
+
+          // Fetch end offsets for all partitions at once
+          Map<TopicPartition, Long> fetchedEndOffsets = consumer.endOffsets(partitionsToFetch);
+
+          // Update the cache and result map
+          for (Map.Entry<TopicPartition, Long> entry : fetchedEndOffsets.entrySet()) {
+            endOffsetCache.put(entry.getKey(), entry.getValue());
+            result.put(entry.getKey(), entry.getValue());
+          }
+        }
+      }
+
+      return result;
+    } catch (Exception e) {
+      log.error("Error fetching end offsets for topic {}", getTopicName(), e);
+      return Collections.emptyMap();
+    }
+  }
+
+  /**
+   * Returns the end offsets for a specific set of partitions.
+   *
+   * @param partitions Collection of TopicPartitions to get end offsets for
+   * @param skipCache Whether to skip the cache when fetching end offsets
+   * @return Map of TopicPartition to end offset
+   */
+  public Map<TopicPartition, Long> getEndOffsets(
+      Collection<TopicPartition> partitions, boolean skipCache) {
+    if (partitions == null || partitions.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<TopicPartition, Long> result = new HashMap<>();
+    List<TopicPartition> partitionsToFetch = new ArrayList<>();
+
+    // Check cache first if not skipping
+    if (!skipCache) {
+      for (TopicPartition partition : partitions) {
+        Long cached = endOffsetCache.getIfPresent(partition);
+        if (cached != null) {
+          result.put(partition, cached);
+        } else {
+          partitionsToFetch.add(partition);
+        }
+      }
+
+      // If all partitions were cached, return early
+      if (partitionsToFetch.isEmpty()) {
+        return result;
+      }
+    } else {
+      // If skipping cache, fetch all partitions
+      partitionsToFetch.addAll(partitions);
+      // Invalidate cache entries
+      for (TopicPartition partition : partitions) {
+        endOffsetCache.invalidate(partition);
+      }
+    }
+
+    // Fetch end offsets for partitions not in cache
+    try (Consumer<String, GenericRecord> consumer = consumerSupplier.get()) {
+      consumer.assign(partitionsToFetch);
+      Map<TopicPartition, Long> fetchedOffsets = consumer.endOffsets(partitionsToFetch);
+
+      // Update cache and results
+      for (Map.Entry<TopicPartition, Long> entry : fetchedOffsets.entrySet()) {
+        endOffsetCache.put(entry.getKey(), entry.getValue());
+        result.put(entry.getKey(), entry.getValue());
+      }
+    } catch (Exception e) {
+      log.error("Error fetching end offsets for specific partitions", e);
+    }
+
+    return result;
   }
 
   private Map<String, TraceStorageStatus> tracePendingStatuses(
@@ -401,14 +625,13 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
         urn.toString(),
         key -> {
           try {
-            DefaultPartitioner partitioner = new DefaultPartitioner();
 
             TopicDescription topicDescription =
                 adminClient
                     .describeTopics(Collections.singletonList(getTopicName()))
-                    .all()
-                    .get()
-                    .get(getTopicName());
+                    .topicNameValues()
+                    .get(getTopicName())
+                    .get(timeoutSeconds, TimeUnit.SECONDS);
 
             if (topicDescription == null) {
               throw new IllegalStateException("Topic " + getTopicName() + " not found");
@@ -437,11 +660,13 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                 new Cluster(
                     null, nodes, partitions, Collections.emptySet(), Collections.emptySet());
 
-            int partition =
-                partitioner.partition(getTopicName(), key, key.getBytes(), null, null, cluster);
+            int partition = getPartitionForKey(key, cluster.partitionCountForTopic(getTopicName()));
 
             return new TopicPartition(getTopicName(), partition);
-          } catch (InterruptedException | ExecutionException e) {
+          } catch (InterruptedException
+              | ExecutionException
+              | RuntimeException
+              | TimeoutException e) {
             throw new RuntimeException("Failed to get topic partition for " + key, e);
           }
         });
@@ -456,5 +681,20 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
         Collections.singletonMap(topicPartition, traceTimestampMillis);
 
     return consumer.offsetsForTimes(timestampsToSearch).get(topicPartition);
+  }
+
+  /**
+   * Calculate which partition a key would be assigned to. This replicates Kafka's default
+   * partitioning behavior.
+   */
+  private static int getPartitionForKey(String key, int numPartitions) {
+    if (key == null) {
+      throw new IllegalArgumentException("Key cannot be null");
+    }
+
+    byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+
+    // Use murmur2 hash (same as Kafka default)
+    return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
   }
 }

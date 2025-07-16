@@ -1,7 +1,8 @@
 // CheckboxGroup.tsx
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
-import { Checkbox } from '../Checkbox';
+
+import { Checkbox } from '@components/components/Checkbox';
 
 const StyledCheckboxLabel = styled.div`
     display: flex;
@@ -40,7 +41,7 @@ export const SelectItemCheckboxGroup: React.FC<SelectItemCheckboxGroupProps> = (
                     <Checkbox
                         value={option.value}
                         isChecked={selectedOptions.includes(option.value)}
-                        onChange={() => handleCheckboxToggle(option.value)}
+                        setIsChecked={() => handleCheckboxToggle(option.value)}
                     />
                 </StyledCheckboxLabel>
             ))}

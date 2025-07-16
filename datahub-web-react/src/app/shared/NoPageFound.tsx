@@ -1,7 +1,7 @@
-import React from 'react';
 import { Button } from 'antd';
-import styled from 'styled-components';
+import React from 'react';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
 const MainContainer = styled.div`
     height: 100vh;
@@ -66,7 +66,7 @@ export const NoPageFound = () => {
                         <Number>4</Number>
                     </NumberContainer>
                 </PageNotFoundTextContainer>
-                <SubTitle>The page your requested was not found,</SubTitle>
+                <SubTitle>The page you requested was not found,</SubTitle>
                 <Button onClick={goToHomepage}>Back to Home</Button>
             </PageNotFoundContainer>
         </MainContainer>

@@ -15,7 +15,7 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
@@ -33,7 +33,7 @@ def register_mock_api(request_mock):
         },
     }
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -435,11 +435,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with patch(
-        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
-    ) as mock_client, patch.object(
-        HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
+    with (
+        patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client
         register_mock_data(workspace_client)

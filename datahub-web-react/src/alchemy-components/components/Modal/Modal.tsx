@@ -1,4 +1,4 @@
-import { Button, ButtonProps, Heading, typography, Text, Icon } from '@components';
+import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -50,7 +50,9 @@ const ButtonsContainer = styled.div`
 
 export interface ModalButton extends ButtonProps {
     text: string;
+    key?: string;
     onClick: () => void;
+    buttonDataTestId?: string;
 }
 
 export interface ModalProps {
@@ -78,6 +80,7 @@ export function Modal({
             onCancel={onCancel}
             closeIcon={<Icon icon="X" source="phosphor" />}
             hasChildren={!!children}
+            data-testid={dataTestId}
             title={
                 <HeaderContainer hasChildren={!!children}>
                     <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
@@ -93,10 +96,10 @@ export function Modal({
             footer={
                 !!buttons.length && (
                     <ButtonsContainer>
-                        {buttons.map(({ text, variant, onClick, ...buttonProps }, index) => (
+                        {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button
-                                key={text}
-                                data-testid={dataTestId && `${dataTestId}-${variant}-${index}`}
+                                key={key || text}
+                                data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
                                 variant={variant}
                                 onClick={onClick}
                                 {...buttonProps}

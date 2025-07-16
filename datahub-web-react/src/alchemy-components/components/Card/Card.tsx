@@ -1,12 +1,21 @@
 import React from 'react';
-import { CardProps } from './types';
-import { CardContainer, Header, SubTitle, SubTitleContainer, Title, TitleContainer } from './components';
-import { Pill } from '../Pills';
+
+import {
+    CardContainer,
+    Header,
+    SubTitle,
+    SubTitleContainer,
+    Title,
+    TitleContainer,
+} from '@components/components/Card/components';
+import { CardProps } from '@components/components/Card/types';
+import { Pill } from '@components/components/Pills';
 
 export const cardDefaults: CardProps = {
     title: 'Title',
     iconAlignment: 'horizontal',
     isEmpty: false,
+    isCardClickable: true,
 };
 
 export const Card = ({
@@ -22,6 +31,8 @@ export const Card = ({
     maxWidth,
     height,
     isEmpty,
+    style,
+    isCardClickable = cardDefaults.isCardClickable,
 }: CardProps) => {
     return (
         <>
@@ -33,7 +44,14 @@ export const Card = ({
                     </TitleContainer>
                 </CardContainer>
             ) : (
-                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height} width={width}>
+                <CardContainer
+                    isClickable={!!button && isCardClickable}
+                    onClick={onClick}
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    style={style}
+                >
                     <Header iconAlignment={iconAlignment}>
                         {icon}
                         <TitleContainer>
@@ -51,9 +69,9 @@ export const Card = ({
                             </Title>
                             <SubTitleContainer>
                                 <SubTitle>{subTitle}</SubTitle>
-                                {button}
                             </SubTitleContainer>
                         </TitleContainer>
+                        {button}
                     </Header>
                     {children}
                 </CardContainer>

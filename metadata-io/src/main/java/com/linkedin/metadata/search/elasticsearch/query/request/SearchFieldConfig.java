@@ -19,14 +19,17 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
-@Builder
+@Builder(toBuilder = true)
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public class SearchFieldConfig {
   public static final float DEFAULT_BOOST = 1.0f;
 
-  public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId", "_index");
+  // Fields that can be filtered on directly, without appending the ".keyword" suffix.
+  // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not
+  // hardcoded.
+  public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId", "_index", "deprecated");
   public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
   public static final float URN_BOOST_SCORE = 10.0f;
 

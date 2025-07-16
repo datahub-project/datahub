@@ -90,6 +90,11 @@ class ClassificationHandler:
 
     def get_classifiers(self) -> List[Classifier]:
         classifiers = []
+        if (
+            not isinstance(self.config, ClassificationSourceConfigMixin)
+            or self.config.classification is None
+        ):
+            return classifiers
 
         for classifier in self.config.classification.classifiers:
             classifier_class = classifier_registry.get(classifier.type)
@@ -279,11 +284,7 @@ class ClassificationHandler:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=(
-                        sample_data[schema_field.fieldPath]
-                        if schema_field.fieldPath in sample_data.keys()
-                        else []
-                    ),
+                    values=sample_data.get(schema_field.fieldPath, []),
                 )
             )
 
@@ -323,8 +324,10 @@ def classification_workunit_processor(
                         partial(
                             data_reader.get_sample_data_for_table,
                             table_id,
-                            classification_handler.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER,
+                            int(
+                                classification_handler.config.classification.sample_size
+                                * SAMPLE_SIZE_MULTIPLIER
+                            ),
                             **(data_reader_kwargs or {}),
                         )
                         if data_reader

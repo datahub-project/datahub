@@ -39,7 +39,8 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_SYSTEM_OPERATIONS"
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -76,7 +77,8 @@
         "MANAGE_DATA_PRODUCTS",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -142,7 +144,7 @@
       "privileges": [
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
-        "VIEW_DATASET_OPERATIONS_PRIVILEGE"
+        "VIEW_DATASET_OPERATIONS"
       ],
       "displayName": "All Users - View Dataset Sensitive Information",
       "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
@@ -192,7 +194,9 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -248,10 +252,10 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",
@@ -335,7 +339,8 @@
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE"
       ],
       "displayName": "Editors - Metadata Policy",
       "description": "Editors have all metadata privileges.",

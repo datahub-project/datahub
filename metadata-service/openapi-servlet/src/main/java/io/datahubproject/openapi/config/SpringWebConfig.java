@@ -2,13 +2,11 @@ package io.datahubproject.openapi.config;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import io.datahubproject.openapi.v3.OpenAPIV3Generator;
+import io.datahubproject.openapi.v3.OpenAPIV3Customizer;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.OpenAPI;
-import java.util.Collections;
+import io.swagger.v3.oas.models.SpecVersion;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -17,11 +15,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -32,6 +30,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Order(2)
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
+  private static final String LEGACY_VERSION = "3.0.1";
   private static final Set<String> OPERATIONS_PACKAGES =
       Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
   private static final Set<String> V1_PACKAGES = Set.of("io.datahubproject.openapi.v1");
@@ -40,6 +39,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
+
+  private static final Set<String> EVENTS_PACKAGES = Set.of("io.datahubproject.openapi.v1.event");
 
   @Autowired private TracingInterceptor tracingInterceptor;
 
@@ -50,31 +51,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .group("10-openapi-v3")
         .displayName("DataHub v3 (OpenAPI)")
         .addOpenApiCustomizer(
-            openApi -> {
-              OpenAPI v3OpenApi =
-                  OpenAPIV3Generator.generateOpenApiSpec(entityRegistry, configurationProvider);
-              openApi.setInfo(v3OpenApi.getInfo());
-              openApi.setTags(Collections.emptyList());
-              openApi.getPaths().putAll(v3OpenApi.getPaths());
-              // Merge components. Swagger does not provide append method to add components.
-              final Components components = new Components();
-              final Components oComponents = openApi.getComponents();
-              final Components v3Components = v3OpenApi.getComponents();
-              components
-                  .callbacks(concat(oComponents::getCallbacks, v3Components::getCallbacks))
-                  .examples(concat(oComponents::getExamples, v3Components::getExamples))
-                  .extensions(concat(oComponents::getExtensions, v3Components::getExtensions))
-                  .headers(concat(oComponents::getHeaders, v3Components::getHeaders))
-                  .links(concat(oComponents::getLinks, v3Components::getLinks))
-                  .parameters(concat(oComponents::getParameters, v3Components::getParameters))
-                  .requestBodies(
-                      concat(oComponents::getRequestBodies, v3Components::getRequestBodies))
-                  .responses(concat(oComponents::getResponses, v3Components::getResponses))
-                  .schemas(concat(oComponents::getSchemas, v3Components::getSchemas))
-                  .securitySchemes(
-                      concat(oComponents::getSecuritySchemes, v3Components::getSecuritySchemes));
-              openApi.setComponents(components);
-            })
+            openApi ->
+                OpenAPIV3Customizer.customizer(openApi, entityRegistry, configurationProvider))
         .packagesToScan(V3_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -84,6 +62,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("20-openapi-v2")
         .displayName("DataHub v2 (OpenAPI)")
+        .addOpenApiCustomizer(
+            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .packagesToScan(V2_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -93,6 +73,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("30-openapi-v1")
         .displayName("DataHub v1 (OpenAPI)")
+        .addOpenApiCustomizer(
+            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .packagesToScan(V1_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -102,6 +84,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("40-operations")
         .displayName("Operations")
+        .addOpenApiCustomizer(
+            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .packagesToScan(OPERATIONS_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -111,7 +95,21 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("50-openlineage")
         .displayName("OpenLineage")
+        .addOpenApiCustomizer(
+            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .packagesToScan(OPENLINEAGE_PACKAGES.toArray(String[]::new))
+        .build();
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
+  public GroupedOpenApi eventsOpenApiGroup() {
+    return GroupedOpenApi.builder()
+        .group("70-events")
+        .displayName("Events")
+        .addOpenApiCustomizer(
+            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .packagesToScan(EVENTS_PACKAGES.toArray(String[]::new))
         .build();
   }
 
@@ -135,10 +133,5 @@ public class SpringWebConfig implements WebMvcConfigurer {
                         Map.Entry::getValue,
                         (v1, v2) -> v2,
                         LinkedHashMap::new));
-  }
-
-  @Override
-  public void addInterceptors(InterceptorRegistry registry) {
-    registry.addInterceptor(tracingInterceptor).addPathPatterns("/**");
   }
 }

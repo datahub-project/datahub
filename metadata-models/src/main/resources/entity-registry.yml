@@ -21,6 +21,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - applications
       - schemaMetadata
       - status
       - container
@@ -60,6 +61,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataJobInfo
@@ -85,6 +87,7 @@ entities:
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataFlowInfo
@@ -110,6 +113,7 @@ entities:
       - ownership
       - status
       - testResults
+      - subTypes
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -137,6 +141,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - applications
       - container
       - deprecation
       - ownership
@@ -155,6 +160,7 @@ entities:
     keyAspect: dashboardKey
     aspects:
       - domains
+      - applications
       - container
       - deprecation
       - dashboardUsageStatistics
@@ -189,6 +195,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - applications
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
@@ -211,6 +218,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - slackUserInfo
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -225,6 +234,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -236,6 +246,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -254,6 +265,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - applications
       - browsePathsV2
       - structuredProperties
       - forms
@@ -279,11 +291,13 @@ entities:
       - ownership
       - deprecation
       - domains
+      - applications
       - status
       - browsePaths
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -295,11 +309,14 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
     aspects:
       - dataHubIngestionSourceInfo
+      - ownership
   - name: dataHubSecret
     category: internal
     keyAspect: dataHubSecretKey
@@ -346,6 +363,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - applications
       - ownership
       - mlModelProperties
       - intendedUse
@@ -369,6 +387,8 @@ entities:
       - forms
       - testResults
       - versionProperties
+      - subTypes
+      - container
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -376,6 +396,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - applications
       - mlModelGroupProperties
       - ownership
       - status
@@ -387,6 +408,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - container
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -398,6 +421,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -405,6 +429,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - applications
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -417,6 +442,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -424,6 +450,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - applications
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -436,6 +463,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -443,6 +471,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - applications
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -453,6 +482,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -493,6 +523,7 @@ entities:
       - documentation
       - testResults
       - deprecation
+      - subTypes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -521,6 +552,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - subTypes
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey
@@ -560,12 +592,29 @@ entities:
       - glossaryTerms
       - globalTags
       - domains
+      - applications
       - dataProductProperties
       - institutionalMemory
       - status
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+  - name: application
+    category: core
+    keyAspect: applicationKey
+    aspects:
+      - applicationProperties
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - institutionalMemory
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
@@ -588,6 +637,7 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+      - structuredProperties
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
@@ -629,6 +679,16 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPageTemplate
+    category: core
+    keyAspect: dataHubPageTemplateKey
+    aspects:
+      - dataHubPageTemplateProperties
+  - name: dataHubPageModule
+    category: core
+    keyAspect: dataHubPageModuleKey
+    aspects:
+      - dataHubPageModuleProperties
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
@@ -646,6 +706,12 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata
 events:
 plugins:
   aspectPayloadValidators:
@@ -738,6 +804,17 @@ plugins:
           aspectName: 'schemaMetadata'
         - entityName: '*'
           aspectName: 'editableSchemaMetadata'
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - UPDATE
+        - RESTATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: 'ownership'
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true
       spring:
