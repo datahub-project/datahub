@@ -50,7 +50,7 @@ describe("search", () => {
 
     // look for the high level tag filter first and select the more filter tag if it doesn't exist
     cy.get("[data-testid=filter-dropdown-Tag], [data-testid=more-filter-Tag]")
-      .first()
+      .eq(0)
       .click();
 
     // click and search for tag, save that tag
