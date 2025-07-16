@@ -106,6 +106,18 @@ class DataHubMockDataConfig(ConfigModel):
         default=True,
         description="Whether this source is enabled",
     )
+    throw_uncaught_exceptions: bool = Field(
+        default=False,
+        description="Whether to throw an uncaught exception for testing",
+    )
+    num_errors: int = Field(
+        default=0,
+        description="Number of errors to add in report for testing",
+    )
+    num_warnings: int = Field(
+        default=0,
+        description="Number of warnings to add in report for testing",
+    )
 
     gen_1: LineageConfigGen1 = Field(
         default_factory=LineageConfigGen1,
@@ -128,6 +140,25 @@ class DataHubMockDataSource(Source):
         self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.throw_uncaught_exceptions:
+            raise Exception("This is a test exception")
+
+        if self.config.num_errors > 0:
+            for i in range(self.config.num_errors):
+                self.report.failure(
+                    message="This is test error message",
+                    title="Test Error",
+                    context=f"This is test error {i}",
+                )
+
+        if self.config.num_warnings > 0:
+            for i in range(self.config.num_warnings):
+                self.report.warning(
+                    message="This is test warning",
+                    title="Test Warning",
+                    context=f"This is test warning {i}",
+                )
+
         # We don't want any implicit aspects to be produced
         # so we are not using get_workunits_internal
         if self.config.gen_1.emit_lineage:
