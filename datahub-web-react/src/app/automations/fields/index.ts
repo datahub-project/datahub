@@ -17,6 +17,10 @@ import {
     PropagationOptions,
     PropagationOptionsStateType,
 } from '@app/automations/fields/PropagationOptions/PropagationOptions';
+import {
+    PropagationOptionsV2,
+    PropagationOptionsV2StateType,
+} from '@app/automations/fields/PropagationOptions/PropagationOptionsV2';
 import { RadioSelector } from '@app/automations/fields/RadioSelector';
 import { TermSelector, TermSelectorStateType } from '@app/automations/fields/TermSelector';
 import { TraversalSelector, TraversalSelectorStateType } from '@app/automations/fields/TraversalSelector';
@@ -133,6 +137,21 @@ const propagationOptions: Field = {
                 includeDownstreams: true,
                 includeSiblings: true,
             } as PropagationOptionsStateType,
+        },
+    ],
+};
+
+// Determine whether to propagate upstream or downstream, for use with the generic propagation framework
+const propagationOptionsV2: Field = {
+    title: 'Configure Propagation Options',
+    description: 'Determine if tags should propagate to upstreams and / or downstreams',
+    fields: [
+        {
+            component: PropagationOptionsV2,
+
+            state: {
+                targetUrnResolution: [{ type: 'downstream' }],
+            } as PropagationOptionsV2StateType,
         },
     ],
 };
@@ -434,6 +453,7 @@ const fields = {
     // Specific fields
     select_tags_and_terms: termSelector,
     select_propagation_options: propagationOptions,
+    select_propagation_options_v2: propagationOptionsV2,
     select_entity_types: entityTypeSelector,
     select_traversal_types: traversalSelector,
     select_connection: connectionSelector,

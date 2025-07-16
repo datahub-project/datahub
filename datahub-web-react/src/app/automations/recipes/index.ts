@@ -7,12 +7,14 @@ import * as AIGlossaryTermPropagation from '@app/automations/recipes/glossaryTer
 import * as GlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/termPropagation';
 import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
 import * as TagPropagation from '@app/automations/recipes/tag/tagPropagation';
+import * as TagPropagationV2 from '@app/automations/recipes/tag/tagPropagationV2';
 
 // Map of all templates available in the application (this needs to be in sync with the recipes)
 export const templates = [
     DocumentationColumnPropagation.template,
     GlossaryTermPropagation.template,
     TagPropagation.template,
+    TagPropagationV2.template,
     SnowflakeTagPropagation.template,
     AIGlossaryTermPropagation.template,
     BigQueryTagSync.template,
@@ -30,6 +32,7 @@ export const configMaps = {
     [DocumentationColumnPropagation.automationType]: DocumentationColumnPropagation.configMap,
     [GlossaryTermPropagation.automationType]: GlossaryTermPropagation.configMap,
     [TagPropagation.automationType]: TagPropagation.configMap,
+    [TagPropagationV2.automationType]: TagPropagationV2.configMap,
     [SnowflakeTagPropagation.automationType]: SnowflakeTagPropagation.configMap,
     [AIGlossaryTermPropagation.automationType]: AIGlossaryTermPropagation.configMap,
     [BigQueryTagSync.automationType]: BigQueryTagSync.configMap,

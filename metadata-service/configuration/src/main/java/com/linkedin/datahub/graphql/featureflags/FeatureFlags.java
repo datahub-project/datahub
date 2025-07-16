@@ -75,4 +75,5 @@ public class FeatureFlags {
   private boolean showCreatedAtFilter = false;
   private boolean showProductUpdates = false;
   private boolean formsNotificationsEnabled = false;
+  private boolean tagPropagationV2Enabled = false;
 }

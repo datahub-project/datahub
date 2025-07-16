@@ -1,16 +1,3 @@
-# Copyright 2021 Acryl Data, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import hashlib
 import logging
 import os
@@ -24,10 +11,6 @@ import cachetools
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
     BigQueryLabel,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.glossary import (
-    GlossaryNodeInfo,
-    GlossaryTermInfo,
 )
 from datahub.metadata.schema_classes import GlossaryNodeInfoClass, GlossaryTermInfoClass
 from datahub.metadata.urns import (
@@ -167,7 +150,9 @@ class BigqueryTagHelper(Closeable):
             self.warm_policy_tag_cache()
 
     def get_glossary_nodes(self, glossary_node_urn: str) -> List[DataHubGlossaryNode]:
-        node_info = self.graph.graph.get_aspect(glossary_node_urn, GlossaryNodeInfo)
+        node_info = self.graph.graph.get_aspect(
+            glossary_node_urn, GlossaryNodeInfoClass
+        )
         datahub_glossary_node = DataHubGlossaryNode(
             urn=glossary_node_urn, node=node_info
         )
@@ -236,7 +221,7 @@ class BigqueryTagHelper(Closeable):
             return (
                 DataHubGlossaryTerm(
                     urn=term_urn.urn(),
-                    term=GlossaryTermInfo(
+                    term=GlossaryTermInfoClass(
                         name=term_urn.name,
                         definition=term_info.definition,
                         termSource=term_info.termSource,

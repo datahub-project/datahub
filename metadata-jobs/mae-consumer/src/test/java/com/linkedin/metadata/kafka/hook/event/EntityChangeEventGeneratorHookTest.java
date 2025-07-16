@@ -229,7 +229,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.ADD,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -265,7 +265,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.REMOVE,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);

@@ -1553,6 +1553,11 @@ type FeatureFlagsConfig {
   Enables getting to the ingestion source page if you have permission to view any ingestion sources
   """
   viewIngestionSourcePrivilegesEnabled: Boolean!
+
+  """
+  If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
+  """
+  tagPropagationV2Enabled: Boolean!
 }
 
 """

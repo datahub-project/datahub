@@ -887,6 +887,8 @@ featureFlags:
   # Enables the redesign of the lineage v2 graph
   viewIngestionSourcePrivilegesEnabled: ${VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED:false}
   # Enables getting to the ingestion source page if you have permission to view any ingestion sources
+  tagPropagationV2Enabled: ${TAG_PROPAGATION_V2_ENABLED:false}
+  # If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

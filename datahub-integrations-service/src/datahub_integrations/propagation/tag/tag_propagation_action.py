@@ -1,17 +1,3 @@
-# Copyright 2021 Acryl Data, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import json
 import logging
 from functools import wraps
@@ -20,7 +6,6 @@ from typing import Any, Dict, Iterable, List, Optional
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.graph.filters import RawSearchFilterRule
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -238,7 +223,9 @@ class TagPropagationAction(Action):
         if target_entity_type == "dataset":
             assert self.ctx.graph
             dataset_urn = asset.urn
-            global_tags = self.ctx.graph.graph.get_aspect(dataset_urn, GlobalTags)
+            global_tags = self.ctx.graph.graph.get_aspect(
+                dataset_urn, models.GlobalTagsClass
+            )
             if not global_tags:
                 return
             for tag in global_tags.tags:

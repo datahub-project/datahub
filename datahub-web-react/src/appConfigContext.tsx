@@ -119,6 +119,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         displayExecutorPools: false,
         onlineSmartAssertionsEnabled: false,
         showDefaultExternalLinks: true,
+        tagPropagationV2Enabled: false,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
         showProductUpdates: false,

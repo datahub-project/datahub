@@ -144,6 +144,7 @@ query appConfig {
             displayExecutorPools
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
+            tagPropagationV2Enabled
             showCreatedAtFilter
             showProductUpdates
             formsNotificationsEnabled

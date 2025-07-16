@@ -334,6 +334,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setViewIngestionSourcePrivilegesEnabled(
                 _featureFlags.isViewIngestionSourcePrivilegesEnabled())
+            .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

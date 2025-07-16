@@ -7,7 +7,7 @@
 import { commonFieldsMapping } from '@app/automations/constants';
 import { getField } from '@app/automations/fields';
 import { AutomationRecipe, AutomationTemplate } from '@app/automations/types';
-import { EntityType } from '@src/types.generated';
+import { AppConfig, EntityType } from '@src/types.generated';
 
 import AcrylLogo from '@images/acryl-logo.svg';
 
@@ -83,6 +83,7 @@ export const template: AutomationTemplate = {
     name: automationName,
     description: automationDescription,
     defaultRecipe,
+    isDisabled: (appConfig: AppConfig) => appConfig.featureFlags.tagPropagationV2Enabled,
     isBeta: true,
     fields,
 };

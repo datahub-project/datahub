@@ -135,7 +135,7 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
                     try:
                         future.result()
                     except Exception as e:
-                        logger.error(f"Error bootstrapping dataset: {e}")
+                        logger.error(f"Error bootstrapping dataset: {e}", exc_info=True)
                         success = False
         except Exception as e:
             logger.error(f"Error bootstrapping action: {e}", exc_info=True)

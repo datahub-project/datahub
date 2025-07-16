@@ -1,17 +1,3 @@
-# Copyright 2021 Acryl Data, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import json
 import logging
 import time
@@ -871,33 +857,58 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         """
 
         def __get_terms_in_group(group: str) -> Set[str]:
+            logger.debug(f"Getting terms for group: {group}")
             terms = self.ctx.graph.get_relationships(
                 entity_urn=group, direction="INCOMING", relationship_types=["IsPartOf"]
+            )
+            logger.debug(
+                f"Raw terms returned from get_relationships for {group}: {terms}"
             )
             expanded_terms = set()
             if terms:
                 for term in terms:
+                    logger.debug(f"Processing term: {term}")
                     if term.startswith("urn:li:glossaryTerm"):
                         expanded_terms.add(term)
+                        logger.debug(f"Added glossary term: {term}")
                     elif term.startswith("urn:li:glossaryNode"):
+                        logger.debug(
+                            f"Found nested glossary node: {term}, recursing..."
+                        )
                         expanded_terms.update(__get_terms_in_group(term))
+            logger.debug(f"Final expanded terms for group {group}: {expanded_terms}")
             return expanded_terms
 
         expanded_terms = set()
         if self.config.term_groups:
             for term_group in self.config.term_groups:
-                expanded_terms.update(__get_terms_in_group(term_group))
+                logger.debug(f"Processing term group: {term_group}")
+                group_terms = __get_terms_in_group(term_group)
+                expanded_terms.update(group_terms)
+                logger.debug(f"Terms from group {term_group}: {group_terms}")
+        else:
+            logger.debug("No term groups configured")
+
+        logger.debug(f"All expanded terms from term groups: {expanded_terms}")
         return expanded_terms
 
     def _get_all_terms(self) -> List[str]:
         all_terms: List[str] = []
         if self.config.target_terms:
-            all_terms.extend(self._get_target_terms_expanded())
+            logger.debug(f"Processing target terms: {self.config.target_terms}")
+            target_terms_expanded = list(self._get_target_terms_expanded())
+            logger.debug(f"Expanded target terms: {target_terms_expanded}")
+            all_terms.extend(target_terms_expanded)
 
         if self.config.term_groups:
-            all_terms.extend(self._get_term_groups_expanded_to_terms())
+            logger.debug(f"Processing term groups: {self.config.term_groups}")
+            term_groups_expanded = list(self._get_term_groups_expanded_to_terms())
+            logger.debug(f"Expanded term groups: {term_groups_expanded}")
+            all_terms.extend(term_groups_expanded)
 
-        return list(set(all_terms))
+        final_terms = list(set(all_terms))
+        logger.debug(f"Final combined terms: {final_terms}")
+        return final_terms
 
     def close(self) -> None:
         return super().close()

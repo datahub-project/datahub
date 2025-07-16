@@ -56,15 +56,23 @@ export default function LabelPropagationDetails({ entityType, context }: Props) 
     const isPropagated = contextObj?.propagated;
     const { originEntity } = usePropagationContextEntities(contextObj);
     const isSiblingsRelationship = contextObj?.relationship === PropagationRelationshipType.SIBLINGS;
+    const direction = contextObj?.propagation_direction?.toLocaleLowerCase();
 
     if (!isPropagated || !originEntity || (EntityType.GlossaryTerm !== entityType && entityType !== EntityType.Tag))
         return null;
 
+    let propagatedFrom = 'an upstream';
+    if (isSiblingsRelationship) {
+        propagatedFrom = 'a sibling';
+    } else if (direction === 'up') {
+        propagatedFrom = 'a downstream';
+    }
+
     const popoverContent = originEntity ? (
         <PopoverWrapper>
             <PopoverDescription>
-                This {EntityType.GlossaryTerm === entityType ? 'Glossary Term' : 'Tag'} was automatically propagated
-                from {isSiblingsRelationship ? 'a sibling' : 'an upstream'}.{' '}
+                This {EntityType.GlossaryTerm === entityType ? 'term' : 'tag'} was automatically propagated from{' '}
+                {propagatedFrom}.{' '}
             </PopoverDescription>
             <PopoverAttributes>
                 {originEntity && (

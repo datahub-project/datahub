@@ -1,17 +1,3 @@
-# Copyright 2021 Acryl Data, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import logging
 import os
 import re
@@ -23,7 +9,7 @@ from typing import Deque, Optional, Tuple
 
 import cachetools
 from datahub.ingestion.api.closeable import Closeable
-from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
+from datahub.metadata.schema_classes import ContainerPropertiesClass
 from datahub.metadata.urns import (
     ContainerUrn,
     DatasetUrn,
@@ -593,7 +579,7 @@ class UnityCatalogTagHelper(Closeable):
         logger.info(f"Fetching container properties for {container_urn}")
 
         container_properties = self.graph.graph.get_aspect(
-            container_urn, ContainerProperties
+            container_urn, ContainerPropertiesClass
         )
 
         if container_properties is None:

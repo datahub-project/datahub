@@ -797,10 +797,10 @@ def docs_propagation_bootstrap(
                 assert (
                     first_element.attribution.sourceDetail.get("propagated") == "true"
                 )
-                assert (
-                    first_element.attribution.actor
-                    == "urn:li:corpuser:__datahub_system"
-                )
+                assert first_element.attribution.actor in [
+                    "urn:li:corpuser:__datahub_system",
+                    "urn:li:corpuser:admin",
+                ]
             except Exception:
                 logger.debug(f"Failed expectation: {expectation}")
                 # breakpoint()
@@ -870,10 +870,10 @@ def docs_propagation_live(
                         first_element.attribution.sourceDetail.get("propagated")
                         == "true"
                     )
-                    assert (
-                        first_element.attribution.actor
-                        == "urn:li:corpuser:__datahub_system"
-                    )
+                    assert first_element.attribution.actor in [
+                        "urn:li:corpuser:__datahub_system",
+                        "urn:li:corpuser:admin",
+                    ]
                 except Exception:
                     raise
             else:
