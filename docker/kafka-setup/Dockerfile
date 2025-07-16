@@ -59,7 +59,9 @@ RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
 
 ARG COMMONS_BEAN_UTILS_VERSION="1.11.0"
 RUN rm /usr/share/java/cp-base-new/commons-beanutils-*.jar \
-  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/commons-beanutils/commons-beanutils/$COMMONS_BEAN_UTILS_VERSION/commons-beanutils-$COMMONS_BEAN_UTILS_VERSION.jar
+  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/commons-beanutils/commons-beanutils/$COMMONS_BEAN_UTILS_VERSION/commons-beanutils-$COMMONS_BEAN_UTILS_VERSION.jar \
+  && rm /opt/kafka/libs/commons-beanutils-*.jar \
+  && cp /usr/share/java/cp-base-new/commons-beanutils-$COMMONS_BEAN_UTILS_VERSION.jar  /opt/kafka/libs
 
 
 ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.2/aws-msk-iam-auth-2.3.2-all.jar /usr/share/java/cp-base-new
