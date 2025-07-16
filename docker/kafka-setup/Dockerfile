@@ -10,10 +10,7 @@ ARG APACHE_DOWNLOAD_URL=null
 FROM confluentinc/cp-base-new:$KAFKA_DOCKER_VERSION AS confluent_base
 
 ARG MAVEN_CENTRAL_REPO_URL
-ARG SNAKEYAML_VERSION="2.0"
 
-RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
-  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
 
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
@@ -53,7 +50,13 @@ WORKDIR /opt/kafka
 
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
-COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
+COPY --from=confluent_base /etc/cp-base-new/log4j2.yaml /etc/cp-base-new/log4j2.yaml
+
+ARG MAVEN_CENTRAL_REPO_URL
+ARG SNAKEYAML_VERSION="2.4"
+RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
+  && wget -P /usr/share/java/cp-base-new $MAVEN_CENTRAL_REPO_URL/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
+
 
 ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.2/aws-msk-iam-auth-2.3.2-all.jar /usr/share/java/cp-base-new
 ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.2/aws-msk-iam-auth-2.3.2-all.jar /opt/kafka/libs
