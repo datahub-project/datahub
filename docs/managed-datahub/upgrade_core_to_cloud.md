@@ -211,7 +211,7 @@ To learn about all aspects in DataHub, check out the [DataHub metadata model doc
 
 2. **Destination Settings**: For optimal performance on DataHub Cloud:
 
-   - Enable async ingestion (usually enabled by default)
+   - Enable async ingestion (usually enabled by default) by setting `mode: ASYNC_BATCH` in the sink section of your recipe.
    - Consider scaling consumer replicas for large upgrade transfers
    - Increase thread count if needed in sink settings
 
