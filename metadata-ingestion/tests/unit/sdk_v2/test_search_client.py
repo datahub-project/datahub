@@ -203,6 +203,10 @@ def test_filters_all_types() -> None:
                 {"not": {"entity_subtype": ["Table"]}},
                 {"platform": ["snowflake"]},
                 {"domain": ["urn:li:domain:marketing"]},
+                {
+                    "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"],
+                    "direct_descendants_only": True,
+                },
                 {"env": ["PROD"]},
                 {"status": "NOT_SOFT_DELETED"},
                 {
@@ -221,6 +225,10 @@ def test_filters_all_types() -> None:
         F.not_(F.entity_subtype("Table")),
         F.platform("snowflake"),
         F.domain("urn:li:domain:marketing"),
+        F.container(
+            "urn:li:container:f784c48c306ba1c775ef917e2f8c1560",
+            direct_descendants_only=True,
+        ),
         F.env("PROD"),
         F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
         F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
@@ -263,7 +271,7 @@ def test_filter_discriminator() -> None:
     assert _filter_discriminator({}) is None
     assert _filter_discriminator(6) is None
 
-    # Special case for custom conditions.
+    # Special cases.
     assert (
         _filter_discriminator(
             {
@@ -282,6 +290,21 @@ def test_filter_discriminator() -> None:
             }
         )
         == "_custom"
+    )
+    assert (
+        _filter_discriminator(
+            {"container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"]}
+        )
+        == "container"
+    )
+    assert (
+        _filter_discriminator(
+            {
+                "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"],
+                "direct_descendants_only": True,
+            }
+        )
+        == "container"
     )
 
 
