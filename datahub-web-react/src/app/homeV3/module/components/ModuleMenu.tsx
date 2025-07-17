@@ -1,7 +1,12 @@
 import { Icon, colors } from '@components';
 import { Dropdown } from 'antd';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
+
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { ModulePositionInput } from '@app/homeV3/template/types';
+
+import { PageModuleFragment } from '@graphql/template.generated';
 
 const StyledIcon = styled(Icon)`
     :hover {
@@ -9,7 +14,21 @@ const StyledIcon = styled(Icon)`
     }
 ` as typeof Icon;
 
-export default function ModuleMenu() {
+interface Props {
+    module: PageModuleFragment;
+    position: ModulePositionInput;
+}
+
+export default function ModuleMenu({ module, position }: Props) {
+    const { removeModule } = usePageTemplateContext();
+
+    const handleDelete = useCallback(() => {
+        removeModule({
+            moduleUrn: module.urn,
+            position,
+        });
+    }, [removeModule, module.urn, position]);
+
     return (
         <Dropdown
             trigger={['click']}
@@ -19,11 +38,17 @@ export default function ModuleMenu() {
                         title: 'Edit',
                         key: 'edit',
                         label: 'Edit',
+                        onClick: () => {
+                            // TODO: Implement edit functionality
+                        },
                     },
                     {
                         title: 'Duplicate',
                         label: 'Duplicate',
                         key: 'duplicate',
+                        onClick: () => {
+                            // TODO: Implement duplicate functionality
+                        },
                     },
                     {
                         title: 'Delete',
@@ -32,6 +57,7 @@ export default function ModuleMenu() {
                         style: {
                             color: colors.red[500],
                         },
+                        onClick: handleDelete,
                     },
                 ],
             }}

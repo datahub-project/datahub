@@ -18,5 +18,5 @@ export default function Module(props: ModuleProps) {
         return SampleLargeModule;
     }, [module.properties.type]);
 
-    return <Component module={module} />;
+    return <Component {...props} />;
 }

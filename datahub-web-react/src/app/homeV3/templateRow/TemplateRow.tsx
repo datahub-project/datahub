@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageTemplateRowFragment } from '@graphql/template.generated';
 
@@ -30,9 +31,15 @@ export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Pr
                 rowSide="left"
             />
 
-            {row.modules.map((module) => (
-                <Module key={module.urn} module={module} />
-            ))}
+            {row.modules.map((module, moduleIndex) => {
+                const position: ModulePositionInput = {
+                    rowIndex,
+                    rowSide: moduleIndex === 0 ? 'left' : 'right',
+                    moduleIndex,
+                };
+                const key = `${module.urn}-${moduleIndex}`;
+                return <Module key={key} module={module} position={position} />;
+            })}
 
             <AddModuleButton
                 orientation="vertical"

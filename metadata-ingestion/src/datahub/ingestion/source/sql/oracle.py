@@ -441,7 +441,7 @@ class OracleInspectorObjectWrapper:
             "\nac.constraint_name,"
             "\nac.constraint_type,"
             "\nacc.column_name AS local_column,"
-            "\nac.r_table_name AS remote_table,"
+            "\nac.table_name AS remote_table,"
             "\nrcc.column_name AS remote_column,"
             "\nac.r_owner AS remote_owner,"
             "\nacc.position AS loc_pos,"
