@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import React, { useEffect } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -12,6 +13,7 @@ import {
     HOME_PAGE_PLATFORMS_ID,
     HOME_PAGE_SEARCH_BAR_ID,
 } from '@app/onboarding/config/HomePageOnboardingConfig';
+import PageBanner from '@app/sharedV2/PageBanner';
 
 export const HomePage = () => {
     useEffect(() => {
@@ -28,6 +30,11 @@ export const HomePage = () => {
                     HOME_PAGE_MOST_POPULAR_ID,
                     HOME_PAGE_SEARCH_BAR_ID,
                 ]}
+            />
+            <PageBanner
+                localStorageKey="v1UIDeprecationAnnouncement"
+                icon={<Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />}
+                content="V1 UI will officially be deprecated in the next release (v1.3), and it will no longer be available."
             />
             <HomePageHeader />
             <HomePageBody />
