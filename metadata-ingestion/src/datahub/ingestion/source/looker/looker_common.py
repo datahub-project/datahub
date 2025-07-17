@@ -990,6 +990,42 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
+
+            # Debug logging for specific explores we're investigating
+            if explore_name == "dm_group_comm" and model == "group_commercial_finance":
+                logger.debug(f"Raw Looker API response for {model}.{explore_name}:")
+                logger.debug(f"  explore.name: {explore.name}")
+                logger.debug(f"  explore.view_name: {explore.view_name}")
+                logger.debug(f"  explore.project_name: {explore.project_name}")
+                logger.debug(f"  explore.source_file: {explore.source_file}")
+
+                # Log ALL field information to see source_file for each field
+                field_count = 0
+                logger.debug(
+                    f"  explore.fields: {explore.fields} (type: {type(explore.fields)})"
+                )
+                if explore.fields is not None:
+                    for field_type in ["dimensions", "measures", "dimension_groups"]:
+                        if hasattr(explore.fields, field_type):
+                            fields = getattr(explore.fields, field_type)
+                            if fields:
+                                logger.debug(f"  {field_type} ({len(fields)} fields):")
+                                for field in fields:  # Log ALL fields
+                                    logger.debug(
+                                        f"    {field.name}: source_file='{field.source_file}'"
+                                    )
+                                    field_count += 1
+                            else:
+                                logger.debug(f"  {field_type} is empty or None")
+                        else:
+                            logger.debug(
+                                f"  explore.fields has no attribute '{field_type}'"
+                            )
+                else:
+                    logger.debug("  explore.fields is None")
+
+                logger.debug(f"  Total fields examined: {field_count}")
+
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
