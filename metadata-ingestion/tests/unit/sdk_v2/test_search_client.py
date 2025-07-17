@@ -1,3 +1,4 @@
+import re
 import unittest
 import unittest.mock
 from io import StringIO
@@ -6,6 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -14,7 +16,7 @@ from datahub.ingestion.graph.filters import (
 from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
-from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
+from datahub.sdk.search_filters import Filter, FilterDsl as F, _BaseFilter, load_filters
 from datahub.utilities.urns.error import InvalidUrnError
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
@@ -214,6 +216,47 @@ def test_filters_all_types() -> None:
         F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
         F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
     )
+
+
+def test_filter_discriminator() -> None:
+    with pytest.raises(ValueError, match="Cannot get discriminator for _BaseFilter"):
+        _BaseFilter._field_discriminator()
+
+    assert F.entity_type("dataset")._field_discriminator() == "entity_type"
+    assert F.not_(F.entity_subtype("Table"))._field_discriminator() == "not"
+    assert (
+        F.custom_filter(
+            "custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]
+        )._field_discriminator()
+        == "_custom"
+    )
+
+
+@pytest.mark.skipif(
+    not PYDANTIC_VERSION_2,
+    reason="Tagged union w/ callable discriminator is only supported in pydantic 2",
+)
+def test_tagged_union_error_messages() -> None:
+    # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
+    # understand what went wrong. With v2, we get a single simple error message.
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*entity_type\.entity_type.*Input should be a valid list",
+            re.DOTALL,
+        ),
+    ):
+        load_filters({"entity_type": 6})
+
+    # Even when within an "and" clause, we get a single error message.
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*Input tag 'unknown_field' found using .+ does not match any of the expected tags:.+union_tag_invalid",
+            re.DOTALL,
+        ),
+    ):
+        load_filters({"and": [{"unknown_field": 6}]})
 
 
 def test_invalid_filter() -> None:
