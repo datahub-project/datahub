@@ -57,7 +57,7 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    const handleOpenUpsertModuleModal = useCallback(
+    const handleOpenCreateModuleModal = useCallback(
         (type: DataHubPageModuleType) => {
             openModal(type, position);
             closeMenu();
@@ -122,7 +122,7 @@ export default function useAddModuleMenu(
                 />
             ),
             onClick: () => {
-                handleOpenUpsertModuleModal(DataHubPageModuleType.AssetCollection);
+                handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
             },
         };
 
@@ -160,7 +160,7 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenUpsertModuleModal]);
+    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenCreateModuleModal]);
 
     return menu;
 }
