@@ -533,7 +533,7 @@ class ABSSource(StatefulIngestionSourceBase):
             )
             path_spec.sample_files = False
             for obj in container_client.list_blobs(
-                prefix=f"{prefix}", results_per_page=PAGE_SIZE
+                name_starts_with=f"{prefix}", results_per_page=PAGE_SIZE
             ):
                 abs_path = self.create_abs_path(obj.name)
                 logger.debug(f"Path: {abs_path}")
