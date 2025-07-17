@@ -315,6 +315,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -364,6 +365,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -413,6 +415,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -465,6 +468,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -521,6 +525,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -565,6 +570,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -603,6 +609,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -647,6 +654,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -675,7 +683,7 @@ describe('useModuleOperations', () => {
         });
     });
 
-    describe('createModule', () => {
+    describe('upsertModule', () => {
         it('should create module and add it to template', async () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -696,7 +704,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 scope: PageModuleScope.Personal,
@@ -741,7 +749,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -796,7 +804,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'right',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 position,
@@ -815,7 +823,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                await result.current.createModule(createModuleInput);
+                await result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -851,7 +859,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 position,
@@ -872,7 +880,7 @@ describe('useModuleOperations', () => {
             });
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             // Wait for the async operation to complete
@@ -906,7 +914,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Global Module',
                 type: DataHubPageModuleType.Link,
                 scope: PageModuleScope.Global,
@@ -950,7 +958,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -1021,7 +1029,7 @@ describe('useModuleOperations', () => {
             expect(result.current.addModule).not.toBe(initialAddModule);
         });
 
-        it('should update createModule when dependencies change', () => {
+        it('should update upsertModule when dependencies change', () => {
             const { result, rerender } = renderHook(
                 ({ isEditingGlobalTemplate, personalTemplate, globalTemplate }) =>
                     useModuleOperations(
@@ -1044,7 +1052,7 @@ describe('useModuleOperations', () => {
                 },
             );
 
-            const initialCreateModule = result.current.createModule;
+            const initialUpsertModule = result.current.upsertModule;
 
             rerender({
                 isEditingGlobalTemplate: true,
@@ -1052,7 +1060,7 @@ describe('useModuleOperations', () => {
                 globalTemplate: mockGlobalTemplate,
             });
 
-            expect(result.current.createModule).not.toBe(initialCreateModule);
+            expect(result.current.upsertModule).not.toBe(initialUpsertModule);
         });
     });
 });

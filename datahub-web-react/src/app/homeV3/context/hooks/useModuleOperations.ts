@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
-import { CreateModuleInput } from '@app/homeV3/context/types';
+import { UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
@@ -103,7 +103,7 @@ const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
     return null;
 };
 
-const validateCreateModuleInput = (input: CreateModuleInput): string | null => {
+const validateUpsertModuleInput = (input: UpsertModuleInput): string | null => {
     if (!input.name?.trim()) {
         return 'Module name is required';
     }
@@ -227,12 +227,12 @@ export function useModuleOperations(
     );
 
     // Takes input and makes a call to create a module then add that module to the template
-    const createModule = useCallback(
-        (input: CreateModuleInput) => {
+    const upsertModule = useCallback(
+        (input: UpsertModuleInput) => {
             // Validate input
-            const validationError = validateCreateModuleInput(input);
+            const validationError = validateUpsertModuleInput(input);
             if (validationError) {
-                console.error('Invalid createModule input:', validationError);
+                console.error('Invalid upsertModule input:', validationError);
                 message.error(validationError);
                 return;
             }
@@ -288,6 +288,6 @@ export function useModuleOperations(
     return {
         addModule,
         removeModule,
-        createModule,
+        upsertModule,
     };
 }

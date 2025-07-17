@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import CreateModuleModalMapper from '@app/homeV3/createModule/CreateModuleModalMapper';
+import ModuleModalMapper from '@app/homeV3/moduleModals/ModuleModalMapper';
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
@@ -38,21 +38,17 @@ export default function Template({ className }: Props) {
     const modulesAvailableToAdd = useModulesAvailableToAdd();
 
     return (
-        <>
-            <Wrapper className={className}>
-                {wrappedRows.map((row, i) => {
-                    const key = `templateRow-${i}`;
-                    return (
-                        <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />
-                    );
-                })}
-                <StyledAddModulesButton
-                    orientation="horizontal"
-                    $hasRows={hasRows}
-                    modulesAvailableToAdd={modulesAvailableToAdd}
-                />
-                <CreateModuleModalMapper />
-            </Wrapper>
-        </>
+        <Wrapper className={className}>
+            {wrappedRows.map((row, i) => {
+                const key = `templateRow-${i}`;
+                return <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />;
+            })}
+            <StyledAddModulesButton
+                orientation="horizontal"
+                $hasRows={hasRows}
+                modulesAvailableToAdd={modulesAvailableToAdd}
+            />
+            <ModuleModalMapper />
+        </Wrapper>
     );
 }

@@ -16,9 +16,9 @@ interface Props {
     onUpsert: () => void;
 }
 
-export default function BaseCreateModuleModal({ title, subtitle, children, onUpsert }: React.PropsWithChildren<Props>) {
+export default function BaseModuleModal({ title, subtitle, children, onUpsert }: React.PropsWithChildren<Props>) {
     const {
-        createModuleModalState: { close, isOpen, isEditing },
+        moduleModalState: { close, isOpen, isEditing },
     } = usePageTemplateContext();
 
     // Modal buttons configuration

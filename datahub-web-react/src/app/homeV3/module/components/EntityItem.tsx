@@ -9,14 +9,30 @@ import { Entity } from '@types';
 interface Props {
     entity: Entity;
     customDetailsRenderer?: (entity: Entity) => void;
+    navigateOnlyOnNameClick?: boolean;
 }
 
-export default function EntityItem({ entity, customDetailsRenderer }: Props) {
+export default function EntityItem({ entity, customDetailsRenderer, navigateOnlyOnNameClick = false }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     return (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-            <AutoCompleteEntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
-        </Link>
+        <>
+            {navigateOnlyOnNameClick ? (
+                <AutoCompleteEntityItem
+                    entity={entity}
+                    key={entity.urn}
+                    customDetailsRenderer={customDetailsRenderer}
+                    navigateOnlyOnNameClick
+                />
+            ) : (
+                <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
+                    <AutoCompleteEntityItem
+                        entity={entity}
+                        key={entity.urn}
+                        customDetailsRenderer={customDetailsRenderer}
+                    />
+                </Link>
+            )}
+        </>
     );
 }

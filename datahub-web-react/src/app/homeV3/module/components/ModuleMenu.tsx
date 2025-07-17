@@ -26,8 +26,8 @@ export default function ModuleMenu({ module, position }: Props) {
 
 
     const {
-        createModuleModalState: { openToEdit },
         removeModule,
+        moduleModalState: { openToEdit },
     } = usePageTemplateContext();
 
     const handleEditModule = useCallback(() => {

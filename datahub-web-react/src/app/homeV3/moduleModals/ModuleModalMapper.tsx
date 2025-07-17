@@ -5,12 +5,12 @@ import AssetCollectionModal from '@app/homeV3/modules/assetCollection/AssetColle
 
 import { DataHubPageModuleType } from '@types';
 
-export default function CreateModuleModalMapper() {
+export default function ModuleModalMapper() {
     const {
-        createModuleModalState: { moduleType },
+        moduleModalState: { moduleType },
     } = usePageTemplateContext();
 
-    const CreateModuleModalComponent = useMemo(() => {
+    const ModuleModalComponent = useMemo(() => {
         switch (moduleType) {
             // TODO: add support of other module types
             case DataHubPageModuleType.AssetCollection:
@@ -21,7 +21,7 @@ export default function CreateModuleModalMapper() {
     }, [moduleType]);
 
     if (moduleType === undefined) return null;
-    if (!CreateModuleModalComponent) return null;
+    if (!ModuleModalComponent) return null;
 
-    return <CreateModuleModalComponent />;
+    return <ModuleModalComponent />;
 }

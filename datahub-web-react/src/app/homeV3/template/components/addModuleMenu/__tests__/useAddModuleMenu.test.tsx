@@ -11,9 +11,16 @@ import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 // Mock the PageTemplateContext
 const mockAddModule = vi.fn();
+const mockOpenModal = vi.fn();
 vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: () => ({
         addModule: mockAddModule,
+        moduleModalState: {
+            open: mockOpenModal,
+            close: vi.fn(),
+            isOpen: false,
+            isEditing: false,
+        },
     }),
 }));
 
@@ -58,6 +65,11 @@ describe('useAddModuleMenu', () => {
         vi.clearAllMocks();
     });
 
+    function getChildren(item: any): any[] {
+        if (item && 'children' in item && Array.isArray(item.children)) return item.children;
+        return [];
+    }
+
     it('should return menu items with hardcoded custom modules', () => {
         const { result } = renderHook(() =>
             useAddModuleMenu(
@@ -86,7 +98,7 @@ describe('useAddModuleMenu', () => {
         // Check Custom Large group
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(2);
+        expect(items?.[1]?.children).toHaveLength(3);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children
@@ -167,5 +179,41 @@ describe('useAddModuleMenu', () => {
         const adminGroup = result.current?.items?.[2];
         expect(adminGroup).toHaveProperty('expandIcon');
         expect(adminGroup).toHaveProperty('popupClassName');
+    });
+
+    it('should open module modal when Asset Collection is clicked', () => {
+        const { result } = renderHook(() => useAddModuleMenu(modulesAvailableToAdd, mockPosition, mockCloseMenu));
+        const customLargeChildren = getChildren(result.current.items?.[1]);
+        // Third child is Asset Collection
+        const assetCollectionItem = customLargeChildren[2];
+        assetCollectionItem.onClick?.({} as any);
+
+        expect(mockOpenModal).toHaveBeenCalledWith(DataHubPageModuleType.AssetCollection, mockPosition);
+        expect(mockCloseMenu).toHaveBeenCalled();
+    });
+
+    it('should not call addModule when Asset Collection is clicked', () => {
+        const { result } = renderHook(() => useAddModuleMenu(modulesAvailableToAdd, mockPosition, mockCloseMenu));
+        const customLargeChildren = getChildren(result.current.items?.[1]);
+        const assetCollectionItem = customLargeChildren[2];
+        assetCollectionItem.onClick?.({} as any);
+
+        expect(mockAddModule).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+                module: expect.objectContaining({
+                    urn: 'urn:li:dataHubPageModule:asset-collection',
+                }),
+            }),
+            mockPosition,
+        );
+    });
+
+    it('should not open modal when Your Assets is clicked', () => {
+        const { result } = renderHook(() => useAddModuleMenu(modulesAvailableToAdd, mockPosition, mockCloseMenu));
+        const customLargeChildren = getChildren(result.current.items?.[1]);
+        const yourAssetsItem = customLargeChildren[0];
+        yourAssetsItem.onClick?.({} as any);
+
+        expect(mockOpenModal).not.toHaveBeenCalled();
     });
 });

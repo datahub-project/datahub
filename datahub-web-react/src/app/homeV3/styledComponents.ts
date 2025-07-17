@@ -62,7 +62,8 @@ export const StyledIcon = styled(Icon)`
 
 export const LoaderContainer = styled.div`
     display: flex;
-    height: 50%;
+    height: 100%;
+    min-height: 200px;
 `;
 
 export const EmptyContainer = styled.div`

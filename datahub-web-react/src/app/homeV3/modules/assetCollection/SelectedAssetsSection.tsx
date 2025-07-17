@@ -1,9 +1,9 @@
-import { Icon, Loader, Text } from '@components';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import EntityItem from '@app/homeV3/module/components/EntityItem';
-import { EmptyContainer, LoaderContainer } from '@app/homeV3/styledComponents';
+import { EmptyContainer, StyledIcon } from '@app/homeV3/styledComponents';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
 import { Entity } from '@types';
@@ -30,7 +30,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
 
     const renderRemoveAsset = (entity: Entity) => {
         return (
-            <Icon
+            <StyledIcon
                 icon="X"
                 source="phosphor"
                 color="gray"
@@ -44,17 +44,16 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     };
 
     let content;
-    if (loading) {
-        content = (
-            <LoaderContainer>
-                <Loader />
-            </LoaderContainer>
-        );
-    } else if (entities && entities.length > 0) {
+    if (entities && entities.length > 0) {
         content = entities.map((entity) => (
-            <EntityItem entity={entity} key={entity.urn} customDetailsRenderer={renderRemoveAsset} />
+            <EntityItem
+                entity={entity}
+                key={entity.urn}
+                customDetailsRenderer={renderRemoveAsset}
+                navigateOnlyOnNameClick
+            />
         ));
-    } else {
+    } else if (!loading && entities.length === 0) {
         content = (
             <EmptyContainer>
                 <Text color="gray">No assets selected.</Text>

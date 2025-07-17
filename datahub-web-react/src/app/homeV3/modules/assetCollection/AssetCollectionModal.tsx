@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import BaseCreateModuleModal from '@app/homeV3/createModule/modals/BaseCreateModuleModal';
+import BaseModuleModal from '@app/homeV3/moduleModals/modals/BaseModuleModal';
 import AssetsSection from '@app/homeV3/modules/assetCollection/AssetsSection';
 import ModuleDetailsForm from '@app/homeV3/modules/assetCollection/ModuleDetailsForm';
 
@@ -17,8 +17,8 @@ const ModalContent = styled.div`
 
 const AssetCollectionModal = () => {
     const {
-        createModule,
-        createModuleModalState: { position, close, isEditing, initialState },
+        upsertModule,
+        moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
     const currentName = initialState?.properties.name || '';
@@ -31,7 +31,7 @@ const AssetCollectionModal = () => {
     const handleUpsertAssetCollectionModule = () => {
         form.validateFields().then((values) => {
             const { name } = values;
-            createModule({
+            upsertModule({
                 urn,
                 name,
                 position: position ?? {},
@@ -47,7 +47,7 @@ const AssetCollectionModal = () => {
     };
 
     return (
-        <BaseCreateModuleModal
+        <BaseModuleModal
             title={`${isEditing ? 'Edit' : 'Add'} Asset Collection`}
             subtitle="Create a widget by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
@@ -56,7 +56,7 @@ const AssetCollectionModal = () => {
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
                 <AssetsSection selectedAssetUrns={selectedAssetUrns} setSelectedAssetUrns={setSelectedAssetUrns} />
             </ModalContent>
-        </BaseCreateModuleModal>
+        </BaseModuleModal>
     );
 };
 
