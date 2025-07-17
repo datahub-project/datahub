@@ -227,7 +227,7 @@ def test_filters_all_types() -> None:
     )
 
 
-def test_filter_discriminator() -> None:
+def test_field_discriminator() -> None:
     with pytest.raises(ValueError, match="Cannot get discriminator for _BaseFilter"):
         _BaseFilter._field_discriminator()
 
@@ -240,6 +240,8 @@ def test_filter_discriminator() -> None:
         == _CustomCondition._field_discriminator()
     )
 
+
+def test_filter_discriminator() -> None:
     # Simple filter discriminator extraction.
     assert _filter_discriminator(F.entity_type("dataset")) == "entity_type"
     assert _filter_discriminator({"entity_type": "dataset"}) == "entity_type"
@@ -248,6 +250,8 @@ def test_filter_discriminator() -> None:
     assert _filter_discriminator({"field1": 6, "field2": 7}) is None
     assert _filter_discriminator({}) is None
     assert _filter_discriminator(6) is None
+
+    # Special case for custom conditions.
     assert (
         _filter_discriminator(
             {
