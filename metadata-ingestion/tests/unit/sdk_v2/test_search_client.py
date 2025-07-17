@@ -170,6 +170,52 @@ and:
     ]
 
 
+def test_entity_subtype_filter() -> None:
+    filter_obj_1: Filter = load_filters({"entity_subtype": ["Table"]})
+    assert filter_obj_1 == F.entity_subtype("Table")
+
+    # Ensure it works without the list wrapper to maintain backwards compatibility.
+    filter_obj_2: Filter = load_filters({"entity_subtype": "Table"})
+    assert filter_obj_1 == filter_obj_2
+
+
+def test_filters_all_types() -> None:
+    filter_obj: Filter = load_filters(
+        {
+            "and": [
+                {
+                    "or": [
+                        {"entity_type": ["dataset"]},
+                        {"entity_type": ["chart", "dashboard"]},
+                    ]
+                },
+                {"not": {"entity_subtype": ["Table"]}},
+                {"platform": ["snowflake"]},
+                {"domain": ["urn:li:domain:marketing"]},
+                {"env": ["PROD"]},
+                {"status": "NOT_SOFT_DELETED"},
+                {
+                    "field": "custom_field",
+                    "condition": "GREATER_THAN_OR_EQUAL_TO",
+                    "values": ["5"],
+                },
+            ]
+        }
+    )
+    assert filter_obj == F.and_(
+        F.or_(
+            F.entity_type("dataset"),
+            F.entity_type(["chart", "dashboard"]),
+        ),
+        F.not_(F.entity_subtype("Table")),
+        F.platform("snowflake"),
+        F.domain("urn:li:domain:marketing"),
+        F.env("PROD"),
+        F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
+        F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
+    )
+
+
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
         F.domain("marketing")

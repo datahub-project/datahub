@@ -74,15 +74,19 @@ class _EntityTypeFilter(_BaseFilter):
 
 
 class _EntitySubtypeFilter(_BaseFilter):
-    entity_subtype: str = pydantic.Field(
+    entity_subtype: List[str] = pydantic.Field(
         description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
     )
+
+    @pydantic.validator("entity_subtype", pre=True)
+    def validate_entity_subtype(cls, v: str) -> List[str]:
+        return [v] if not isinstance(v, list) else v
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
             field="typeNames",
             condition="EQUAL",
-            values=[self.entity_subtype],
+            values=self.entity_subtype,
         )
 
     def compile(self) -> _OrFilters:
