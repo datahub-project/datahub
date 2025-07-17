@@ -36,6 +36,9 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean disableSymlinkResolution = false;
   @Builder.Default private final boolean lowerCaseDatasetUrns = false;
   @Builder.Default private final boolean removeLegacyLineage = false;
+  @Builder.Default private final boolean enhancedMergeIntoExtraction = false;
+  @Builder.Default private final Map<String, String> platformInstanceNamespaceMap = new HashMap<>();
+  @Builder.Default private final Map<String, String> environmentNamespaceMap = new HashMap<>();
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {
