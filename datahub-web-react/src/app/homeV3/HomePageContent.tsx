@@ -2,6 +2,8 @@ import React from 'react';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
+import EditDefaultTemplateBar from '@app/homeV3/EditDefaultTemplateBar';
+import EditDefaultTemplateButton from '@app/homeV3/EditDefaultTemplateButton';
 import { Announcements } from '@app/homeV3/announcements/Announcements';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
@@ -21,8 +23,10 @@ const HomePageContent = () => {
             <ContentContainer>
                 <CenteredContainer>
                     <ContentDiv>
+                        <EditDefaultTemplateButton />
                         <Announcements />
                         <Template />
+                        <EditDefaultTemplateBar />
                     </ContentDiv>
                 </CenteredContainer>
             </ContentContainer>
