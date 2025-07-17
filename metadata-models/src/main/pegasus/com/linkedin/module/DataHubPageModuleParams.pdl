@@ -1,6 +1,7 @@
 namespace com.linkedin.module
 
 import com.linkedin.common.Urn
+import com.linkedin.metadata.query.filter.Filter
 
 /**
  * The specific parameters stored for a module
@@ -24,5 +25,15 @@ record DataHubPageModuleParams {
    */
   assetCollectionParams: optional record AssetCollectionModuleParams {
     assetUrns: array[string]
+  }
+
+  /**
+   * The params required if the module is type HIERARCHY_VIEW
+   * TODO: add filters
+   * relatedEntitiesFilter: optional Filter
+   */
+  hierarchyViewParams: optional record HierarchyViewParams {
+    assetUrns: optional array[string]
+    showRelatedEntities: boolean
   }
 }

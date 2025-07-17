@@ -126,11 +126,22 @@ export default function useAddModuleMenu(
             },
         };
 
+        const hierarchyView = {
+            title: 'Hierarchy View',
+            key: 'hierarchyView',
+            label: (
+                <MenuItem description="Most used domains in your organization" title="Hierarchy View" icon="Globe" />
+            ),
+            onClick: () => {
+                handleOpenUpsertModuleModal(DataHubPageModuleType.Hierarchy);
+            },
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Custom Large" />,
             type: 'group',
-            children: [yourAssets, domains, assetCollection],
+            children: [yourAssets, domains, assetCollection, hierarchyView],
         });
 
         // Add admin created modules if available

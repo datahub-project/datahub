@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.module;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
@@ -17,9 +17,7 @@ import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.module.DataHubPageModuleParams;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,16 +96,27 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       com.linkedin.module.AssetCollectionModuleParams assetCollectionParams =
           new com.linkedin.module.AssetCollectionModuleParams();
 
-      List<Urn> urns =
-          paramsInput.getAssetCollectionParams().getAssetUrns().stream()
-              .map(UrnUtils::getUrn)
-              .collect(Collectors.toList());
-
-      UrnArray urnArray = new UrnArray(urns);
-
-      assetCollectionParams.setAssetUrns(urnArray);
+      assetCollectionParams.setAssetUrns(
+          new StringArray(paramsInput.getAssetCollectionParams().getAssetUrns()));
       gmsParams.setAssetCollectionParams(assetCollectionParams);
     }
+
+    if (paramsInput.getHierarchyViewParams() != null) {
+      com.linkedin.module.HierarchyViewParams hierarchyViewParams =
+          new com.linkedin.module.HierarchyViewParams();
+      if (paramsInput.getHierarchyViewParams().getAssetUrns() != null) {
+        hierarchyViewParams.setAssetUrns(
+            new StringArray(paramsInput.getHierarchyViewParams().getAssetUrns()));
+      }
+
+      hierarchyViewParams.setShowRelatedEntities(
+          paramsInput.getHierarchyViewParams().getShowRelatedEntities());
+
+      // TODO: add filters field
+
+      gmsParams.setHierarchyViewParams(hierarchyViewParams);
+    }
+
     return gmsParams;
   }
 
@@ -127,6 +136,11 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       if (params.getAssetCollectionParams() == null) {
         throw new IllegalArgumentException(
             "Did not provide asset collection params for asset collection module");
+      }
+    } else if (type.equals(com.linkedin.module.DataHubPageModuleType.HIERARCHY)) {
+      if (params.getHierarchyViewParams() == null) {
+        throw new IllegalArgumentException(
+            "Did not provide hierarchy view params for hierarchy view module");
       }
     } else {
       // TODO: add more blocks to this check as we support creating more types of modules to this
