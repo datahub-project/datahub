@@ -1,4 +1,4 @@
-import { Button, Icon, Tooltip, colors } from '@components';
+import { Button, Icon, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
