@@ -2,7 +2,8 @@ import { MatchText, Popover, zIndices } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { NAME_COLOR, NAME_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
+import { FontColorLevelOptions, FontColorOptions, FontSizeOptions, FontWeightOptions } from '@components/theme/config';
+
 import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
 
 const EntityTitleContainer = styled.div`
@@ -19,23 +20,44 @@ const PopoverWrapper = styled.div`
 interface Props {
     displayName: string;
     highlight?: string;
+    color?: FontColorOptions;
+    colorLevel?: FontColorLevelOptions;
+    weight?: FontWeightOptions;
+    fontSize?: FontSizeOptions;
+    className?: string;
+    showNameTooltipIfTruncated?: boolean;
 }
 
-export default function DisplayName({ displayName, highlight }: Props) {
+export default function DisplayName({
+    displayName,
+    highlight,
+    color,
+    colorLevel,
+    weight,
+    fontSize,
+    className,
+    showNameTooltipIfTruncated,
+}: Props) {
     const { measuredRef, isHorizontallyTruncated } = useMeasureIfTrancated();
 
     return (
         <Popover
             zIndex={zIndices.popover}
-            content={isHorizontallyTruncated ? <PopoverWrapper>{displayName}</PopoverWrapper> : undefined}
+            content={
+                showNameTooltipIfTruncated && isHorizontallyTruncated ? (
+                    <PopoverWrapper>{displayName}</PopoverWrapper>
+                ) : undefined
+            }
         >
-            <EntityTitleContainer ref={measuredRef}>
+            <EntityTitleContainer ref={measuredRef} className={className}>
                 <MatchText
                     type="span"
-                    color={NAME_COLOR}
-                    colorLevel={NAME_COLOR_LEVEL}
+                    color={color}
+                    colorLevel={colorLevel}
+                    weight={weight}
                     text={displayName}
                     highlight={highlight ?? ''}
+                    size={fontSize}
                 />
             </EntityTitleContainer>
         </Popover>

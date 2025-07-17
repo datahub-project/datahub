@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -75,7 +74,6 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -160,6 +158,15 @@ class Folder:
             if self.partition_id
             else None
         )
+
+
+@dataclasses.dataclass
+class FolderInfo:
+    objects: List[Any]
+    total_size: int
+    min_time: datetime
+    max_time: datetime
+    latest_obj: Any
 
 
 @dataclasses.dataclass
@@ -675,7 +682,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
-            strip_s3_prefix(table_data.table_path)
+            self.strip_s3_prefix(table_data.table_path)
             if self.is_s3_platform()
             else table_data.table_path.strip("/")
         )
@@ -860,8 +867,18 @@ class S3Source(StatefulIngestionSourceBase):
             bucket_name, folder_split[0], self.source_config.aws_config
         )
         for folder in folders:
+            # Ensure proper path joining - folder already includes trailing slash from list_folders
+            # but we need to handle the case where folder_split[1] might start with a slash
+            remaining_pattern = folder_split[1]
+            if remaining_pattern.startswith("/"):
+                remaining_pattern = remaining_pattern[1:]
+
+            # Ensure folder ends with slash for proper path construction
+            if not folder.endswith("/"):
+                folder = folder + "/"
+
             yield from self.resolve_templated_folders(
-                bucket_name, f"{folder}{folder_split[1]}"
+                bucket_name, f"{folder}{remaining_pattern}"
             )
 
     def get_dir_to_process(
@@ -932,26 +949,56 @@ class S3Source(StatefulIngestionSourceBase):
         """
 
         def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
-            allowed = path_spec_.allowed(s3_uri)
+            # Normalize URI for pattern matching
+            normalized_uri = self._normalize_uri_for_pattern_matching(s3_uri)
+
+            allowed = path_spec_.allowed(normalized_uri)
             if not allowed:
                 logger.debug(f"File {s3_uri} not allowed and skipping")
                 self.report.report_file_dropped(s3_uri)
             return allowed
 
-        s3_objects = (
-            obj
-            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
-            if _is_allowed_path(
-                path_spec, self.create_s3_path(obj.bucket_name, obj.key)
+        # Process objects in a memory-efficient streaming fashion
+        # Instead of loading all objects into memory, we'll accumulate folder data incrementally
+        folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
+
+        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+
+            if not _is_allowed_path(path_spec, s3_path):
+                continue
+
+            # Extract the directory name (folder) from the object key
+            dirname = obj.key.rsplit("/", 1)[0]
+
+            # Initialize folder data if we haven't seen this directory before
+            if dirname not in folder_data:
+                folder_data[dirname] = FolderInfo(
+                    objects=[],
+                    total_size=0,
+                    min_time=obj.last_modified,
+                    max_time=obj.last_modified,
+                    latest_obj=obj,
+                )
+
+            # Update folder statistics incrementally
+            folder_info = folder_data[dirname]
+            folder_info.objects.append(obj)
+            folder_info.total_size += obj.size
+
+            # Track min/max times and latest object
+            if obj.last_modified < folder_info.min_time:
+                folder_info.min_time = obj.last_modified
+            if obj.last_modified > folder_info.max_time:
+                folder_info.max_time = obj.last_modified
+                folder_info.latest_obj = obj
+
+        # Yield folders after processing all objects
+        for _dirname, folder_info in folder_data.items():
+            latest_obj = folder_info.latest_obj
+            max_file_s3_path = self.create_s3_path(
+                latest_obj.bucket_name, latest_obj.key
             )
-        )
-        grouped_s3_objects_by_dirname = groupby_unsorted(
-            s3_objects,
-            key=lambda obj: obj.key.rsplit("/", 1)[0],
-        )
-        for _, group in grouped_s3_objects_by_dirname:
-            max_file = max(group, key=lambda x: x.last_modified)
-            max_file_s3_path = self.create_s3_path(max_file.bucket_name, max_file.key)
 
             # If partition_id is None, it means the folder is not a partition
             partition_id = path_spec.get_partition_from_path(max_file_s3_path)
@@ -959,37 +1006,100 @@ class S3Source(StatefulIngestionSourceBase):
             yield Folder(
                 partition_id=partition_id,
                 is_partition=bool(partition_id),
-                creation_time=min(obj.last_modified for obj in group),
-                modification_time=max_file.last_modified,
+                creation_time=folder_info.min_time,
+                modification_time=folder_info.max_time,
                 sample_file=max_file_s3_path,
-                size=sum(obj.size for obj in group),
+                size=folder_info.total_size,
             )
 
+    def create_s3_path(self, bucket_name: str, key: str) -> str:
+        return f"s3://{bucket_name}/{key}"
+
     def s3_browser(self, path_spec: PathSpec, sample_size: int) -> Iterable[BrowsePath]:
+        """
+        Main entry point for browsing S3 objects and creating table-level datasets.
+
+        This method determines whether to use templated processing (for paths with {table})
+        or simple file-by-file processing (for paths without templates).
+
+        Args:
+            path_spec: Configuration specifying the S3 path pattern to scan
+            sample_size: Number of files to sample (used in simple processing)
+
+        Returns:
+            Iterator of BrowsePath objects representing datasets to be created
+
+        Examples:
+            - Templated: s3://bucket/data/*/{table}/** -> Groups files by table
+            - Simple: s3://bucket/data/*.csv -> Processes individual files
+        """
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
+
         s3 = self.source_config.aws_config.get_s3_resource(
             self.source_config.verify_ssl
         )
         bucket_name = get_bucket_name(path_spec.include)
-        logger.debug(f"Scanning bucket: {bucket_name}")
         bucket = s3.Bucket(bucket_name)
-        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
-        logger.debug(f"Scanning objects with prefix:{prefix}")
+
+        logger.debug(f"Scanning bucket: {bucket_name}")
+        logger.info(f"Processing path spec: {path_spec.include}")
+
+        # Check if we have {table} template in the path
+        has_table_template = "{table}" in path_spec.include
+
+        logger.info(f"Has table template: {has_table_template}")
+
+        if has_table_template:
+            logger.info("Using templated path processing")
+            # Always use templated processing when {table} is present
+            # This groups files under table-level datasets
+            yield from self._process_templated_path(path_spec, bucket, bucket_name)
+        else:
+            logger.info("Using simple path processing")
+            # Only use simple processing for non-templated paths
+            # This creates individual file-level datasets
+            yield from self._process_simple_path(path_spec, bucket, bucket_name)
+
+    def _process_templated_path(
+        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
+    ) -> Iterable[BrowsePath]:
+        """
+        Process S3 paths containing {table} templates to create table-level datasets.
+
+        This method handles complex path patterns with wildcards and templates by:
+        1. Replacing template placeholders with stars (except {table})
+        2. Resolving wildcards in the path up to the {table} marker
+        3. Finding all potential table folders under each resolved path
+        4. Applying configurable partition traversal strategy (ALL, MAX, MIN_MAX)
+        5. Aggregating files from selected partitions under each table
+        6. Creating one dataset per table (not per file)
+
+        Args:
+            path_spec: Path specification with {table} template
+            bucket: S3 bucket resource
+            bucket_name: Name of the S3 bucket
+
+        Yields:
+            BrowsePath: One per table (not per file), containing aggregated metadata
+        """
+        # Find the part before {table}
+        table_marker = "{table}"
+        if table_marker not in path_spec.include:
+            logger.info("No {table} marker found in path")
+            return
+
+        # STEP 1: Replace template placeholders with stars (except {table}) to enable folder resolution
+        # This is the crucial missing logic from the original implementation
         matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
         matches_list = list(matches)
-        if matches_list and path_spec.sample_files:
-            # Replace the patch_spec include's templates with star because later we want to resolve all the stars
-            # to actual directories.
-            # For example:
-            # "s3://my-test-bucket/*/{dept}/*/{table}/*/*.*" -> "s3://my-test-bucket/*/*/*/{table}/*/*.*"
-            # We only keep the last template as a marker to know the point util we need to resolve path.
-            # After the marker we can safely get sample files for sampling because it is not used in the
-            # table name, so we don't need all the files.
-            # This speed up processing but we won't be able to get a precise modification date/size/number of files.
+
+        if matches_list:
+            # Replace all templates with stars except keep {table} as the marker
             max_start: int = -1
             include: str = path_spec.include
             max_match: str = ""
+
             for match in matches_list:
                 pos = include.find(match.group())
                 if pos > max_start:
@@ -1001,120 +1111,249 @@ class S3Source(StatefulIngestionSourceBase):
                     if max_match == "{table}":
                         break
 
-            table_index = include.find(max_match)
-            for folder in self.resolve_templated_folders(
-                bucket_name, get_bucket_relative_path(include[:table_index])
-            ):
-                try:
-                    for f in list_folders(
-                        bucket_name, f"{folder}", self.source_config.aws_config
-                    ):
-                        table_path = self.create_s3_path(bucket_name, f)
-                        table_name, _ = path_spec.extract_table_name_and_path(
-                            table_path
-                        )
-                        if not path_spec.tables_filter_pattern.allowed(table_name):
-                            logger.debug(
-                                f"Table '{table_name}' not allowed and skipping"
-                            )
-                            self.report.report_file_dropped(table_path)
-                            continue
+            logger.info(f"Template replacement: {path_spec.include} -> {include}")
+        else:
+            include = path_spec.include
 
+        # Split the path at {table} to get the prefix that needs wildcard resolution
+        prefix_before_table = include.split(table_marker)[0]
+        # Remove the s3:// and bucket name to get the relative path
+        relative_path = get_bucket_relative_path(prefix_before_table)
+
+        logger.info(f"Prefix before table: {prefix_before_table}")
+        logger.info(f"Relative path for resolution: {relative_path}")
+
+        try:
+            # STEP 2: Resolve ALL wildcards in the path up to {table}
+            # This converts patterns like "data/*/logs/" to actual paths like ["data/2023/logs/", "data/2024/logs/"]
+            table_index = include.find(table_marker)
+            folder_prefix = get_bucket_relative_path(include[:table_index])
+
+            resolved_prefixes = list(
+                self.resolve_templated_folders(bucket_name, folder_prefix)
+            )
+            logger.info(f"Resolved prefixes: {resolved_prefixes}")
+
+            # STEP 3: Process each resolved prefix to find table folders
+            for resolved_prefix in resolved_prefixes:
+                logger.info(f"Processing resolved prefix: {resolved_prefix}")
+
+                # Get all folders that could be tables under this resolved prefix
+                # These are the actual table names (e.g., "users", "events", "logs")
+                table_folders = list(
+                    list_folders(
+                        bucket_name, resolved_prefix, self.source_config.aws_config
+                    )
+                )
+                logger.debug(
+                    f"Found table folders under {resolved_prefix}: {table_folders}"
+                )
+
+                # STEP 4: Process each table folder to create a table-level dataset
+                for table_folder in table_folders:
+                    # Create the full S3 path for this table
+                    table_s3_path = self.create_s3_path(
+                        bucket_name, table_folder.rstrip("/")
+                    )
+                    logger.info(
+                        f"Processing table folder: {table_folder} -> {table_s3_path}"
+                    )
+
+                    # Extract table name using the ORIGINAL path spec pattern matching (not the modified one)
+                    # This uses the compiled regex pattern to extract the table name from the full path
+                    table_name, table_path = path_spec.extract_table_name_and_path(
+                        table_s3_path
+                    )
+
+                    # Apply table name filtering if configured
+                    if not path_spec.tables_filter_pattern.allowed(table_name):
+                        logger.debug(f"Table '{table_name}' not allowed and skipping")
+                        continue
+
+                    # STEP 5: Handle partition traversal based on configuration
+                    # Get all partition folders first
+                    all_partition_folders = list(
+                        list_folders(
+                            bucket_name, table_folder, self.source_config.aws_config
+                        )
+                    )
+                    logger.info(
+                        f"Found {len(all_partition_folders)} partition folders under table {table_name} using method {path_spec.traversal_method}"
+                    )
+
+                    if all_partition_folders:
+                        # Apply the same traversal logic as the original code
                         dirs_to_process = []
-                        logger.info(f"Processing folder: {f}")
+
                         if path_spec.traversal_method == FolderTraversalMethod.ALL:
-                            dirs_to_process.append(f)
+                            # Process ALL partitions (original behavior)
+                            dirs_to_process = all_partition_folders
+                            logger.debug(
+                                f"Processing ALL {len(all_partition_folders)} partitions"
+                            )
+
                         else:
+                            # Use the original get_dir_to_process logic for MIN/MAX
+                            protocol = "s3://"  # Default protocol for S3
+
                             if (
                                 path_spec.traversal_method
                                 == FolderTraversalMethod.MIN_MAX
                                 or path_spec.traversal_method
                                 == FolderTraversalMethod.MAX
                             ):
-                                protocol = ContainerWUCreator.get_protocol(
-                                    path_spec.include
-                                )
+                                # Get MAX partition using original logic
                                 dirs_to_process_max = self.get_dir_to_process(
                                     bucket_name=bucket_name,
-                                    folder=f + "/",
+                                    folder=table_folder + "/",
                                     path_spec=path_spec,
                                     protocol=protocol,
+                                    min=False,
                                 )
-                                dirs_to_process.append(dirs_to_process_max[0])
+                                if dirs_to_process_max:
+                                    # Convert full S3 paths back to relative paths for processing
+                                    dirs_to_process.extend(
+                                        [
+                                            d.replace(f"{protocol}{bucket_name}/", "")
+                                            for d in dirs_to_process_max
+                                        ]
+                                    )
+                                    logger.debug(
+                                        f"Added MAX partition: {dirs_to_process_max}"
+                                    )
 
                             if (
                                 path_spec.traversal_method
                                 == FolderTraversalMethod.MIN_MAX
                             ):
+                                # Get MIN partition using original logic
                                 dirs_to_process_min = self.get_dir_to_process(
                                     bucket_name=bucket_name,
-                                    folder=f + "/",
+                                    folder=table_folder + "/",
                                     path_spec=path_spec,
                                     protocol=protocol,
                                     min=True,
                                 )
-                                dirs_to_process.append(dirs_to_process_min[0])
-                        folders: List[Folder] = []
-                        for dir in dirs_to_process:
-                            logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = urlparse(dir).path.lstrip("/")
+                                if dirs_to_process_min:
+                                    # Convert full S3 paths back to relative paths for processing
+                                    dirs_to_process.extend(
+                                        [
+                                            d.replace(f"{protocol}{bucket_name}/", "")
+                                            for d in dirs_to_process_min
+                                        ]
+                                    )
+                                    logger.debug(
+                                        f"Added MIN partition: {dirs_to_process_min}"
+                                    )
 
-                            folders.extend(
-                                self.get_folder_info(
-                                    path_spec, bucket, prefix_to_process
-                                )
+                        # Process the selected partitions
+                        all_folders = []
+                        for partition_folder in dirs_to_process:
+                            # Ensure we have a clean folder path
+                            clean_folder = partition_folder.rstrip("/")
+
+                            logger.info(f"Scanning files in partition: {clean_folder}")
+                            partition_files = list(
+                                self.get_folder_info(path_spec, bucket, clean_folder)
                             )
-                        max_folder = None
-                        if folders:
-                            max_folder = max(folders, key=lambda x: x.modification_time)
-                        if not max_folder:
+                            all_folders.extend(partition_files)
+
+                        if all_folders:
+                            # Use the most recent file across all processed partitions
+                            latest_file = max(
+                                all_folders, key=lambda x: x.modification_time
+                            )
+
+                            # Get partition information
+                            partitions = [f for f in all_folders if f.is_partition]
+
+                            # Calculate total size of processed partitions
+                            total_size = sum(f.size for f in all_folders)
+
+                            # Create ONE BrowsePath per table
+                            # The key insight: we need to provide the sample file for schema inference
+                            # but the table path should be extracted correctly by extract_table_name_and_path
+                            yield BrowsePath(
+                                file=latest_file.sample_file,  # Sample file for schema inference
+                                timestamp=latest_file.modification_time,  # Latest timestamp
+                                size=total_size,  # Size of processed partitions
+                                partitions=partitions,  # Partition metadata
+                            )
+                        else:
                             logger.warning(
-                                f"Unable to find any files in the folder {dir}. Skipping..."
+                                f"No files found in processed partitions for table {table_name}"
                             )
-                            continue
-
-                        partitions = list(filter(lambda x: x.is_partition, folders))
-                        yield BrowsePath(
-                            file=max_folder.sample_file,
-                            timestamp=max_folder.modification_time,
-                            size=max_folder.size,
-                            partitions=partitions,
-                            # TODO: Support content type inference for partitions
-                        )
-                except Exception as e:
-                    # This odd check if being done because boto does not have a proper exception to catch
-                    # The exception that appears in stacktrace cannot actually be caught without a lot more work
-                    # https://github.com/boto/boto3/issues/1195
-                    if "NoSuchBucket" in repr(e):
-                        logger.debug(f"Got NoSuchBucket exception for {bucket_name}", e)
-                        self.get_report().report_warning(
-                            "Missing bucket", f"No bucket found {bucket_name}"
-                        )
                     else:
-                        raise e
-        else:
-            logger.debug(
-                "No template in the pathspec can't do sampling, fallbacking to do full scan"
-            )
-            path_spec.sample_files = False
-            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
-                s3_path = self.create_s3_path(obj.bucket_name, obj.key)
-                logger.debug(f"Path: {s3_path}")
+                        logger.warning(
+                            f"No partition folders found under table {table_name}"
+                        )
 
-                content_type = None
-                if self.source_config.use_s3_content_type:
-                    content_type = s3.Object(obj.bucket_name, obj.key).content_type
-
-                yield BrowsePath(
-                    file=s3_path,
-                    timestamp=obj.last_modified,
-                    size=obj.size,
-                    partitions=[],
-                    content_type=content_type,
+        except Exception as e:
+            if "NoSuchBucket" in repr(e):
+                self.get_report().report_warning(
+                    "Missing bucket", f"No bucket found {bucket_name}"
                 )
+                return
+            logger.error(f"Error in _process_templated_path: {e}")
+            raise e
 
-    def create_s3_path(self, bucket_name: str, key: str) -> str:
-        return f"s3://{bucket_name}/{key}"
+    def _process_simple_path(
+        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
+    ) -> Iterable[BrowsePath]:
+        """
+        Process simple S3 paths without {table} templates to create file-level datasets.
+
+        This method handles straightforward file patterns by:
+        1. Listing all files matching the pattern
+        2. Creating one dataset per file
+        3. No aggregation or grouping is performed
+
+        Use Cases:
+        - Individual file processing: s3://bucket/data/*.csv
+        - Direct file paths: s3://bucket/data/myfile.json
+        - Patterns without table grouping: s3://bucket/logs/*.log
+
+        Args:
+            path_spec: Path specification without {table} template
+            bucket: S3 bucket resource
+            bucket_name: Name of the S3 bucket
+
+        Yields:
+            BrowsePath: One per file, containing individual file metadata
+
+        Example Output:
+            - BrowsePath(file="data/file1.csv", size=1000, partitions=[])
+            - BrowsePath(file="data/file2.csv", size=2000, partitions=[])
+        """
+        assert self.source_config.aws_config is not None, "aws_config not set"
+
+        path_spec.sample_files = False  # Disable sampling for simple paths
+
+        # Extract the prefix from the path spec (stops at first wildcard)
+        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
+
+        # Get s3 resource for content type checking
+        s3 = self.source_config.aws_config.get_s3_resource(
+            self.source_config.verify_ssl
+        )
+
+        # Iterate through all objects in the bucket matching the prefix
+        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+
+            # Get content type if configured
+            content_type = None
+            if self.source_config.use_s3_content_type:
+                content_type = s3.Object(obj.bucket_name, obj.key).content_type
+
+            # Create one BrowsePath per file
+            yield BrowsePath(
+                file=s3_path,
+                timestamp=obj.last_modified,
+                size=obj.size,
+                partitions=[],  # No partitions in simple mode
+                content_type=content_type,
+            )
 
     def local_browser(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         prefix = self.get_prefix(path_spec.include)
@@ -1158,8 +1397,13 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 table_dict: Dict[str, TableData] = {}
                 for browse_path in file_browser:
+                    # Normalize URI for pattern matching
+                    normalized_file_path = self._normalize_uri_for_pattern_matching(
+                        browse_path.file
+                    )
+
                     if not path_spec.allowed(
-                        browse_path.file,
+                        normalized_file_path,
                         ignore_ext=self.is_s3_platform()
                         and self.source_config.use_s3_content_type,
                     ):
@@ -1234,6 +1478,14 @@ class S3Source(StatefulIngestionSourceBase):
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"
+
+    def strip_s3_prefix(self, s3_uri: str) -> str:
+        """Strip S3 prefix from URI. Can be overridden by adapters for other platforms."""
+        return strip_s3_prefix(s3_uri)
+
+    def _normalize_uri_for_pattern_matching(self, uri: str) -> str:
+        """Normalize URI for pattern matching. Can be overridden by adapters for other platforms."""
+        return uri
 
     def get_report(self):
         return self.report

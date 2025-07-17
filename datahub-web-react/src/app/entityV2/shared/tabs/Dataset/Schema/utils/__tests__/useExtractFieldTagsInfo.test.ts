@@ -173,9 +173,9 @@ describe('useExtractFieldTagsInfo', () => {
         const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
         expect(editableTags?.tags).toHaveLength(0);
-        expect(proposedTags).toStrictEqual([]);
+        expect(proposedTags).toHaveLength(1);
         expect(uneditableTags?.tags).toHaveLength(0);
-        expect(numberOfTags).toBe(0);
+        expect(numberOfTags).toBe(1);
     });
 
     it('should extract all tags when they were provided in both schema and editable metadata, but exclude duplicates', () => {
@@ -188,8 +188,8 @@ describe('useExtractFieldTagsInfo', () => {
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
         expect(uneditableTags?.tags).toHaveLength(0);
-        expect(proposedTags).toStrictEqual([]);
-        expect(numberOfTags).toBe(1);
+        expect(proposedTags).toHaveLength(1);
+        expect(numberOfTags).toBe(2);
     });
 
     it('should not extract any tags when they are not provided', () => {

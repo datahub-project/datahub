@@ -294,8 +294,6 @@ class Mapper:
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
 
             mcp = MetadataChangeProposalWrapper(
-                entityType=Constant.DATASET,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=ds_urn,
                 aspect=upstream_lineage_class,
             )
@@ -538,9 +536,7 @@ class Mapper:
         profile.columnCount = table.column_count
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=ds_urn,
-            aspectName="datasetProfile",
             aspect=profile,
         )
         dataset_mcps.append(mcp)
@@ -796,7 +792,6 @@ class Mapper:
             guid=container_key.guid(),
         )
         mcp = MetadataChangeProposalWrapper(
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=entity_urn,
             aspect=ContainerClass(container=f"{container_urn}"),
         )

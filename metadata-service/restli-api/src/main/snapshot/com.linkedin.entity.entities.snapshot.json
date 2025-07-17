@@ -6811,6 +6811,12 @@
       "default" : true,
       "optional" : true
     }, {
+      "name" : "fieldConfiguration",
+      "type" : "string",
+      "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
+      "default" : "default",
+      "optional" : true
+    }, {
       "name" : "fetchExtraFields",
       "type" : {
         "type" : "array",

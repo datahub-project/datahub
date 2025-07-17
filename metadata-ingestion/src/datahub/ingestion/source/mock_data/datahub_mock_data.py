@@ -21,9 +21,13 @@ from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
 )
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
+    DatasetUsageStatisticsClass,
     StatusClass,
     SubTypesClass,
+    TimeWindowSizeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -266,11 +270,8 @@ class DataHubMockDataSource(Source):
             fan_out, hops, fan_out_after_first
         )
 
-        logger.info(
-            f"About to create {tables_to_be_created} tables for lineage testing"
-        )
+        logger.info(f"About to create {tables_to_be_created} datasets mock data")
 
-        current_progress = 0
         for i in range(hops + 1):
             tables_at_level = tables_at_levels[i]
 
@@ -281,6 +282,10 @@ class DataHubMockDataSource(Source):
 
                 yield self._get_subtypes_aspect(table_name, i, j)
 
+                yield self._get_profile_aspect(table_name)
+
+                yield self._get_usage_aspect(table_name)
+
                 yield from self._generate_lineage_for_table(
                     table_name=table_name,
                     table_level=i,
@@ -290,12 +295,6 @@ class DataHubMockDataSource(Source):
                     fan_out_after_first=fan_out_after_first,
                     tables_at_levels=tables_at_levels,
                 )
-
-                current_progress += 1
-                if current_progress % 1000 == 0:
-                    logger.info(
-                        f"Progress: {current_progress}/{tables_to_be_created} tables processed"
-                    )
 
     def _generate_lineage_for_table(
         self,
@@ -386,6 +385,43 @@ class DataHubMockDataSource(Source):
                         type=DatasetLineageTypeClass.TRANSFORMED,
                     )
                 ],
+            ),
+        )
+        return mcp.as_workunit()
+
+    def _get_profile_aspect(self, table: str) -> MetadataWorkUnit:
+        urn = make_dataset_urn(
+            platform="fake",
+            name=table,
+        )
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            entityType="dataset",
+            aspect=DatasetProfileClass(
+                timestampMillis=0,
+                rowCount=100,
+                columnCount=10,
+                sizeInBytes=1000,
+            ),
+        )
+        return mcp.as_workunit()
+
+    def _get_usage_aspect(self, table: str) -> MetadataWorkUnit:
+        urn = make_dataset_urn(
+            platform="fake",
+            name=table,
+        )
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            entityType="dataset",
+            aspect=DatasetUsageStatisticsClass(
+                timestampMillis=0,
+                eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+                uniqueUserCount=0,
+                totalSqlQueries=0,
+                topSqlQueries=[],
+                userCounts=[],
+                fieldCounts=[],
             ),
         )
         return mcp.as_workunit()

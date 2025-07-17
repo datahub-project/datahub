@@ -5,12 +5,13 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
+import { useAppConfig } from '@app/useAppConfig';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
+import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateUserSettingMutation } from '@graphql/me.generated';
 import { UserSetting } from '@types';
 
@@ -32,6 +33,7 @@ const StyledCard = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
+    margin-bottom: 16px;
 `;
 
 const SourceContainer = styled.div`
@@ -76,9 +78,15 @@ export const Preferences = () => {
     const isThemeV2 = useIsThemeV2();
     const [isThemeV2Toggleable] = useIsThemeV2Toggleable();
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
+    const userContext = useUserContext();
+    const appConfig = useAppConfig();
+
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
+    const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
+
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
+    const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -86,6 +94,7 @@ export const Preferences = () => {
     const authenticatedUser = useGetAuthenticatedUser();
     const canManageOrganizationDisplayPreferences =
         authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
+    const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
     return (
         <Page>
@@ -170,8 +179,39 @@ export const Preferences = () => {
                     </>
                 )}
                 {canManageOrganizationDisplayPreferences && isShowNavBarRedesign && <OrganizationInfo />}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageOrganizationDisplayPreferences && (
-                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                {!showSimplifiedHomepageSetting &&
+                    !isThemeV2Toggleable &&
+                    !canManageOrganizationDisplayPreferences &&
+                    !canManageApplicationAppearance && (
+                        <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
+                    )}
+                {canManageApplicationAppearance && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>Show Applications</SettingText>
+                                <DescriptionText>
+                                    Applications are another way to organize your data, similar to Domains. They are
+                                    hidden by default.
+                                </DescriptionText>
+                            </TextContainer>
+                            <Switch
+                                label=""
+                                checked={applicationsEnabled}
+                                onChange={async () => {
+                                    await updateApplicationsSettingsMutation({
+                                        variables: {
+                                            input: {
+                                                enabled: !applicationsEnabled,
+                                            },
+                                        },
+                                    });
+                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                    appConfig?.refreshContext();
+                                }}
+                            />
+                        </UserSettingRow>
+                    </StyledCard>
                 )}
             </SourceContainer>
         </Page>

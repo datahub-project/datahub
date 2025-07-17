@@ -46,12 +46,9 @@ lint_requirements = {
 
 base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
-    # Compatibility.
-    "typing_extensions>=3.7.4; python_version < '3.8'",
-    "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=1.10.21",
+    "pydantic>=2.0.0,<3.0.0",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
@@ -167,9 +164,6 @@ full_test_dev_requirements = {
         ]
         for dependency in plugins[plugin]
     ),
-    # In our tests, we want to always test against pydantic v2.
-    # However, we maintain compatibility with pydantic v1 for now.
-    "pydantic>2",
 }
 
 entry_points = {
@@ -199,7 +193,7 @@ setuptools.setup(
         "Source": "https://github.com/acryldata/datahub-actions",
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },
-    license="Apache License 2.0",
+    license="Apache-2.0",
     description="An action framework to work with DataHub real time changes.",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -208,15 +202,9 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",
@@ -225,7 +213,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

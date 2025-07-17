@@ -717,7 +717,7 @@ pyparsing==3.2.0
     #   matplotlib
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
-pyspark==3.5.4
+pyspark==3.5.6
     # via acryl-datahub
 python-dateutil==2.9.0.post0
     # via

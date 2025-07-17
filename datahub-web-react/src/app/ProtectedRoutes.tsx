@@ -10,7 +10,7 @@ import { HomePage } from '@app/home/HomePage';
 import { HomePage as HomePageV2 } from '@app/homeV2/HomePage';
 import { IntroduceYourself } from '@app/homeV2/introduce/IntroduceYourself';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
-import { HomePage as HomePageNew } from '@app/homepageV2/HomePage';
+import { HomePage as HomePageV3 } from '@app/homeV3/HomePage';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useAppConfig } from '@app/useAppConfig';
@@ -41,7 +41,7 @@ export const ProtectedRoutes = (): JSX.Element => {
     let FinalHomePage;
 
     if (isThemeV2) {
-        FinalHomePage = showHomepageRedesign ? HomePageNew : HomePageV2;
+        FinalHomePage = showHomepageRedesign ? HomePageV3 : HomePageV2;
     } else {
         FinalHomePage = HomePage;
     }

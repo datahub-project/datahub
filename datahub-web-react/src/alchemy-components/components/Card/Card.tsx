@@ -15,6 +15,7 @@ export const cardDefaults: CardProps = {
     title: 'Title',
     iconAlignment: 'horizontal',
     isEmpty: false,
+    isCardClickable: true,
 };
 
 export const Card = ({
@@ -30,6 +31,8 @@ export const Card = ({
     maxWidth,
     height,
     isEmpty,
+    style,
+    isCardClickable = cardDefaults.isCardClickable,
 }: CardProps) => {
     return (
         <>
@@ -41,7 +44,14 @@ export const Card = ({
                     </TitleContainer>
                 </CardContainer>
             ) : (
-                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height} width={width}>
+                <CardContainer
+                    isClickable={!!button && isCardClickable}
+                    onClick={onClick}
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    style={style}
+                >
                     <Header iconAlignment={iconAlignment}>
                         {icon}
                         <TitleContainer>

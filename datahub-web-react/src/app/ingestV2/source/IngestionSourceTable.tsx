@@ -134,7 +134,13 @@ function IngestionSourceTable({
             title: 'Schedule',
             key: 'schedule',
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
-            width: '15%',
+            width: '20%',
+        },
+        {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '20%',
         },
         ...(isPoolsDisplayEnabled
             ? [

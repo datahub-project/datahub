@@ -23,7 +23,7 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 ## Various errors related to `generateDataTemplate` or other `generate` tasks
 
-As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue.
+As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should resolve the issue.
 
 ## `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 

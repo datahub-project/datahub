@@ -72,10 +72,11 @@ def test_get_jobs_managed_environment_success(mock_logger, mssql_source):
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
     # Mock managed environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=True
-    ), patch.object(
-        mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=True),
+        patch.object(
+            mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
+        ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
@@ -92,9 +93,12 @@ def test_get_jobs_on_premises_success(mock_logger, mssql_source):
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
     # Mock on-premises environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=False
-    ), patch.object(mssql_source, "_get_jobs_via_direct_query", return_value=mock_jobs):
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=False),
+        patch.object(
+            mssql_source, "_get_jobs_via_direct_query", return_value=mock_jobs
+        ),
+    ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == mock_jobs
@@ -110,13 +114,17 @@ def test_get_jobs_managed_fallback_success(mock_logger, mssql_source):
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
     # Mock managed environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=True
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_stored_procedures",
-        side_effect=Exception("SP failed"),
-    ), patch.object(mssql_source, "_get_jobs_via_direct_query", return_value=mock_jobs):
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=True),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_stored_procedures",
+            side_effect=Exception("SP failed"),
+        ),
+        patch.object(
+            mssql_source, "_get_jobs_via_direct_query", return_value=mock_jobs
+        ),
+    ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == mock_jobs
@@ -135,14 +143,16 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
     # Mock on-premises environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=False
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_direct_query",
-        side_effect=Exception("Direct query failed"),
-    ), patch.object(
-        mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=False),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_direct_query",
+            side_effect=Exception("Direct query failed"),
+        ),
+        patch.object(
+            mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
+        ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
@@ -161,16 +171,18 @@ def test_get_jobs_managed_both_methods_fail(mock_logger, mssql_source):
     mock_conn = MagicMock()
 
     # Mock managed environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=True
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_stored_procedures",
-        side_effect=Exception("SP failed"),
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_direct_query",
-        side_effect=Exception("Direct failed"),
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=True),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_stored_procedures",
+            side_effect=Exception("SP failed"),
+        ),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_direct_query",
+            side_effect=Exception("Direct failed"),
+        ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
@@ -189,16 +201,18 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
     mock_conn = MagicMock()
 
     # Mock on-premises environment detection
-    with patch.object(
-        mssql_source, "_detect_rds_environment", return_value=False
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_direct_query",
-        side_effect=Exception("Direct failed"),
-    ), patch.object(
-        mssql_source,
-        "_get_jobs_via_stored_procedures",
-        side_effect=Exception("SP failed"),
+    with (
+        patch.object(mssql_source, "_detect_rds_environment", return_value=False),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_direct_query",
+            side_effect=Exception("Direct failed"),
+        ),
+        patch.object(
+            mssql_source,
+            "_get_jobs_via_stored_procedures",
+            side_effect=Exception("SP failed"),
+        ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 

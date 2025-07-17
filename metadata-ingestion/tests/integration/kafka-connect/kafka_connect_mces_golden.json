@@ -63,7 +63,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.member,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.topics.librarydb.member,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,all.debezium.topics.librarydb.member,PROD)"
             ]
         }
     },
@@ -102,7 +102,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.book,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.topics.librarydb.book,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,all.debezium.topics.librarydb.book,PROD)"
             ]
         }
     },
@@ -141,7 +141,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql1.librarydb.mixedcasetable,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.topics.librarydb.mixedcasetable,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,all.debezium.topics.librarydb.mixedcasetable,PROD)"
             ]
         }
     },

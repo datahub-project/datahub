@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
+import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -274,12 +275,25 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private RecentlySearchedSource recentlySearchedSource;
 
   @MockBean
+  @Qualifier("pageTemplateService")
+  private PageTemplateService pageTemplateService;
+
+  @MockBean
+  @Qualifier("baseElasticSearchComponents")
+  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+      baseElasticSearchComponents;
+
+  @MockBean
   @Qualifier("queryEngine")
   private QueryEngine queryEngine;
 
   @MockBean
   @Qualifier("testActionApplier")
   private ActionApplier testActionApplier;
+
+  @MockBean
+  @Qualifier("pageModuleService")
+  private PageModuleService pageModuleService;
 
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;

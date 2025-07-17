@@ -112,10 +112,7 @@ relationship_urn = f"urn:li:erModelRelationship:{relationship_key.id}"
 
 e.emit_mcp(
     MetadataChangeProposalWrapper(
-        entityType="erModelRelationship",
-        changeType="UPSERT",
         entityKeyAspect=relationship_key,
-        aspectName=relationship_key.ASPECT_NAME,
         aspect=relationship_key,
     )
 )
@@ -123,9 +120,6 @@ e.emit_mcp(
 e.emit_mcp(
     MetadataChangeProposalWrapper(
         entityUrn=relationship_urn,
-        entityType="erModelRelationship",
-        changeType="UPSERT",
-        aspectName=relationship_properties.ASPECT_NAME,
         aspect=relationship_properties,
     )
 )

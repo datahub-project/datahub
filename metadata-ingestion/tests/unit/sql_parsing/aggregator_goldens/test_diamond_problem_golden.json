@@ -1,0 +1,65 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1751377942741,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_source1,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_source1,PROD),col_a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD),col_a)"
+                    ],
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_source1,PROD),col_b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD),col_b)"
+                    ],
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_source1,PROD),col_c)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dummy_test.diamond_problem.diamond_destination,PROD),col_c)"
+                    ],
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:composite_b904cb462bf8f3bfd8736ae83df0cdae5651c4de16183ccc395493e65d6a3824"
+                }
+            ]
+        }
+    }
+}
+]

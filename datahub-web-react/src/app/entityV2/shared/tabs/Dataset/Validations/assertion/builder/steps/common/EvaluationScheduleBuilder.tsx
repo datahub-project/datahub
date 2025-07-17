@@ -14,7 +14,7 @@ import {
     getEvaluationScheduleTooltipDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
 import { adjustCronText } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
 import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
 import { lowerFirstLetter } from '@app/shared/textUtil';
@@ -103,7 +103,7 @@ export const EvaluationScheduleBuilder = ({
     disabled = false,
 }: Props) => {
     const { entityData } = useEntityData();
-    const platformName = getPlatformName(entityData);
+    const platformName = getPlatformNameFromEntityData(entityData);
     const interval = value?.cron?.replaceAll(', ', '') || DEFAULT_ASSERTION_EVALUATION_SCHEDULE;
     const timezone = value?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const title = headerLabel ?? getEvaluationScheduleTitle(assertionType);

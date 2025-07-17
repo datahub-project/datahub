@@ -214,12 +214,15 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         },
     }
 
-    with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
-    ) as mock_state, mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
-        {},
-        # Second mock is to imitate earlier behavior where entity type check was not present when adding entity to state
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        ) as mock_state,
+        mock.patch(
+            "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
+            {},
+            # Second mock is to imitate earlier behavior where entity type check was not present when adding entity to state
+        ),
     ):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None

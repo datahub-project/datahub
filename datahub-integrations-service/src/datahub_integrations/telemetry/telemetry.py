@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from datahub.telemetry.telemetry import TIMEOUT, _default_telemetry_properties
+from datahub.telemetry.telemetry import TIMEOUT, _default_global_properties
 from mixpanel import Consumer, Mixpanel
 from pydantic import BaseModel, Field
 
@@ -49,7 +49,7 @@ def _get_origin() -> str:
 
 def _default_properties() -> dict:
     return {
-        **_default_telemetry_properties(),
+        **_default_global_properties(),
         "datahub_integrations_version": __version__,
     }
 

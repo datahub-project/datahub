@@ -19,7 +19,6 @@ import { BrowsePathV2, Entity, EntityType } from '@types';
 const PlatformContentWrapper = styled.div`
     display: flex;
     flex-wrap: nowrap;
-    flex: 1;
     align-items: center;
     max-width: 100%;
     line-height: 22px;

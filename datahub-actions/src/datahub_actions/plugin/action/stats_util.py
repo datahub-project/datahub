@@ -111,7 +111,7 @@ class EventProcessingStats(BaseModel):
             ).isoformat()
 
     def __str__(self) -> str:
-        return json.dumps(self.dict(), indent=2)
+        return json.dumps(self.model_dump(), indent=2)
 
 
 class StageStatus(StrEnum):
@@ -165,7 +165,7 @@ class ActionStageReport(BaseModel):
         return Report.to_pure_python_obj(self)
 
     def aggregatable_stats(self) -> Dict[str, int]:
-        all_items = self.dict()
+        all_items = self.model_dump()
 
         stats = {k: v for k, v in all_items.items() if k.startswith("total_")}
 
@@ -175,7 +175,7 @@ class ActionStageReport(BaseModel):
 
         # Add a few additional special cases of aggregatable stats.
         if self.event_processing_stats:
-            for key, value in self.event_processing_stats.dict().items():
+            for key, value in self.event_processing_stats.model_dump().items():
                 if value is not None:
                     stats[f"event_processing_stats.{key}"] = str(value)
 

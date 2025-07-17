@@ -231,7 +231,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
 
         with self.report.usage_aggregation.result_fetch_timer as fetch_timer:
             for row in results:
-                with fetch_timer.pause(), self.report.usage_aggregation.result_skip_timer as skip_timer:
+                with (
+                    fetch_timer.pause(),
+                    self.report.usage_aggregation.result_skip_timer as skip_timer,
+                ):
                     if results.rownumber is not None and results.rownumber % 1000 == 0:
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
@@ -255,7 +258,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                             f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
                         )
                         continue
-                    with skip_timer.pause(), self.report.usage_aggregation.result_map_timer as map_timer:
+                    with (
+                        skip_timer.pause(),
+                        self.report.usage_aggregation.result_map_timer as map_timer,
+                    ):
                         wu = self.build_usage_statistics_for_dataset(
                             dataset_identifier, row
                         )

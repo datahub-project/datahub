@@ -153,6 +153,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -215,9 +216,12 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
@@ -231,6 +235,7 @@ import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructu
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.template.UpsertPageTemplateResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaVersionListResolver;
@@ -347,6 +352,8 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageModuleService;
+import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -427,6 +434,8 @@ public class GmsGraphQLEngine {
   private final EntityVersioningService entityVersioningService;
   private final IntegrationsService integrationsService;
   private final ApplicationService applicationService;
+  private final PageTemplateService pageTemplateService;
+  private final PageModuleService pageModuleService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -554,6 +563,8 @@ public class GmsGraphQLEngine {
     this.erModelRelationshipService = args.erModelRelationshipService;
     this.dataProductService = args.dataProductService;
     this.applicationService = args.applicationService;
+    this.pageTemplateService = args.pageTemplateService;
+    this.pageModuleService = args.pageModuleService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
@@ -795,6 +806,8 @@ public class GmsGraphQLEngine {
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
+    configureGlobalHomePageSettingsResolvers(builder);
+    configurePageTemplateRowResolvers(builder);
     configureSourceDetailsResolvers(builder);
   }
 
@@ -988,6 +1001,7 @@ public class GmsGraphQLEngine {
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
+                        this.settingsService,
                         this.classificationConfiguration,
                         this.defaultLineageLastDaysFilter))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
@@ -1122,6 +1136,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "docPropagationSettings",
                     new DocPropagationSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "globalHomePageSettings",
+                    new GlobalHomePageSettingsResolver(this.settingsService))
                 .dataFetcher(
                     "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
                 .dataFetcher(
@@ -1343,6 +1360,9 @@ public class GmsGraphQLEngine {
                   "updateCorpUserViewsSettings",
                   new UpdateCorpUserViewsSettingsResolver(this.settingsService))
               .dataFetcher(
+                  "updateUserHomePageSettings",
+                  new UpdateUserHomePageSettingsResolver(this.settingsService))
+              .dataFetcher(
                   "updateLineage",
                   new UpdateLineageResolver(this.entityService, this.lineageService))
               .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
@@ -1413,8 +1433,14 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "refreshFormAssignment", new RefreshFormAssignmentResolver(this.formService))
               .dataFetcher(
+                  "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
+              .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
+              .dataFetcher(
                   "updateDocPropagationSettings",
-                  new UpdateDocPropagationSettingsResolver(this.settingsService));
+                  new UpdateDocPropagationSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateApplicationsSettings",
+                  new UpdateApplicationsSettingsResolver(this.settingsService));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -3721,6 +3747,37 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
+  }
+
+  private void configureGlobalHomePageSettingsResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "GlobalHomePageSettings",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "defaultTemplate",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) -> {
+                      final GlobalHomePageSettings homePageSettings = env.getSource();
+                      return homePageSettings.getDefaultTemplate() != null
+                          ? homePageSettings.getDefaultTemplate().getUrn()
+                          : null;
+                    })));
+  }
+
+  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "DataHubPageTemplateRow",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "modules",
+                new LoadableTypeBatchResolver<>(
+                    dataHubPageModuleType,
+                    (env) ->
+                        ((DataHubPageTemplateRow) env.getSource())
+                            .getModules().stream()
+                                .map(DataHubPageModule::getUrn)
+                                .collect(Collectors.toList()))));
   }
 
   private void configureSourceDetailsResolvers(final RuntimeWiring.Builder builder) {

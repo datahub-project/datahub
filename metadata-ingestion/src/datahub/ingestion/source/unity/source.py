@@ -56,6 +56,7 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -152,7 +153,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
     SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"
@@ -768,10 +776,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
-        schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
-            schema.catalog.name
-        ).get(f"{schema.catalog.name}.{schema.name}", [])
-        if schema_tags:
+        schema_tags = []
+        if self.config.include_tags:
+            schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
+                schema.catalog.name
+            ).get(f"{schema.catalog.name}.{schema.name}", [])
             logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(schema_tags)
@@ -809,10 +818,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
-        catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog.name).get(
-            catalog.name, []
-        )
-        if catalog_tags:
+        catalog_tags = []
+        if self.config.include_tags:
+            catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(
+                catalog.name
+            ).get(catalog.name, [])
             logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(catalog_tags)

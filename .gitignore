@@ -87,6 +87,7 @@ smoke-test/rollback-reports
 coverage*.xml
 .vercel
 .envrc
+**/.claude/settings.local.json
 
 # A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
@@ -129,3 +130,4 @@ metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
 notifications/bin/
+

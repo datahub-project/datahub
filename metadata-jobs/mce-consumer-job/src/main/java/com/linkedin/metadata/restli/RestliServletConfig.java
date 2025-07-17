@@ -9,6 +9,7 @@ import com.linkedin.restli.server.RestliHandlerServlet;
 import java.util.Collections;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -62,6 +63,7 @@ public class RestliServletConfig {
   }
 
   @Bean
+  @ConditionalOnBean
   public ElasticSearchConfiguration elasticSearchConfiguration(
       final ConfigurationProvider configurationProvider) {
     return configurationProvider.getElasticSearch();

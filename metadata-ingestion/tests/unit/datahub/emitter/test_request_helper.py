@@ -32,7 +32,6 @@ CHART_INFO = ChartInfoClass(
 def test_from_mcp_none_no_aspect():
     """Test that from_mcp returns None when aspect is missing"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.UPSERT,
@@ -45,11 +44,8 @@ def test_from_mcp_none_no_aspect():
 def test_from_mcp_upsert():
     """Test creating an OpenApiRequest from an UPSERT MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
@@ -68,11 +64,8 @@ def test_from_mcp_upsert():
 def test_from_mcp_upsert_with_system_metadata():
     """Test creating an OpenApiRequest from an UPSERT MCP with system metadata"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
         systemMetadata=SystemMetadataClass(runId="test-run-id"),
     )
 
@@ -114,7 +107,6 @@ def test_from_mcp_upsert_without_wrapper():
 def test_from_mcp_delete():
     """Test creating an OpenApiRequest from a DELETE MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.DELETE,
@@ -193,11 +185,8 @@ def test_upsert_incompatible_content_type():
 def test_from_mcp_async_flag():
     """Test creating an OpenApiRequest with async/sync"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_flag=True)
@@ -214,11 +203,8 @@ def test_from_mcp_async_flag():
 def test_from_mcp_search_sync_flag():
     """Test that search_sync_flag adds the appropriate header to the request only when async_flag is False"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     # Test with default values (async_flag=False, search_sync_flag=False)
@@ -290,7 +276,6 @@ def test_from_mcp_search_sync_flag():
 
     # Test with delete operation (headers don't apply)
     delete_mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.DELETE,

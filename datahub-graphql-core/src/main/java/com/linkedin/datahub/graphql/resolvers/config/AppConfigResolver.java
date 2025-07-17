@@ -45,7 +45,9 @@ import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -71,6 +73,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
+  private final SettingsService _settingsService;
   private final ClassificationConfiguration _classificationConfiguration;
   // private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
@@ -91,6 +94,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
+      final SettingsService settingsService,
       final ClassificationConfiguration classificationConfiguration,
       final Integer defaultLineageLastDaysFilter) {
     _gitVersion = gitVersion;
@@ -108,6 +112,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
+    _settingsService = settingsService;
     _classificationConfiguration = classificationConfiguration;
     _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
   }
@@ -212,12 +217,24 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setTheme(themeConfig);
     }
-    if (_visualConfiguration != null && _visualConfiguration.getApplication() != null) {
+    if (_settingsService != null) {
       ApplicationConfig applicationConfig = new ApplicationConfig();
-      applicationConfig.setShowSidebarSectionWhenEmpty(
-          _visualConfiguration.getApplication().isShowSidebarSectionWhenEmpty());
+      final GlobalSettingsInfo globalSettings =
+          _settingsService.getGlobalSettings(context.getOperationContext());
+      if (globalSettings != null
+          && globalSettings.hasApplications()
+          && globalSettings.getApplications().hasEnabled()) {
+        applicationConfig.setShowApplicationInNavigation(
+            globalSettings.getApplications().isEnabled());
+        applicationConfig.setShowSidebarSectionWhenEmpty(
+            globalSettings.getApplications().isEnabled());
+      } else {
+        applicationConfig.setShowApplicationInNavigation(false);
+        applicationConfig.setShowSidebarSectionWhenEmpty(false);
+      }
       visualConfig.setApplication(applicationConfig);
     }
+
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -326,12 +343,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
+            .setShowProductUpdates(_featureFlags.isShowProductUpdates())
+            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setFormsNotificationsEnabled(_featureFlags.isFormsNotificationsEnabled())
-            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setViewIngestionSourcePrivilegesEnabled(
                 _featureFlags.isViewIngestionSourcePrivilegesEnabled())
             .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())

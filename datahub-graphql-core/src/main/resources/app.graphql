@@ -56,6 +56,11 @@ extend type Mutation {
   ): Boolean!
 
   """
+  Update the applications settings.
+  """
+  updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
+
+  """
   Update the help link displayed in the help dropdown in the header of the UI.
   Requires the 'Manage Global Settings' Platform Privilege.
   """
@@ -213,6 +218,16 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage applications.
+  """
+  manageApplications: Boolean!
+
+  """
+  Whether the user can manage platform features.
+  """
+  manageFeatures: Boolean!
 
   """
   Whether the user can create, edit, and assign documentation forms.
@@ -454,6 +469,11 @@ type ApplicationConfig {
   Whether to show the application sidebar section even when empty
   """
   showSidebarSectionWhenEmpty: Boolean
+
+  """
+  Whether to show the application in the navigation sidebar
+  """
+  showApplicationInNavigation: Boolean
 }
 
 """
@@ -1520,6 +1540,16 @@ type FeatureFlagsConfig {
   showHomePageRedesign: Boolean!
 
   """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
+
+  """
   If enabled, allow on-demand creation of smart assertions.
   """
   onlineSmartAssertionsEnabled: Boolean!
@@ -1538,16 +1568,6 @@ type FeatureFlagsConfig {
   SaaS only -- Whether to show notification settings for compliance forms
   """
   formsNotificationsEnabled: Boolean!
-
-  """
-  SaaS only -- Whether product updates on the sidebar is enabled. Will go to oss.
-  """
-  showProductUpdates: Boolean!
-
-  """
-  Enables the redesign of the lineage v2 graph
-  """
-  lineageGraphV3: Boolean!
 
   """
   Enables getting to the ingestion source page if you have permission to view any ingestion sources
@@ -1580,6 +1600,16 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update global applications settings.
+"""
+input UpdateApplicationsSettingsInput {
+  """
+  Whether the Applications feature is enabled
+  """
+  enabled: Boolean
 }
 
 """

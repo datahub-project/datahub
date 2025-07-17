@@ -113,6 +113,7 @@ public enum DataHubUsageEventType {
   ENTITY_EVENT("EntityEvent"),
   FAILED_LOGIN_EVENT("FailedLogInEvent"),
   DELETE_POLICY_EVENT("DeletePolicyEvent"),
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
 
   // SaaS only events
   COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),
@@ -162,7 +163,6 @@ public enum DataHubUsageEventType {
   DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
-  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
   CREATE_ACTION_EVENT("CreateActionEvent"),
   UPDATE_ACTION_EVENT("UpdateActionEvent"),
   DELETE_ACTION_EVENT("DeleteActionEvent"),
