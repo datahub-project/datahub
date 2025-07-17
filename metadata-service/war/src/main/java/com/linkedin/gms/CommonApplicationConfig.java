@@ -4,6 +4,7 @@ import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
 import java.util.Set;
 import javax.management.MBeanServer;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.ee10.servlet.ServletHandler;
 import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.jmx.MBeanContainer;
@@ -60,6 +61,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.kafka.trace",
       "com.linkedin.gms.factory.system_telemetry"
     })
+@Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 public class CommonApplicationConfig {
