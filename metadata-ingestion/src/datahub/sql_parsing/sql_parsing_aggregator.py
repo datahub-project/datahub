@@ -384,6 +384,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        normalize_case: str = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -416,6 +417,7 @@ class SqlParsingAggregator(Closeable):
 
         self.format_queries = format_queries
         self.query_log = query_log
+        self.normalize_case = normalize_case
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
@@ -1174,6 +1176,7 @@ class SqlParsingAggregator(Closeable):
                 schema_resolver=schema_resolver,
                 default_db=default_db,
                 default_schema=default_schema,
+                normalize_case=self.normalize_case,
             )
         self.report.num_sql_parsed += 1
 

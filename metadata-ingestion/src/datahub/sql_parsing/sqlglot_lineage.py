@@ -1257,6 +1257,7 @@ def _sqlglot_lineage_inner(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    normalize_case: str = None,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -1326,19 +1327,15 @@ def _sqlglot_lineage_inner(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
 
     for table in tables | modified:
-        # For select statements, qualification will be a no-op. For other statements, this
-        # is where the qualification actually happens.
         qualified_table = table.qualified(
             dialect=dialect, default_db=default_db, default_schema=default_schema
         )
-
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
-
+        urn, schema_info = schema_resolver.resolve_table(
+            qualified_table, normalize_case=normalize_case
+        )
         table_name_urn_mapping[qualified_table] = urn
         if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
-
-        # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
 
     total_tables_discovered = len(tables | modified)
@@ -1449,6 +1446,7 @@ def _sqlglot_lineage_nocache(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    normalize_case: str = None,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1508,6 +1506,7 @@ def _sqlglot_lineage_nocache(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            normalize_case=normalize_case,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -1546,14 +1545,25 @@ def sqlglot_lineage(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    normalize_case: str = None,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            normalize_case=normalize_case,
         )
     else:
-        return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+        return _sqlglot_lineage_nocache(
+            sql,
+            schema_resolver,
+            default_db,
+            default_schema,
+            override_dialect,
+            normalize_case=normalize_case,
         )
 
 
