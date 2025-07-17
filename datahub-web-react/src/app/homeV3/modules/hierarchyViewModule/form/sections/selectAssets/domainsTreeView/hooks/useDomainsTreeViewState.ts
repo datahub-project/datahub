@@ -7,7 +7,7 @@ import useTreeNodesFromDomains from '@app/homeV3/modules/hierarchyViewModule/for
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import { mergeTrees } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
 
-export default function useDomainsTreeViewState(initialSelectedDomainUrns: string[]) {
+export default function useDomainsTreeViewState(initialSelectedDomainUrns: string[], includeRootNodes: boolean = true, shouldUnwrapParents: boolean = true) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [nodes, setNodes] = useState<TreeNode[]>([]);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedDomainUrns ?? []);
@@ -15,15 +15,21 @@ export default function useDomainsTreeViewState(initialSelectedDomainUrns: strin
     const { domains: initialDomains } = useInitialDomains(initialSelectedDomainUrns);
     const { domains: rootDomains } = useRootDomains();
 
-    const initialSelectedTreeNodes = useTreeNodesFromFlatDomains(initialDomains);
+    const initialSelectedTreeNodes = useTreeNodesFromFlatDomains(initialDomains, shouldUnwrapParents);
     const rootTreeNodes = useTreeNodesFromDomains(rootDomains);
 
+    console.log('>>>DOMAINS initialSelectedTreeNodes', {initialSelectedTreeNodes, initialDomains});
+
     useEffect(() => {
-        if (!isInitialized && initialDomains !== undefined && rootDomains !== undefined) {
-            setNodes(mergeTrees(rootTreeNodes, initialSelectedTreeNodes));
+        if (!isInitialized && initialDomains !== undefined && (!includeRootNodes || rootDomains !== undefined)) {
+            if (includeRootNodes) {
+                setNodes(mergeTrees(rootTreeNodes, initialSelectedTreeNodes));
+            } else {
+                setNodes(initialSelectedTreeNodes);
+            }
             setIsInitialized(true);
         }
-    }, [isInitialized, initialDomains, rootDomains, rootTreeNodes, initialSelectedTreeNodes]);
+    }, [includeRootNodes, isInitialized, initialDomains, rootDomains, rootTreeNodes, initialSelectedTreeNodes]);
 
     return {
         nodes,

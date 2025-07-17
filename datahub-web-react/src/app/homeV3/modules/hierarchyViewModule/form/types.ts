@@ -1,10 +1,10 @@
-import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
+import { AssetType } from '../types';
 
 // TODO: add filters
 export interface HierarchyForm {
     name: string;
 
-    assetsType: typeof ASSET_TYPE_DOMAINS | typeof ASSET_TYPE_GLOSSARY;
+    assetsType: AssetType;
     domainAssets?: string[];
     glossaryAssets?: string[];
 

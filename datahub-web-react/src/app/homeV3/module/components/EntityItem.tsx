@@ -5,14 +5,21 @@ import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEnt
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
+import styled from 'styled-components';
+
+const StyledLink = styled(Link)`
+    width: 100%;
+`;
 
 interface Props {
     entity: Entity;
     customDetailsRenderer?: (entity: Entity) => void;
     navigateOnlyOnNameClick?: boolean;
+    hideSubtitle?: boolean;
+    hideMatches?: boolean;
 }
 
-export default function EntityItem({ entity, customDetailsRenderer, navigateOnlyOnNameClick = false }: Props) {
+export default function EntityItem({ entity, customDetailsRenderer, navigateOnlyOnNameClick = false, hideSubtitle, hideMatches }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     return (
@@ -22,16 +29,20 @@ export default function EntityItem({ entity, customDetailsRenderer, navigateOnly
                     entity={entity}
                     key={entity.urn}
                     customDetailsRenderer={customDetailsRenderer}
+                    hideSubtitle={hideSubtitle}
+                    hideMatches={hideMatches}
                     navigateOnlyOnNameClick
                 />
             ) : (
-                <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
+                <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
                     <AutoCompleteEntityItem
                         entity={entity}
                         key={entity.urn}
+                        hideSubtitle={hideSubtitle}
+                        hideMatches={hideMatches}
                         customDetailsRenderer={customDetailsRenderer}
                     />
-                </Link>
+                </StyledLink>
             )}
         </>
     );

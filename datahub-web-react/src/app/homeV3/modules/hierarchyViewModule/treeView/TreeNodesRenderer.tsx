@@ -7,6 +7,7 @@ import { useTreeViewContext } from '@app/homeV3/modules/hierarchyViewModule/tree
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
+    width: 100%;
 `;
 
 export default function TreeNodesRenderer() {

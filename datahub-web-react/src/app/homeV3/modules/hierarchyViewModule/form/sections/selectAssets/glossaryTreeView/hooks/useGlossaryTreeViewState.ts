@@ -7,7 +7,10 @@ import useTreeNodesFromGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchy
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import { mergeTrees } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
 
-export default function useGlossaryTreeViewState(initialSelectedGlossaryNodesAndTermsUrns: string[]) {
+export default function useGlossaryTreeViewState(
+    initialSelectedGlossaryNodesAndTermsUrns: string[],
+    includeRootNodes: boolean = true,
+) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [nodes, setNodes] = useState<TreeNode[]>([]);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedGlossaryNodesAndTermsUrns ?? []);
@@ -30,13 +33,17 @@ export default function useGlossaryTreeViewState(initialSelectedGlossaryNodesAnd
             !isInitialized &&
             initialGlossaryNodes !== undefined &&
             initialGlossaryTerms !== undefined &&
-            rootGlossaryNodes !== undefined &&
-            rootGlossaryTerms !== undefined
+            (!includeRootNodes || (rootGlossaryNodes !== undefined && rootGlossaryTerms !== undefined))
         ) {
-            setNodes(mergeTrees(rootTreeNodes, initialSelectedTreeNodes));
+            if (includeRootNodes) {
+                setNodes(mergeTrees(rootTreeNodes, initialSelectedTreeNodes));
+            } else {
+                setNodes(initialSelectedTreeNodes);
+            }
             setIsInitialized(true);
         }
     }, [
+        includeRootNodes,
         isInitialized,
         initialGlossaryNodes,
         initialGlossaryTerms,

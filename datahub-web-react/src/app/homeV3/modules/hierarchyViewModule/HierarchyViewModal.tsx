@@ -9,6 +9,7 @@ import HierarchyViewModuleForm from '@app/homeV3/modules/hierarchyViewModule/for
 import { HierarchyForm } from '@app/homeV3/modules/hierarchyViewModule/form/types';
 
 import { DataHubPageModuleType } from '@types';
+import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from './utils';
 
 export default function HierarchyViewModal() {
     const {
@@ -19,11 +20,15 @@ export default function HierarchyViewModal() {
     const [form] = Form.useForm<HierarchyForm>();
 
     const initialFormState: HierarchyForm = useMemo(() => {
+        const originalAssetUrns = initialState?.properties.params.hierarchyViewParams?.assetUrns;
+        const assetType = getAssetTypeFromAssetUrns(originalAssetUrns);
+        const assetUrns = filterAssetUrnsByAssetType(originalAssetUrns, assetType);
+
         return {
             name: initialState?.properties.name || '',
-            assetsType: ASSET_TYPE_DOMAINS,
-            domainAssets: [],
-            glossaryAssets: [],
+            assetsType: assetType,
+            domainAssets: assetType === ASSET_TYPE_DOMAINS ? assetUrns : [],
+            glossaryAssets: assetType === ASSET_TYPE_GLOSSARY ? assetUrns : [],
             showRelatedEntities: !!initialState?.properties.params.hierarchyViewParams?.showRelatedEntities,
         };
     }, [initialState]);

@@ -99,6 +99,9 @@ interface EntityAutocompleteItemProps {
     variant?: EntityItemVariant;
     customDetailsRenderer?: (entity: Entity) => void;
     navigateOnlyOnNameClick?: boolean;
+
+    hideSubtitle?: boolean;
+    hideMatches?: boolean;
 }
 
 export default function AutoCompleteEntityItem({
@@ -109,6 +112,8 @@ export default function AutoCompleteEntityItem({
     variant,
     customDetailsRenderer,
     navigateOnlyOnNameClick,
+    hideSubtitle,
+    hideMatches,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -159,20 +164,20 @@ export default function AutoCompleteEntityItem({
                         <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                     </HoverEntityTooltip>
 
-                    <EntitySubtitle
+                    {!hideSubtitle && <EntitySubtitle
                         entity={entity}
                         color={variantProps?.subtitleColor}
                         colorLevel={variantProps?.subtitleColorLevel}
-                    />
+                    />}
 
-                    <Matches
+                    {!hideMatches && <Matches
                         matchedFields={matchedFields}
                         entity={entity}
                         query={query}
                         displayName={displayName}
                         color={variantProps?.matchColor}
                         colorLevel={variantProps?.matchColorLevel}
-                    />
+                    />}
                 </DescriptionContainer>
             </ContentContainer>
 

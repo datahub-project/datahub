@@ -7,9 +7,14 @@ import { FORM_FIELD_ASSET_TYPE } from '@app/homeV3/modules/hierarchyViewModule/f
 import EntityTypeTabs from '@app/homeV3/modules/hierarchyViewModule/form/sections/selectAssets/assetTypeTabs/AssetTypeTabs';
 import DomainsTreeView from '@app/homeV3/modules/hierarchyViewModule/form/sections/selectAssets/domainsTreeView/DomainsTreeView';
 import GlossaryTreeView from '@app/homeV3/modules/hierarchyViewModule/form/sections/selectAssets/glossaryTreeView/GlossaryTreeView';
+import { useHierarchyFormContext } from '../../HierarchyFormContext';
 
 export default function SelectAssetsSection() {
     const form = Form.useFormInstance();
+
+    const {
+            initialValues: { assetsType: defaultAssetsType },
+        } = useHierarchyFormContext();
 
     const assetType = Form.useWatch(FORM_FIELD_ASSET_TYPE, form);
 
@@ -45,7 +50,7 @@ export default function SelectAssetsSection() {
         <>
             <Text weight="bold">Search and Select Assets</Text>
             <Form.Item name={FORM_FIELD_ASSET_TYPE}>
-                <EntityTypeTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType} />
+                <EntityTypeTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
             </Form.Item>
         </>
     );
