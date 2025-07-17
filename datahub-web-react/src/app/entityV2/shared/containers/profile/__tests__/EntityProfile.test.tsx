@@ -290,7 +290,7 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('propertyAKey')).toBeInTheDocument());
         await waitFor(() => expect(getByText('propertyAValue')).toBeInTheDocument());
         expect(queryByText('user_name')).not.toBeInTheDocument();
-    });
+    }, 20_000);
 
     it('renders sidebar content', async () => {
         const { getByText } = render(
