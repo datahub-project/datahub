@@ -202,24 +202,25 @@ To learn about all aspects in DataHub, check out the [DataHub metadata model doc
      type: datahub
      config:
        database_query_batch_size: 10000 # Adjust based on your system
-       commit_state_interval: 1000 # Records before progress is saved to DataHub 
+       commit_state_interval: 1000 # Records before progress is saved to DataHub
    ```
 
 2. **Destination Settings**: For optimal performance on DataHub Cloud:
 
-   - Ensuring batch async ingestion is enabled by setting `mode: ASYNC_BATCH` in the sink section of your recipe (enabled by default) 
+   - Ensuring batch async ingestion is enabled by setting `mode: ASYNC_BATCH` in the sink section of your recipe (enabled by default)
    - Increase thread count if needed in sink settings by adjusting the `max_threads` parameter in the sink section of your recipe
-  
-Check out the [sink docs](https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub#config-details) to learn about other configuration parameters you may want to use during the upgrade process. 
+
+Check out the [sink docs](https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub#config-details) to learn about other configuration parameters you may want to use during the upgrade process.
 
 4. **Stateful Ingestion**: For very large instances, use stateful ingestion:
+
    ```yaml
    stateful_ingestion:
      enabled: true
      ignore_old_state: false # Set to true to restart from beginning!
    ```
 
-   This enables you to upgrade incrementally over time, only syncing changes once the initial upgrade has completed. 
+   This enables you to upgrade incrementally over time, only syncing changes once the initial upgrade has completed.
 
 ### Troubleshooting
 
