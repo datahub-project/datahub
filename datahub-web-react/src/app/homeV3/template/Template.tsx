@@ -15,7 +15,7 @@ import { DataHubPageTemplateRow } from '@types';
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
-    gap: ${spacing.xsm};
+    gap: ${spacing.xxsm};
 `;
 
 // Additional margin to have width of content excluding side buttons

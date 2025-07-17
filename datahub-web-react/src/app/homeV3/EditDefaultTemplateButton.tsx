@@ -7,6 +7,7 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 const ButtonWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    margin-right: 42px;
 `;
 
 export default function EditDefaultTemplateButton() {

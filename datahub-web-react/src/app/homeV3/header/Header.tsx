@@ -16,13 +16,17 @@ export const HeaderWrapper = styled.div`
     border-radius: 12px 12px 0 0;
 `;
 
+const StyledCenteredContainer = styled(CenteredContainer)`
+    padding: 0 40px;
+`;
+
 const Header = () => {
     return (
         <HeaderWrapper>
-            <CenteredContainer>
+            <StyledCenteredContainer>
                 <GreetingText />
                 <SearchBar />
-            </CenteredContainer>
+            </StyledCenteredContainer>
         </HeaderWrapper>
     );
 };

@@ -6,7 +6,10 @@ import VectorBackground from '@images/homepage-vector.svg?react';
 export const PageWrapper = styled.div`
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    overflow: auto;
+    &::-webkit-scrollbar {
+        display: none;
+    }
     display: flex;
     flex-direction: column;
     box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.08);
@@ -33,24 +36,24 @@ export const StyledVectorBackground = styled(VectorBackground)`
 
 export const ContentContainer = styled.div`
     z-index: 1;
-    padding: 40px 40px 16px 40px;
+    padding: 24px 0 16px 0;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
-    overflow: auto;
 `;
 
 export const CenteredContainer = styled.div`
-    max-width: 1016px;
+    max-width: 1048px; // could simply increase this - ask in design review
     width: 100%;
+    padding: 0 8px;
 `;
 
 export const ContentDiv = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
     overflow-y: auto;
 `;
 
