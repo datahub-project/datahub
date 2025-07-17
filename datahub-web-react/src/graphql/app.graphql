@@ -105,6 +105,7 @@ query appConfig {
             showHomePageRedesign
             showProductUpdates
             lineageGraphV3
+            logicalModelsEnabled
         }
         chromeExtensionConfig {
             enabled
