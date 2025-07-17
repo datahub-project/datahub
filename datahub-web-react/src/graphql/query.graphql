@@ -8,10 +8,16 @@ query getQuery($urn: String!) {
     }
 }
 
-fragment ActorWithDisplayName on Entity {
+fragment ActorWithDisplayName on CorpUser {
     urn
     type
     ...entityDisplayNameFields
+    editableProperties {
+        pictureLink
+    }
+    editableInfo {
+        pictureLink
+    }
 }
 
 fragment query on QueryEntity {

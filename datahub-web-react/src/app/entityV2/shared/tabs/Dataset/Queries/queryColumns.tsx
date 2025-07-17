@@ -76,12 +76,7 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
     if (!createdBy || createdBy.urn === INGESTION_URN) return null;
 
     const userName = entityRegistry.getDisplayName(createdBy.type, createdBy);
-    const photoUrl =
-        createdBy?.__typename === 'CorpUser'
-            ? (createdBy as any)?.editableProperties?.pictureLink ||
-              (createdBy as any)?.editableInfo?.pictureLink ||
-              undefined
-            : undefined;
+    const photoUrl = createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined;
 
     return (
         <div>
