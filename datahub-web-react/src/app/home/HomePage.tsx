@@ -34,7 +34,7 @@ export const HomePage = () => {
             <PageBanner
                 localStorageKey="v1UIDeprecationAnnouncement"
                 icon={<Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />}
-                content="V1 UI will officially be deprecated in the next release (v1.3), and it will no longer be available."
+                content="V1 UI is officially deprecated and will no longer be available beginning in the next release (v1.3)"
             />
             <HomePageHeader />
             <HomePageBody />
