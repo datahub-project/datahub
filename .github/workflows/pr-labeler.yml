@@ -59,7 +59,9 @@ jobs:
           "esteban",
           "anthonyburdi",
           "ligfx",
-          "ksrinath"
+          "ksrinath",
+          "bryanprosser-acryl",
+          "Alex23Hub"
           ]'),
           github.actor
           )
