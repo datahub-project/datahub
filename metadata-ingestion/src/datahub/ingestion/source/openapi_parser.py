@@ -28,6 +28,13 @@ def flatten(d: dict, prefix: str = "") -> Generator:
             yield f"{prefix}.{k}".strip(".")
             # Then yield all nested fields
             yield from flatten(v, f"{prefix}.{k}")
+        elif isinstance(v, list) and len(v) > 0:
+            # Handle arrays by taking the first element as a sample
+            # First yield the parent field (array itself)
+            yield f"{prefix}.{k}".strip(".")
+            # Then yield fields from the first element if it's a dict
+            if isinstance(v[0], dict):
+                yield from flatten(v[0], f"{prefix}.{k}")
         else:
             yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
@@ -188,24 +195,32 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     if "content" in base_res:
         res_cont = base_res["content"]
         if "application/json" in res_cont:
-            ex_field = None
-            if "example" in res_cont["application/json"]:
-                ex_field = "example"
-            elif "examples" in res_cont["application/json"]:
-                ex_field = "examples"
+            json_content = res_cont["application/json"]
 
-            if ex_field:
-                if isinstance(res_cont["application/json"][ex_field], dict):
-                    data = res_cont["application/json"][ex_field]
-                elif isinstance(res_cont["application/json"][ex_field], list):
-                    # taking the first example
-                    data = res_cont["application/json"][ex_field][0]
+            # Check for single example (OpenAPI v3)
+            if "example" in json_content:
+                data = json_content["example"]
+            # Check for multiple examples (OpenAPI v3)
+            elif "examples" in json_content:
+                examples = json_content["examples"]
+                # Take the first example if it's a dict of examples
+                if isinstance(examples, dict) and examples:
+                    first_example_name = next(iter(examples))
+                    example_value = examples[first_example_name].get("value", {})
+                    # Preserve the example name as a wrapper to maintain structure
+                    data = {first_example_name: example_value}
+                # Handle list format (OpenAPI v2 style)
+                elif isinstance(examples, list) and examples:
+                    data = examples[0]
             else:
-                logger.warning(
-                    f"Field in swagger file does not give consistent data --- {key}"
+                # Only warn if we're in debug mode or if this is a critical endpoint
+                # Most OpenAPI v3 specs don't include examples, so this is normal
+                logger.debug(
+                    f"No example data found for endpoint --- {key} (this is normal for OpenAPI v3)"
                 )
         elif "text/csv" in res_cont:
             data = res_cont["text/csv"]["schema"]
+    # Handle OpenAPI v2 format
     elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
 
@@ -409,12 +424,48 @@ def get_tok(
 
 
 def set_metadata(
-    dataset_name: str, fields: List, platform: str = "api"
+    dataset_name: str,
+    fields: List,
+    platform: str = "api",
+    original_data: Optional[Dict] = None,
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     seen_paths = set()
 
-    # Process all flattened fields
+    # First pass: identify which paths are structs (have children) vs leaf fields vs arrays
+    struct_paths = set()
+    leaf_paths = set()
+    array_paths = set()
+
+    for field_path in fields:
+        parts = field_path.split(".")
+
+        # Check if this path has children (other paths that start with this path + ".")
+        has_children = any(
+            other_path.startswith(field_path + ".") for other_path in fields
+        )
+
+        # Check if this field is an array in the original data
+        is_array = False
+        if original_data:
+            # Navigate to the field in the original data to check if it's an array
+            current_data = original_data
+            for part in parts:
+                if isinstance(current_data, dict) and part in current_data:
+                    current_data = current_data[part]
+                else:
+                    break
+            is_array = isinstance(current_data, list)
+
+        if has_children:
+            if is_array:
+                array_paths.add(field_path)
+            else:
+                struct_paths.add(field_path)
+        else:
+            leaf_paths.add(field_path)
+
+    # Second pass: create schema fields
     for field_path in fields:
         parts = field_path.split(".")
 
@@ -434,16 +485,40 @@ def set_metadata(
                 seen_paths.add(ancestor_path)
             current_path.append(part)
 
-        # Add the leaf field if not already seen
+        # Add the field if not already seen
         if field_path not in seen_paths:
-            leaf_field = SchemaField(
-                fieldPath=field_path,
-                nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                description="",
-                recursive=False,
-            )
-            canonical_schema.append(leaf_field)
+            if field_path in array_paths:
+                # This is an array field
+                from datahub.metadata.schema_classes import ArrayTypeClass
+
+                array_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="array",  # Array type
+                    type=SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(array_field)
+            elif field_path in struct_paths:
+                # This is a struct field (has children)
+                struct_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="object",  # OpenAPI term for struct/record
+                    type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(struct_field)
+            else:
+                # This is a leaf field (no children)
+                leaf_field = SchemaField(
+                    fieldPath=field_path,
+                    nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(leaf_field)
             seen_paths.add(field_path)
 
     schema_metadata = SchemaMetadata(
@@ -455,3 +530,180 @@ def set_metadata(
         fields=canonical_schema,
     )
     return schema_metadata
+
+
+def enhance_schema_with_titles(
+    schema: Dict, sw_dict: Dict, schema_name: str = ""
+) -> Dict:
+    """
+    Enhance schemas with title fields so that json_schema_util.py uses schema names instead of 'object'.
+    This is done without modifying json_schema_util.py itself.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    enhanced_schema = schema.copy()
+
+    # Add title if it doesn't exist and we have a schema name
+    if "title" not in enhanced_schema and schema_name:
+        enhanced_schema["title"] = schema_name
+
+    # Recursively enhance nested schemas
+    if "properties" in enhanced_schema:
+        for prop_name, prop_schema in enhanced_schema["properties"].items():
+            # Use property name as schema name for nested objects
+            enhanced_schema["properties"][prop_name] = enhance_schema_with_titles(
+                prop_schema, sw_dict, prop_name
+            )
+
+    # Enhance array items
+    if "items" in enhanced_schema:
+        enhanced_schema["items"] = enhance_schema_with_titles(
+            enhanced_schema["items"], sw_dict, "item"
+        )
+
+    # Enhance additionalProperties
+    if "additionalProperties" in enhanced_schema and isinstance(
+        enhanced_schema["additionalProperties"], dict
+    ):
+        enhanced_schema["additionalProperties"] = enhance_schema_with_titles(
+            enhanced_schema["additionalProperties"], sw_dict, "value"
+        )
+
+    # Handle union types
+    for union_key in ["oneOf", "anyOf", "allOf"]:
+        if union_key in enhanced_schema:
+            enhanced_schema[union_key] = [
+                enhance_schema_with_titles(union_schema, sw_dict, f"{union_key}_{i}")
+                for i, union_schema in enumerate(enhanced_schema[union_key])
+            ]
+
+    return enhanced_schema
+
+
+def resolve_schema_references(schema: Dict, sw_dict: Dict) -> Dict:
+    """
+    Recursively resolve all schema references in a Swagger v2 or OpenAPI v3 spec.
+    This ensures that all $ref references are resolved before passing to json_schema_util.py.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    resolved_schema = schema.copy()
+
+    # Handle direct references
+    if "$ref" in resolved_schema:
+        ref_path = resolved_schema["$ref"]
+
+        # Handle v2 references (e.g., "#/definitions/Pet")
+        if ref_path.startswith("#/definitions/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
+            if referenced_schema:
+                # Recursively resolve references in the referenced schema
+                resolved_referenced = resolve_schema_references(
+                    referenced_schema, sw_dict
+                )
+                # Enhance with title using the schema name
+                return enhance_schema_with_titles(
+                    resolved_referenced, sw_dict, schema_name
+                )
+
+        # Handle v3 references (e.g., "#/components/schemas/Pet")
+        elif ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            referenced_schema = (
+                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+            )
+            if referenced_schema:
+                # Recursively resolve references in the referenced schema
+                resolved_referenced = resolve_schema_references(
+                    referenced_schema, sw_dict
+                )
+                # Enhance with title using the schema name
+                return enhance_schema_with_titles(
+                    resolved_referenced, sw_dict, schema_name
+                )
+
+    # Recursively resolve references in properties
+    if "properties" in resolved_schema:
+        for prop_name, prop_schema in resolved_schema["properties"].items():
+            resolved_schema["properties"][prop_name] = resolve_schema_references(
+                prop_schema, sw_dict
+            )
+
+    # Recursively resolve references in array items
+    if "items" in resolved_schema:
+        resolved_schema["items"] = resolve_schema_references(
+            resolved_schema["items"], sw_dict
+        )
+
+    # Recursively resolve references in additionalProperties
+    if "additionalProperties" in resolved_schema and isinstance(
+        resolved_schema["additionalProperties"], dict
+    ):
+        resolved_schema["additionalProperties"] = resolve_schema_references(
+            resolved_schema["additionalProperties"], sw_dict
+        )
+
+    # Handle union types (oneOf, anyOf, allOf)
+    for union_key in ["oneOf", "anyOf", "allOf"]:
+        if union_key in resolved_schema:
+            resolved_schema[union_key] = [
+                resolve_schema_references(union_schema, sw_dict)
+                for union_schema in resolved_schema[union_key]
+            ]
+
+    return resolved_schema
+
+
+def extract_schema_from_response_schema(
+    response_schema: Dict, sw_dict: Dict, schema_name: str = ""
+) -> Dict:
+    """
+    Extract schema definition from response schema, handling both v2 and v3 references.
+    """
+    if "$ref" in response_schema:
+        ref_path = response_schema["$ref"]
+
+        # Handle v2 references (e.g., "#/definitions/Pet")
+        if ref_path.startswith("#/definitions/"):
+            schema_name = ref_path.split("/")[-1]
+            return sw_dict.get("definitions", {}).get(schema_name, {})
+
+        # Handle v3 references (e.g., "#/components/schemas/Pet")
+        elif ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            return sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+
+    return response_schema
+
+
+def get_schema_from_response(response_schema: Dict, sw_dict: Dict) -> Optional[Dict]:
+    """
+    Extract the actual schema definition from a response schema.
+    Handles both direct schemas and references.
+    """
+    if not response_schema:
+        return None
+
+    # Handle array responses
+    if response_schema.get("type") == "array":
+        items_schema = response_schema.get("items", {})
+        resolved_items_schema = extract_schema_from_response_schema(
+            items_schema, sw_dict
+        )
+        # Resolve all references in the schema
+        return resolve_schema_references(resolved_items_schema, sw_dict)
+
+    # Handle direct object schemas
+    elif response_schema.get("type") == "object":
+        return resolve_schema_references(response_schema, sw_dict)
+
+    # Handle references
+    elif "$ref" in response_schema:
+        resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
+        # Resolve all references in the schema
+        return resolve_schema_references(resolved_schema, sw_dict)
+
+    return None
