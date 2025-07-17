@@ -92,7 +92,7 @@ def _send_test_event(test_event, graph_client):
     logger.info("Telemetry event sent")
 
 
-def test_telemetry_api_via_tracking(graph_client, auth_session):
+def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
     logger.info("Starting telemetry API test")
     logger.info(f"Graph client server URL: {graph_client.config.server}")
 
@@ -121,16 +121,16 @@ def test_telemetry_api_via_tracking(graph_client, auth_session):
         # Create a test event
         logger.info("Creating test event...")
         test_event = ChatbotInteractionEvent(
+            timestamp=datetime.now(timezone.utc),
             chat_id="test-chat-id-2",
             message_id=test_message_id,
             slack_thread_id="test-thread-id-2",
             slack_message_id="test-message-id-2",
             slack_user_id="test-user-id-2",
             slack_user_name="Test User",
-            slack_email="test@example.com",
             message_contents="Test message",
             response_contents="Test response",
-            timestamp=datetime.now(timezone.utc),
+            response_generation_duration_sec=30.4,
         )
         logger.info(f"Test event created: {test_event}")
 
@@ -182,10 +182,10 @@ def test_telemetry_api_via_tracking(graph_client, auth_session):
         assert message["message_id"] == test_message_id
         assert message["slack_user_id"] == "test-user-id-2"
         assert message["slack_user_name"] == "Test User"
-        assert message["slack_email"] == "test@example.com"
         assert message["message_contents"] == "Test message"
         assert message["response_contents"] == "Test response"
         assert message["actorUrn"] == "urn:li:corpuser:admin"
+        assert message["response_generation_duration_sec"] == 30.4
 
         assert "timestamp" in message
         assert "origin" in message

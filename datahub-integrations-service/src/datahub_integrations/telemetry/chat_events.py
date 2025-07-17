@@ -49,7 +49,7 @@ class ChatbotInteractionEvent(BaseEvent):
     message_contents: str
     response_contents: Optional[str] = None
     response_error: Optional[str] = None
-    response_generation_duration_sec: Optional[float]
+    response_generation_duration_sec: float
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
 
