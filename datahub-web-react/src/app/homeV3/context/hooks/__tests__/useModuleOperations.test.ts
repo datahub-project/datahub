@@ -107,6 +107,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -137,7 +138,12 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockPersonalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                mockModule,
+                position,
+                false,
+            );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
         });
@@ -153,6 +159,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -183,7 +190,7 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position, false);
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
         });
@@ -199,6 +206,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -230,7 +238,7 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockGlobalTemplate, mockModule, position, false);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
         });
@@ -246,6 +254,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -284,7 +293,12 @@ describe('useModuleOperations', () => {
                 setTimeout(resolve, 0);
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockPersonalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                mockModule,
+                position,
+                false,
+            );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
@@ -306,6 +320,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -355,6 +370,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -404,6 +420,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -456,6 +473,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -512,6 +530,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -556,6 +575,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -594,6 +614,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -638,6 +659,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false, // isEditingModule
                 ),
             );
 
@@ -666,7 +688,7 @@ describe('useModuleOperations', () => {
         });
     });
 
-    describe('createModule', () => {
+    describe('upsertModule', () => {
         it('should create module and add it to template', async () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -678,6 +700,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -686,7 +709,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 scope: PageModuleScope.Personal,
@@ -731,7 +754,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -740,10 +763,8 @@ describe('useModuleOperations', () => {
                         name: 'Test Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Personal,
-                        visibility: {
-                            scope: PageModuleScope.Personal,
-                        },
                         params: { limit: 10 },
+                        urn: undefined,
                     },
                 },
             });
@@ -761,6 +782,7 @@ describe('useModuleOperations', () => {
                     },
                 },
                 position,
+                false,
             );
 
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
@@ -778,6 +800,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -786,7 +809,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'right',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 position,
@@ -805,7 +828,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                await result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -814,10 +837,8 @@ describe('useModuleOperations', () => {
                         name: 'Test Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Personal, // Default scope
-                        visibility: {
-                            scope: PageModuleScope.Personal,
-                        },
                         params: {}, // Default empty params
+                        urn: undefined,
                     },
                 },
             });
@@ -834,6 +855,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -842,7 +864,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Test Module',
                 type: DataHubPageModuleType.Link,
                 position,
@@ -863,7 +885,7 @@ describe('useModuleOperations', () => {
             });
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             // Wait for the async operation to complete
@@ -888,6 +910,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -896,7 +919,7 @@ describe('useModuleOperations', () => {
                 rowSide: 'left',
             };
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'Global Module',
                 type: DataHubPageModuleType.Link,
                 scope: PageModuleScope.Global,
@@ -940,7 +963,7 @@ describe('useModuleOperations', () => {
             mockUpsertTemplate.mockResolvedValue({});
 
             await act(async () => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
             expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
@@ -949,10 +972,8 @@ describe('useModuleOperations', () => {
                         name: 'Global Module',
                         type: DataHubPageModuleType.Link,
                         scope: PageModuleScope.Global,
-                        visibility: {
-                            scope: PageModuleScope.Global,
-                        },
                         params: {},
+                        urn: undefined,
                     },
                 },
             });
@@ -970,6 +991,7 @@ describe('useModuleOperations', () => {
                     },
                 },
                 position,
+                false,
             );
 
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
@@ -990,6 +1012,7 @@ describe('useModuleOperations', () => {
                         mockUpdateTemplateWithModule,
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
+                        false,
                     ),
                 {
                     initialProps: {
@@ -1011,7 +1034,7 @@ describe('useModuleOperations', () => {
             expect(result.current.addModule).not.toBe(initialAddModule);
         });
 
-        it('should update createModule when dependencies change', () => {
+        it('should update upsertModule when dependencies change', () => {
             const { result, rerender } = renderHook(
                 ({ isEditingGlobalTemplate, personalTemplate, globalTemplate }) =>
                     useModuleOperations(
@@ -1023,6 +1046,7 @@ describe('useModuleOperations', () => {
                         mockUpdateTemplateWithModule,
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
+                        false,
                     ),
                 {
                     initialProps: {
@@ -1033,7 +1057,7 @@ describe('useModuleOperations', () => {
                 },
             );
 
-            const initialCreateModule = result.current.createModule;
+            const initialUpsertModule = result.current.upsertModule;
 
             rerender({
                 isEditingGlobalTemplate: true,
@@ -1041,7 +1065,7 @@ describe('useModuleOperations', () => {
                 globalTemplate: mockGlobalTemplate,
             });
 
-            expect(result.current.createModule).not.toBe(initialCreateModule);
+            expect(result.current.upsertModule).not.toBe(initialUpsertModule);
         });
     });
 });

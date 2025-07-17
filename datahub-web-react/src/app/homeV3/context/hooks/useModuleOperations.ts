@@ -1,19 +1,11 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
+import { UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
-
-// Input types for the methods
-export interface CreateModuleInput {
-    name: string;
-    type: DataHubPageModuleType;
-    scope?: PageModuleScope;
-    params?: any; // Module-specific parameters
-    position: ModulePositionInput;
-}
+import { EntityType, PageModuleScope } from '@types';
 
 export interface AddModuleInput {
     module: PageModuleFragment;
@@ -111,7 +103,7 @@ const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
     return null;
 };
 
-const validateCreateModuleInput = (input: CreateModuleInput): string | null => {
+const validateUpsertModuleInput = (input: UpsertModuleInput): string | null => {
     if (!input.name?.trim()) {
         return 'Module name is required';
     }
@@ -134,6 +126,7 @@ export function useModuleOperations(
         templateToUpdate: PageTemplateFragment | null,
         module: PageModuleFragment,
         position: ModulePositionInput,
+        isEditing: boolean,
     ) => PageTemplateFragment | null,
     removeModuleFromTemplate: (
         templateToUpdate: PageTemplateFragment | null,
@@ -145,6 +138,7 @@ export function useModuleOperations(
         isPersonal: boolean,
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
+    isEditingModule: boolean,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
 
@@ -189,7 +183,7 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position);
+            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position, isEditingModule);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
@@ -197,7 +191,7 @@ export function useModuleOperations(
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'add module');
         },
-        [context, updateTemplateWithModule],
+        [context, isEditingModule, updateTemplateWithModule],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -233,27 +227,25 @@ export function useModuleOperations(
     );
 
     // Takes input and makes a call to create a module then add that module to the template
-    const createModule = useCallback(
-        (input: CreateModuleInput) => {
+    const upsertModule = useCallback(
+        (input: UpsertModuleInput) => {
             // Validate input
-            const validationError = validateCreateModuleInput(input);
+            const validationError = validateUpsertModuleInput(input);
             if (validationError) {
-                console.error('Invalid createModule input:', validationError);
+                console.error('Invalid upsertModule input:', validationError);
                 message.error(validationError);
                 return;
             }
 
-            const { name, type, scope = PageModuleScope.Personal, params = {}, position } = input;
+            const { name, type, scope = PageModuleScope.Personal, params = {}, position, urn } = input;
 
             // Create the module first
             const moduleInput = {
                 name: name.trim(),
                 type,
                 scope,
-                visibility: {
-                    scope,
-                },
                 params,
+                urn,
             };
 
             upsertPageModuleMutation({
@@ -262,8 +254,8 @@ export function useModuleOperations(
                 .then((moduleResult) => {
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
-                        console.error('Failed to create module - no URN returned');
-                        message.error('Failed to create module');
+                        console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module - no URN returned`);
+                        message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                         return;
                     }
 
@@ -286,16 +278,16 @@ export function useModuleOperations(
                     });
                 })
                 .catch((error) => {
-                    console.error('Failed to create module:', error);
-                    message.error('Failed to create module');
+                    console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
+                    message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule],
+        [upsertPageModuleMutation, addModule, isEditingModule],
     );
 
     return {
         addModule,
         removeModule,
-        createModule,
+        upsertModule,
     };
 }

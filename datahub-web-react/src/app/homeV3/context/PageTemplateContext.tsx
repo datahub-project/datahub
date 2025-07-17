@@ -1,5 +1,6 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
+import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
@@ -33,8 +34,11 @@ export const PageTemplateProvider = ({
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate } = useTemplateOperations();
 
+    // Modal state
+    const moduleModalState = useModuleModalState();
+
     // Module operations
-    const { addModule, removeModule, createModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -43,6 +47,7 @@ export const PageTemplateProvider = ({
         updateTemplateWithModule,
         removeModuleFromTemplate,
         upsertTemplate,
+        moduleModalState.isEditing,
     );
 
     const value = useMemo(
@@ -57,7 +62,8 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             removeModule,
-            createModule,
+            upsertModule,
+            moduleModalState,
         }),
         [
             personalTemplate,
@@ -70,7 +76,8 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             removeModule,
-            createModule,
+            upsertModule,
+            moduleModalState,
         ],
     );
 
@@ -86,4 +93,4 @@ export function usePageTemplateContext() {
 }
 
 // Re-export types for convenience
-export type { CreateModuleInput, AddModuleInput, RemoveModuleInput } from './types';
+export type { UpsertModuleInput, AddModuleInput, RemoveModuleInput } from './types';
