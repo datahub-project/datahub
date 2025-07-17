@@ -82,9 +82,19 @@ class LookerViewIdCache:
         connection: Optional[LookerConnectionDefinition] = None,
     ) -> Optional[LookerViewId]:
         if view_name in self.looker_view_id_cache:
-            return self.looker_view_id_cache[view_name]
+            cached_view_id = self.looker_view_id_cache[view_name]
+            logger.debug(
+                f"Cache hit for view '{view_name}': project='{cached_view_id.project_name}', model='{cached_view_id.model_name}', file_path='{cached_view_id.file_path}'"
+            )
+            return cached_view_id
 
+        logger.debug(
+            f"Cache miss for view '{view_name}', searching in {len(self.looker_model.resolved_includes)} resolved includes"
+        )
         for include in self.looker_model.resolved_includes:
+            logger.debug(
+                f"Processing include: path='{include.include}', project='{include.project}'"
+            )
             included_looker_viewfile = self.looker_viewfile_loader.load_viewfile(
                 path=include.include,
                 project_name=include.project,
@@ -106,6 +116,9 @@ class LookerViewIdCache:
                         if include.project != BASE_PROJECT_NAME
                         else self.project_name
                     )
+                    logger.debug(
+                        f"Found view '{view_name}' in include '{include.include}' with include.project='{include.project}', BASE_PROJECT_NAME='{BASE_PROJECT_NAME}', resolved current_project_name='{current_project_name}'"
+                    )
 
                     looker_view_id: LookerViewId = LookerViewId(
                         project_name=current_project_name,
@@ -114,6 +127,9 @@ class LookerViewIdCache:
                         file_path=file_path,
                     )
 
+                    logger.debug(
+                        f"Caching view '{view_name}' with LookerViewId: project='{current_project_name}', model='{self.model_name}', file_path='{file_path}'"
+                    )
                     self.looker_view_id_cache[view_name] = looker_view_id
                     return looker_view_id
 
