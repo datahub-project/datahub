@@ -30,7 +30,7 @@ env:
 
 jobs:
   gx-plugin:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-22.04' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:

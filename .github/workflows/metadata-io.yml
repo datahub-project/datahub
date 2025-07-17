@@ -32,7 +32,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-22.04' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name == 'release' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name == 'release' }}
