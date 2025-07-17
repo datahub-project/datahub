@@ -1,4 +1,4 @@
-import { Input, TextArea } from '@components';
+import { Input } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 
@@ -23,9 +23,10 @@ const ModuleDetailsForm = ({ form, formValues }: Props) => {
             >
                 <Input label="Name" placeholder="Choose a name for your widget" isRequired />
             </Form.Item>
-            <Form.Item name="description">
+            {/* Should be used later, once support for description is added  */}
+            {/* <Form.Item name="description">
                 <TextArea label="Description" placeholder="Help others understand what this collection contains..." />
-            </Form.Item>
+            </Form.Item> */}
         </Form>
     );
 };

@@ -43,7 +43,7 @@ export default function useAddModuleMenu(
 ) {
     const {
         addModule,
-        createModuleModalState: { open: openModal },
+        moduleModalState: { open: openModal },
     } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
@@ -57,7 +57,7 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    const handleOpenCreatingNewModuleModal = useCallback(
+    const handleOpenUpsertModuleModal = useCallback(
         (type: DataHubPageModuleType) => {
             openModal(type, position);
             closeMenu();
@@ -122,7 +122,7 @@ export default function useAddModuleMenu(
                 />
             ),
             onClick: () => {
-                handleOpenCreatingNewModuleModal(DataHubPageModuleType.AssetCollection);
+                handleOpenUpsertModuleModal(DataHubPageModuleType.AssetCollection);
             },
         };
 
@@ -160,7 +160,7 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenCreatingNewModuleModal]);
+    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenUpsertModuleModal]);
 
     return menu;
 }

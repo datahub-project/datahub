@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import { CreateModuleModalState } from '@app/homeV3/context/types';
+import { ModuleModalState } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType } from '@types';
 
-export function useCreateModuleModalState(): CreateModuleModalState {
+export function useModuleModalState(): ModuleModalState {
     const [moduleType, setModuleType] = useState<DataHubPageModuleType | null>(null);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [position, setPosition] = useState<ModulePositionInput | null>(null);

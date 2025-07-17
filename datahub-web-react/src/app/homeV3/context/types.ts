@@ -4,7 +4,7 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { DataHubPageModuleType, PageModuleScope } from '@types';
 
 // Input types for the methods
-export interface CreateModuleInput {
+export interface UpsertModuleInput {
     urn?: string;
     name: string;
     type: DataHubPageModuleType;
@@ -18,7 +18,7 @@ export interface AddModuleInput {
     position: ModulePositionInput;
 }
 
-export interface CreateModuleModalState {
+export interface ModuleModalState {
     isOpen: boolean;
     moduleType: DataHubPageModuleType | null;
     position: ModulePositionInput | null;
@@ -40,6 +40,6 @@ export type PageTemplateContextState = {
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;
     setTemplate: (template: PageTemplateFragment | null) => void;
     addModule: (input: AddModuleInput) => void;
-    createModule: (input: CreateModuleInput) => void;
-    createModuleModalState: CreateModuleModalState;
+    upsertModule: (input: UpsertModuleInput) => void;
+    moduleModalState: ModuleModalState;
 };

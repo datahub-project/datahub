@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
 
-import { CreateModuleInput } from '@app/homeV3/context/types';
+import { UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
@@ -82,8 +82,8 @@ export function useModuleOperations(
     );
 
     // Takes input and makes a call to create a module then add that module to the template
-    const createModule = useCallback(
-        (input: CreateModuleInput) => {
+    const upsertModule = useCallback(
+        (input: UpsertModuleInput) => {
             const { name, type, scope = PageModuleScope.Personal, params = {}, position, urn } = input;
 
             // Create the module first
@@ -134,6 +134,6 @@ export function useModuleOperations(
 
     return {
         addModule,
-        createModule,
+        upsertModule,
     };
 }

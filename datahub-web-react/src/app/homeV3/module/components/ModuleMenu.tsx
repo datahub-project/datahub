@@ -22,7 +22,7 @@ export default function ModuleMenu({ module }: Props) {
     const { type } = module.properties;
 
     const {
-        createModuleModalState: { openToEdit },
+        moduleModalState: { openToEdit },
     } = usePageTemplateContext();
 
     const handleEditModule = useCallback(() => {

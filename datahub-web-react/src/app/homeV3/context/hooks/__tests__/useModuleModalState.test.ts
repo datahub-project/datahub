@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
-import { useCreateModuleModalState } from '@app/homeV3/context/hooks/useCreateModuleModalState';
+import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import type { ModulePositionInput } from '@app/homeV3/template/types';
 
 import type { PageModuleFragment } from '@graphql/template.generated';
@@ -36,9 +36,9 @@ const POS1: ModulePositionInput = { rowIndex: 0, rowSide: 'left' };
 const POS2: ModulePositionInput = { rowIndex: 1, rowSide: 'right' };
 const POS3: ModulePositionInput = { rowIndex: 5, rowSide: 'left' };
 
-describe('useCreateModuleModalState', () => {
+describe('useModuleModalState', () => {
     it('should initialize to default state', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         expect(result.current.isOpen).toBe(false);
         expect(result.current.moduleType).toBeNull();
         expect(result.current.position).toBeNull();
@@ -47,7 +47,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should set correct state on open()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         expect(result.current.isOpen).toBe(true);
         expect(result.current.moduleType).toBe(TYPE);
@@ -57,7 +57,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should update state to latest args on consecutive open()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         act(() => result.current.open(TYPE2, POS2));
         expect(result.current.moduleType).toBe(TYPE2);
@@ -68,13 +68,13 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should handle different position values on open()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE2, POS3));
         expect(result.current.position).toEqual(POS3);
     });
 
     it('should set edit state module on openToEdit()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.openToEdit(TYPE, mockModule));
         expect(result.current.isOpen).toBe(true);
         expect(result.current.moduleType).toBe(TYPE);
@@ -84,7 +84,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should update to latest args on consecutive openToEdit()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.openToEdit(TYPE, mockModule));
         act(() => result.current.openToEdit(TYPE2, anotherMockModule));
         expect(result.current.isOpen).toBe(true);
@@ -95,7 +95,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should reset state after open() then close()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         act(() => result.current.close());
         expect(result.current.isOpen).toBe(false);
@@ -106,7 +106,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should reset state after openToEdit() then close()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.openToEdit(TYPE, mockModule));
         act(() => result.current.close());
         expect(result.current.isOpen).toBe(false);
@@ -117,7 +117,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should reset edit state on open() after openToEdit()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.openToEdit(TYPE, mockModule));
         act(() => result.current.open(TYPE2, POS2));
         expect(result.current.isOpen).toBe(true);
@@ -128,7 +128,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should maintain correct state on multiple alternations between open and openToEdit', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         expect(result.current.position).toEqual(POS1);
         act(() => result.current.openToEdit(TYPE, mockModule));
@@ -140,7 +140,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should fully reset all state after a complex sequence and close()', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         act(() => result.current.openToEdit(TYPE2, mockModule));
         act(() => result.current.open(TYPE, POS2));
@@ -153,7 +153,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should not throw and always reset state on multiple close() calls', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         act(() => result.current.close());
         act(() => result.current.close());
@@ -165,7 +165,7 @@ describe('useCreateModuleModalState', () => {
     });
 
     it('should retain latest initialState and position after successive edits', () => {
-        const { result } = renderHook(() => useCreateModuleModalState());
+        const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         act(() => result.current.openToEdit(TYPE, mockModule));
         act(() => result.current.openToEdit(TYPE, anotherMockModule));

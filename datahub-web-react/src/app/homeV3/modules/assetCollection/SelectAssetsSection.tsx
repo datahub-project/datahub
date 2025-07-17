@@ -13,11 +13,15 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
 
-const AssetSection = styled.div`
+const AssetsSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
-    height: 100%;
+`;
+
+const ItemDetailsContainer = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 type Props = {
@@ -44,16 +48,16 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
         const displayType = getEntityDisplayType(entity, entityRegistry);
 
         return (
-            <>
+            <ItemDetailsContainer>
                 <Text color="gray" size="sm">
                     {displayType}
                 </Text>
                 <Checkbox
-                    size="sm"
+                    size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
                     onCheckboxChange={() => handleCheckboxChange(entity.urn)}
                 />
-            </>
+            </ItemDetailsContainer>
         );
     };
 
@@ -66,14 +70,19 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
         );
     } else if (entities && entities.length > 0) {
         content = entities?.map((entity) => (
-            <EntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
+            <EntityItem
+                entity={entity}
+                key={entity.urn}
+                customDetailsRenderer={customDetailsRenderer}
+                navigateOnlyOnNameClick
+            />
         ));
     } else {
         content = <EmptySection />;
     }
 
     return (
-        <AssetSection>
+        <AssetsSection>
             <Text color="gray" weight="bold">
                 Search and Select Assets
             </Text>
@@ -84,7 +93,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 updateFieldFilters={updateFieldFilters}
             />
             {content}
-        </AssetSection>
+        </AssetsSection>
     );
 };
 
