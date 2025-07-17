@@ -57,11 +57,12 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup
     steps:
       - name: Free up disk space
+        if: ${{ vars.DEPOT_PROJECT_ID == '' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
