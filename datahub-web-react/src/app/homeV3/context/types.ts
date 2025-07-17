@@ -46,6 +46,5 @@ export type PageTemplateContextState = {
     addModule: (input: AddModuleInput) => void;
     upsertModule: (input: UpsertModuleInput) => void;
     moduleModalState: ModuleModalState;
-        removeModule: (input: RemoveModuleInput) => void;
-
+    removeModule: (input: RemoveModuleInput) => void;
 };

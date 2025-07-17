@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import BaseModuleModal from '@app/homeV3/moduleModals/modals/BaseModuleModal';
+import BaseModuleModal from '@app/homeV3/moduleModals/common/BaseModuleModal';
+import ModuleDetailsForm from '@app/homeV3/moduleModals/common/ModuleDetailsForm';
 import AssetsSection from '@app/homeV3/modules/assetCollection/AssetsSection';
-import ModuleDetailsForm from '@app/homeV3/modules/assetCollection/ModuleDetailsForm';
 
 import { DataHubPageModuleType } from '@types';
 

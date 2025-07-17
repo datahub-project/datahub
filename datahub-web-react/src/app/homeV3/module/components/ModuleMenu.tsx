@@ -4,8 +4,8 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { ModulePositionInput } from '@app/homeV3/template/types';
 import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 
@@ -18,12 +18,11 @@ const StyledIcon = styled(Icon)`
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
-}    
+}
 
 export default function ModuleMenu({ module, position }: Props) {
     const { type } = module.properties;
     const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
-
 
     const {
         removeModule,

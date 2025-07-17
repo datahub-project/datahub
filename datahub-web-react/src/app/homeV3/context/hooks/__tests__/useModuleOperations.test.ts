@@ -293,7 +293,12 @@ describe('useModuleOperations', () => {
                 setTimeout(resolve, 0);
             });
 
-            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(mockPersonalTemplate, mockModule, position);
+            expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                mockModule,
+                position,
+                false,
+            );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call

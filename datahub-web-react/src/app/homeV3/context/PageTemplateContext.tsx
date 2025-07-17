@@ -61,7 +61,7 @@ export const PageTemplateProvider = ({
             setGlobalTemplate,
             setTemplate,
             addModule,
-            removeModule,            
+            removeModule,
             upsertModule,
             moduleModalState,
         }),
