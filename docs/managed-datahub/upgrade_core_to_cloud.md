@@ -13,11 +13,7 @@ Before starting the upgrade process:
 2. **Database Access**: You'll need read access to your DataHub Core MySQL or PostgreSQL database
 3. **DataHub CLI**: Install the DataHub CLI with `pip install acryl-datahub`
 4. **Network Connectivity**: Ensure your upgrade environment can access both your source database and DataHub Cloud
-5. **Database Index**: Verify that the `createdon` column is indexed in your source database:
-
-   ```sql
-   CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);
-   ```
+5. **Database Index**: Verify that the `createdon` column is indexed in your source database (should by for newer versions by default)
 
 ## Moving From Core To Cloud
 
@@ -206,21 +202,24 @@ To learn about all aspects in DataHub, check out the [DataHub metadata model doc
      type: datahub
      config:
        database_query_batch_size: 10000 # Adjust based on your system
-       commit_state_interval: 1000 # Records before checkpoint
+       commit_state_interval: 1000 # Records before progress is saved to DataHub 
    ```
 
 2. **Destination Settings**: For optimal performance on DataHub Cloud:
 
-   - Enable async ingestion (usually enabled by default) by setting `mode: ASYNC_BATCH` in the sink section of your recipe.
-   - Consider scaling consumer replicas for large upgrade transfers
-   - Increase thread count if needed in sink settings
+   - Ensuring batch async ingestion is enabled by setting `mode: ASYNC_BATCH` in the sink section of your recipe (enabled by default) 
+   - Increase thread count if needed in sink settings by adjusting the `max_threads` parameter in the sink section of your recipe
+  
+Check out the [sink docs](https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub#config-details) to learn about other configuration parameters you may want to use during the upgrade process. 
 
-3. **Stateful Ingestion**: For very large instances, use stateful ingestion:
+4. **Stateful Ingestion**: For very large instances, use stateful ingestion:
    ```yaml
    stateful_ingestion:
      enabled: true
      ignore_old_state: false # Set to true to restart from beginning!
    ```
+
+   This enables you to upgrade incrementally over time, only syncing changes once the initial upgrade has completed. 
 
 ### Troubleshooting
 
