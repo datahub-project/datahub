@@ -18,7 +18,14 @@ from datahub.ingestion.graph.filters import (
 from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
-from datahub.sdk.search_filters import Filter, FilterDsl as F, _BaseFilter, load_filters
+from datahub.sdk.search_filters import (
+    Filter,
+    FilterDsl as F,
+    _BaseFilter,
+    _CustomCondition,
+    _filter_discriminator,
+    load_filters,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
@@ -230,7 +237,35 @@ def test_filter_discriminator() -> None:
         F.custom_filter(
             "custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]
         )._field_discriminator()
-        == "_custom"
+        == _CustomCondition._field_discriminator()
+    )
+
+    # Simple filter discriminator extraction.
+    assert _filter_discriminator(F.entity_type("dataset")) == "entity_type"
+    assert _filter_discriminator({"entity_type": "dataset"}) == "entity_type"
+    assert _filter_discriminator({"not": {"entity_subtype": "Table"}}) == "not"
+    assert _filter_discriminator({"unknown_field": 6}) == "unknown_field"
+    assert _filter_discriminator({"field1": 6, "field2": 7}) is None
+    assert _filter_discriminator({}) is None
+    assert _filter_discriminator(6) is None
+    assert (
+        _filter_discriminator(
+            {
+                "field": "custom_field",
+                "condition": "GREATER_THAN_OR_EQUAL_TO",
+                "values": ["5"],
+            }
+        )
+        == _CustomCondition._field_discriminator()
+    )
+    assert (
+        _filter_discriminator(
+            {
+                "field": "custom_field",
+                "condition": "EXISTS",
+            }
+        )
+        == _CustomCondition._field_discriminator()
     )
 
 

@@ -332,6 +332,22 @@ class _Not(_BaseFilter):
         yield from self.not_.dfs()
 
 
+def _filter_discriminator(v: Any) -> Optional[str]:
+    if isinstance(v, _BaseFilter):
+        return v._field_discriminator()
+
+    if not isinstance(v, dict):
+        return None
+
+    keys = list(v.keys())
+    if len(keys) == 1:
+        return keys[0]
+    elif set(keys).issuperset({"field", "condition"}):
+        return _CustomCondition._field_discriminator()
+
+    return None
+
+
 if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
     # The `not TYPE_CHECKING` bit is required to make the linter happy,
     # since we currently only run mypy with pydantic v1.
@@ -353,21 +369,6 @@ if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
     _Not.update_forward_refs()
 else:
     from pydantic import Discriminator, Tag
-
-    def _filter_discriminator(v: Any) -> Optional[str]:
-        if isinstance(v, _BaseFilter):
-            return v._field_discriminator()
-
-        if not isinstance(v, dict):
-            return None
-
-        keys = list(v.keys())
-        if len(keys) == 1:
-            return keys[0]
-        elif set(keys).issuperset({"field", "condition"}):
-            return _CustomCondition._field_discriminator()
-
-        return None
 
     # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
     # That way we'd be able to attach methods to the Filter type.
