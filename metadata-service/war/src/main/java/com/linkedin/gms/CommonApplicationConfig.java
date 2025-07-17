@@ -14,6 +14,7 @@ import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.ServerConnector;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -68,6 +69,7 @@ public class CommonApplicationConfig {
   @Autowired private Environment environment;
 
   @Bean
+  @ConditionalOnWebApplication
   public WebServerFactoryCustomizer<JettyServletWebServerFactory> jettyCustomizer() {
     return factory -> {
       factory.addServerCustomizers(
