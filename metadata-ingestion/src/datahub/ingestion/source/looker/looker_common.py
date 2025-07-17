@@ -242,12 +242,18 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
-        return builder.make_dataset_urn_with_platform_instance(
+        generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
             platform_instance=config.platform_instance,
             env=config.env,
         )
+
+        logger.debug(
+            f"LookerViewId.get_urn for view '{self.view_name}': project='{self.project_name}', model='{self.model_name}', file_path='{self.file_path}', dataset_name='{dataset_name}', generated_urn='{generated_urn}'"
+        )
+
+        return generated_urn
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
