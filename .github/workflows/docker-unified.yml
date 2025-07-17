@@ -183,6 +183,7 @@ jobs:
 
       - name: Compute UV Cache Key
         id: uv-cache-key
+        # Fork and OSS will have a different implementation of this key. Do not merge.
         run: |
           echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
             './datahub-actions/pyproject.toml',
@@ -196,24 +197,6 @@ jobs:
             './metadata-ingestion/setup.py',
             './datahub-executor/requirements.txt',
             './datahub-executor/pyproject.toml') }}" >> "$GITHUB_OUTPUT"
-          echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
-
-      - name: Compute Yarn Cache Key
-        id: yarn-cache-key
-        run: |
-          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
-          echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
-
-      - name: Compute UV Cache Key
-        id: uv-cache-key
-        run: |
-          echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
-            './datahub-actions/pyproject.toml',
-            './datahub-actions/setup.py',
-            './smoke-test/requirements.txt',
-            './smoke-test/pyproject.toml',
-            './metadata-ingestion/pyproject.toml',
-            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
           echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
 
       - name: Compute Yarn Cache Key
