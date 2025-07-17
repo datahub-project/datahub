@@ -1,4 +1,4 @@
-import { Collapse, Form, Input, Modal, Tag, Typography, message } from 'antd';
+import { Collapse, Form, Input, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +9,7 @@ import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
 
@@ -119,7 +119,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     return (
         <Modal
             title="Create New Domain"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <ModalButtonContainer>
