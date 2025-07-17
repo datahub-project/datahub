@@ -1,3 +1,5 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import streamlit as st
 from datahub.sdk.main_client import DataHubClient
 
@@ -5,6 +7,8 @@ from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.chat.chat_session import ChatSession
 from datahub_integrations.experimentation.st_chat_history import st_chat_history
 from datahub_integrations.mcp.mcp_server import mcp
+
+assert AI_EXPERIMENTATION_INITIALIZED
 
 
 @st.cache_resource

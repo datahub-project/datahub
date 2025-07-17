@@ -28,7 +28,7 @@ def datahub_linkify(text: str) -> str:
     """Replace all markdown links in form [<table_name>](<table_urn>) with [@<table_name>](<table_urn>)"""
 
     # Pattern to match markdown links with URNs: [text](urn)
-    markdown_link_pattern = rf"\[([^\]]+)\]\(({urn_regex})\)"
+    markdown_link_pattern = rf"\[([^\]]+)\]\(({urn_regex})[\)]?[\]]?"
 
     def replace_link(match: re.Match) -> str:
         text = match.group(1)
