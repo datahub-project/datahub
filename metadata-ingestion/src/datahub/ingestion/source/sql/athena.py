@@ -303,7 +303,7 @@ class AthenaConfig(SQLCommonConfig):
         print_warning=True,
     )
 
-    emit_schema_fieldpaths_as_v1 = pydantic.Field(
+    emit_schema_fieldpaths_as_v1: bool = pydantic.Field(
         default=False,
         description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
     )
