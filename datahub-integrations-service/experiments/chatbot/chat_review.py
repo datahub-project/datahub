@@ -85,7 +85,7 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
         history = None
         if raw_history := row["history"]:
             try:
-                history = ChatHistory.model_validate(raw_history)
+                history = ChatHistory.model_validate_json(raw_history)
             except pydantic.ValidationError as e:
                 st.error(f"Error loading history for {prompt_id}: {e}")
                 history = None
@@ -175,8 +175,8 @@ def main(run_name: Optional[str] = None):
     )
 
     # Show selected prompt details
-    if event.selection["rows"]:
-        selected_row = table_data.iloc[event.selection.rows[0]]
+    if selected_row_index := event.selection["rows"]:  # type: ignore
+        selected_row = table_data.iloc[selected_row_index[0]]
         prompt_id = selected_row["Prompt ID"]
         st.text(f"Prompt ID: {prompt_id}")
 

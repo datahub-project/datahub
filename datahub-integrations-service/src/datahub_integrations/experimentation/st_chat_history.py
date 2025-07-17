@@ -1,4 +1,5 @@
 import streamlit as st
+import tiktoken
 from typing_extensions import assert_never
 
 from datahub_integrations.chat.chat_history import (
@@ -11,6 +12,15 @@ from datahub_integrations.chat.chat_history import (
     ToolResultError,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.slack.utils.numbers import abbreviate_number
+
+
+def _token_count(text: str) -> str:
+    """Count tokens in text and return abbreviated count with 'tokens' suffix."""
+    # This is just an approximation since different models have different tokenizers.
+    encoding = tiktoken.encoding_for_model("gpt-4o")
+    token_count = len(encoding.encode(text))
+    return f"{abbreviate_number(token_count)} tokens"
 
 
 def st_chat_history(
@@ -22,16 +32,21 @@ def st_chat_history(
         if isinstance(message, ReasoningMessage):
             if show_thinking:
                 with st.chat_message("assistant", avatar="🧠"):
-                    st.markdown(f"<pre>{message.text}</pre>", unsafe_allow_html=True)
+                    st.caption(f"Reasoning · {_token_count(message.text)}")
+                    st.markdown(message.text)
         elif isinstance(message, HumanMessage):
             with st.chat_message("user"):
+                st.caption(f"User · {_token_count(message.text)}")
                 st.markdown(message.text)
         elif isinstance(message, AssistantMessage):
             with st.chat_message("assistant"):
+                st.caption(f"Assistant · {_token_count(message.text)}")
                 st.markdown(message.text)
         elif ChatSession.is_respond_to_user(message):
             with st.chat_message("assistant"):
                 next_message = NextMessage.model_validate(message.result)
+
+                st.caption(f"Response · {_token_count(next_message.text)}")
 
                 markdown_tab, raw_tab = st.tabs(["Markdown", "Raw"])
                 with markdown_tab:
@@ -50,18 +65,22 @@ def st_chat_history(
         elif isinstance(message, ToolResult):
             if show_thinking:
                 with st.chat_message("tool", avatar="🔧"):
-                    st.markdown(f"Tool `{message.tool_request.tool_name}` returned:")
+                    st.caption(
+                        f"Tool `{message.tool_request.tool_name}` returned · {_token_count(str(message.result))}"
+                    )
                     st.json(message.result, expanded=2)
         elif isinstance(message, ToolCallRequest):
             if show_thinking:
                 with st.chat_message("tool", avatar="📞"):
-                    st.markdown(f"Calling `{message.tool_name}` tool")
+                    st.caption(
+                        f"Calling `{message.tool_name}` tool · {_token_count(str(message.tool_input))}"
+                    )
                     st.code(str(message.tool_input), language="json")
         elif isinstance(message, ToolResultError):
             if show_thinking:
                 with st.chat_message("tool", avatar="❌"):
-                    st.markdown(
-                        f"Tool `{message.tool_request.tool_name}` returned an error:"
+                    st.caption(
+                        f"Tool `{message.tool_request.tool_name}` error · {_token_count(str(message.error))}"
                     )
                     st.code(str(message.error))
         else:

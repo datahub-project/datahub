@@ -998,6 +998,8 @@ referencing==0.35.0
     #   -r requirements.txt
     #   jsonschema
     #   jsonschema-specifications
+regex==2024.11.6
+    # via tiktoken
 requests==2.31.0
     # via
     #   -r requirements.txt
@@ -1017,6 +1019,7 @@ requests==2.31.0
     #   requests-file
     #   snowflake-connector-python
     #   streamlit
+    #   tiktoken
 requests-file==2.0.0
     # via
     #   -r requirements.txt
@@ -1173,6 +1176,8 @@ thrift==0.16.0
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
+tiktoken==0.9.0
+    # via acryl-datahub-integrations (pyproject.toml)
 toml==0.10.2
     # via
     #   -r requirements.txt

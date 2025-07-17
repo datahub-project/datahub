@@ -4,22 +4,32 @@ def abbreviate_number(number: int) -> str:
     Examples:
         >>> abbreviate_number(1000)
         '1k'
+        >>> abbreviate_number(1002)
+        '1.0k'
         >>> abbreviate_number(1200)
-        '1k'
+        '1.2k'
         >>> abbreviate_number(1000000)
         '1M'
         >>> abbreviate_number(1000000000)
         '1B'
+        >>> abbreviate_number(1000050300)
+        '1.0B'
     """
 
-    # TODO: Ideally 1200 would become 1.2k, not 1k
+    def _smart_decimal(number: int, divisor: int) -> str:
+        # If it goes in evenly, we skip the decimal entirely.
+        if number % divisor == 0:
+            return f"{number // divisor}"
+        else:
+            return f"{(number // (divisor / 10)) / 10:.1f}"
+
     if number < 1000:
         return str(number)
-    if number < 1000000:
-        return f"{number // 1000}k"
-    if number < 1000000000:
-        return f"{number // 1000000}M"
-    return f"{number // 1000000000}B"
+    elif number < 1_000_000:
+        return f"{_smart_decimal(number, 1000)}k"
+    elif number < 1_000_000_000:
+        return f"{_smart_decimal(number, 1_000_000)}M"
+    return f"{_smart_decimal(number, 1_000_000_000)}B"
 
 
 def format_number(number: int) -> str:
