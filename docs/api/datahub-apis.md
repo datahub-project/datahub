@@ -3,7 +3,7 @@
 DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
 
 | API                                                        | Definition                         | Pros                                     | Cons                                                                                                                      |
-| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- |---------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **[Python SDK](/metadata-ingestion/as-a-library.md)**      | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
 | **[Java SDK](/metadata-integration/java/as-a-library.md)** | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
 | **[GraphQL API](docs/api/graphql/getting-started.md)**     | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax                                                             |
