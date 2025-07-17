@@ -4,6 +4,7 @@ import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
 import java.util.Set;
 import javax.management.MBeanServer;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jetty.ee10.servlet.ServletHandler;
 import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.jmx.MBeanContainer;
@@ -58,8 +59,8 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.telemetry",
       "com.linkedin.gms.factory.trace",
       "com.linkedin.gms.factory.kafka.trace",
-      "com.linkedin.gms.factory.system_telemetry"
     })
+@Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 public class CommonApplicationConfig {
@@ -69,15 +70,12 @@ public class CommonApplicationConfig {
   @Bean
   public WebServerFactoryCustomizer<JettyServletWebServerFactory> jettyCustomizer() {
     return factory -> {
-
-      // Configure HTTP
       factory.addServerCustomizers(
           server -> {
 
-            // HTTP Configuration
+            // --- HTTP Configuration (always created) ---
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
-            httpConfig.setSendServerVersion(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
             // Configure URI compliance to allow encoded slashes
@@ -92,15 +90,51 @@ public class CommonApplicationConfig {
                 .getContainedBeans(ServletHandler.class)
                 .forEach(handler -> handler.setDecodeAmbiguousURIs(true));
 
-            // HTTP Connector
-            ServerConnector connector =
-                new ServerConnector(server, new HttpConnectionFactory(httpConfig));
+            // --- Ports ---
+            int httpPort = environment.getProperty("server.port", Integer.class, 8080);
+            int httpsPort = environment.getProperty("server.ssl.port", Integer.class, 8443);
 
-            // Get port from environment directly
-            int port = environment.getProperty("server.port", Integer.class, 8080);
-            connector.setPort(port);
+            // --- SSL Config ---
+            String keyStorePath = environment.getProperty("server.ssl.key-store");
+            String keyStorePassword = environment.getProperty("server.ssl.key-store-password");
+            String keyStoreType = environment.getProperty("server.ssl.key-store-type", "PKCS12");
+            String keyAlias = environment.getProperty("server.ssl.key-alias");
 
-            // Set connectors
+            ServerConnector connector;
+
+            // --- SSL Only if Configured ---
+            if (keyStorePath != null
+                && !keyStorePath.isBlank()
+                && keyStorePassword != null
+                && !keyStorePassword.isBlank()) {
+
+              // --- HTTPS (SSL) Connector ---
+              org.eclipse.jetty.util.ssl.SslContextFactory.Server sslContextFactory =
+                  new org.eclipse.jetty.util.ssl.SslContextFactory.Server();
+              sslContextFactory.setKeyStorePath(keyStorePath);
+              sslContextFactory.setKeyStorePassword(keyStorePassword);
+              sslContextFactory.setKeyStoreType(keyStoreType);
+              if (keyAlias != null && !keyAlias.isBlank()) {
+                sslContextFactory.setCertAlias(keyAlias);
+              }
+
+              HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
+              httpsConfig.addCustomizer(new org.eclipse.jetty.server.SecureRequestCustomizer());
+
+              // Only HTTPS
+              connector =
+                  new ServerConnector(
+                      server, sslContextFactory, new HttpConnectionFactory(httpsConfig));
+              connector.setPort(httpsPort);
+              log.info("HTTPS enabled on port {} using keystore: {}", httpsPort, keyStorePath);
+            } else {
+              // Only HTTP
+              connector = new ServerConnector(server, new HttpConnectionFactory(httpConfig));
+              connector.setPort(httpPort);
+              log.info("HTTP only enabled on port {}", httpPort);
+            }
+
+            // --- Set connectors (HTTP or HTTPS only) ---
             server.setConnectors(new Connector[] {connector});
 
             // JMX Configuration
