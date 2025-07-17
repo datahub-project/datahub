@@ -80,6 +80,7 @@ describe('LargeModule', () => {
     const defaultProps = {
         module: mockModule,
         children: <div data-testid="module-content">Module Content</div>,
+        position: { rowIndex: 0, moduleIndex: 0 },
     };
 
     it('should render the module with correct name', () => {
