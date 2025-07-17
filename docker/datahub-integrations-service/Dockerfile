@@ -140,6 +140,16 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
 
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
+
+USER datahub
+
+# Copy and install requirements as base layer which wont get invalidated if any of the code below changes.
+COPY --chown=datahub:datahub ./datahub-integrations-service/requirements.txt /datahub-integrations-service/
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-integrations-service \
+   grep -v "\-e " /datahub-integrations-service/requirements.txt | UV_LINK_MODE=copy uv pip install -r /dev/stdin
+
+USER 0
+
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
@@ -155,9 +165,10 @@ WORKDIR /datahub-integrations-service
 
 USER datahub
 
+# This now does a sync over the base layer, and incurs only a delta cost on base layer even if code has changed.
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
-RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-integrations-service \
    UV_LINK_MODE=copy ./scripts/sync.sh --no-dev
 
 # Production Image Built From Build Image

@@ -55,6 +55,7 @@ dependencies = [
 	"msal>=1.32.3",
 	# Databricks sync -> conaction hangs forever on malformed http_path with newer databricks-sql-connector
 	"databricks-sql-connector>=2.8.0,<3.0.0",
+	"debugpy", # Enables remote debugging. Used in dev env
 ]
 
 [project.optional-dependencies]

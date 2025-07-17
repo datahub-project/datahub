@@ -147,12 +147,19 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 # RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
 # ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
-COPY ./datahub-executor /datahub-executor
-COPY ./metadata-ingestion /metadata-ingestion
-COPY ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
-COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
-COPY ./docker/datahub-executor/health_status.py /health_status
-COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+# Install external deps in a cacheble layer
+USER datahub
+COPY ./datahub-executor/requirements.txt /datahub-executor/
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+  grep -v "\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
+USER 0
+
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
 RUN chmod a+x /start_datahub_executor.sh
 RUN chmod a+x /health_status
 
@@ -160,7 +167,6 @@ WORKDIR /datahub-executor
 
 ARG DOCKER_VERSION
 ARG RELEASE_VERSION
-RUN chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
 
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -172,14 +178,15 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 
 USER datahub
-RUN uv pip install -r requirements.txt
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+  uv pip install -r requirements.txt
 
 ## Production Image Built From Build Image
 FROM build AS prod-install
 
 USER datahub
 
-FROM prod-install AS dev-install
+FROM build AS dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134

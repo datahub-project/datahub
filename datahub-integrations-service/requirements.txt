@@ -141,6 +141,8 @@ databricks-sdk==0.50.0
     # via mlflow-skinny
 databricks-sql-connector==2.9.6
     # via acryl-datahub-integrations
+debugpy==1.8.15
+    # via acryl-datahub-integrations
 deprecated==1.2.14
     # via
     #   acryl-datahub

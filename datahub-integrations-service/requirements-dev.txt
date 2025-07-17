@@ -243,8 +243,12 @@ databricks-sql-connector==2.9.6
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-debugpy==1.8.14
-    # via ipykernel
+debugpy==1.8.15
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   ipykernel
 decorator==5.2.1
     # via ipython
 deepdiff==8.4.2
