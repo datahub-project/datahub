@@ -7,7 +7,7 @@ import {
     removeModuleFromRows,
     validateModuleMoveConstraints,
 } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
-import { AddModuleInput, UpsertModuleInput, MoveModuleInput, RemoveModuleInput } from '@app/homeV3/context/types';
+import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
@@ -290,7 +290,8 @@ export function useModuleOperations(
                 return;
             }
 
-            const { name, type, scope = PageModuleScope.Personal, params = {}, position, urn } = input;
+            const defaultScope = isEditingGlobalTemplate ? PageModuleScope.Global : PageModuleScope.Personal;
+            const { name, type, scope = defaultScope, params = {}, position, urn } = input;
 
             // Create the module first
             const moduleInput = {
@@ -335,7 +336,7 @@ export function useModuleOperations(
                     message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule, isEditingModule],
+        [upsertPageModuleMutation, addModule, isEditingModule, isEditingGlobalTemplate],
     );
 
     // Simplified move module function with extracted validation and orchestration

@@ -48,7 +48,7 @@ export function useDragAndDrop() {
         async (event: DragEndEvent) => {
             const { active, over } = event;
 
-            if (!over || !active.data.current || !over.data.current) {
+            if (!over || !active.data?.current || !over.data?.current) {
                 return;
             }
 

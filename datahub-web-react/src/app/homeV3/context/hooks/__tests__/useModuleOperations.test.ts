@@ -1077,6 +1077,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -1104,6 +1105,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 
@@ -1132,6 +1134,7 @@ describe('useModuleOperations', () => {
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
+                    false,
                 ),
             );
 

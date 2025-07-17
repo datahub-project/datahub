@@ -8,7 +8,7 @@ export interface UpsertModuleInput {
     urn?: string;
     name: string;
     type: DataHubPageModuleType;
-    scope: PageModuleScope;
+    scope?: PageModuleScope;
     position: ModulePositionInput;
     params?: Record<string, any>;
 }
