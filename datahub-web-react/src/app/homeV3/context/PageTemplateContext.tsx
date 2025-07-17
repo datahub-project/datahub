@@ -31,16 +31,17 @@ export const PageTemplateProvider = ({
     } = useTemplateState(initialPersonalTemplate, initialGlobalTemplate);
 
     // Template operations
-    const { updateTemplateWithModule, upsertTemplate } = useTemplateOperations();
+    const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate } = useTemplateOperations();
 
     // Module operations
-    const { addModule, createModule } = useModuleOperations(
+    const { addModule, removeModule, createModule } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
         setPersonalTemplate,
         setGlobalTemplate,
         updateTemplateWithModule,
+        removeModuleFromTemplate,
         upsertTemplate,
     );
 
@@ -55,6 +56,7 @@ export const PageTemplateProvider = ({
             setGlobalTemplate,
             setTemplate,
             addModule,
+            removeModule,
             createModule,
         }),
         [
@@ -67,6 +69,7 @@ export const PageTemplateProvider = ({
             setGlobalTemplate,
             setTemplate,
             addModule,
+            removeModule,
             createModule,
         ],
     );
@@ -83,4 +86,4 @@ export function usePageTemplateContext() {
 }
 
 // Re-export types for convenience
-export type { CreateModuleInput, AddModuleInput } from './types';
+export type { CreateModuleInput, AddModuleInput, RemoveModuleInput } from './types';

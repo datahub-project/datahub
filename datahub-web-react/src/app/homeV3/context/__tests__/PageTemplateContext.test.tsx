@@ -86,8 +86,10 @@ const mockSetPersonalTemplate = vi.fn();
 const mockSetGlobalTemplate = vi.fn();
 const mockSetTemplate = vi.fn();
 const mockAddModule = vi.fn();
+const mockRemoveModule = vi.fn();
 const mockCreateModule = vi.fn();
 const mockUpdateTemplateWithModule = vi.fn();
+const mockRemoveModuleFromTemplate = vi.fn();
 const mockUpsertTemplate = vi.fn();
 
 describe('PageTemplateContext', () => {
@@ -108,11 +110,13 @@ describe('PageTemplateContext', () => {
 
         mockUseTemplateOperations.mockReturnValue({
             updateTemplateWithModule: mockUpdateTemplateWithModule,
+            removeModuleFromTemplate: mockRemoveModuleFromTemplate,
             upsertTemplate: mockUpsertTemplate,
         });
 
         mockUseModuleOperations.mockReturnValue({
             addModule: mockAddModule,
+            removeModule: mockRemoveModule,
             createModule: mockCreateModule,
         });
     });
@@ -177,6 +181,7 @@ describe('PageTemplateContext', () => {
                 mockSetPersonalTemplate,
                 mockSetGlobalTemplate,
                 mockUpdateTemplateWithModule,
+                mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
             );
         });
@@ -274,6 +279,7 @@ describe('PageTemplateContext', () => {
                 mockSetPersonalTemplate,
                 mockSetGlobalTemplate,
                 mockUpdateTemplateWithModule,
+                mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
             );
         });
