@@ -17,7 +17,10 @@ from typing import (
 import pydantic
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from datahub.configuration.pydantic_migration_helpers import (
+    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    PYDANTIC_VERSION_2,
+)
 from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
 from datahub.ingestion.graph.filters import (
     FilterOperator,
@@ -329,7 +332,7 @@ class _Not(_BaseFilter):
         yield from self.not_.dfs()
 
 
-if TYPE_CHECKING or not PYDANTIC_VERSION_2:
+if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
     # The `not TYPE_CHECKING` bit is required to make the linter happy,
     # since we currently only run mypy with pydantic v1.
     Filter = Union[

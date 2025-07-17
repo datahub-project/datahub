@@ -7,7 +7,9 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from datahub.configuration.pydantic_migration_helpers import (
+    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -233,8 +235,8 @@ def test_filter_discriminator() -> None:
 
 
 @pytest.mark.skipif(
-    not PYDANTIC_VERSION_2,
-    reason="Tagged union w/ callable discriminator is only supported in pydantic 2",
+    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
 )
 def test_tagged_union_error_messages() -> None:
     # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
