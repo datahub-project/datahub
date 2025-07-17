@@ -234,6 +234,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable column/table tag extraction.",
     )
 
+    extract_tags_as_structured_properties: bool = Field(
+        default=False,
+        description="If enabled along with `include_tags`, extracts Databricks's key-value tags as DataHub structured properties instead of DataHub tags.",
+    )
+
     _rename_table_ownership = pydantic_renamed_field(
         "include_table_ownership", "include_ownership"
     )
