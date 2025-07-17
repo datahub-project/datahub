@@ -112,7 +112,7 @@ input AssetCollectionModuleParamsInput {
   """
   The list of asset urns for the asset collection module
   """
-  assetUrns: [String]!
+  assetUrns: [String!]!
 }
 
 """
@@ -251,7 +251,7 @@ type AssetCollectionModuleParams {
   """
   The list of asset urns for the asset collection module
   """
-  assetUrns: [String]!
+  assetUrns: [String!]!
 }
 
 """
@@ -262,5 +262,4 @@ input DeletePageModuleInput {
   The URN of the page module to delete
   """
   urn: String!
-
 }

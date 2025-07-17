@@ -59,7 +59,7 @@ export function useTemplateOperations() {
             const newTemplate = { ...templateToUpdate };
             let newRows = [...(newTemplate.properties?.rows || [])];
 
-            // Update the existing module
+            // Update the existing module in-place for Optimistic UI changes
             if (isEditingModule && module.urn) {
                 newRows = newRows.map((row) => ({
                     ...row,

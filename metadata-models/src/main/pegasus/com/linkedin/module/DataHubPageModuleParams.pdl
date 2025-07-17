@@ -22,7 +22,5 @@ record DataHubPageModuleParams {
   /**
    * The params required if the module is type ASSET_COLLECTION
    */
-  assetCollectionParams: optional record AssetCollectionModuleParams {
-    assetUrns: array[string]
-  }
+  assetCollectionParams: optional AssetCollectionModuleParams
 }

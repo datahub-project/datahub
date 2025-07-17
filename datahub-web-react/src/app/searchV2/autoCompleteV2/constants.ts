@@ -32,19 +32,4 @@ export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
             },
         },
     ],
-    // [
-    //     'onlyNameNavigation',
-    //     {
-    //         ...DEFAULT_STYLES,
-    //         ...{
-    //             showEntityPopover: false,
-    //             nameCanBeHovered: false,
-    //             nameColorLevel: 600,
-    //             nameWeight: 'normal',
-    //             subtitleColorLevel: 600,
-    //             matchColorLevel: 1700,
-    //             typeColorLevel: 600,
-    //         },
-    //     },
-    // ],
 ]);
