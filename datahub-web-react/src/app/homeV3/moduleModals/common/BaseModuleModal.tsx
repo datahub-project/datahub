@@ -55,6 +55,7 @@ export default function BaseModuleModal({
             maskClosable={false} // to avoid accidental clicks that closes the modal
             bodyStyle={modalBodyStyles}
             width="70%"
+            style={{ maxWidth: 1100 }}
         >
             {children}
         </Modal>
