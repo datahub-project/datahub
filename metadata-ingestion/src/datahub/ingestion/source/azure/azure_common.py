@@ -1,6 +1,12 @@
 from typing import Dict, Optional, Union
 
-from azure.identity import ClientSecretCredential
+from azure.core.exceptions import ClientAuthenticationError
+from azure.identity import (
+    AzureCliCredential,
+    ClientSecretCredential,
+    DefaultAzureCredential,
+    ManagedIdentityCredential,
+)
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 from pydantic import Field, root_validator
@@ -20,30 +26,41 @@ class AzureConnectionConfig(ConfigModel):
         default="/",
         description="Base folder in hierarchical namespaces to start from.",
     )
-    container_name: str = Field(
+    container_name: Optional[str] = Field(
+        default=None,
         description="Azure storage account container name.",
     )
-    account_name: str = Field(
+    account_name: Optional[str] = Field(
+        default=None,
         description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
     )
+    # Authentication Options
+    use_managed_identity: bool = Field(
+        default=False,
+        description="Whether to use Azure Managed Identity authentication.",
+    )
+    use_cli_auth: bool = Field(
+        default=False,
+        description="Whether to authenticate using the Azure CLI.",
+    )
     account_key: Optional[str] = Field(
-        description="Azure storage account access key that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+        description="Azure storage account access key.",
         default=None,
     )
     sas_token: Optional[str] = Field(
-        description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
-        default=None,
-    )
-    client_secret: Optional[str] = Field(
-        description="Azure client secret that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+        description="Azure storage account SAS token.",
         default=None,
     )
     client_id: Optional[str] = Field(
-        description="Azure client (Application) ID required when a `client_secret` is used as a credential.",
+        description="Azure client (Application) ID for service principal auth.",
+        default=None,
+    )
+    client_secret: Optional[str] = Field(
+        description="Azure client secret for service principal auth.",
         default=None,
     )
     tenant_id: Optional[str] = Field(
-        description="Azure tenant (Directory) ID required when a `client_secret` is used as a credential.",
+        description="Azure tenant ID required for service principal auth.",
         default=None,
     )
 
@@ -72,19 +89,47 @@ class AzureConnectionConfig(ConfigModel):
 
     def get_credentials(
         self,
-    ) -> Union[Optional[str], ClientSecretCredential]:
-        if self.client_id and self.client_secret and self.tenant_id:
-            return ClientSecretCredential(
-                tenant_id=self.tenant_id,
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-            )
-        return self.sas_token if self.sas_token is not None else self.account_key
+    ) -> Union[
+        AzureCliCredential,
+        ClientSecretCredential,
+        DefaultAzureCredential,
+        ManagedIdentityCredential,
+        str,
+    ]:
+        """Get appropriate Azure credential based on configuration"""
+        try:
+            if self.use_managed_identity:
+                return ManagedIdentityCredential()
+
+            elif self.use_cli_auth:
+                return AzureCliCredential()
+
+            elif self.client_id and self.client_secret and self.tenant_id:
+                return ClientSecretCredential(
+                    tenant_id=self.tenant_id,
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                )
+
+            elif self.account_key:
+                return self.account_key
+
+            elif self.sas_token:
+                return self.sas_token
+
+            else:
+                return DefaultAzureCredential()
+
+        except ClientAuthenticationError as e:
+            raise ConfigurationError(f"Failed to initialize Azure credential: {str(e)}")
 
     @root_validator()
     def _check_credential_values(cls, values: Dict) -> Dict:
+        """Validate that at least one valid authentication method is configured"""
         if (
-            values.get("account_key")
+            values.get("use_managed_identity")
+            or values.get("use_cli_auth")
+            or values.get("account_key")
             or values.get("sas_token")
             or (
                 values.get("client_id")
@@ -94,5 +139,6 @@ class AzureConnectionConfig(ConfigModel):
         ):
             return values
         raise ConfigurationError(
-            "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
+            "Authentication configuration missing. Please provide one of: "
+            "managed identity, CLI auth, account key, SAS token, or service principal credentials"
         )

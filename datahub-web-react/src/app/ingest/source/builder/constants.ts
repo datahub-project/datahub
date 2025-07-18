@@ -23,6 +23,7 @@ import metabaseLogo from '@images/metabaselogo.png';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
+import msfabricLogo from '@images/msfabric.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.png';
@@ -146,6 +147,8 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const MSFABRIC = 'msfabric';
+export const MSFABRIC_URN = `urn:li:dataPlatform:${MSFABRIC}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -191,6 +194,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
+    [MSFABRIC_URN]: msfabricLogo,
     [VERTEXAI_URN]: vertexAI,
 };
 
