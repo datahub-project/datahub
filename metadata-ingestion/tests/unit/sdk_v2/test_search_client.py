@@ -240,6 +240,18 @@ def test_field_discriminator() -> None:
         == _CustomCondition._field_discriminator()
     )
 
+    class _BadFilter(_BaseFilter):
+        field1: str
+        field2: str
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Found multiple fields that could be the discriminator for this filter: ['field1', 'field2']"
+        ),
+    ):
+        _BadFilter._field_discriminator()
+
 
 def test_filter_discriminator() -> None:
     # Simple filter discriminator extraction.
@@ -260,7 +272,7 @@ def test_filter_discriminator() -> None:
                 "values": ["5"],
             }
         )
-        == _CustomCondition._field_discriminator()
+        == "_custom"
     )
     assert (
         _filter_discriminator(
@@ -269,7 +281,7 @@ def test_filter_discriminator() -> None:
                 "condition": "EXISTS",
             }
         )
-        == _CustomCondition._field_discriminator()
+        == "_custom"
     )
 
 
