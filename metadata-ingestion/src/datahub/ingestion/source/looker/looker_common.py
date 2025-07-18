@@ -386,6 +386,15 @@ class ExploreUpstreamViewField:
             include=view_name,
         )
 
+        # Debug logging for upstream lineage URN generation
+        if view_name == "dm_group_comm":
+            logger.debug(
+                f"_form_field_name for view '{view_name}': "
+                f"field='{self.field.name}', original_view='{self.field.original_view}', "
+                f"view_project_map lookup='{view_project_map.get(view_name, BASE_PROJECT_NAME)}', "
+                f"resolved_project='{project_include.project}'"
+            )
+
         file_path: Optional[str] = (
             upstream_views_file_path.get(view_name)
             if upstream_views_file_path.get(view_name)
