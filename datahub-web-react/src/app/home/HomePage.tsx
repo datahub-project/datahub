@@ -1,4 +1,3 @@
-import { Icon } from '@components';
 import React, { useEffect } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
