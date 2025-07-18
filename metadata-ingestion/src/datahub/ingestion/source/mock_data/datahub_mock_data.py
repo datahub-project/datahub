@@ -75,8 +75,8 @@ class LineageConfigGen1(ConfigModel):
         description="Whether this source is enabled",
     )
 
-    table_name_prefix: str = Field(
-        default="",
+    table_name_prefix: Optional[str] = Field(
+        default=None,
         description="Prefix to add to the table name. This is useful for testing purposes.",
     )
 

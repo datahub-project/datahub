@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 
 class TableNamingHelper:
@@ -14,7 +14,7 @@ class TableNamingHelper:
         lineage_fan_out: int,
         level: int,
         table_index: int,
-        prefix: str = "",
+        prefix: Optional[str] = None,
     ) -> str:
         """
         Generate a table name following the standard naming convention.
