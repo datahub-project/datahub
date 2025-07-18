@@ -25,6 +25,11 @@ const DocumentationModal = () => {
     const currentContent = initialState?.properties?.params?.richTextParams?.content;
     const urn = initialState?.urn;
 
+    const nameValue = Form.useWatch('name', form);
+    const contentValue = Form.useWatch('content', form);
+
+    const isDisabled = !nameValue?.trim() || !contentValue?.trim();
+
     const handleUpsertDocumentationModule = () => {
         form.validateFields().then((values) => {
             const { name, content } = values;
@@ -48,6 +53,7 @@ const DocumentationModal = () => {
             title={`${isEditing ? 'Edit' : 'Add'} Documentation`}
             subtitle="Document important information for you users"
             onUpsert={handleUpsertDocumentationModule}
+            submitButtonProps={{ disabled: isDisabled }}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />

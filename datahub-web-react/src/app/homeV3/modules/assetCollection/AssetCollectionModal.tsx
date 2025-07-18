@@ -28,6 +28,10 @@ const AssetCollectionModal = () => {
     const urn = initialState?.urn;
     const [selectedAssetUrns, setSelectedAssetUrns] = useState<string[]>(currentAssets);
 
+    const nameValue = Form.useWatch('name', form);
+
+    const isDisabled = !nameValue?.trim() || !selectedAssetUrns.length;
+
     const handleUpsertAssetCollectionModule = () => {
         form.validateFields().then((values) => {
             const { name } = values;
@@ -51,6 +55,7 @@ const AssetCollectionModal = () => {
             title={`${isEditing ? 'Edit' : 'Add'} Asset Collection`}
             subtitle="Create a widget by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
+            submitButtonProps={{ disabled: isDisabled }}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />

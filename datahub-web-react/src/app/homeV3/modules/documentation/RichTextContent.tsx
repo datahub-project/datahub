@@ -17,15 +17,7 @@ type Props = {
 const RichTextContent = ({ content, form }: Props) => {
     return (
         <Form form={form} initialValues={{ content }}>
-            <Form.Item
-                name="content"
-                rules={[
-                    {
-                        required: true,
-                        message: 'Please add content',
-                    },
-                ]}
-            >
+            <Form.Item name="content">
                 <StyledEditor content={content} />
             </Form.Item>
         </Form>

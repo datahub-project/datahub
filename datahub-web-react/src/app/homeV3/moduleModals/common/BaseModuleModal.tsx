@@ -14,9 +14,16 @@ interface Props {
     title: string;
     subtitle?: string;
     onUpsert: () => void;
+    submitButtonProps?: Partial<ModalButton>;
 }
 
-export default function BaseModuleModal({ title, subtitle, children, onUpsert }: React.PropsWithChildren<Props>) {
+export default function BaseModuleModal({
+    title,
+    subtitle,
+    children,
+    onUpsert,
+    submitButtonProps,
+}: React.PropsWithChildren<Props>) {
     const {
         moduleModalState: { close, isOpen, isEditing },
     } = usePageTemplateContext();
@@ -34,6 +41,7 @@ export default function BaseModuleModal({ title, subtitle, children, onUpsert }:
             color: 'primary',
             variant: 'filled',
             onClick: onUpsert,
+            ...submitButtonProps,
         },
     ];
 
