@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import GreetingText from '@app/homeV3/header/components/GreetingText';
 import SearchBar from '@app/homeV3/header/components/SearchBar';
-import { CenteredContainer } from '@app/homeV3/styledComponents';
+import { CenteredContainer, contentWidth } from '@app/homeV3/styledComponents';
 
 export const HeaderWrapper = styled.div`
     display: flex;
@@ -18,6 +18,7 @@ export const HeaderWrapper = styled.div`
 
 const StyledCenteredContainer = styled(CenteredContainer)`
     padding: 0 40px;
+    ${contentWidth(64)}
 `;
 
 const Header = () => {
