@@ -1,12 +1,13 @@
 import { spacing } from '@components';
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleModalMapper from '@app/homeV3/moduleModals/ModuleModalMapper';
 import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
+import DragAndDropProvider from '@app/homeV3/template/components/DragAndDropProvider';
+import TemplateGrid from '@app/homeV3/template/components/TemplateGrid';
 import { wrapRows } from '@app/homeV3/templateRow/utils';
 
 import { DataHubPageTemplateRow } from '@types';
@@ -14,7 +15,7 @@ import { DataHubPageTemplateRow } from '@types';
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
-    gap: ${spacing.md};
+    gap: ${spacing.xsm};
 `;
 
 // Additional margin to have width of content excluding side buttons
@@ -26,7 +27,7 @@ interface Props {
     className?: string;
 }
 
-export default function Template({ className }: Props) {
+function Template({ className }: Props) {
     const { template } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
@@ -34,15 +35,14 @@ export default function Template({ className }: Props) {
     );
     const hasRows = useMemo(() => !!rows.length, [rows.length]);
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
-
     const modulesAvailableToAdd = useModulesAvailableToAdd();
 
     return (
         <Wrapper className={className}>
-            {wrappedRows.map((row, i) => {
-                const key = `templateRow-${i}`;
-                return <TemplateRow key={key} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />;
-            })}
+            <DragAndDropProvider>
+                <TemplateGrid wrappedRows={wrappedRows} modulesAvailableToAdd={modulesAvailableToAdd} />
+            </DragAndDropProvider>
+
             <StyledAddModulesButton
                 orientation="horizontal"
                 $hasRows={hasRows}
@@ -52,3 +52,5 @@ export default function Template({ className }: Props) {
         </Wrapper>
     );
 }
+
+export default memo(Template);

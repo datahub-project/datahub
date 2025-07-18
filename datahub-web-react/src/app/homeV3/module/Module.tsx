@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
@@ -8,8 +8,10 @@ import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
 
 import { DataHubPageModuleType } from '@types';
 
-export default function Module(props: ModuleProps) {
+function Module(props: ModuleProps) {
     const { module } = props;
+
+    // Memoize component selection to prevent re-evaluation on every render
     const Component = useMemo(() => {
         if (module.properties.type === DataHubPageModuleType.OwnedAssets) return YourAssetsModule;
         if (module.properties.type === DataHubPageModuleType.Domains) return TopDomainsModule;
@@ -22,3 +24,6 @@ export default function Module(props: ModuleProps) {
 
     return <Component {...props} />;
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export default memo(Module);

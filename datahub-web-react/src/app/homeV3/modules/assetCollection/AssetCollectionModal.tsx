@@ -35,6 +35,7 @@ const AssetCollectionModal = () => {
                 urn,
                 name,
                 position: position ?? {},
+                scope: initialState?.properties.visibility.scope || undefined,
                 type: DataHubPageModuleType.AssetCollection,
                 params: {
                     assetCollectionParams: {
