@@ -1,0 +1,13 @@
+namespace com.linkedin.module
+
+import com.linkedin.common.Urn
+
+/**
+* The params required if the module is type HIERARCHY_VIEW
+* TODO: add filters
+* relatedEntitiesFilter: optional Filter
+*/
+record HierarchyModuleParams {
+  assetUrns: optional array[Urn]
+  showRelatedEntities: boolean
+}
