@@ -5,11 +5,11 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
-const modalStyles = {
-    maxWidth: '1000px',
-    minWidth: '800px',
-    maxHeight: '90%',
+const modalBodyStyles = {
+    overflow: 'auto',
+    maxHeight: '70vh',
 };
+
 interface Props {
     title: string;
     subtitle?: string;
@@ -25,7 +25,7 @@ export default function BaseModuleModal({ title, subtitle, children, onUpsert }:
     const buttons: ModalButton[] = [
         {
             text: 'Cancel',
-            color: 'primary',
+            color: 'gray',
             variant: 'text',
             onClick: close,
         },
@@ -45,8 +45,8 @@ export default function BaseModuleModal({ title, subtitle, children, onUpsert }:
             buttons={buttons}
             onCancel={close}
             maskClosable={false} // to avoid accidental clicks that closes the modal
-            style={modalStyles}
-            width="90%"
+            bodyStyle={modalBodyStyles}
+            width="70%"
         >
             {children}
         </Modal>
