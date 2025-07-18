@@ -28,7 +28,7 @@ export const LookBackWindowAdjuster = (props: Props) => {
             required={false} // to hide the asterisk
             rules={[
                 { required: true, message: 'Please input training data lookback window days' },
-                { type: 'number', min: 1, message: 'Days must be greater than 0' },
+                { type: 'number', min: 7, message: 'Days must be 7 or more, to ensure enough data for training.' },
             ]}
         >
             <InputNumber
