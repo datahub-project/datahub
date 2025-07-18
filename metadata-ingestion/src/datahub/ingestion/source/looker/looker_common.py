@@ -242,12 +242,18 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
-        return builder.make_dataset_urn_with_platform_instance(
+        generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
             platform_instance=config.platform_instance,
             env=config.env,
         )
+
+        logger.debug(
+            f"LookerViewId.get_urn for view '{self.view_name}': project='{self.project_name}', model='{self.model_name}', file_path='{self.file_path}', dataset_name='{dataset_name}', generated_urn='{generated_urn}'"
+        )
+
+        return generated_urn
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
@@ -380,6 +386,15 @@ class ExploreUpstreamViewField:
             include=view_name,
         )
 
+        # Debug logging for upstream lineage URN generation
+        if view_name == "dm_group_comm":
+            logger.debug(
+                f"_form_field_name for view '{view_name}': "
+                f"field='{self.field.name}', original_view='{self.field.original_view}', "
+                f"view_project_map lookup='{view_project_map.get(view_name, BASE_PROJECT_NAME)}', "
+                f"resolved_project='{project_include.project}'"
+            )
+
         file_path: Optional[str] = (
             upstream_views_file_path.get(view_name)
             if upstream_views_file_path.get(view_name)
@@ -452,15 +467,36 @@ class ExploreUpstreamViewField:
         )
 
 
-def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+def create_view_project_map(
+    view_fields: List[ViewField],
+    explore_primary_view: Optional[str] = None,
+    explore_project_name: Optional[str] = None,
+) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
+
+    Args:
+        view_fields: List of ViewField objects
+        explore_primary_view: The primary view name of the explore (explore.view_name)
+        explore_project_name: The project name of the explore (explore.project_name)
     """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
         if view_field.view_name is not None and view_field.project_name is not None:
-            view_project_map[view_field.view_name] = view_field.project_name
+            # Override field-level project assignment for the primary view when different
+            if (
+                view_field.view_name == explore_primary_view
+                and explore_project_name is not None
+                and explore_project_name != view_field.project_name
+            ):
+                logger.debug(
+                    f"Overriding project assignment for primary view '{view_field.view_name}': "
+                    f"field-level project '{view_field.project_name}' → explore-level project '{explore_project_name}'"
+                )
+                view_project_map[view_field.view_name] = explore_project_name
+            else:
+                view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
 
@@ -953,6 +989,9 @@ class LookerExplore:
                         f"Could not resolve view {view_name} for explore {dict['name']} in model {model_name}"
                     )
                 else:
+                    logger.debug(
+                        f"LookerExplore.from_dict adding upstream view for explore '{dict['name']}' (model='{model_name}'): view_name='{view_name}', info[0].project='{info[0].project}'"
+                    )
                     upstream_views.append(
                         ProjectInclude(project=info[0].project, include=view_name)
                     )
@@ -981,6 +1020,42 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
+
+            # Debug logging for specific explores we're investigating
+            if explore_name == "dm_group_comm" and model == "group_commercial_finance":
+                logger.debug(f"Raw Looker API response for {model}.{explore_name}:")
+                logger.debug(f"  explore.name: {explore.name}")
+                logger.debug(f"  explore.view_name: {explore.view_name}")
+                logger.debug(f"  explore.project_name: {explore.project_name}")
+                logger.debug(f"  explore.source_file: {explore.source_file}")
+
+                # Log ALL field information to see source_file for each field
+                field_count = 0
+                logger.debug(
+                    f"  explore.fields: {explore.fields} (type: {type(explore.fields)})"
+                )
+                if explore.fields is not None:
+                    for field_type in ["dimensions", "measures", "dimension_groups"]:
+                        if hasattr(explore.fields, field_type):
+                            fields = getattr(explore.fields, field_type)
+                            if fields:
+                                logger.debug(f"  {field_type} ({len(fields)} fields):")
+                                for field in fields:  # Log ALL fields
+                                    logger.debug(
+                                        f"    {field.name}: source_file='{field.source_file}'"
+                                    )
+                                    field_count += 1
+                            else:
+                                logger.debug(f"  {field_type} is empty or None")
+                        else:
+                            logger.debug(
+                                f"  explore.fields has no attribute '{field_type}'"
+                            )
+                else:
+                    logger.debug("  explore.fields is None")
+
+                logger.debug(f"  Total fields examined: {field_count}")
+
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
@@ -1117,7 +1192,11 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
+            view_project_map: Dict[str, str] = create_view_project_map(
+                view_fields,
+                explore_primary_view=explore.view_name,
+                explore_project_name=explore.project_name,
+            )
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
@@ -1129,6 +1208,17 @@ class LookerExplore:
             )
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
+
+            # Create upstream_views list with logging
+            upstream_views_list = []
+            for view_name in views:
+                project_name = view_project_map.get(view_name, BASE_PROJECT_NAME)
+                logger.debug(
+                    f"LookerExplore.from_api adding upstream view for explore '{explore_name}' (model='{model}', project_name='{explore.project_name}'): view_name='{view_name}', resolved_project='{project_name}'"
+                )
+                upstream_views_list.append(
+                    ProjectInclude(project=project_name, include=view_name)
+                )
 
             # form upstream of fields as all information is now available
             for view_field in view_fields:
@@ -1159,13 +1249,7 @@ class LookerExplore:
                 label=explore.label,
                 description=explore.description,
                 fields=view_fields,
-                upstream_views=list(
-                    ProjectInclude(
-                        project=view_project_map.get(view_name, BASE_PROJECT_NAME),
-                        include=view_name,
-                    )
-                    for view_name in views
-                ),
+                upstream_views=upstream_views_list,
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
@@ -1289,16 +1373,27 @@ class LookerExplore:
                     if self.upstream_views_file_path[view_ref.include] is not None
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
+
+                resolved_project_name = (
+                    view_ref.project
+                    if view_ref.project != BASE_PROJECT_NAME
+                    else self.project_name
+                )
+
+                logger.debug(
+                    f"LookerExplore upstream lineage creation for explore '{self.name}' (model='{self.model_name}', self.project_name='{self.project_name}'): view_ref.include='{view_ref.include}', view_ref.project='{view_ref.project}', BASE_PROJECT_NAME='{BASE_PROJECT_NAME}', resolved_project_name='{resolved_project_name}'"
+                )
+
                 view_urn = LookerViewId(
-                    project_name=(
-                        view_ref.project
-                        if view_ref.project != BASE_PROJECT_NAME
-                        else self.project_name
-                    ),
+                    project_name=resolved_project_name,
                     model_name=self.model_name,
                     view_name=view_ref.include,
                     file_path=file_path,
                 ).get_urn(config)
+
+                logger.debug(
+                    f"LookerExplore upstream lineage generated view_urn: '{view_urn}' for view '{view_ref.include}'"
+                )
 
                 upstreams.append(
                     UpstreamClass(

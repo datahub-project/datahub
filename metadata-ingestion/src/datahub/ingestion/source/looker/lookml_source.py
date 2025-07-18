@@ -566,6 +566,9 @@ class LookMLSource(StatefulIngestionSourceBase):
             visited_projects: Set[str] = set()
 
             # We clone everything that we're pointed at.
+            logger.debug(
+                f"Loading {len(self.source_config.project_dependencies)} project dependencies: {list(self.source_config.project_dependencies.keys())}"
+            )
             for project, p_ref in self.source_config.project_dependencies.items():
                 # If we were given GitHub info, we need to clone the project.
                 if isinstance(p_ref, GitInfo):
@@ -590,6 +593,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         continue
 
                 self.base_projects_folder[project] = p_ref
+                logger.debug(
+                    f"Successfully loaded project dependency '{project}' from path: {p_ref}"
+                )
 
             self._recursively_check_manifests(
                 tmp_dir,
@@ -871,6 +877,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 include.project
                                 if include.project != BASE_PROJECT_NAME
                                 else project_name
+                            )
+                            logger.debug(
+                                f"Processing view '{raw_view_name}' from include '{include.include}' with include.project='{include.project}', resolved current_project_name='{current_project_name}'"
                             )
 
                             # if project is base project then it is available as self.base_projects_folder[
