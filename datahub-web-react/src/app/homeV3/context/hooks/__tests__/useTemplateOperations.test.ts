@@ -68,7 +68,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(2);
@@ -84,7 +84,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -101,7 +101,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'right',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -118,7 +118,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(2);
@@ -148,7 +148,12 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(templateWithoutRows, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(
+                templateWithoutRows,
+                mockModule,
+                position,
+                false,
+            );
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -164,7 +169,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(null, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(null, mockModule, position, false);
 
             expect(updatedTemplate).toBeNull();
         });

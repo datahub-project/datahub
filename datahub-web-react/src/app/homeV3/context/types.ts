@@ -4,12 +4,13 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { DataHubPageModuleType, PageModuleScope } from '@types';
 
 // Input types for the methods
-export interface CreateModuleInput {
+export interface UpsertModuleInput {
+    urn?: string;
     name: string;
     type: DataHubPageModuleType;
     scope?: PageModuleScope;
-    params?: any; // Module-specific parameters
     position: ModulePositionInput;
+    params?: Record<string, any>;
 }
 
 export interface AddModuleInput {
@@ -20,6 +21,23 @@ export interface AddModuleInput {
 export interface RemoveModuleInput {
     moduleUrn: string;
     position: ModulePositionInput;
+}
+export interface ModuleModalState {
+    isOpen: boolean;
+    moduleType: DataHubPageModuleType | null;
+    position: ModulePositionInput | null;
+    open: (moduleType: DataHubPageModuleType, position: ModulePositionInput) => void;
+    close: () => void;
+    isEditing: boolean;
+    initialState: PageModuleFragment | null;
+    openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
+}
+
+export interface MoveModuleInput {
+    module: PageModuleFragment;
+    fromPosition: ModulePositionInput;
+    toPosition: ModulePositionInput;
+    insertNewRow?: boolean;
 }
 
 // Context state shape
@@ -33,6 +51,8 @@ export type PageTemplateContextState = {
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;
     setTemplate: (template: PageTemplateFragment | null) => void;
     addModule: (input: AddModuleInput) => void;
-    createModule: (input: CreateModuleInput) => void;
+    upsertModule: (input: UpsertModuleInput) => void;
+    moduleModalState: ModuleModalState;
     removeModule: (input: RemoveModuleInput) => void;
+    moveModule: (input: MoveModuleInput) => void;
 };

@@ -1,5 +1,6 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
-import React from 'react';
+import { useDraggable } from '@dnd-kit/core';
+import React, { memo } from 'react';
 import styled from 'styled-components';
 
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
@@ -15,11 +16,21 @@ const ModuleHeader = styled.div`
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.md} ${spacing.md} ${spacing.xsm} ${spacing.md};
     border-bottom: ${borders['1px']} ${colors.white};
+    user-select: none;
+
+    /* Optimize for smooth dragging */
+    transform: translateZ(0);
+    will-change: transform;
 
     :hover {
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
     }
+`;
+
+const DragHandle = styled.div<{ $isDragging?: boolean }>`
+    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+    flex: 1;
 `;
 
 const FloatingRightHeaderSection = styled.div`
@@ -56,20 +67,25 @@ interface Props extends ModuleProps {
     onClickViewAll?: () => void;
 }
 
-export default function LargeModule({
-    children,
-    module,
-    position,
-    loading,
-    onClickViewAll,
-}: React.PropsWithChildren<Props>) {
+function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
+
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
+        data: {
+            module,
+            position,
+        },
+    });
+
     return (
-        <ModuleContainer $height="316px">
+        <ModuleContainer $height="316px" ref={setNodeRef}>
             <ModuleHeader>
-                <ModuleName text={name} />
-                {/* TODO: implement description for modules CH-548 */}
-                {/* <ModuleDescription text={description} /> */}
+                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                    <ModuleName text={name} />
+                    {/* TODO: implement description for modules CH-548 */}
+                    {/* <ModuleDescription text={description} /> */}
+                </DragHandle>
                 <FloatingRightHeaderSection>
                     <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>
@@ -91,3 +107,6 @@ export default function LargeModule({
         </ModuleContainer>
     );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export default memo(LargeModule);

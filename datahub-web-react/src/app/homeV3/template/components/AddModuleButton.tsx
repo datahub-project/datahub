@@ -61,7 +61,9 @@ export default function AddModuleButton({ orientation, modulesAvailableToAdd, cl
         rowSide,
     };
 
-    const menu = useAddModuleMenu(modulesAvailableToAdd, position, () => setIsOpened(false));
+    const closeMenu = () => setIsOpened(false);
+
+    const menu = useAddModuleMenu(modulesAvailableToAdd, position, closeMenu);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger
