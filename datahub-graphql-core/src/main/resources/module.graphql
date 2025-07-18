@@ -83,6 +83,11 @@ input PageModuleParamsInput {
   The params required if the module is type ASSET_COLLECTION
   """
   assetCollectionParams: AssetCollectionModuleParamsInput
+
+  """
+  The params required if the module is type HIERARCHY_VIEW
+  """
+  hierarchyViewParams: HierarchyViewModuleParamsInput
 }
 
 """
@@ -113,6 +118,27 @@ input AssetCollectionModuleParamsInput {
   The list of asset urns for the asset collection module
   """
   assetUrns: [String!]!
+}
+
+"""
+Input for the params required if the module is type HIERARCHY_VIEW
+"""
+input HierarchyViewModuleParamsInput {
+  """
+  The list of assets to show in the module
+  """
+  assetUrns: [String!]!
+
+  """
+  Whether to show related entities in the module
+  """
+  showRelatedEntities: Boolean!
+
+  # TODO: implement filters
+  #"""
+  #Optional filters to filter relatedEntities out
+  #"""
+  # relatedEntitiesFilter: []
 }
 
 """
@@ -222,6 +248,11 @@ type DataHubPageModuleParams {
   The params required if the module is type ASSET_COLLECTION
   """
   assetCollectionParams: AssetCollectionModuleParams
+
+  """
+  The params required if the module is type HIERARCHY_VIEW
+  """
+  hierarchyViewParams: HierarchyViewModuleParams
 }
 
 """
@@ -252,6 +283,27 @@ type AssetCollectionModuleParams {
   The list of asset urns for the asset collection module
   """
   assetUrns: [String!]!
+}
+
+"""
+The params required if the module is type HIERARCHY_VIEW
+"""
+type HierarchyViewModuleParams {
+  """
+  The list of assets to show in the module
+  """
+  assetUrns: [String!]!
+
+  """
+  Whether to show related entities in the module
+  """
+  showRelatedEntities: Boolean!
+
+  # TODO: implement
+  #"""
+  #Optional filters to filter relatedEntities out
+  #"""
+  # relatedEntitiesFilter: []
 }
 
 """

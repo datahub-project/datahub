@@ -36,6 +36,10 @@ fragment PageModule on DataHubPageModule {
             assetCollectionParams {
                 assetUrns
             }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+            }
         }
     }
 }
