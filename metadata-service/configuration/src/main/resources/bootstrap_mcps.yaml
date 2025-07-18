@@ -85,10 +85,11 @@ bootstrap:
       revision_env: "DATAHUB_FORMS_REPORTING_REVISION"
 
     - name: ingestion-metadata-sharing
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-metadata-sharing.yaml"
       values_env: "DATAHUB_METADATA_SHARING_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_METADATA_SHARING_REVISION"
 
     - name: embedded-executor-pool
       version: v1
