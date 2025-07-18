@@ -27,7 +27,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' || true }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
       backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request'}}
       docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' || github.event_name != 'pull_request' }}
