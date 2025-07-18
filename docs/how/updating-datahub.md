@@ -29,6 +29,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 1.2.0
+
+### Breaking Changes
+
 - All DataHub Python packages now require Python 3.9+. This affects the following packages:
   - `acryl-datahub` (DataHub CLI and SDK)
   - `acryl-datahub-actions`
