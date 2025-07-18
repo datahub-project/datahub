@@ -14,6 +14,7 @@ vi.mock('styled-components', () => {
     };
     styledFactory.div = styledFactory('div');
     styledFactory.button = styledFactory('button');
+    styledFactory.Icon = styledFactory(() => null);
     return {
         __esModule: true,
         default: styledFactory,
@@ -45,6 +46,7 @@ vi.mock('@components', () => ({
     ),
     Loader: () => <div data-testid="loader">Loading...</div>,
     Text: ({ children }: any) => <span>{children}</span>,
+    Icon: () => <svg />,
     borders: {
         '1px': '1px solid',
     },

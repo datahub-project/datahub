@@ -3,9 +3,7 @@ package com.linkedin.datahub.graphql.types.module;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssetCollectionModuleParams;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LinkModuleParams;
-import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.generated.RichTextModuleParams;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.module.DataHubPageModuleParams;
@@ -32,13 +30,22 @@ public class PageModuleParamsMapper
         new com.linkedin.datahub.graphql.generated.DataHubPageModuleParams();
 
     // Map link params if present
-    if (params.getLinkParams() != null && params.getLinkParams().getLinkUrn() != null) {
-      LinkModuleParams linkModuleParams = new LinkModuleParams();
-      Post link = new Post();
-      link.setUrn(params.getLinkParams().getLinkUrn().toString());
-      link.setType(EntityType.POST);
-      linkModuleParams.setLink(link);
-      result.setLinkParams(linkModuleParams);
+    if (params.getLinkParams() != null) {
+      com.linkedin.module.LinkModuleParams linkParams = params.getLinkParams();
+
+      if (linkParams.getLinkUrl() != null) {
+        LinkModuleParams linkModuleParams = new LinkModuleParams();
+
+        linkModuleParams.setLinkUrl(linkParams.getLinkUrl());
+
+        if (linkParams.getImageUrl() != null) {
+          linkModuleParams.setImageUrl(linkParams.getImageUrl());
+        }
+        if (linkParams.getDescription() != null) {
+          linkModuleParams.setDescription(linkParams.getDescription());
+        }
+        result.setLinkParams(linkModuleParams);
+      }
     }
 
     // Map rich text params if present

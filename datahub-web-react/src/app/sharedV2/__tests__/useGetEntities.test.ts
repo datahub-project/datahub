@@ -34,6 +34,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: VALID_URNS },
             skip: false,
+            fetchPolicy: 'cache-first',
         });
     });
 
@@ -43,6 +44,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: ['urn:li:dataset:1', 'urn:li:chart:2'] },
             skip: false,
+            fetchPolicy: 'cache-first',
         });
     });
 
@@ -51,6 +53,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: [] },
             skip: true,
+            fetchPolicy: 'cache-first',
         });
     });
 
@@ -59,6 +62,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: [] },
             skip: true,
+            fetchPolicy: 'cache-first',
         });
     });
 
@@ -106,6 +110,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: [] },
             skip: true,
+            fetchPolicy: 'cache-first',
         });
     });
 
@@ -115,6 +120,7 @@ describe('useGetEntities', () => {
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
             variables: { urns: ['urn:li:chart:2'] },
             skip: false,
+            fetchPolicy: 'cache-first',
         });
     });
 });

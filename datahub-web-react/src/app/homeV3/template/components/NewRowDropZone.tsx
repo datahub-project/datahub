@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 const NewRowDropZone = styled.div<{ $isOver?: boolean }>`
     transition: all 0.2s ease;
+    margin: 0 42px;
 
     ${({ $isOver }) => $isOver && `border: 2px solid #CAC3F1;`}
 `;

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
 import com.linkedin.datahub.graphql.generated.DataHubPageModuleType;
+import com.linkedin.datahub.graphql.generated.LinkModuleParamsInput;
 import com.linkedin.datahub.graphql.generated.PageModuleScope;
 import com.linkedin.datahub.graphql.generated.UpsertPageModuleInput;
 import com.linkedin.datahub.graphql.types.module.PageModuleMapper;
@@ -87,8 +88,18 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
     DataHubPageModuleParams gmsParams = new DataHubPageModuleParams();
 
     if (paramsInput.getLinkParams() != null) {
+      LinkModuleParamsInput inputValues = paramsInput.getLinkParams();
       com.linkedin.module.LinkModuleParams linkParams = new com.linkedin.module.LinkModuleParams();
-      linkParams.setLinkUrn(UrnUtils.getUrn(paramsInput.getLinkParams().getLinkUrn()));
+
+      linkParams.setLinkUrl(inputValues.getLinkUrl());
+
+      if (inputValues.getImageUrl() != null) {
+        linkParams.setImageUrl(inputValues.getImageUrl());
+      }
+      if (inputValues.getDescription() != null) {
+        linkParams.setDescription(inputValues.getDescription());
+      }
+
       gmsParams.setLinkParams(linkParams);
     }
 

@@ -6,6 +6,7 @@ import YourAssetsModule from '@app/homeV3/modules/YourAssetsModule';
 import AssetCollectionModule from '@app/homeV3/modules/assetCollection/AssetCollectionModule';
 import DocumentationModule from '@app/homeV3/modules/documentation/DocumentationModule';
 import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
+import LinkModule from '@app/homeV3/modules/link/LinkModule';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -17,6 +18,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.OwnedAssets) return YourAssetsModule;
         if (module.properties.type === DataHubPageModuleType.Domains) return TopDomainsModule;
         if (module.properties.type === DataHubPageModuleType.AssetCollection) return AssetCollectionModule;
+        if (module.properties.type === DataHubPageModuleType.Link) return LinkModule;
         if (module.properties.type === DataHubPageModuleType.RichText) return DocumentationModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out

@@ -11,7 +11,7 @@ import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 const RowWrapper = styled.div`
     display: flex;
-    gap: ${spacing.xsm};
+    gap: ${spacing.xxsm};
     flex: 1;
 `;
 
@@ -54,14 +54,12 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesA
             {modulePositions.map(({ module, position, key }, moduleIndex) => (
                 <React.Fragment key={key}>
                     <ModuleWrapper module={module} position={position} />
-                    {/* Drop zone after each module (except the last one if row is full) */}
-                    {(moduleIndex < modulePositions.length - 1 || !shouldDisableDropZones) && (
-                        <ModuleDropZone
-                            rowIndex={rowIndex}
-                            moduleIndex={moduleIndex + 1}
-                            disabled={shouldDisableDropZones && moduleIndex < modulePositions.length - 1}
-                        />
-                    )}
+                    {/* Drop zone after each module */}
+                    <ModuleDropZone
+                        rowIndex={rowIndex}
+                        moduleIndex={moduleIndex + 1}
+                        disabled={shouldDisableDropZones}
+                    />
                 </React.Fragment>
             ))}
 

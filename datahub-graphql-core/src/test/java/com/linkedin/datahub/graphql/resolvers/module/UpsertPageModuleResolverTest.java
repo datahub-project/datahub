@@ -138,7 +138,7 @@ public class UpsertPageModuleResolverTest {
 
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
@@ -286,7 +286,7 @@ public class UpsertPageModuleResolverTest {
     // Set link params instead of rich text params
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     when(mockEnvironment.getArgument("input")).thenReturn(input);
