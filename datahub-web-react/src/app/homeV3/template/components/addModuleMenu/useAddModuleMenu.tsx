@@ -91,7 +91,7 @@ export default function useAddModuleMenu(
             key: 'documentation',
             label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
             onClick: () => {
-                // TODO: open up modal to add documentation
+                handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
         };
 
