@@ -41,6 +41,10 @@ fragment PageModule on DataHubPageModule {
                 imageUrl
                 description
             }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+            }
         }
     }
 }
