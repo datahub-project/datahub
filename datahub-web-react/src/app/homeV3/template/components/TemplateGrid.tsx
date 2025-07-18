@@ -5,8 +5,6 @@ import NewRowDropZone from '@app/homeV3/template/components/NewRowDropZone';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
-// import NewRowDropZone from './NewRowDropZone';
-
 interface Props {
     wrappedRows: WrappedRow[];
     modulesAvailableToAdd: ModulesAvailableToAdd;
