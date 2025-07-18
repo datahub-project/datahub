@@ -458,15 +458,36 @@ class ExploreUpstreamViewField:
         )
 
 
-def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+def create_view_project_map(
+    view_fields: List[ViewField],
+    explore_primary_view: Optional[str] = None,
+    explore_project_name: Optional[str] = None,
+) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
+
+    Args:
+        view_fields: List of ViewField objects
+        explore_primary_view: The primary view name of the explore (explore.view_name)
+        explore_project_name: The project name of the explore (explore.project_name)
     """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
         if view_field.view_name is not None and view_field.project_name is not None:
-            view_project_map[view_field.view_name] = view_field.project_name
+            # Override field-level project assignment for the primary view when different
+            if (
+                view_field.view_name == explore_primary_view
+                and explore_project_name is not None
+                and explore_project_name != view_field.project_name
+            ):
+                logger.debug(
+                    f"Overriding project assignment for primary view '{view_field.view_name}': "
+                    f"field-level project '{view_field.project_name}' → explore-level project '{explore_project_name}'"
+                )
+                view_project_map[view_field.view_name] = explore_project_name
+            else:
+                view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
 
@@ -1162,7 +1183,11 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
+            view_project_map: Dict[str, str] = create_view_project_map(
+                view_fields,
+                explore_primary_view=explore.view_name,
+                explore_project_name=explore.project_name,
+            )
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
