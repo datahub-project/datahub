@@ -1,11 +1,11 @@
 import { Form } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import BaseModuleModal from '@app/homeV3/moduleModals/common/BaseModuleModal';
 import ModuleDetailsForm from '@app/homeV3/moduleModals/common/ModuleDetailsForm';
-import AssetsSection from '@app/homeV3/modules/assetCollection/AssetsSection';
+import RichTextContent from '@app/homeV3/modules/documentation/RichTextContent';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -15,35 +15,32 @@ const ModalContent = styled.div`
     width: 100%;
 `;
 
-const AssetCollectionModal = () => {
+const DocumentationModal = () => {
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
     const currentName = initialState?.properties.name || '';
-    const currentAssets = (initialState?.properties?.params?.assetCollectionParams?.assetUrns || []).filter(
-        (urn): urn is string => typeof urn === 'string',
-    );
+    const currentContent = initialState?.properties?.params?.richTextParams?.content;
     const urn = initialState?.urn;
-    const [selectedAssetUrns, setSelectedAssetUrns] = useState<string[]>(currentAssets);
 
     const nameValue = Form.useWatch('name', form);
+    const contentValue = Form.useWatch('content', form);
 
-    const isDisabled = !nameValue?.trim() || !selectedAssetUrns.length;
+    const isDisabled = !nameValue?.trim() || !contentValue?.trim();
 
-    const handleUpsertAssetCollectionModule = () => {
+    const handleUpsertDocumentationModule = () => {
         form.validateFields().then((values) => {
-            const { name } = values;
+            const { name, content } = values;
             upsertModule({
                 urn,
                 name,
                 position: position ?? {},
-                scope: initialState?.properties.visibility.scope || undefined,
-                type: DataHubPageModuleType.AssetCollection,
+                type: DataHubPageModuleType.RichText,
                 params: {
-                    assetCollectionParams: {
-                        assetUrns: selectedAssetUrns,
+                    richTextParams: {
+                        content,
                     },
                 },
             });
@@ -53,17 +50,17 @@ const AssetCollectionModal = () => {
 
     return (
         <BaseModuleModal
-            title={`${isEditing ? 'Edit' : 'Add'} Asset Collection`}
-            subtitle="Create a widget by selecting assets and information that will be shown to your users"
-            onUpsert={handleUpsertAssetCollectionModule}
+            title={`${isEditing ? 'Edit' : 'Add'} Documentation`}
+            subtitle="Document important information for you users"
+            onUpsert={handleUpsertDocumentationModule}
             submitButtonProps={{ disabled: isDisabled }}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
-                <AssetsSection selectedAssetUrns={selectedAssetUrns} setSelectedAssetUrns={setSelectedAssetUrns} />
+                <RichTextContent content={currentContent} form={form} />
             </ModalContent>
         </BaseModuleModal>
     );
 };
 
-export default AssetCollectionModal;
+export default DocumentationModal;
