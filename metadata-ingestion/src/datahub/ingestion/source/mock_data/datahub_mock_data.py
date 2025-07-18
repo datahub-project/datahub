@@ -379,7 +379,7 @@ class DataHubMockDataSource(Source):
         fan_out: int,
         fan_out_after_first: Optional[int],
         tables_at_levels: List[int],
-        table_name_prefix: str,
+        table_name_prefix: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Generate lineage relationships for a specific table."""
         # Only generate lineage if there are downstream levels
@@ -410,7 +410,7 @@ class DataHubMockDataSource(Source):
         hops: int,
         fan_out: int,
         tables_at_levels: List[int],
-        table_name_prefix: str,
+        table_name_prefix: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Generate lineage relationships to downstream tables."""
         downstream_level = upstream_table_level + 1
