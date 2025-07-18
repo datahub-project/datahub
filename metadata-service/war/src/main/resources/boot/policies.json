@@ -40,7 +40,8 @@
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
-        "GET_PLATFORM_EVENTS"
+        "GET_PLATFORM_EVENTS",
+        "MANAGE_HOME_PAGE_TEMPLATES"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -196,7 +197,8 @@
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
-        "GET_PLATFORM_EVENTS"
+        "GET_PLATFORM_EVENTS",
+        "MANAGE_HOME_PAGE_TEMPLATES"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",

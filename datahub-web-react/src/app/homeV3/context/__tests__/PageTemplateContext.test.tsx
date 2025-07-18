@@ -88,6 +88,7 @@ const mockSetTemplate = vi.fn();
 const mockAddModule = vi.fn();
 const mockRemoveModule = vi.fn();
 const mockUpsertModule = vi.fn();
+const mockMoveModule = vi.fn();
 const mockUpdateTemplateWithModule = vi.fn();
 const mockRemoveModuleFromTemplate = vi.fn();
 const mockUpsertTemplate = vi.fn();
@@ -118,6 +119,7 @@ describe('PageTemplateContext', () => {
             addModule: mockAddModule,
             removeModule: mockRemoveModule,
             upsertModule: mockUpsertModule,
+            moveModule: mockMoveModule,
         });
     });
 

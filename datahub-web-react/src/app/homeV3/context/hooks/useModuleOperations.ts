@@ -1,21 +1,17 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
-import { UpsertModuleInput } from '@app/homeV3/context/types';
+import {
+    calculateAdjustedRowIndex,
+    insertModuleIntoRows,
+    removeModuleFromRows,
+    validateModuleMoveConstraints,
+} from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
 import { EntityType, PageModuleScope } from '@types';
-
-export interface AddModuleInput {
-    module: PageModuleFragment;
-    position: ModulePositionInput;
-}
-
-export interface RemoveModuleInput {
-    moduleUrn: string;
-    position: ModulePositionInput;
-}
 
 // Helper types for shared operations
 interface TemplateUpdateContext {
@@ -116,6 +112,25 @@ const validateUpsertModuleInput = (input: UpsertModuleInput): string | null => {
     return null;
 };
 
+const validateMoveModuleInput = (input: MoveModuleInput): string | null => {
+    if (!input.module?.urn) {
+        return 'Module URN is required for move operation';
+    }
+    if (!input.fromPosition) {
+        return 'From position is required for move operation';
+    }
+    if (!input.toPosition) {
+        return 'To position is required for move operation';
+    }
+    if (input.fromPosition.rowIndex === undefined || input.fromPosition.moduleIndex === undefined) {
+        return 'Valid from position indices are required for move operation';
+    }
+    if (input.toPosition.rowIndex === undefined) {
+        return 'Valid to position row index is required for move operation';
+    }
+    return null;
+};
+
 export function useModuleOperations(
     isEditingGlobalTemplate: boolean,
     personalTemplate: PageTemplateFragment | null,
@@ -160,6 +175,44 @@ export function useModuleOperations(
             setGlobalTemplate,
             upsertTemplate,
         ],
+    );
+
+    // Simplified helper function to move a module within or between rows in a template
+    const moveModuleInTemplate = useCallback(
+        (
+            template: PageTemplateFragment | null,
+            module: PageModuleFragment,
+            fromPosition: ModulePositionInput,
+            toPosition: ModulePositionInput,
+            insertNewRow?: boolean,
+        ): PageTemplateFragment | null => {
+            if (!template) return null;
+
+            const { rowIndex: toRowIndex } = toPosition;
+            if (toRowIndex === undefined) {
+                console.error('Target row index is required for move operation');
+                return null;
+            }
+
+            // Step 1: Remove module from original position
+            const { updatedRows, wasRowRemoved } = removeModuleFromRows(template.properties?.rows, fromPosition);
+
+            // Step 2: Calculate adjusted target row index
+            const adjustedRowIndex = calculateAdjustedRowIndex(fromPosition, toRowIndex, wasRowRemoved);
+
+            // Step 3: Insert module into new position
+            const finalRows = insertModuleIntoRows(updatedRows, module, toPosition, adjustedRowIndex, insertNewRow);
+
+            // Step 4: Return updated template
+            return {
+                ...template,
+                properties: {
+                    ...template.properties,
+                    rows: finalRows,
+                },
+            };
+        },
+        [],
     );
 
     // Updates template state with a new module and updates the appropriate template on the backend
@@ -237,7 +290,8 @@ export function useModuleOperations(
                 return;
             }
 
-            const { name, type, scope = PageModuleScope.Personal, params = {}, position, urn } = input;
+            const defaultScope = isEditingGlobalTemplate ? PageModuleScope.Global : PageModuleScope.Personal;
+            const { name, type, scope = defaultScope, params = {}, position, urn } = input;
 
             // Create the module first
             const moduleInput = {
@@ -282,12 +336,65 @@ export function useModuleOperations(
                     message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule, isEditingModule],
+        [upsertPageModuleMutation, addModule, isEditingModule, isEditingGlobalTemplate],
+    );
+
+    // Simplified move module function with extracted validation and orchestration
+    const moveModule = useCallback(
+        (input: MoveModuleInput) => {
+            // Validate input
+            const validationError = validateMoveModuleInput(input);
+            if (validationError) {
+                console.error('Invalid moveModule input:', validationError);
+                message.error(validationError);
+                return;
+            }
+
+            const { module, fromPosition, toPosition, insertNewRow } = input;
+            const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
+
+            if (!templateToUpdate) {
+                console.error('No template provided to update');
+                message.error('No template available to update');
+                return;
+            }
+
+            // Validate move constraints
+            const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);
+            if (constraintError) {
+                console.warn(`Move validation failed: ${constraintError}`);
+                message.warning(constraintError);
+                return;
+            }
+
+            // Execute the move operation
+            const updatedTemplate = moveModuleInTemplate(
+                templateToUpdate,
+                module,
+                fromPosition,
+                toPosition,
+                insertNewRow,
+            );
+
+            if (!updatedTemplate) {
+                console.error('Failed to update template during move operation');
+                message.error('Failed to move module');
+                return;
+            }
+
+            // Update local state immediately for optimistic UI
+            updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
+
+            // Persist changes
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'move module');
+        },
+        [context, moveModuleInTemplate],
     );
 
     return {
         addModule,
         removeModule,
         upsertModule,
+        moveModule,
     };
 }

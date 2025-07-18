@@ -127,13 +127,13 @@ jobs:
           datahub docker check
 
   test-quickstart-regression:
-    name: Quickstart regression tests
+    name: Verify upgrades work with latest CLI
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # TODO: once more supported versions are aded, this should become list last n versions
-        datahub_version: ["v1.0.0", "v1.1.0", "head"]
+        datahub_version: ["v1.1.0", "head"]
       fail-fast: false
     steps:
       - name: Set up Python
@@ -143,6 +143,69 @@ jobs:
       - name: install datahub cli
         run: |
           pip install acryl-datahub
+
+      - name: bring up older version datahub
+        run: |
+          datahub docker quickstart --version ${{ matrix.datahub_version }}
+          datahub docker check
+          datahub docker ingest-sample-data
+          datahub docker check
+
+      - name: Backup, nuke and restart and restore
+        run: |
+          echo "Running backup"
+          datahub docker quickstart --backup
+          echo "Running nuke"
+          datahub docker nuke
+          datahub docker quickstart
+          echo "Running restore"
+          echo "y" | datahub docker quickstart --restore
+          datahub docker check
+
+  test-quickstart-regression-unsupported-versions:
+    name: Verifiy handling of unsupported older versions
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: last n unsupported versions to be added here
+        datahub_version: ["v1.0.0"]
+      fail-fast: false
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install datahub cli
+        run: |
+          pip install acryl-datahub
+
+      - name: bring up datahub
+        run: |
+          if datahub docker quickstart --version ${{ matrix.datahub_version }}; then
+            echo "Command succeeded when it should have failed"
+            exit 1
+          else
+            echo "Command failed as expected"
+          fi
+
+  test-quickstart-regression-old-cli:
+    name: Verify migration from old-cli deployments
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: once more supported versions are aded, this should become list last n versions
+        datahub_version: ["v1.0.0", "v1.1.0"]
+      fail-fast: false
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install datahub cli
+        run: |
+          pip install acryl-datahub==${{ matrix.datahub_version }}
 
       - name: bring up datahub using old cli
         run: |
@@ -157,6 +220,10 @@ jobs:
           datahub docker quickstart --backup
           echo "Running nuke"
           datahub docker nuke
+
+          # Install latest version of datahub cli
+          pip install --upgrade acryl-datahub
+
           datahub docker quickstart
           echo "Running restore"
           echo "y" | datahub docker quickstart --restore

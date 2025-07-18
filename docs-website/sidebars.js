@@ -324,6 +324,11 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      label: "Upgrading from DataHub Core to Cloud",
+      type: "doc",
+      id: "docs/managed-datahub/upgrade_core_to_cloud",
+    },
+    {
       "Configure Single Sign-On": [
         {
           type: "doc",

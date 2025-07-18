@@ -38,7 +38,7 @@ export const PageTemplateProvider = ({
     const moduleModalState = useModuleModalState();
 
     // Module operations
-    const { addModule, removeModule, upsertModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -64,6 +64,7 @@ export const PageTemplateProvider = ({
             removeModule,
             upsertModule,
             moduleModalState,
+            moveModule,
         }),
         [
             personalTemplate,
@@ -78,6 +79,7 @@ export const PageTemplateProvider = ({
             removeModule,
             upsertModule,
             moduleModalState,
+            moveModule,
         ],
     );
 

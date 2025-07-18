@@ -9,8 +9,8 @@ export interface UpsertModuleInput {
     name: string;
     type: DataHubPageModuleType;
     scope?: PageModuleScope;
-    params?: any; // Module-specific parameters
     position: ModulePositionInput;
+    params?: Record<string, any>;
 }
 
 export interface AddModuleInput {
@@ -33,6 +33,13 @@ export interface ModuleModalState {
     openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
 }
 
+export interface MoveModuleInput {
+    module: PageModuleFragment;
+    fromPosition: ModulePositionInput;
+    toPosition: ModulePositionInput;
+    insertNewRow?: boolean;
+}
+
 // Context state shape
 export type PageTemplateContextState = {
     personalTemplate: PageTemplateFragment | null;
@@ -47,4 +54,5 @@ export type PageTemplateContextState = {
     upsertModule: (input: UpsertModuleInput) => void;
     moduleModalState: ModuleModalState;
     removeModule: (input: RemoveModuleInput) => void;
+    moveModule: (input: MoveModuleInput) => void;
 };
