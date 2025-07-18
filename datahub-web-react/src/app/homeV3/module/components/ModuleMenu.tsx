@@ -15,6 +15,8 @@ const StyledIcon = styled(Icon)`
     }
 ` as typeof Icon;
 
+const DropdownWrapper = styled.div``;
+
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
@@ -40,39 +42,45 @@ export default function ModuleMenu({ module, position }: Props) {
         });
     }, [removeModule, module.urn, position]);
 
+    const handleMenuClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+    }, []);
+
     return (
-        <Dropdown
-            trigger={['click']}
-            menu={{
-                items: [
-                    ...(canEdit
-                        ? [
-                              {
-                                  title: 'Edit',
-                                  key: 'edit',
-                                  label: 'Edit',
-                                  style: {
-                                      color: colors.gray[600],
-                                      fontSize: '14px',
+        <DropdownWrapper onClick={handleMenuClick}>
+            <Dropdown
+                trigger={['click']}
+                menu={{
+                    items: [
+                        ...(canEdit
+                            ? [
+                                  {
+                                      title: 'Edit',
+                                      key: 'edit',
+                                      label: 'Edit',
+                                      style: {
+                                          color: colors.gray[600],
+                                          fontSize: '14px',
+                                      },
+                                      onClick: handleEditModule,
                                   },
-                                  onClick: handleEditModule,
-                              },
-                          ]
-                        : []),
-                    {
-                        title: 'Delete',
-                        label: 'Delete',
-                        key: 'delete',
-                        style: {
-                            color: colors.red[500],
-                            fontSize: '14px',
+                              ]
+                            : []),
+                        {
+                            title: 'Delete',
+                            label: 'Delete',
+                            key: 'delete',
+                            style: {
+                                color: colors.red[500],
+                                fontSize: '14px',
+                            },
+                            onClick: handleDelete,
                         },
-                        onClick: handleDelete,
-                    },
-                ],
-            }}
-        >
-            <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
-        </Dropdown>
+                    ],
+                }}
+            >
+                <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
+            </Dropdown>
+        </DropdownWrapper>
     );
 }

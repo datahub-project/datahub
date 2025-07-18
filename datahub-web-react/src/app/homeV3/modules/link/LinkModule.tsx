@@ -38,8 +38,14 @@ export default function LinkModule(props: ModuleProps) {
     const { name } = props.module.properties;
     const { linkParams } = props.module.properties.params;
 
+    function goToLink() {
+        if (linkParams?.linkUrl) {
+            window.open(linkParams.linkUrl, '_blank');
+        }
+    }
+
     return (
-        <SmallModule {...props}>
+        <SmallModule {...props} onClick={goToLink}>
             <Container>
                 <LeftSection>
                     {linkParams?.imageUrl ? (

@@ -19,13 +19,15 @@ const Content = styled.div`
     position: relative;
 `;
 
-const StyledModuleContainer = styled(ModuleContainer)`
+const StyledModuleContainer = styled(ModuleContainer)<{ clickable?: boolean }>`
     max-height: 72px;
+
+    ${({ clickable }) => clickable && `cursor: pointer;`}
 `;
 
-export default function SmallModule({ children, module, position }: React.PropsWithChildren<ModuleProps>) {
+export default function SmallModule({ children, module, position, onClick }: React.PropsWithChildren<ModuleProps>) {
     return (
-        <StyledModuleContainer>
+        <StyledModuleContainer clickable={!!onClick} onClick={onClick}>
             <Container>
                 <Content>{children}</Content>
                 <FloatingRightHeaderSection>

@@ -7,4 +7,5 @@ import { PageModuleFragment } from '@graphql/template.generated';
 export interface ModuleProps {
     module: PageModuleFragment;
     position: ModulePositionInput;
+    onClick?: () => void;
 }

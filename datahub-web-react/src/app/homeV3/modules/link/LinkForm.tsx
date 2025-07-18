@@ -25,7 +25,7 @@ export default function LinkForm({ form, formValues }: Props) {
                     },
                 ]}
             >
-                <Input label="Link" placeholder="www.datahub.com/events" isRequired />
+                <Input label="Link" placeholder="https://www.datahub.com" isRequired />
             </Form.Item>
             <Form.Item name="imageUrl">
                 <Input label="Image URL (Optional)" placeholder="Your image URL" />
