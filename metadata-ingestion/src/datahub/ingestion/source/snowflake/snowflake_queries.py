@@ -28,6 +28,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+    QueryDedupStrategyType,
     SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
 )
@@ -117,6 +118,22 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_usage_statistics: bool = True
     include_query_usage_statistics: bool = True
     include_operations: bool = True
+
+    push_down_database_pattern_access_history: bool = pydantic.Field(
+        default=False,
+        description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
+        "This filters on the accessed objects in access_history.",
+    )
+
+    additional_database_names_allowlist: List[str] = pydantic.Field(
+        default=[],
+        description="Additional database names (no pattern matching) to be included in the access_history filter. "
+        "Only applies if push_down_database_pattern_access_history=True. "
+        "These databases will be included in the filter being pushed down regardless of database_pattern settings."
+        "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
+    )
+
+    query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
 
 class SnowflakeQueriesSourceConfig(
@@ -374,12 +391,19 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     ) -> Iterable[
         Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery, StoredProcCall]
     ]:
-        query_log_query = _build_enriched_query_log_query(
+        query_log_query = QueryLogQueryBuilder(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
-        )
+            dedup_strategy=self.config.query_dedup_strategy,
+            database_pattern=self.filters.filter_config.database_pattern
+            if self.config.push_down_database_pattern_access_history
+            else None,
+            additional_database_names=self.config.additional_database_names_allowlist
+            if self.config.push_down_database_pattern_access_history
+            else None,
+        ).build_enriched_query_log_query()
 
         with self.structured_reporter.report_exc(
             "Error fetching query log from Snowflake"
@@ -710,63 +734,245 @@ class SnowflakeQueriesSource(Source):
         super().close()
 
 
-# Make sure we don't try to generate too much info for a single query.
-_MAX_TABLES_PER_QUERY = 20
+class QueryLogQueryBuilder:
+    def __init__(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        bucket_duration: BucketDuration,
+        deny_usernames: Optional[List[str]],
+        max_tables_per_query: int = 20,
+        dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD,
+        database_pattern: Optional[AllowDenyPattern] = None,
+        additional_database_names: Optional[List[str]] = None,
+    ):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.start_time_millis = int(start_time.timestamp() * 1000)
+        self.end_time_millis = int(end_time.timestamp() * 1000)
+        self.max_tables_per_query = max_tables_per_query
+        self.dedup_strategy = dedup_strategy
 
+        self.users_filter = "TRUE"
+        if deny_usernames:
+            user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
+            self.users_filter = f"user_name NOT IN ({user_not_in})"
 
-def _build_enriched_query_log_query(
-    start_time: datetime,
-    end_time: datetime,
-    bucket_duration: BucketDuration,
-    deny_usernames: Optional[List[str]],
-) -> str:
-    start_time_millis = int(start_time.timestamp() * 1000)
-    end_time_millis = int(end_time.timestamp() * 1000)
+        self.access_history_database_filter = (
+            self._build_access_history_database_filter_condition(
+                database_pattern, additional_database_names
+            )
+        )
 
-    users_filter = "TRUE"
-    if deny_usernames:
-        user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
-        users_filter = f"user_name NOT IN ({user_not_in})"
+        self.time_bucket_size = bucket_duration.value
+        assert self.time_bucket_size in ("HOUR", "DAY", "MONTH")
 
-    time_bucket_size = bucket_duration.value
-    assert time_bucket_size in ("HOUR", "DAY", "MONTH")
+    def _build_access_history_database_filter_condition(
+        self,
+        database_pattern: Optional[AllowDenyPattern],
+        additional_database_names: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Build a SQL WHERE condition for database filtering in access_history based on AllowDenyPattern.
 
-    return f"""\
+        IMPORTANT: This function handles the fundamental difference between DML and DDL operations in Snowflake's
+        access_history table:
+
+        - DML Operations (SELECT, INSERT, UPDATE, DELETE, etc.): Store accessed/modified objects in the
+          `direct_objects_accessed` and `objects_modified` arrays
+        - DDL Operations (CREATE, ALTER, DROP, RENAME, etc.): Store modified objects in the
+          `object_modified_by_ddl` field (single object, not an array)
+
+        Without checking `object_modified_by_ddl`, DDL operations like "ALTER TABLE person_info RENAME TO person_info_final"
+        would be incorrectly filtered out because they don't populate the DML arrays, causing missing lineage
+        and operational metadata.
+
+        Filtering Logic:
+        A query is included if it matches:
+        - Any database name in additional_database_names (exact match), OR
+        - Any database pattern in database_pattern.allow AND NOT any pattern in database_pattern.deny
+
+        Args:
+            database_pattern: The AllowDenyPattern configuration for database filtering
+            additional_database_names: Additional database names to always include (no pattern matching)
+
+        Returns:
+            A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+        """
+        if not database_pattern and not additional_database_names:
+            return "TRUE"
+
+        # Build the database filter conditions
+        # Logic: Allow if (matches additional_database_names_allowlist) OR (matches database_pattern.allow AND NOT matches database_pattern.deny)
+        # Note: Using UPPER() + RLIKE for case-insensitive matching is more performant than REGEXP_LIKE with 'i' flag
+
+        # Build additional database names condition (exact matches) - these always get included
+        additional_db_condition = None
+        if additional_database_names:
+            additional_db_conditions = []
+            for db_name in additional_database_names:
+                # Escape single quotes
+                escaped_db_name = db_name.replace("'", "''")
+                additional_db_conditions.append(
+                    f"SPLIT_PART(UPPER(o:objectName), '.', 1) = '{escaped_db_name.upper()}'"
+                )
+            if additional_db_conditions:
+                additional_db_condition = " OR ".join(additional_db_conditions)
+
+        # Build database pattern condition (allow AND NOT deny)
+        database_pattern_condition = None
+        if database_pattern:
+            allow_patterns = database_pattern.allow
+            deny_patterns = database_pattern.deny
+
+            pattern_parts = []
+
+            # Add allow patterns (if not the default "allow all")
+            if allow_patterns and allow_patterns != [".*"]:
+                allow_conditions = []
+                for pattern in allow_patterns:
+                    # Escape single quotes that might be present in the regex pattern
+                    escaped_pattern = pattern.replace("'", "''")
+                    allow_conditions.append(
+                        f"SPLIT_PART(UPPER(o:objectName), '.', 1) RLIKE '{escaped_pattern}'"
+                    )
+                if allow_conditions:
+                    pattern_parts.append(
+                        allow_conditions[0]
+                        if len(allow_conditions) == 1
+                        else f"({' OR '.join(allow_conditions)})"
+                    )
+
+            # Add deny patterns
+            if deny_patterns:
+                deny_conditions = []
+                for pattern in deny_patterns:
+                    # Escape single quotes that might be present in the regex pattern
+                    escaped_pattern = pattern.replace("'", "''")
+                    deny_conditions.append(
+                        f"SPLIT_PART(UPPER(o:objectName), '.', 1) NOT RLIKE '{escaped_pattern}'"
+                    )
+                if deny_conditions:
+                    pattern_parts.append(
+                        deny_conditions[0]
+                        if len(deny_conditions) == 1
+                        else f"({' AND '.join(deny_conditions)})"
+                    )
+
+            if pattern_parts:
+                database_pattern_condition = " AND ".join(pattern_parts)
+
+        # Combine conditions: additional_database_names OR database_pattern
+        filter_conditions = []
+        if additional_db_condition:
+            filter_conditions.append(
+                f"({additional_db_condition})"
+                if len(additional_db_condition.split(" OR ")) > 1
+                else additional_db_condition
+            )
+        if database_pattern_condition:
+            filter_conditions.append(
+                f"({database_pattern_condition})"
+                if len(database_pattern_condition.split(" AND ")) > 1
+                else database_pattern_condition
+            )
+
+        if filter_conditions:
+            database_filter_condition = (
+                filter_conditions[0]
+                if len(filter_conditions) == 1
+                else " OR ".join(filter_conditions)
+            )
+
+            # Build a condition that checks if any objects in the arrays match the database pattern
+            # This implements "at least one" matching behavior: queries are allowed if they touch
+            # at least one database that matches the pattern, even if they also touch other databases
+            # Use ARRAY_SIZE with FILTER which is more compatible with Snowflake
+            direct_objects_condition = f"ARRAY_SIZE(FILTER(direct_objects_accessed, o -> {database_filter_condition})) > 0"
+            objects_modified_condition = f"ARRAY_SIZE(FILTER(objects_modified, o -> {database_filter_condition})) > 0"
+
+            # CRITICAL: Handle DDL operations by checking object_modified_by_ddl field
+            # DDL operations like ALTER TABLE RENAME store their data here instead of in the arrays
+            # We need to adapt the filter condition for a single object rather than an array
+            ddl_filter_condition = database_filter_condition.replace(
+                "o:objectName", "object_modified_by_ddl:objectName"
+            )
+            object_modified_by_ddl_condition = f"({ddl_filter_condition})"
+
+            return f"({direct_objects_condition} OR {objects_modified_condition} OR {object_modified_by_ddl_condition})"
+        else:
+            return "TRUE"
+
+    def _query_fingerprinted_queries(self):
+        if self.dedup_strategy == QueryDedupStrategyType.STANDARD:
+            secondary_fingerprint_sql = """
+    CASE 
+        WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
+        -- Extract project id and hash it
+        THEN CAST(HASH(
+            REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
+            REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
+        ) AS VARCHAR)
+        ELSE NULL 
+    END"""
+        elif self.dedup_strategy == QueryDedupStrategyType.NONE:
+            secondary_fingerprint_sql = "NULL"
+        else:
+            raise NotImplementedError(
+                f"Strategy {self.dedup_strategy} is not implemented by the QueryLogQueryBuilder"
+            )
+        return f"""
+SELECT *,
+    -- TODO: Generate better fingerprints for each query by pushing down regex logic.
+    query_history.query_parameterized_hash as query_fingerprint,
+    -- Optional and additional hash to be used for query deduplication and final query identity
+    {secondary_fingerprint_sql} as query_secondary_fingerprint
+FROM
+    snowflake.account_usage.query_history
+WHERE
+    query_history.start_time >= to_timestamp_ltz({self.start_time_millis}, 3) -- {self.start_time.isoformat()}
+    AND query_history.start_time < to_timestamp_ltz({self.end_time_millis}, 3) -- {self.end_time.isoformat()}
+    AND execution_status = 'SUCCESS'
+    AND {self.users_filter}"""
+
+    def _query_deduplicated_queries(self):
+        if self.dedup_strategy == QueryDedupStrategyType.STANDARD:
+            return f"""
+SELECT
+    *,
+    DATE_TRUNC(
+        {self.time_bucket_size},
+        CONVERT_TIMEZONE('UTC', start_time)
+    ) AS bucket_start_time,
+    COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint) AS query_count,
+FROM
+    fingerprinted_queries
+QUALIFY
+    ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint ORDER BY start_time DESC) = 1"""
+        elif self.dedup_strategy == QueryDedupStrategyType.NONE:
+            return f"""
+SELECT
+    *,
+    DATE_TRUNC(
+        {self.time_bucket_size},
+        CONVERT_TIMEZONE('UTC', start_time)
+    ) AS bucket_start_time,
+    1 AS query_count,
+FROM
+            fingerprinted_queries"""
+        else:
+            raise NotImplementedError(
+                f"Strategy {self.dedup_strategy} is not implemented by the QueryLogQueryBuilder"
+            )
+
+    def build_enriched_query_log_query(self) -> str:
+        return f"""\
 WITH
 fingerprinted_queries as (
-    SELECT *,
-        -- TODO: Generate better fingerprints for each query by pushing down regex logic.
-        query_history.query_parameterized_hash as query_fingerprint,
-        -- Optional and additional hash to be used for query deduplication and final query identity
-        CASE 
-            WHEN CONTAINS(query_history.query_text, '-- Hex query metadata:')
-            -- Extract project id and hash it
-            THEN CAST(HASH(
-                REGEXP_SUBSTR(query_history.query_text, '"project_id"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1),
-                REGEXP_SUBSTR(query_history.query_text, '"context"\\\\s*:\\\\s*"([^"]+)"', 1, 1, 'e', 1)
-            ) AS VARCHAR)
-            ELSE NULL 
-        END as query_secondary_fingerprint
-    FROM
-        snowflake.account_usage.query_history
-    WHERE
-        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
-        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
-        AND execution_status = 'SUCCESS'
-        AND {users_filter}
+{self._query_fingerprinted_queries()}
 )
 , deduplicated_queries as (
-    SELECT
-        *,
-        DATE_TRUNC(
-            {time_bucket_size},
-            CONVERT_TIMEZONE('UTC', start_time)
-        ) AS bucket_start_time,
-        COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint) AS query_count,
-    FROM
-        fingerprinted_queries
-    QUALIFY
-        ROW_NUMBER() OVER (PARTITION BY bucket_start_time, query_fingerprint, query_secondary_fingerprint ORDER BY start_time DESC) = 1
+{self._query_deduplicated_queries()}
 )
 , raw_access_history AS (
     SELECT
@@ -780,12 +986,13 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.access_history
     WHERE
-        query_start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
-        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
-        AND {users_filter}
+        query_start_time >= to_timestamp_ltz({self.start_time_millis}, 3) -- {self.start_time.isoformat()}
+        AND query_start_time < to_timestamp_ltz({self.end_time_millis}, 3) -- {self.end_time.isoformat()}
+        AND {self.users_filter}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
+        AND {self.access_history_database_filter}
 )
 , filtered_access_history AS (
     -- TODO: Add table filter clause.
@@ -795,7 +1002,7 @@ fingerprinted_queries as (
         query_start_time,
         ARRAY_SLICE(
             FILTER(direct_objects_accessed, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}),
-            0, {_MAX_TABLES_PER_QUERY}
+            0, {self.max_tables_per_query}
         ) as direct_objects_accessed,
         -- TODO: Drop the columns.baseSources subfield.
         FILTER(objects_modified, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}) as objects_modified,

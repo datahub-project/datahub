@@ -32,6 +32,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SnowflakeEdition,
@@ -97,7 +98,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -577,6 +585,7 @@ class SnowflakeV2Source(
 
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
+                    # TODO: this should be its own section in main recipe
                     config=SnowflakeQueriesExtractorConfig(
                         window=BaseTimeWindowConfig(
                             start_time=self.config.start_time,
@@ -591,6 +600,9 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        query_dedup_strategy=self.config.query_dedup_strategy,
+                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
                     ),
                     structured_report=self.report,
                     filters=self.filters,

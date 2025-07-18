@@ -478,6 +478,7 @@ class LineageClient:
         env: str = "PROD",
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        override_dialect: Optional[str] = None,
     ) -> None:
         """Add lineage by parsing a SQL query."""
         from datahub.sql_parsing.sqlglot_lineage import (
@@ -493,6 +494,7 @@ class LineageClient:
             platform_instance=platform_instance,
             env=env,
             graph=self._client._graph,
+            override_dialect=override_dialect,
         )
 
         if parsed_result.debug_info.table_error:

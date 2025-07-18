@@ -16,10 +16,7 @@ feature_urn = builder.make_ml_feature_urn(
 
 #  Create feature
 metadata_change_proposal = MetadataChangeProposalWrapper(
-    entityType="mlFeature",
-    changeType=models.ChangeTypeClass.UPSERT,
     entityUrn=feature_urn,
-    aspectName="mlFeatureProperties",
     aspect=models.MLFeaturePropertiesClass(
         description="Represents the date the user created their account",
         # attaching a source to a feature creates lineage between the feature

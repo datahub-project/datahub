@@ -1,0 +1,53 @@
+fragment PageTemplate on DataHubPageTemplate {
+    urn
+    type
+    properties {
+        rows {
+            ...PageTemplateRow
+        }
+        surface {
+            surfaceType
+        }
+        visibility {
+            scope
+        }
+    }
+}
+
+fragment PageTemplateRow on DataHubPageTemplateRow {
+    modules {
+        ...PageModule
+    }
+}
+
+fragment PageModule on DataHubPageModule {
+    urn
+    type
+    properties {
+        name
+        type
+        visibility {
+            scope
+        }
+        params {
+            richTextParams {
+                content
+            }
+            assetCollectionParams {
+                assetUrns
+            }
+        }
+    }
+}
+
+mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
+    upsertPageTemplate(input: $input) {
+        urn
+    }
+}
+
+mutation upsertPageModule($input: UpsertPageModuleInput!) {
+    upsertPageModule(input: $input) {
+        urn
+    }
+}

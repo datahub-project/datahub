@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import { getColor } from '@components/theme/utils';
@@ -15,28 +16,45 @@ import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
 
-const Container = styled.div`
+const Container = styled.div<{
+    $navigateOnlyOnNameClick?: boolean;
+}>`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     padding: 8px 13px 8px 8px;
 
-    :hover {
-        cursor: pointer;
-    }
+    ${(props) =>
+        !props.$navigateOnlyOnNameClick &&
+        `
+            :hover {
+                cursor: pointer;
+            }
+        `}
 `;
 
 // FYI: this hovering dependent on Container can't be applied by condition inside of styled component
 // so we have this separated version with hover
-const DisplayNameWithHover = styled(DisplayName)<{ $decorationColor?: string }>`
+
+// On container hover
+const DisplayNameHoverFromContainer = styled(DisplayName)<{ $decorationColor?: string }>`
     ${Container}:hover & {
         text-decoration: underline;
         ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
 
+// On self (name) hover only
+const DisplayNameHoverFromSelf = styled(DisplayName)<{ $decorationColor?: string }>`
+    &:hover {
+        text-decoration: underline;
+        cursor: pointer;
+        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
+    }
+`;
+
 const DisplayNameWrapper = styled.div`
-    width: fit-content;
+    white-space: nowrap;
 `;
 
 const ContentContainer = styled.div`
@@ -44,7 +62,6 @@ const ContentContainer = styled.div`
     flex-direction: row;
     gap: 16px;
     overflow: hidden;
-    width: 100%;
 `;
 
 const DescriptionContainer = styled.div`
@@ -80,6 +97,8 @@ interface EntityAutocompleteItemProps {
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
+    customDetailsRenderer?: (entity: Entity) => void;
+    navigateOnlyOnNameClick?: boolean;
 }
 
 export default function AutoCompleteEntityItem({
@@ -88,6 +107,8 @@ export default function AutoCompleteEntityItem({
     siblings,
     matchedFields,
     variant,
+    customDetailsRenderer,
+    navigateOnlyOnNameClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -95,8 +116,34 @@ export default function AutoCompleteEntityItem({
     const displayType = getEntityDisplayType(entity, entityRegistry);
     const variantProps = VARIANT_STYLES.get(variant ?? 'default');
 
+    const DisplayNameHoverComponent = navigateOnlyOnNameClick
+        ? DisplayNameHoverFromSelf
+        : DisplayNameHoverFromContainer;
+
+    const displayNameContent = variantProps?.nameCanBeHovered ? (
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
+            <DisplayNameHoverComponent
+                displayName={displayName}
+                highlight={query}
+                color={variantProps?.nameColor}
+                colorLevel={variantProps?.nameColorLevel}
+                weight={variantProps?.nameWeight}
+                $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+            />
+        </Link>
+    ) : (
+        <DisplayName
+            displayName={displayName}
+            highlight={query}
+            color={variantProps?.nameColor}
+            colorLevel={variantProps?.nameColorLevel}
+            weight={variantProps?.nameWeight}
+            showNameTooltipIfTruncated
+        />
+    );
+
     return (
-        <Container>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
             <ContentContainer>
                 <IconContainer $variant={variant}>
                     <EntityIcon entity={entity} siblings={siblings} />
@@ -109,30 +156,7 @@ export default function AutoCompleteEntityItem({
                         showArrow={false}
                         canOpen={variantProps?.showEntityPopover}
                     >
-                        <DisplayNameWrapper>
-                            {variantProps?.nameCanBeHovered ? (
-                                <DisplayNameWithHover
-                                    displayName={displayName}
-                                    highlight={query}
-                                    color={variantProps?.nameColor}
-                                    colorLevel={variantProps?.nameColorLevel}
-                                    weight={variantProps?.nameWeight}
-                                    $decorationColor={getColor(
-                                        variantProps?.nameColor,
-                                        variantProps?.nameColorLevel,
-                                        theme,
-                                    )}
-                                />
-                            ) : (
-                                <DisplayName
-                                    displayName={displayName}
-                                    highlight={query}
-                                    color={variantProps?.nameColor}
-                                    colorLevel={variantProps?.nameColorLevel}
-                                    weight={variantProps?.nameWeight}
-                                />
-                            )}
-                        </DisplayNameWrapper>
+                        <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                     </HoverEntityTooltip>
 
                     <EntitySubtitle
@@ -153,9 +177,13 @@ export default function AutoCompleteEntityItem({
             </ContentContainer>
 
             <TypeContainer>
-                <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                    {displayType}
-                </Text>
+                {customDetailsRenderer ? (
+                    customDetailsRenderer(entity)
+                ) : (
+                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                        {displayType}
+                    </Text>
+                )}
             </TypeContainer>
         </Container>
     );

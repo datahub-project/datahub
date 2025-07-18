@@ -49,6 +49,7 @@ entities:
       - partitionsSummary
       - versionProperties
       - icebergCatalogInfo
+      - logicalParent
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -524,6 +525,7 @@ entities:
       - testResults
       - deprecation
       - subTypes
+      - logicalParent
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

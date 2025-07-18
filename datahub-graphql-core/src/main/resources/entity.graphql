@@ -769,6 +769,11 @@ type Mutation {
   updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
 
   """
+  Update the HomePage-related settings for a user.
+  """
+  updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -4239,6 +4244,11 @@ type CorpUserHomePageSettings {
   The default page template for the User.
   """
   pageTemplate: DataHubPageTemplate
+
+  """
+  List of urns of the announcements dismissed by the User.
+  """
+  dismissedAnnouncementUrns: [String]
 }
 
 """
@@ -12444,6 +12454,21 @@ input UpdateCorpUserViewsSettingsInput {
   If not provided, any existing default view will be removed.
   """
   defaultView: String
+}
+
+"""
+Input required to update a user's home page settings.
+"""
+input UpdateUserHomePageSettingsInput {
+  """
+  The URN of the page template to be rendered on the home page for the user.
+  """
+  pageTemplate: String
+
+  """
+  The list of urns of announcement posts dismissed by the user.
+  """
+  newDismissedAnnouncements: [String]
 }
 
 """

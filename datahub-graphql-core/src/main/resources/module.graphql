@@ -23,6 +23,98 @@ type DataHubPageModule implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+extend type Mutation {
+  """
+  Create or update a DataHub page module
+  """
+  upsertPageModule(input: UpsertPageModuleInput!): DataHubPageModule!
+
+  """
+  Delete a DataHub page module
+  """
+  deletePageModule(input: DeletePageModuleInput!): Boolean!
+}
+
+"""
+Input for creating or updating a DataHub page module
+"""
+input UpsertPageModuleInput {
+  """
+  The URN of the page module to update. If not provided, a new module will be created.
+  """
+  urn: String
+
+  """
+  The display name of this module
+  """
+  name: String!
+
+  """
+  The type of this module
+  """
+  type: DataHubPageModuleType!
+
+  """
+  The scope of this module and who can use/see it
+  """
+  scope: PageModuleScope!
+
+  """
+  The specific parameters stored for this module
+  """
+  params: PageModuleParamsInput!
+}
+
+"""
+Input for the specific parameters stored for a module
+"""
+input PageModuleParamsInput {
+  """
+  The params required if the module is type LINK
+  """
+  linkParams: LinkModuleParamsInput
+
+  """
+  The params required if the module is type RICH_TEXT
+  """
+  richTextParams: RichTextModuleParamsInput
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParamsInput
+}
+
+"""
+Input for the params required if the module is type LINK
+"""
+input LinkModuleParamsInput {
+  """
+  The URN of the Post entity containing the link
+  """
+  linkUrn: String!
+}
+
+"""
+Input for the params required if the module is type RICH_TEXT
+"""
+input RichTextModuleParamsInput {
+  """
+  The content of the rich text module
+  """
+  content: String!
+}
+
+"""
+Input for the params required if the module is type ASSET_COLLECTION
+"""
+input AssetCollectionModuleParamsInput {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assetUrns: [String!]!
+}
+
 """
 The main properties of a DataHub page module
 """
@@ -83,10 +175,6 @@ enum DataHubPageModuleType {
   """
   OWNED_ASSETS
   """
-  Module displaying assets subscribed to by a given user
-  """
-  SUBSCRIBED_ASSETS
-  """
   Module displaying the top domains
   """
   DOMAINS
@@ -129,6 +217,11 @@ type DataHubPageModuleParams {
   The params required if the module is type RICH_TEXT
   """
   richTextParams: RichTextModuleParams
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParams
 }
 
 """
@@ -149,4 +242,24 @@ type RichTextModuleParams {
   The content of the rich text module
   """
   content: String!
+}
+
+"""
+The params required if the module is type ASSET_COLLECTION
+"""
+type AssetCollectionModuleParams {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assetUrns: [String!]!
+}
+
+"""
+Input for deleting a DataHub page module
+"""
+input DeletePageModuleInput {
+  """
+  The URN of the page module to delete
+  """
+  urn: String!
 }

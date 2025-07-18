@@ -9,6 +9,8 @@
     rows:
       - modules:
         - "urn:li:dataHubPageModule:your_assets"
+      - modules:
+        - "urn:li:dataHubPageModule:top_domains"
     surface:
       surfaceType: HOME_PAGE
     visibility:

@@ -21,9 +21,13 @@ from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
 )
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
+    DatasetUsageStatisticsClass,
     StatusClass,
     SubTypesClass,
+    TimeWindowSizeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -66,9 +70,18 @@ class LineageConfigGen1(ConfigModel):
     Table naming convention: "hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
     """
 
-    emit_lineage: bool = Field(
+    enabled: bool = Field(
         default=False,
+        description="Whether this source is enabled",
+    )
+
+    emit_lineage: bool = Field(
+        default=True,
         description="Whether to emit lineage data for testing purposes. When False, no lineage data is generated regardless of other settings.",
+    )
+    emit_usage: bool = Field(
+        default=True,
+        description="Whether to emit usage data for testing purposes. When False, no usage data is generated regardless of other settings.",
     )
 
     lineage_fan_out: int = Field(
@@ -102,6 +115,18 @@ class DataHubMockDataConfig(ConfigModel):
         default=True,
         description="Whether this source is enabled",
     )
+    throw_uncaught_exceptions: bool = Field(
+        default=False,
+        description="Whether to throw an uncaught exception for testing",
+    )
+    num_errors: int = Field(
+        default=0,
+        description="Number of errors to add in report for testing",
+    )
+    num_warnings: int = Field(
+        default=0,
+        description="Number of warnings to add in report for testing",
+    )
 
     gen_1: LineageConfigGen1 = Field(
         default_factory=LineageConfigGen1,
@@ -124,9 +149,28 @@ class DataHubMockDataSource(Source):
         self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.throw_uncaught_exceptions:
+            raise Exception("This is a test exception")
+
+        if self.config.num_errors > 0:
+            for i in range(self.config.num_errors):
+                self.report.failure(
+                    message="This is test error message",
+                    title="Test Error",
+                    context=f"This is test error {i}",
+                )
+
+        if self.config.num_warnings > 0:
+            for i in range(self.config.num_warnings):
+                self.report.warning(
+                    message="This is test warning",
+                    title="Test Warning",
+                    context=f"This is test warning {i}",
+                )
+
         # We don't want any implicit aspects to be produced
         # so we are not using get_workunits_internal
-        if self.config.gen_1.emit_lineage:
+        if self.config.gen_1.enabled:
             for wu in self._data_gen_1():
                 if self.report.first_urn_seen is None:
                     self.report.first_urn_seen = wu.get_urn()
@@ -278,15 +322,21 @@ class DataHubMockDataSource(Source):
 
                 yield self._get_subtypes_aspect(table_name, i, j)
 
-                yield from self._generate_lineage_for_table(
-                    table_name=table_name,
-                    table_level=i,
-                    table_index=j,
-                    hops=hops,
-                    fan_out=fan_out,
-                    fan_out_after_first=fan_out_after_first,
-                    tables_at_levels=tables_at_levels,
-                )
+                yield self._get_profile_aspect(table_name)
+
+                if self.config.gen_1.emit_usage:
+                    yield self._get_usage_aspect(table_name)
+
+                if self.config.gen_1.emit_lineage:
+                    yield from self._generate_lineage_for_table(
+                        table_name=table_name,
+                        table_level=i,
+                        table_index=j,
+                        hops=hops,
+                        fan_out=fan_out,
+                        fan_out_after_first=fan_out_after_first,
+                        tables_at_levels=tables_at_levels,
+                    )
 
     def _generate_lineage_for_table(
         self,
@@ -377,6 +427,43 @@ class DataHubMockDataSource(Source):
                         type=DatasetLineageTypeClass.TRANSFORMED,
                     )
                 ],
+            ),
+        )
+        return mcp.as_workunit()
+
+    def _get_profile_aspect(self, table: str) -> MetadataWorkUnit:
+        urn = make_dataset_urn(
+            platform="fake",
+            name=table,
+        )
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            entityType="dataset",
+            aspect=DatasetProfileClass(
+                timestampMillis=0,
+                rowCount=100,
+                columnCount=10,
+                sizeInBytes=1000,
+            ),
+        )
+        return mcp.as_workunit()
+
+    def _get_usage_aspect(self, table: str) -> MetadataWorkUnit:
+        urn = make_dataset_urn(
+            platform="fake",
+            name=table,
+        )
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            entityType="dataset",
+            aspect=DatasetUsageStatisticsClass(
+                timestampMillis=0,
+                eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+                uniqueUserCount=0,
+                totalSqlQueries=0,
+                topSqlQueries=[],
+                userCounts=[],
+                fieldCounts=[],
             ),
         )
         return mcp.as_workunit()
