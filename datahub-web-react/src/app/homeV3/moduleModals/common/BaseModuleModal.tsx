@@ -14,9 +14,16 @@ interface Props {
     title: string;
     subtitle?: string;
     onUpsert: () => void;
+    width?: string;
 }
 
-export default function BaseModuleModal({ title, subtitle, children, onUpsert }: React.PropsWithChildren<Props>) {
+export default function BaseModuleModal({
+    title,
+    subtitle,
+    children,
+    onUpsert,
+    width,
+}: React.PropsWithChildren<Props>) {
     const {
         moduleModalState: { close, isOpen, isEditing },
     } = usePageTemplateContext();
@@ -46,7 +53,7 @@ export default function BaseModuleModal({ title, subtitle, children, onUpsert }:
             onCancel={close}
             maskClosable={false} // to avoid accidental clicks that closes the modal
             style={modalStyles}
-            width="90%"
+            width={width || '90%'}
         >
             {children}
         </Modal>

@@ -10,7 +10,9 @@ record DataHubPageModuleParams {
    * The params required if the module is type LINK
    */
   linkParams: optional record LinkModuleParams {
-    linkUrn: Urn
+    linkUrl: string
+    imageUrl: optional string
+    description: optional string
   }
 
   /**

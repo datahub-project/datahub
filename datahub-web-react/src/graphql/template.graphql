@@ -36,6 +36,11 @@ fragment PageModule on DataHubPageModule {
             assetCollectionParams {
                 assetUrns
             }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
         }
     }
 }

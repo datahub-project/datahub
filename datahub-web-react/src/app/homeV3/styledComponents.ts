@@ -73,3 +73,15 @@ export const EmptyContainer = styled.div`
     justify-content: center;
     align-items: center;
 `;
+
+export const FloatingRightHeaderSection = styled.div`
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding-right: 16px;
+    right: 0px;
+    top: 0px;
+    height: 100%;
+`;

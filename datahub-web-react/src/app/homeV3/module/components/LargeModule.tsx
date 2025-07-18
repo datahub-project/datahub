@@ -7,6 +7,7 @@ import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
 const ModuleHeader = styled.div`
     position: relative;
@@ -31,18 +32,6 @@ const ModuleHeader = styled.div`
 const DragHandle = styled.div<{ $isDragging?: boolean }>`
     cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     flex: 1;
-`;
-
-const FloatingRightHeaderSection = styled.div`
-    position: absolute;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding-right: 16px;
-    right: 0px;
-    top: 0px;
-    height: 100%;
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
