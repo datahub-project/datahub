@@ -62,8 +62,8 @@ class SortKey(ConfigModel):
 
     date_format: Optional[str] = Field(
         default=None,
-        type=str,
         description="The date format to use when sorting. This is used to parse the date from the key. The format should follow the java [SimpleDateFormat](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) format.",
+        validate_default=True,
     )
 
     @pydantic.validator("date_format", always=True)
@@ -110,7 +110,7 @@ class PathSpec(ConfigModel):
 
     # This is not used yet, but will be used in the future to sort the partitions
     sort_key: Optional[SortKey] = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=None,
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )
@@ -260,7 +260,7 @@ class PathSpec(ConfigModel):
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_no_double_stars(cls, values: Dict) -> Dict:
         if "include" not in values:
             return values
@@ -476,6 +476,7 @@ class PathSpec(ConfigModel):
         return glob_include
 
     @pydantic.root_validator(skip_on_failure=True)
+    @classmethod
     def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]

@@ -97,7 +97,7 @@ class RedshiftConfig(
     scheme: str = Field(
         default="redshift+redshift_connector",
         description="",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     _database_alias_removed = pydantic_removed_field("database_alias")

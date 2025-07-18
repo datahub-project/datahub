@@ -251,7 +251,7 @@ class UnityCatalogSourceConfig(
     lineage_max_workers: int = pydantic.Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     include_usage_statistics: bool = Field(
