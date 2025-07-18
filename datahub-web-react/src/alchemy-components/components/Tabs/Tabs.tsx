@@ -151,20 +151,19 @@ export function Tabs({
         }
     }
 
+    const items = tabs.map((tab) => ({
+        key: tab.key,
+        label: <TabView tab={tab} />,
+        disabled: tab.disabled,
+        children: tab.component,
+    }));
     return (
         <StyledTabs
             activeKey={selectedTab}
             onChange={handleTabClick}
             $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
-        >
-            {tabs.map((tab) => {
-                return (
-                    <TabPane tab={<TabView tab={tab} />} key={tab.key} disabled={tab.disabled}>
-                        {tab.component}
-                    </TabPane>
-                );
-            })}
-        </StyledTabs>
+            items={items}
+        />
     );
 }
