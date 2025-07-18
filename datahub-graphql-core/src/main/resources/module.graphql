@@ -90,9 +90,19 @@ Input for the params required if the module is type LINK
 """
 input LinkModuleParamsInput {
   """
-  The URN of the Post entity containing the link
+  The URL of the link
   """
-  linkUrn: String!
+  linkUrl: String!
+
+  """
+  The image URL of the link
+  """
+  imageUrl: String
+
+  """
+  The description of the link
+  """
+  description: String
 }
 
 """
@@ -229,9 +239,19 @@ The params required if the module is type LINK
 """
 type LinkModuleParams {
   """
-  The Post entity containing the link
+  The URL of the link
   """
-  link: Post!
+  linkUrl: String!
+
+  """
+  The image URL of the link
+  """
+  imageUrl: String
+
+  """
+  The description of the link
+  """
+  description: String
 }
 
 """

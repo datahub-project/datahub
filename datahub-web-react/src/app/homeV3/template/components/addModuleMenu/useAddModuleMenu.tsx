@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { LARGE_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
@@ -44,7 +45,14 @@ export default function useAddModuleMenu(
     const {
         addModule,
         moduleModalState: { open: openModal },
+        template,
     } = usePageTemplateContext();
+
+    const isRowWithLargeModule =
+        position.rowIndex !== undefined &&
+        template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
+            LARGE_MODULE_TYPES.includes(module.properties.type),
+        );
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -73,8 +81,9 @@ export default function useAddModuleMenu(
             key: 'quick-link',
             label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
             onClick: () => {
-                // TODO: open up modal to add a quick link
+                handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
+            disabled: isRowWithLargeModule,
         };
 
         const documentation = {
@@ -160,7 +169,12 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd.adminCreatedModules, handleAddExistingModule, handleOpenCreateModuleModal]);
+    }, [
+        isRowWithLargeModule,
+        modulesAvailableToAdd.adminCreatedModules,
+        handleOpenCreateModuleModal,
+        handleAddExistingModule,
+    ]);
 
     return menu;
 }
