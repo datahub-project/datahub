@@ -6,7 +6,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
-    MetadataChangeEventClass, SchemaFieldClass, SchemaMetadataClass, OtherSchemaClass,
+    MetadataChangeEventClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
 )
 
 
@@ -27,8 +30,11 @@ def make_dataset_snapshot_workunit(
     mce = MetadataChangeEventClass(proposedSnapshot=snapshot)
     return MetadataWorkUnit(id=f"dataset-snapshot-{name}", mce=mce)
 
-def make_schema_metadata_workunit( dataset_urn: str, fields:list[SchemaFieldClass]):
-    platform_urn = dataset_urn.split(":(")[1].split(",")[0]  # e.g. urn:li:dataPlatform:tibero
+
+def make_schema_metadata_workunit(dataset_urn: str, fields: list[SchemaFieldClass]):
+    platform_urn = dataset_urn.split(":(")[1].split(",")[
+        0
+    ]  # e.g. urn:li:dataPlatform:tibero
 
     schema_metadata = SchemaMetadataClass(
         schemaName="default",
@@ -36,7 +42,7 @@ def make_schema_metadata_workunit( dataset_urn: str, fields:list[SchemaFieldClas
         platformSchema=OtherSchemaClass(rawSchema=""),  # 생략 가능
         fields=fields,
         version=0,
-        hash=""
+        hash="",
     )
 
     mcp = MetadataChangeProposalWrapper(

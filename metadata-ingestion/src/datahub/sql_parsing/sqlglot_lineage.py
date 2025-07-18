@@ -1283,11 +1283,11 @@ def _simplify_impala_insert_columns(sql: str) -> str:
     # 대소문자 구분 없이, 공백 처리도 유연하게
     patterns = [
         (
-            r"INSERT\s+(OVERWRITE|INTO)\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\(.+?\))\s+SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\(.+?\))\s+SELECT",
             r"INSERT \1 TABLE \2 \4 SELECT",
         ),
         (
-            r"INSERT\s+(OVERWRITE|INTO)\s+(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
             r"INSERT \1 TABLE \2 SELECT",
         ),
     ]

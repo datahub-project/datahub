@@ -100,6 +100,7 @@ class Synonyms(BaseModel):
     table_owner: str
     table_name: str
 
+
 class SourceField(BaseModel):
     widget_id: int
     src_id: int

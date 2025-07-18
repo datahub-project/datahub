@@ -12,11 +12,11 @@ def make_dataflow_workunit(
     flow_id: str, workflow_info: WorkflowInfo, env: str
 ) -> MetadataWorkUnit:
     flow_urn = make_data_flow_urn("informatica", flow_id, env)
-    props = {
-        "server": workflow_info.server_name,
-        "scheduler": workflow_info.scheduler_name,
-        "last_update_time": str(workflow_info.last_update_time),
-    }
+    # props = {
+    #     "server": workflow_info.server_name,
+    #     "scheduler": workflow_info.scheduler_name,
+    #     "last_update_time": str(workflow_info.last_update_time),
+    # }
 
     flow_info = DataFlowInfoClass(
         name=flow_id,
