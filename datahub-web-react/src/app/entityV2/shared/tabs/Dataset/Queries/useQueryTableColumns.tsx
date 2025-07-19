@@ -15,6 +15,7 @@ import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
+import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
 import { CorpUser, Entity } from '@types';
 
 const UsersWrapper = styled.div`
@@ -108,7 +109,7 @@ export default function useQueryTableColumns({
                   const createdByB = entityRegistry.getDisplayName(queryB.createdBy.type, queryB.createdBy);
                   return createdByA.localeCompare(createdByB);
               },
-        render: (createdBy: CorpUser) => {
+        render: (createdBy: ActorWithDisplayNameFragment) => {
             return <QueryCreatedBy createdBy={createdBy} />;
         },
     };

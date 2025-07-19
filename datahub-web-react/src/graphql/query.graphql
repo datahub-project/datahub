@@ -8,6 +8,18 @@ query getQuery($urn: String!) {
     }
 }
 
+fragment ActorWithDisplayName on CorpUser {
+    urn
+    type
+    ...entityDisplayNameFields
+    editableProperties {
+        pictureLink
+    }
+    editableInfo {
+        pictureLink
+    }
+}
+
 fragment query on QueryEntity {
     urn
     properties {
@@ -21,6 +33,12 @@ fragment query on QueryEntity {
         created {
             time
             actor
+        }
+        createdOn {
+            time
+            actor {
+                ...ActorWithDisplayName
+            }
         }
         lastModified {
             time
