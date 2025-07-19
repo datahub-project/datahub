@@ -1,4 +1,4 @@
-import { Popover } from '@components';
+import { Popover, Text, colors } from '@components';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { GlyphCircle } from '@visx/glyph';
 import { LinearGradient } from '@visx/gradient';
@@ -35,11 +35,14 @@ import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { INTERVAL_TO_MS } from '@app/shared/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
+import { Tooltip } from '@src/alchemy-components';
 
-import { DateInterval } from '@types';
+import { AssertionExclusionWindow, AssertionExclusionWindowType, DateInterval } from '@types';
 
 type Props = {
     data: AssertionResultChartData;
+    // only supports fixedRange exclusion windows for now
+    exclusionWindows?: AssertionExclusionWindow[];
     timeRange: TimeRange;
     chartDimensions: {
         width: number;
@@ -67,6 +70,7 @@ const formatYAxisValue = (value: number, skipRounding: boolean) => {
 
 export const ValuesOverTimeAssertionResultChart = ({
     data,
+    exclusionWindows,
     timeRange,
     chartDimensions,
     renderHeader,
@@ -259,6 +263,64 @@ export const ValuesOverTimeAssertionResultChart = ({
                         stroke={ACCENT_COLOR_HEX}
                         strokeWidth={2}
                     />
+
+                    {/* ----- Exclusion Windows ----- */}
+                    {exclusionWindows?.map((exclusionWindow) => {
+                        // Only render FIXED_RANGE windows for now
+                        if (
+                            exclusionWindow.type !== AssertionExclusionWindowType.FixedRange ||
+                            !exclusionWindow.fixedRange
+                        ) {
+                            return null;
+                        }
+
+                        const startTime = exclusionWindow.fixedRange.startTimeMillis;
+                        const endTime = exclusionWindow.fixedRange.endTimeMillis;
+
+                        // Calculate positions using the time scale
+                        const startX = xScale(new Date(startTime));
+                        const endX = xScale(new Date(endTime));
+
+                        // Clamp to chart boundaries
+                        const clampedStartX = Math.max(0, startX);
+                        const clampedEndX = Math.min(chartInnerWidth, endX);
+                        const width = clampedEndX - clampedStartX;
+
+                        // Skip if window is completely outside the visible range
+                        if (width <= 0) {
+                            return null;
+                        }
+
+                        return (
+                            <Tooltip
+                                title={
+                                    <Text>
+                                        <Text weight="bold" color="gray" colorLevel={600}>
+                                            Training Data Exclusion Window
+                                        </Text>
+                                        <Text size="sm" weight="semiBold">
+                                            &quot;
+                                            {exclusionWindow.displayName || 'AI Model will ignore this time range.'}
+                                            &quot;
+                                        </Text>
+                                        <Text size="sm">You can change this in the Settings tab.</Text>
+                                    </Text>
+                                }
+                            >
+                                <Group>
+                                    <rect
+                                        x={clampedStartX}
+                                        y={0}
+                                        width={width}
+                                        height={chartInnerHeight}
+                                        fill={colors.red[700]}
+                                        fillOpacity={0.15}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </Group>
+                            </Tooltip>
+                        );
+                    })}
 
                     {/* ----- Circular datapoints ----- */}
                     {dataPoints.map((dataPoint, i) => {

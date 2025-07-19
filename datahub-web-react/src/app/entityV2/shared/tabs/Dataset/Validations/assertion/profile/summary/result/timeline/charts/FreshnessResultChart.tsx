@@ -1,4 +1,4 @@
-import { Popover } from '@components';
+import { Popover, Text, Tooltip, colors } from '@components';
 import { AxisBottom } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
 import { GridColumns } from '@visx/grid';
@@ -29,18 +29,7 @@ import { tryGetActualUpdatedTimestampFromAssertionResult } from '@app/entityV2/s
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { AssertionResultType } from '@types';
-
-type Props = {
-    data: AssertionResultChartData;
-    timeRange: TimeRange;
-    chartDimensions: {
-        width: number;
-        height: number;
-    };
-    renderHeader?: (title?: string) => JSX.Element;
-    refreshData?: () => Promise<unknown>;
-};
+import { AssertionExclusionWindow, AssertionExclusionWindowType, AssertionResultType } from '@types';
 
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
@@ -48,10 +37,28 @@ const CHART_AXIS_TOP_MARGIN = 24;
 
 const PRIMARY_CANDLE_STICK_BAR_WIDTH = 5;
 
+type Props = {
+    data: AssertionResultChartData;
+    timeRange: TimeRange;
+    exclusionWindows?: AssertionExclusionWindow[];
+    chartDimensions: {
+        width: number;
+        height: number;
+    };
+    renderHeader?: (title?: string) => JSX.Element;
+    refreshData?: () => Promise<unknown>;
+};
 /**
  * Specifically for freshness assertions.
  */
-export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderHeader, refreshData }: Props) => {
+export const FreshnessResultChart = ({
+    data,
+    timeRange,
+    exclusionWindows,
+    chartDimensions,
+    renderHeader,
+    refreshData,
+}: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
     const { dataPoints } = data;
@@ -123,6 +130,64 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             strokeDasharray: '1 4',
                         }}
                     />
+
+                    {/* Exclusion windows */}
+                    {exclusionWindows?.map((exclusionWindow) => {
+                        // Only render FIXED_RANGE windows for now
+                        if (
+                            exclusionWindow.type !== AssertionExclusionWindowType.FixedRange ||
+                            !exclusionWindow.fixedRange
+                        ) {
+                            return null;
+                        }
+
+                        const startTime = exclusionWindow.fixedRange.startTimeMillis;
+                        const endTime = exclusionWindow.fixedRange.endTimeMillis;
+
+                        // Calculate positions using the time scale
+                        const startX = xScale(new Date(startTime));
+                        const endX = xScale(new Date(endTime));
+
+                        // Clamp to chart boundaries
+                        const clampedStartX = Math.max(0, startX);
+                        const clampedEndX = Math.min(chartInnerWidth, endX);
+                        const width = clampedEndX - clampedStartX;
+
+                        // Skip if window is completely outside the visible range
+                        if (width <= 0) {
+                            return null;
+                        }
+
+                        return (
+                            <Tooltip
+                                title={
+                                    <Text>
+                                        <Text weight="bold" color="gray" colorLevel={600}>
+                                            Training Data Exclusion Window
+                                        </Text>
+                                        <Text size="sm" weight="semiBold">
+                                            &quot;
+                                            {exclusionWindow.displayName || 'AI Model will ignore this time range.'}
+                                            &quot;
+                                        </Text>
+                                        <Text size="sm">You can change this in the Settings tab.</Text>
+                                    </Text>
+                                }
+                            >
+                                <Group>
+                                    <rect
+                                        x={clampedStartX}
+                                        y={0}
+                                        width={width}
+                                        height={chartInnerHeight}
+                                        fill={colors.red[700]}
+                                        fillOpacity={0.15}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </Group>
+                            </Tooltip>
+                        );
+                    })}
 
                     {/* Expected window of mounted data point (currently being hovered) */}
                     {maybeMounteDataPointWindowRangeTicks

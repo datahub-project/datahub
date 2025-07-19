@@ -72,6 +72,8 @@ export const AssertionResultsTimelineViz = ({
         monitor,
     );
 
+    const exclusionWindows = monitor?.info?.assertionMonitor?.settings?.inferenceSettings?.exclusionWindows ?? [];
+
     // render
     const chartDimensions = {
         height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
@@ -91,6 +93,7 @@ export const AssertionResultsTimelineViz = ({
                     <ValuesOverTimeAssertionResultChart
                         chartDimensions={chartDimensions}
                         data={assertionResultChartData}
+                        exclusionWindows={exclusionWindows}
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
                         refreshData={refreshData}
@@ -101,6 +104,7 @@ export const AssertionResultsTimelineViz = ({
                     <FreshnessResultChart
                         chartDimensions={chartDimensions}
                         data={assertionResultChartData}
+                        exclusionWindows={exclusionWindows}
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
                         refreshData={refreshData}
