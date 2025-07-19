@@ -98,7 +98,9 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
-INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
+INGEST_MAX_PAYLOAD_BYTES = int(
+    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES", 15 * 1024 * 1024)
+)
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
