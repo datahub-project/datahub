@@ -26,7 +26,7 @@ import {
 import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { getFieldMetricTypeReadableLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 import { NUMBER_DISPLAY_PRECISION } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation as formatNumberWithoutAbbreviationRaw } from '@app/shared/formatNumber';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
 
@@ -42,6 +42,7 @@ import {
     FieldAssertionInfo,
     FieldAssertionType,
     FieldMetricAssertion,
+    FieldMetricType,
     FieldValuesAssertion,
     FreshnessAssertionScheduleType,
     IncrementingSegmentRowCountChange,
@@ -53,6 +54,11 @@ import {
     SqlAssertionType,
     VolumeAssertionType,
 } from '@types';
+
+const formatNumberWithoutAbbreviation = (n: number, metricType?: 'percentage' | 'absolute') => {
+    const formatted = formatNumberWithoutAbbreviationRaw(n);
+    return metricType === 'percentage' ? `${formatted}%` : formatted;
+};
 
 export const getFormattedResultText = (result?: AssertionResultType, isSmartAssertion?: boolean) => {
     if (result === undefined) {
@@ -73,6 +79,10 @@ export const getFormattedResultText = (result?: AssertionResultType, isSmartAsse
     return undefined;
 };
 
+const isPercentageMetric = (metricType?: FieldMetricType): boolean => {
+    return metricType?.valueOf().toLowerCase().includes('percentage') ?? false;
+};
+
 // TODO: Consider supporting relative field metric assertions.
 const getFormattedReasonTextForFieldMetricAssertion = (run: AssertionRunEvent) => {
     const assertionInfo = run.result?.assertion;
@@ -83,12 +93,12 @@ const getFormattedReasonTextForFieldMetricAssertion = (run: AssertionRunEvent) =
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
         if (actual !== undefined) {
-            return `${metricText} of ${field} (${actual}) met the expected conditions.`;
+            return `${metricText} of ${field} (${isPercentageMetric(metricType) ? `${actual}%` : actual}) met the expected conditions.`;
         }
         return `${metricText} of ${field} met the expected conditions.`;
     }
     if (actual !== undefined) {
-        return `${metricText} of ${field} (${actual}) did not meet the expected conditions.`;
+        return `${metricText} of ${field} (${isPercentageMetric(metricType) ? `${actual}%` : actual}) did not meet the expected conditions.`;
     }
     return `${metricText} of ${field} did not meet the expected conditions.`;
 };
@@ -326,12 +336,13 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
 export const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     assertedOnDescription: string,
     range: AssertionExpectedRange,
+    metricType: 'percentage' | 'absolute' = 'absolute',
 ): string | undefined => {
-    let { low, high, equal, notEqual } = range;
-    low = low && formatNumberWithoutAbbreviation(low);
-    high = high && formatNumberWithoutAbbreviation(high);
-    equal = equal && formatNumberWithoutAbbreviation(equal);
-    notEqual = notEqual && formatNumberWithoutAbbreviation(notEqual);
+    const { low, high, equal, notEqual } = range;
+    const lowFormatted = typeof low === 'number' && formatNumberWithoutAbbreviation(low, metricType);
+    const highFormatted = typeof high === 'number' && formatNumberWithoutAbbreviation(high, metricType);
+    const equalFormatted = typeof equal === 'number' && formatNumberWithoutAbbreviation(equal, metricType);
+    const notEqualFormatted = typeof notEqual === 'number' && formatNumberWithoutAbbreviation(notEqual, metricType);
 
     let message: string | undefined;
     const isHighValid = typeof high !== 'undefined';
@@ -339,17 +350,17 @@ export const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     const isEqualValid = typeof equal !== 'undefined';
     const isNotEqualValid = typeof notEqual !== 'undefined';
     if (isHighValid && isLowValid) {
-        message = `${assertedOnDescription} should be between ${low} and ${high}.`;
+        message = `${assertedOnDescription} should be between ${lowFormatted} and ${highFormatted}.`;
     } else if (isHighValid) {
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than';
-        message = `${assertedOnDescription} should be ${rangeDefinition} ${high}.`;
+        message = `${assertedOnDescription} should be ${rangeDefinition} ${highFormatted}.`;
     } else if (isLowValid) {
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than';
-        message = `${assertedOnDescription} should be ${rangeDefinition} ${low}.`;
+        message = `${assertedOnDescription} should be ${rangeDefinition} ${lowFormatted}.`;
     } else if (isEqualValid) {
-        message = `${assertedOnDescription} should be ${equal}.`;
+        message = `${assertedOnDescription} should be ${equalFormatted}.`;
     } else if (isNotEqualValid) {
-        message = `${assertedOnDescription} should not be ${notEqual}.`;
+        message = `${assertedOnDescription} should not be ${notEqualFormatted}.`;
     }
 
     return message;
@@ -369,8 +380,12 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
         | Maybe<FieldValuesAssertion>
         | Maybe<FieldMetricAssertion>,
 ): string | undefined => {
+    const metricType =
+        totalsInfo?.__typename === 'FieldMetricAssertion' && isPercentageMetric(totalsInfo.metric)
+            ? 'percentage'
+            : 'absolute';
     const range = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(totalsInfo);
-    return getFormattedExpectedResultTextForAbsoluteAssertionRange(assertedOnDescription, range);
+    return getFormattedExpectedResultTextForAbsoluteAssertionRange(assertedOnDescription, range, metricType);
 };
 
 const getFormattedExpectedResultTextForValueAssertion = (
@@ -438,9 +453,9 @@ const getFormattedExpectedTextForRelativeAssertion = (
             ? `${rangeLowLabelSign}${relativeModifiers.low}${rangeSuffix}`
             : undefined;
 
-    let { low, high } = range;
-    low = low && formatNumberWithoutAbbreviation(Math.floor(low));
-    high = high && formatNumberWithoutAbbreviation(Math.floor(high));
+    const { low, high } = range;
+    const lowFormatted = low && formatNumberWithoutAbbreviation(Math.floor(low));
+    const highFormatted = high && formatNumberWithoutAbbreviation(Math.floor(high));
 
     const isHighValid = typeof high !== 'undefined';
     const isLowValid = typeof low !== 'undefined';
@@ -448,17 +463,17 @@ const getFormattedExpectedTextForRelativeAssertion = (
     if (isHighValid && isLowValid) {
         const minuteDetails =
             maybeRangeHighLabel && maybeRangeLowLabel ? ` (${maybeRangeLowLabel} to ${maybeRangeHighLabel})` : '';
-        return `${assertedOnDescription} should be between ${low} and ${high}${minuteDetails}.`;
+        return `${assertedOnDescription} should be between ${lowFormatted} and ${highFormatted}${minuteDetails}.`;
     }
     if (isHighValid) {
         const minuteDetails = maybeRangeHighLabel ? ` (${maybeRangeHighLabel})` : '';
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than';
-        return `${assertedOnDescription} should be ${rangeDefinition} ${high}${minuteDetails}.`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${highFormatted}${minuteDetails}.`;
     }
     if (isLowValid) {
         const minuteDetails = maybeRangeLowLabel ? ` (${maybeRangeLowLabel})` : '';
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than';
-        return `${assertedOnDescription} should be ${rangeDefinition} ${low}${minuteDetails}.`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${lowFormatted}${minuteDetails}.`;
     }
     return undefined;
 };
@@ -498,6 +513,7 @@ const getFormattedExpectedTextForFieldValuesAssertion = (
     const failingExpectedRowCountRangeText = getFormattedExpectedResultTextForAbsoluteAssertionRange(
         'Invalid row count',
         range,
+        'absolute',
     );
 
     if (failingExpectedRowCountRangeText && valueExpectationText) {
