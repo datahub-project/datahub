@@ -58,7 +58,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.sql.streaming.StreamingQueryProgress;
 
 @Slf4j
 public class DatahubEventEmitter extends EventEmitter {
@@ -402,19 +401,6 @@ public class DatahubEventEmitter extends EventEmitter {
         datahubJob.getDataFlowInfo().setCustomProperties(new StringMap(mergedProperties));
       }
     }
-  }
-
-  public void emit(StreamingQueryProgress event) throws URISyntaxException {
-    List<MetadataChangeProposal> mcps = new ArrayList<>();
-    for (MetadataChangeProposalWrapper mcpw :
-        generateMcpFromStreamingProgressEvent(event, datahubConf, schemaMap)) {
-      try {
-        mcps.add(eventFormatter.convert(mcpw));
-      } catch (IOException e) {
-        log.error("Failed to convert mcpw to mcp", e);
-      }
-    }
-    emitMcps(mcps);
   }
 
   protected void emitMcps(List<MetadataChangeProposal> mcps) {
