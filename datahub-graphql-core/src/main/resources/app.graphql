@@ -762,6 +762,11 @@ type FeatureFlagsConfig {
   Enables logical models feature
   """
   logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
 }
 
 """

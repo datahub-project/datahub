@@ -3,7 +3,9 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { useUserPersonaTitle } from '@app/homeV2/persona/useUserPersona';
 import { getGreetingText } from '@app/homeV2/reference/header/getGreetingText';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -18,6 +20,12 @@ export default function GreetingText() {
     const greetingText = getGreetingText();
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistryV2();
+    const maybeRole = useUserPersonaTitle();
+    const {
+        config: {
+            featureFlags: { showHomepageUserRole },
+        },
+    } = useAppConfig();
 
     const finalText = useMemo(() => {
         if (!user) return `${greetingText}!`;
@@ -26,7 +34,7 @@ export default function GreetingText() {
 
     return (
         <Container>
-            <PageTitle title={finalText} />
+            <PageTitle title={finalText} subTitle={showHomepageUserRole ? maybeRole : null} />
         </Container>
     );
 }
