@@ -14,6 +14,8 @@ public class AccessTokenUtil {
         return Optional.of(Duration.of(1, ChronoUnit.HOURS).toMillis());
       case ONE_DAY:
         return Optional.of(Duration.of(1, ChronoUnit.DAYS).toMillis());
+      case ONE_WEEK:
+        return Optional.of(Duration.of(7, ChronoUnit.DAYS).toMillis());
       case ONE_MONTH:
         return Optional.of(Duration.of(30, ChronoUnit.DAYS).toMillis());
       case THREE_MONTHS:
