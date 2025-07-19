@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
 import { ERModelRelationshipPreviewCard } from '@app/entity/ermodelrelationships/preview/ERModelRelationshipPreviewCard';
+import ERModelRelationshipSidebarCardinality from '@app/entity/ermodelrelationships/profile/sidebar/ERModelRelationshipSidebarCardinality';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -58,7 +59,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getPathName = () => 'erModelRelationship';
 
-    getCollectionName = () => '';
+    getCollectionName = () => 'ER Model Relationships';
 
     getEntityName = () => 'ER-Model-Relationship';
 
@@ -73,7 +74,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'ER-Model-Relationship',
+                    name: this.getEntityName(),
                     component: ERModelRelationshipTab,
                 },
                 {
@@ -88,6 +89,9 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: ERModelRelationshipSidebarCardinality,
                 },
                 {
                     component: SidebarOwnerSection,
@@ -125,6 +129,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
                     owners={data.ownership?.owners}
                     glossaryTerms={data?.glossaryTerms || undefined}
                     globalTags={data?.tags}
+                    cardinality={data?.properties?.cardinality}
                 />
             </>
         );
