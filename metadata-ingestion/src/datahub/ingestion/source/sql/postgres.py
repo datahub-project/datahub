@@ -330,9 +330,9 @@ class PostgresSource(SQLAlchemySource):
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except Exception as e:
                 self.report.failure(
-                    message="Failed to list stored procedures",
-                    title="Postgres Stored Procedures Extraction",
-                    context="Error occurred during schema-level stored procedure extraction",
+                    title="Failed to list stored procedures for schema",
+                    message="An error occurred while listing procedures for the schema.",
+                    context="f"{database}.{schema}",
                     exc=e,
                 )
 
