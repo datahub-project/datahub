@@ -134,10 +134,7 @@ class PostgresConfig(BasePostgresConfig):
     )
     include_stored_procedures: bool = Field(
         default=True,
-        description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
-    )
-    include_stored_procedures_code: bool = Field(
-        default=True, description="Include information about object code."
+        description="Include ingest of stored procedures.",
     )
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -156,7 +153,7 @@ class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
-    - Metadata for databases, schemas, views, and tables
+    - Metadata for databases, schemas, views, tables, and stored procedures
     - Column types associated with each table
     - Also supports PostGIS extensions
     - Table, row, and column statistics via optional SQL profiling
