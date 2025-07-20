@@ -1,10 +1,10 @@
 import { Button, Dropdown, Icon, colors } from '@components';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
+import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
-import { AddModuleHandlerInput, RowSide } from '@app/homeV3/template/types';
+import { ModulePositionInput, RowSide } from '@app/homeV3/template/types';
 
 type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 
@@ -45,40 +45,25 @@ const StyledVisibleOnHoverButton = styled(StyledButton)`
 interface Props {
     orientation: AddModuleButtonOrientation;
     modulesAvailableToAdd: ModulesAvailableToAdd;
-    onAddModule?: (input: AddModuleHandlerInput) => void;
     className?: string;
-    originRowIndex?: number;
     rowIndex?: number;
     rowSide?: RowSide;
 }
 
-export default function AddModuleButton({
-    orientation,
-    modulesAvailableToAdd,
-    onAddModule,
-    className,
-    originRowIndex,
-    rowIndex,
-    rowSide,
-}: Props) {
+export default function AddModuleButton({ orientation, modulesAvailableToAdd, className, rowIndex, rowSide }: Props) {
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
 
-    const onAddModuleHandler = useCallback(
-        (module: ModuleInfo) => {
-            setIsOpened(false);
-            onAddModule?.({
-                module,
-                originRowIndex,
-                rowIndex,
-                rowSide,
-            });
-        },
-        [onAddModule, originRowIndex, rowIndex, rowSide],
-    );
+    // Create position object for the menu
+    const position: ModulePositionInput = {
+        rowIndex,
+        rowSide,
+    };
 
-    const menu = useAddModuleMenu(modulesAvailableToAdd, onAddModuleHandler);
+    const closeMenu = () => setIsOpened(false);
+
+    const menu = useAddModuleMenu(modulesAvailableToAdd, position, closeMenu);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger

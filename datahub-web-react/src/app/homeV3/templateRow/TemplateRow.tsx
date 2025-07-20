@@ -1,52 +1,27 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { memo } from 'react';
 
-import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { AddModuleHandlerInput } from '@app/homeV3/template/types';
-
-import { DataHubPageTemplateRow } from '@types';
-
-const RowWrapper = styled.div`
-    display: flex;
-    gap: 16px;
-    width: 100%;
-    flex: 1;
-`;
+import RowLayout from '@app/homeV3/templateRow/components/RowLayout';
+import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
+import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 interface Props {
-    row: DataHubPageTemplateRow;
-    onAddModule?: (input: AddModuleHandlerInput) => void;
+    row: WrappedRow;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
-    originRowIndex: number;
 }
 
-export default function TemplateRow({ row, onAddModule, modulesAvailableToAdd, rowIndex, originRowIndex }: Props) {
+function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+    const { modulePositions, shouldDisableDropZones } = useTemplateRowLogic(row, rowIndex);
+
     return (
-        <RowWrapper>
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                onAddModule={onAddModule}
-                originRowIndex={originRowIndex}
-                rowIndex={rowIndex}
-                rowSide="left"
-            />
-
-            {row.modules.map((module) => (
-                <Module key={module.urn} module={module} />
-            ))}
-
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                onAddModule={onAddModule}
-                originRowIndex={originRowIndex}
-                rowIndex={rowIndex}
-                rowSide="right"
-            />
-        </RowWrapper>
+        <RowLayout
+            rowIndex={rowIndex}
+            modulePositions={modulePositions}
+            shouldDisableDropZones={shouldDisableDropZones}
+            modulesAvailableToAdd={modulesAvailableToAdd}
+        />
     );
 }
+
+export default memo(TemplateRow);
