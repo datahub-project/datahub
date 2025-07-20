@@ -757,7 +757,13 @@ describe('getOtherIngestionContents', () => {
         };
 
         const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
-        expect(result).toBeNull();
+        expect(result).toEqual([
+            {
+                count: 0,
+                percent: '0%',
+                type: 'Usage',
+            },
+        ]);
     });
 
     test('ignores non-dataset entity types', () => {
