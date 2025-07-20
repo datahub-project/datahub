@@ -7,6 +7,13 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
+const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
+    max-height: ${({ $maxHeight }) => $maxHeight || '100%'};
+    overflow-y: auto;
+    height: 100%;
+    position: relative;
+`;
+
 const StyledTabs = styled(AntTabs)<{
     $addPaddingLeft?: boolean;
     $hideTabsHeader: boolean;
@@ -55,12 +62,12 @@ const StyledTabs = styled(AntTabs)<{
         `}
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
+        color: ${(props) => props.theme.styles['primary-color']};
         font-weight: 600;
     }
 
     .ant-tabs-ink-bar {
-        background-color: ${(props) => props.theme.styles?.['primary-color'] || '#1890ff'};
+        background-color: ${(props) => props.theme.styles['primary-color']};
     }
 
     .ant-tabs-content-holder {
@@ -227,17 +234,9 @@ export function Tabs({
 
     if (scrollToTopOnChange) {
         return (
-            <div
-                ref={tabsContainerRef}
-                style={{
-                    maxHeight,
-                    overflowY: 'auto' as const,
-                    height: '100%',
-                    position: 'relative',
-                }}
-            >
+            <ScrollableTabsContainer ref={tabsContainerRef} $maxHeight={maxHeight}>
                 {tabsContent}
-            </div>
+            </ScrollableTabsContainer>
         );
     }
 

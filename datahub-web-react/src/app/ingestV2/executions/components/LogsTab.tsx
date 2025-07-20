@@ -3,17 +3,10 @@ import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-
-const SectionHeader = styled(Typography.Title)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-        margin-bottom: 12px;
-    }
-`;
 
 const SectionSubHeader = styled.div`
     display: flex;

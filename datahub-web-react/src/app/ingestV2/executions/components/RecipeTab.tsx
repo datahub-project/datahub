@@ -3,17 +3,10 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-
-const SectionHeader = styled(Typography.Title)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-        margin-bottom: 12px;
-    }
-`;
 
 const SectionSubHeader = styled.div`
     display: flex;
@@ -25,11 +18,8 @@ const SubHeaderParagraph = styled(Typography.Paragraph)`
     margin-bottom: 0px;
 `;
 
-const RecipeSection = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
-    padding-top: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+const RecipeSection = styled(SectionBase)`
+    border-top: 1px solid ${colors.gray[1400]};
 `;
 
 export const RecipeTab = ({ data }: { data: GetIngestionExecutionRequestQuery | undefined }) => {

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
+import { SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -20,14 +21,6 @@ const Section = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 12px;
-`;
-
-const SectionHeader = styled(Typography.Title)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-        margin-bottom: 12px;
-    }
 `;
 
 const SectionSubHeader = styled.div`
@@ -61,17 +54,9 @@ const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
     padding-right: 30px;
 `;
 
-const RecipeSection = styled.div`
-    padding-top: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
-`;
+const RecipeSection = styled(SectionBase)``;
 
-const LogsSection = styled.div`
-    padding-top: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
-`;
+const LogsSection = styled(SectionBase)``;
 
 const ShowMoreButton = styled(Button)`
     padding: 0px;

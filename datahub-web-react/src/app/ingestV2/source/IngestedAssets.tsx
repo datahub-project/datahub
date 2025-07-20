@@ -122,6 +122,10 @@ const IngestionBoxTopRow = styled.div`
     width: 100%;
 `;
 
+const IngestionRowCount = styled(Text)`
+    margin-right: 10px;
+`;
+
 type Props = {
     id: string;
     executionResult?: Maybe<Partial<ExecutionRequestResult>>;
@@ -148,9 +152,9 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
         {items.map((item) => (
             <CardContainer key={getKey(item)}>
                 <IngestionBoxTopRow>
-                    <Text size="xl" weight="bold" color="gray" colorLevel={800} style={{ marginRight: 10 }}>
+                    <IngestionRowCount size="xl" weight="bold" color="gray" colorLevel={800}>
                         {formatNumber(item.count)}
-                    </Text>
+                    </IngestionRowCount>
                     <Pill
                         size="sm"
                         variant="filled"
