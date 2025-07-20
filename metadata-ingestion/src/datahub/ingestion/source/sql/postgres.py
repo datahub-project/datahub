@@ -478,8 +478,8 @@ class PostgresSource(SQLAlchemySource):
             )
         except Exception as e:
             self.report.warning(
-                title="Failed to ingest stored procedure",
-                message="",
+                title="Failed to emit stored procedure",
+                message="An error occurred while emitting stored procedure",
                 context=procedure.name,
                 exc=e,
             )
