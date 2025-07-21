@@ -12,4 +12,4 @@ def _pydantic_resolver(v: Union[T, str]) -> T:
 
 
 def pydantic_resolve_key(field: str) -> classmethod:
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_pydantic_resolver)
+    return pydantic.validator(field, pre=True, allow_reuse=True)(_pydantic_resolver)  # type: ignore

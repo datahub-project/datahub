@@ -364,8 +364,7 @@ def should_hide_field(schema_field, current_source: str, schema_dict: Dict[str, 
         properties = def_schema.get("properties", {})
         if field_name in properties:
             field_schema = properties[field_name]
-            schema_extra = field_schema.get("schema_extra", {})
-            supported_sources = schema_extra.get("supported_sources")
+            supported_sources = field_schema.get("supported_sources", {})
             
             if supported_sources and current_source:
                 return current_source.lower() not in [s.lower() for s in supported_sources]

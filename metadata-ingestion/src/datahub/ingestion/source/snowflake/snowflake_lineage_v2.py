@@ -72,7 +72,7 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: Optional[str]
+    column_name: Optional[str] = None
     upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
@@ -91,9 +91,9 @@ class Query(BaseModel):
 class UpstreamLineageEdge(BaseModel):
     DOWNSTREAM_TABLE_NAME: str
     DOWNSTREAM_TABLE_DOMAIN: str
-    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]]
-    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]]
-    QUERIES: Optional[List[Query]]
+    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]] = None
+    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]] = None
+    QUERIES: Optional[List[Query]] = None
 
     _json_upstream_tables = pydantic_parse_json("UPSTREAM_TABLES")
     _json_upstream_columns = pydantic_parse_json("UPSTREAM_COLUMNS")

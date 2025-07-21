@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union, cast
 import pydantic
 from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import Field, validator
+from pydantic_core import core_schema
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -31,23 +32,29 @@ class NamingPattern(ConfigModel):
     pattern: str
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.pydantic_accept_raw_pattern
-        yield cls.validate
-        yield cls.pydantic_validate_pattern
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: Any
+    ) -> core_schema.CoreSchema:
+        """Pydantic v2 core schema for NamingPattern validation."""
 
-    @classmethod
-    def pydantic_accept_raw_pattern(cls, v):
-        if isinstance(v, (NamingPattern, dict)):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return {"pattern": v}
+        def validate_string_input(value: Any) -> Union[NamingPattern, dict]:
+            if isinstance(value, (cls, dict)):
+                return value
+            if isinstance(value, str):
+                return {"pattern": value}
+            raise ValueError("pattern must be a string")
 
-    @classmethod
-    def pydantic_validate_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        assert v.validate_pattern(cls.REQUIRE_AT_LEAST_ONE_VAR)
-        return v
+        def validate_pattern_rules(instance: "NamingPattern") -> "NamingPattern":
+            instance.validate_pattern(cls.REQUIRE_AT_LEAST_ONE_VAR)
+            return instance
+
+        return core_schema.chain_schema(
+            [
+                core_schema.no_info_plain_validator_function(validate_string_input),
+                handler(cls),
+                core_schema.no_info_plain_validator_function(validate_pattern_rules),
+            ]
+        )
 
     @classmethod
     def allowed_docstring(cls) -> str:
@@ -136,7 +143,7 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         # TODO: This shouldn't be part of the config.
         "looker",
         description="Default platform name.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     extract_column_level_lineage: bool = Field(
         True,

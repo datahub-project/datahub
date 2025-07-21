@@ -75,7 +75,11 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+    scheme: str = Field(
+        default="mssql+pytds",
+        description="",
+        json_schema_extra={"hidden_from_docs": True},
+    )
 
     # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(

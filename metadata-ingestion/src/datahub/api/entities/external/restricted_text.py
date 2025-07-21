@@ -13,20 +13,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Optional, Set, Union
 
-# Check Pydantic version and import accordingly
-try:
-    from pydantic import VERSION
-
-    PYDANTIC_V2 = int(VERSION.split(".")[0]) >= 2
-except (ImportError, AttributeError):
-    # Fallback for older versions that don't have VERSION
-    PYDANTIC_V2 = False
-
-if PYDANTIC_V2:
-    from pydantic import GetCoreSchemaHandler  # type: ignore[attr-defined]
-    from pydantic_core import core_schema
-else:
-    from pydantic.validators import str_validator
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
 
 
 class RestrictedTextConfig:
@@ -179,69 +167,24 @@ class RestrictedText(str):
             truncation_suffix=truncation_suffix,
         )
 
-    # Pydantic v2 methods
-    if PYDANTIC_V2:
+    @classmethod
+    def _validate(
+        cls,
+        __input_value: Union[str, "RestrictedText"],
+        _: core_schema.ValidationInfo,
+    ) -> "RestrictedText":
+        """Validate and create a RestrictedText instance."""
+        if isinstance(__input_value, RestrictedText):
+            return __input_value
+        return cls(__input_value)
 
-        @classmethod
-        def _validate(
-            cls,
-            __input_value: Union[str, "RestrictedText"],
-            _: core_schema.ValidationInfo,
-        ) -> "RestrictedText":
-            """Validate and create a RestrictedText instance."""
-            if isinstance(__input_value, RestrictedText):
-                return __input_value
-            return cls(__input_value)
-
-        @classmethod
-        def __get_pydantic_core_schema__(
-            cls, source: type[Any], handler: GetCoreSchemaHandler
-        ) -> core_schema.CoreSchema:
-            """Get the Pydantic core schema for this type."""
-            return core_schema.with_info_after_validator_function(
-                cls._validate,
-                core_schema.str_schema(),
-                field_name=cls.__name__,
-            )
-
-    # Pydantic v1 methods
-    else:
-
-        @classmethod
-        def __get_validators__(cls):
-            """Pydantic v1 validator method."""
-            yield cls.validate
-
-        @classmethod
-        def validate(cls, v, field=None):
-            """Validate and create a RestrictedText instance for Pydantic v1."""
-            if isinstance(v, RestrictedText):
-                return v
-
-            if not isinstance(v, str):
-                # Let pydantic handle the string validation
-                v = str_validator(v)
-
-            # Create instance
-            instance = cls(v)
-
-            # Check if there's a field default that contains configuration
-            if (
-                field
-                and hasattr(field, "default")
-                and isinstance(field.default, RestrictedTextConfig)
-            ):
-                config = field.default
-                instance._configure(
-                    max_length=config.max_length,
-                    forbidden_chars=config.forbidden_chars,
-                    replacement_char=config.replacement_char,
-                    truncation_suffix=config.truncation_suffix,
-                )
-
-            return instance
-
-        @classmethod
-        def __modify_schema__(cls, field_schema):
-            """Modify the JSON schema for Pydantic v1."""
-            field_schema.update(type="string", examples=["example string"])
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        """Get the Pydantic core schema for this type."""
+        return core_schema.with_info_after_validator_function(
+            cls._validate,
+            core_schema.str_schema(),
+            field_name=cls.__name__,
+        )

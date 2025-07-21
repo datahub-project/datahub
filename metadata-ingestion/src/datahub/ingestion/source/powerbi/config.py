@@ -292,12 +292,12 @@ class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_docs=True
+        default=Constant.PLATFORM_NAME, json_schema_extra={"hidden_from_docs": True}
     )
 
     platform_urn: str = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     # Organization Identifier
@@ -306,7 +306,7 @@ class PowerBiDashboardSourceConfig(
     workspace_id: Optional[str] = pydantic.Field(
         default=None,
         description="[deprecated] Use workspace_id_pattern instead",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
@@ -333,7 +333,7 @@ class PowerBiDashboardSourceConfig(
             "DataHub supported datasources."
             "You can configured platform instance for dataset lineage. "
             "See Quickstart Recipe for mapping",
-            hidden_from_docs=True,
+            json_schema_extra={"hidden_from_docs": True},
         )
     )
     # PowerBI datasource's server to platform instance mapping
@@ -531,7 +531,7 @@ class PowerBiDashboardSourceConfig(
     metadata_api_timeout: int = pydantic.Field(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     @root_validator(skip_on_failure=True)

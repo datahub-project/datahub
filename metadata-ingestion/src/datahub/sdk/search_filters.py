@@ -15,7 +15,6 @@ from typing import (
 import pydantic
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
 from datahub.ingestion.graph.filters import (
     FilterOperator,
@@ -34,12 +33,7 @@ _OrFilters = List[_AndSearchFilterRule]
 
 class _BaseFilter(ConfigModel):
     class Config:
-        # We can't wrap this in a TYPE_CHECKING block because the pydantic plugin
-        # doesn't recognize it properly. So unfortunately we'll need to live
-        # with the deprecation warning w/ pydantic v2.
-        allow_population_by_field_name = True
-        if PYDANTIC_VERSION_2:
-            populate_by_name = True
+        populate_by_name = True
 
     @abc.abstractmethod
     def compile(self) -> _OrFilters:
@@ -319,21 +313,13 @@ Filter = Union[
 
 
 # Required to resolve forward references to "Filter"
-if PYDANTIC_VERSION_2:
-    _And.model_rebuild()  # type: ignore
-    _Or.model_rebuild()  # type: ignore
-    _Not.model_rebuild()  # type: ignore
-else:
-    _And.update_forward_refs()
-    _Or.update_forward_refs()
-    _Not.update_forward_refs()
+_And.model_rebuild()
+_Or.model_rebuild()
+_Not.model_rebuild()
 
 
 def load_filters(obj: Any) -> Filter:
-    if PYDANTIC_VERSION_2:
-        return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
-    else:
-        return pydantic.parse_obj_as(Filter, obj)  # type: ignore
+    return pydantic.TypeAdapter(Filter).validate_python(obj)
 
 
 # We need FilterDsl for two reasons:

@@ -127,7 +127,11 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
+    scheme: str = Field(
+        default="clickhouse",
+        description="",
+        json_schema_extra={"hidden_from_docs": True},
+    )
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )

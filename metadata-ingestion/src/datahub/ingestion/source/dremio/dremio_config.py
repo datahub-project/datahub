@@ -102,7 +102,7 @@ class ProfileConfig(GEProfilingBaseConfig):
     )
     include_field_median_value: bool = Field(
         default=False,
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         description="Median causes a number of issues in Dremio.",
     )
 

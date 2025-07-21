@@ -101,13 +101,13 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     pull_from_datahub_api: bool = Field(
         default=False,
         description="Use the DataHub API to fetch versioned aspects.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     max_workers: int = Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for datahub api ingestion.",
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
     )
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
@@ -119,7 +119,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
+        json_schema_extra={"hidden_from_docs": True},
         default=60,
         description="Interval in seconds to invalidate the structured properties template cache.",
     )
