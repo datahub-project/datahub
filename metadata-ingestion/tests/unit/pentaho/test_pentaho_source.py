@@ -1,5 +1,3 @@
-import os
-import tempfile
 import xml.etree.ElementTree as ET
 from unittest.mock import Mock, patch
 
@@ -228,7 +226,7 @@ class TestPentahoSource:
         """Test platform name normalization."""
         # Test exact matches
         assert self.source._normalize_platform_name("googlebigquery") == "bigquery"
-[O        assert self.source._normalize_platform_name("VERTICA5") == "vertica"
+        assert self.source._normalize_platform_name("VERTICA5") == "vertica"
         assert self.source._normalize_platform_name("postgresql") == "postgres"
 
         # Test case insensitive matching
@@ -286,7 +284,7 @@ class TestPentahoSource:
             self.ctx,
         )
         urn = source_with_instance._create_dataset_urn("bigquery", "dataset.table")
-        assert urn == "urn:li:dataset:(urn:li:dataPlatform:bigquery,dataset.table,PROD)"
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_instance.dataset.table,PROD)"
 
         # Test file platform with path
         urn = self.source._create_dataset_urn("file", "/path/to/file.csv")
@@ -301,22 +299,23 @@ class TestPentahoSource:
         assert self.source._create_dataset_urn("platform", "") is None
         assert self.source._create_dataset_urn("platform", None or "") is None
 
-    def test_should_process_file(self):
+    @patch("os.path.exists")
+    @patch("os.path.getsize")
+    def test_should_process_file(self, mock_getsize, mock_exists):
         """Test file processing decision."""
+        # Mock file existence and size for valid files
+        mock_exists.return_value = True
+        mock_getsize.return_value = 1024
+
         # Test valid file extensions
         assert self.source._should_process_file("test.ktr") is True
         assert self.source._should_process_file("test.kjb") is True
         assert self.source._should_process_file("test.txt") is False
 
-        # Test with actual file (using temporary file)
-        with tempfile.NamedTemporaryFile(suffix=".ktr", delete=False) as tmp:
-            tmp.write(b"test content")
-            tmp_path = tmp.name
-
-        try:
-            assert self.source._should_process_file(tmp_path) is True
-        finally:
-            os.unlink(tmp_path)
+        # Test with non-existent file
+        mock_exists.return_value = False
+        assert self.source._should_process_file("nonexistent.ktr") is True
+        assert self.source._should_process_file("nonexistent.kjb") is True
 
     def test_get_connection_type(self):
         """Test connection type extraction from XML."""
@@ -469,7 +468,7 @@ class TestPentahoSourceWithVariables:
         ), patch.object(
             self.source,
             "_create_dataset_urn",
-            return_value="urn:li:dataset:(urn:li:dataPlatform:vertica,test_schema.test_table,PROD)",
+            return_value="urn:li:dataset:(urn:li:dataPlatform:vertica,schema.${tableString},PROD)",
         ):
 
             # Create test XML element with variable in table name

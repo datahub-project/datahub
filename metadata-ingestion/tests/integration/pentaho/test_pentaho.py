@@ -122,7 +122,7 @@ class TestPentahoSourceIntegration:
     <sql>SELECT * FROM test-project.dataset.${table_name}</sql>
     <variables_active>Y</variables_active>
     <GUI><xloc>192</xloc><yloc>32</yloc></GUI>
-[O  </step>
+  </step>
 
   <step>
     <name>Table output with variables</name>

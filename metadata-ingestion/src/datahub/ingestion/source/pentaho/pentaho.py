@@ -178,7 +178,7 @@ class PentahoSource(Source):
     def _create_dataset_urn(self, platform: str, name: str) -> Optional[str]:
         """Create dataset URN with proper name formatting."""
         if not name or not platform:
-[O            return None
+            return None
 
         # Clean and format the dataset name
         clean_name = name.strip()
