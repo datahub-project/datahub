@@ -15,13 +15,6 @@ describe("view select", () => {
     const newViewName = `New View Name ${randomNumber}`;
 
     // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
-
     cy.visit("/");
     cy.skipIntroducePage();
     cy.goToStarSearchList();
