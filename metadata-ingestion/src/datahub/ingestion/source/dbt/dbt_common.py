@@ -370,7 +370,7 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
-    drop_conflicting_sources: bool = Field(
+    drop_duplicate_sources: bool = Field(
         default=True,
         description="When enabled, drops sources that have the same name in the target platform as a model. "
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
@@ -1016,10 +1016,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             nodes.append(node)
 
-        if self.config.drop_conflicting_sources:
-            # Try to detect cases where a model and source have the same name.
+        if self.config.drop_duplicate_sources:
+            # Detect cases where a model and source have the same name.
             # In these cases, we don't want to generate both because they'll have the same
-            # urn and hence overwrite each other. Instead, we should drop the source.
+            # urn and hence overwrite each other. Instead, we drop the source.
             # The risk here is that the source might have documentation that'd be lost,
             # which is why we maintain optionality with a config flag.
             original_nodes = nodes
@@ -1035,9 +1035,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     and node.get_db_fqn() in warehouse_model_names
                 ):
                     self.report.warning(
-                        title="Conflicting source and model detected",
-                        message="We found a dbt model and source with the same name. To ensure reliable lineage generation, the source node was ignored. "
-                        "If you associate documentation with the source, it will be lost. "
+                        title="Duplicate model and source names detected",
+                        message="We found a dbt model and dbt source with the same name. To ensure reliable lineage generation, the source node was ignored. "
+                        "If you associated documentation/tags/other metadata with the source, it will be lost. "
                         "To avoid this, you should remove the source node from your dbt project and replace any `source()` calls with `ref()`.",
                         context=node.get_db_fqn(),
                     )
