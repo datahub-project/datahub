@@ -78,10 +78,6 @@ describe("ingestion source creation flow", () => {
     cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click({
       waitForAnimations: true,
     });
-    cy.on("uncaught:exception", (err, runnable) => {
-      expect(err.message).to.include("ResizeObserver loop limit exceeded");
-      return false;
-    });
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(`${ingestion_source_name} EDITED`);
   });

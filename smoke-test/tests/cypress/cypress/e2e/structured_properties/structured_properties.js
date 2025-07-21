@@ -63,11 +63,6 @@ const deleteStructuredProperty = (prop) => {
 const addStructuredPropertyToEntity = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
   // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
-  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-  cy.on(
-    "uncaught:exception",
-    (err) => !err.message.includes(resizeObserverLoopErrRe),
-  );
   cy.get('[data-testid="Properties-entity-tab-header"]').click();
   cy.get('[data-testid="add-structured-prop-button"]').click();
   cy.get("body .ant-dropdown-menu")
@@ -92,11 +87,6 @@ const showStructuredPropertyInColumnsTable = (prop) => {
 
 const addStructuredPropertyToField = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
-  const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-  cy.on(
-    "uncaught:exception",
-    (err) => !err.message.includes(resizeObserverLoopErrRe),
-  );
   cy.contains(fieldName);
   cy.clickOptionWithText(fieldName);
   cy.get(`[data-testid="${prop.name}-add-or-edit-button"]`).click();
