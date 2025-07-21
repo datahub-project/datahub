@@ -1,45 +1,27 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { memo } from 'react';
 
-import Module from '@app/homeV3/module/Module';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-
-import { PageTemplateRowFragment } from '@graphql/template.generated';
-
-const RowWrapper = styled.div`
-    display: flex;
-    gap: 16px;
-    width: 100%;
-    flex: 1;
-`;
+import RowLayout from '@app/homeV3/templateRow/components/RowLayout';
+import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
+import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 interface Props {
-    row: PageTemplateRowFragment;
+    row: WrappedRow;
     modulesAvailableToAdd: ModulesAvailableToAdd;
     rowIndex: number;
 }
 
-export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+    const { modulePositions, shouldDisableDropZones } = useTemplateRowLogic(row, rowIndex);
+
     return (
-        <RowWrapper>
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                rowIndex={rowIndex}
-                rowSide="left"
-            />
-
-            {row.modules.map((module) => (
-                <Module key={module.urn} module={module} />
-            ))}
-
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                rowIndex={rowIndex}
-                rowSide="right"
-            />
-        </RowWrapper>
+        <RowLayout
+            rowIndex={rowIndex}
+            modulePositions={modulePositions}
+            shouldDisableDropZones={shouldDisableDropZones}
+            modulesAvailableToAdd={modulesAvailableToAdd}
+        />
     );
 }
+
+export default memo(TemplateRow);

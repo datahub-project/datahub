@@ -6,6 +6,42 @@ import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
 import { PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
+// Helper function to find and remove a module from a modules array
+const removeModuleFromArray = (
+    modules: PageModuleFragment[],
+    moduleUrn: string,
+    moduleIndex?: number,
+): PageModuleFragment[] => {
+    const newModules = [...modules];
+
+    // Use moduleIndex for precise removal if available
+    if (moduleIndex !== undefined && moduleIndex >= 0 && moduleIndex < newModules.length) {
+        // Verify the module at this index matches the expected URN as a safety check
+        if (newModules[moduleIndex].urn === moduleUrn) {
+            newModules.splice(moduleIndex, 1);
+            return newModules;
+        }
+    }
+
+    // Fall back to URN search
+    const foundIndex = newModules.findIndex((module) => module.urn === moduleUrn);
+    if (foundIndex !== -1) {
+        newModules.splice(foundIndex, 1);
+    }
+
+    return newModules;
+};
+
+// Helper function to validate position for removal
+const isValidRemovalPosition = (template: PageTemplateFragment | null, position: ModulePositionInput): boolean => {
+    if (!template) return false;
+
+    const rows = template.properties?.rows || [];
+    const { rowIndex } = position;
+
+    return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
+};
+
 export function useTemplateOperations() {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
@@ -16,11 +52,25 @@ export function useTemplateOperations() {
             templateToUpdate: PageTemplateFragment | null,
             module: PageModuleFragment,
             position: ModulePositionInput,
+            isEditingModule: boolean,
         ): PageTemplateFragment | null => {
             if (!templateToUpdate) return null;
 
             const newTemplate = { ...templateToUpdate };
-            const newRows = [...(newTemplate.properties?.rows || [])];
+            let newRows = [...(newTemplate.properties?.rows || [])];
+
+            // Update the existing module in-place for Optimistic UI changes
+            if (isEditingModule && module.urn) {
+                newRows = newRows.map((row) => ({
+                    ...row,
+                    modules: (row.modules || []).map((mod) => (mod.urn === module.urn ? { ...mod, ...module } : mod)),
+                }));
+                newTemplate.properties = {
+                    ...newTemplate.properties,
+                    rows: newRows,
+                };
+                return newTemplate;
+            }
 
             if (position.rowIndex === undefined) {
                 // Add to new row at the end
@@ -48,6 +98,51 @@ export function useTemplateOperations() {
                     row.modules = newModules;
                     newRows[rowIndex] = row;
                 }
+            }
+
+            newTemplate.properties = {
+                ...newTemplate.properties,
+                rows: newRows,
+            };
+
+            return newTemplate;
+        },
+        [],
+    );
+
+    // Helper function to remove a module from template
+    const removeModuleFromTemplate = useCallback(
+        (
+            templateToUpdate: PageTemplateFragment | null,
+            moduleUrn: string,
+            position: ModulePositionInput,
+        ): PageTemplateFragment | null => {
+            if (!isValidRemovalPosition(templateToUpdate, position)) {
+                return templateToUpdate;
+            }
+
+            const newTemplate = { ...templateToUpdate } as PageTemplateFragment;
+            const newRows = [...(newTemplate.properties?.rows || [])];
+            const { rowIndex, moduleIndex } = position;
+
+            const row = { ...newRows[rowIndex!] };
+            const originalModules = row.modules || [];
+
+            // Remove the module using the helper function
+            const updatedModules = removeModuleFromArray(originalModules, moduleUrn, moduleIndex);
+
+            // Check if module was actually removed
+            if (updatedModules.length === originalModules.length) {
+                // Module not found, return original template
+                return templateToUpdate;
+            }
+
+            // If the row is now empty, remove the entire row
+            if (updatedModules.length === 0) {
+                newRows.splice(rowIndex!, 1);
+            } else {
+                row.modules = updatedModules;
+                newRows[rowIndex!] = row;
             }
 
             newTemplate.properties = {
@@ -97,6 +192,7 @@ export function useTemplateOperations() {
 
     return {
         updateTemplateWithModule,
+        removeModuleFromTemplate,
         upsertTemplate,
     };
 }

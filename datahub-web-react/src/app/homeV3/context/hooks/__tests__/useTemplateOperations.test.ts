@@ -68,7 +68,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(2);
@@ -84,7 +84,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -101,7 +101,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'right',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -118,7 +118,7 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(mockTemplate, mockModule, position, false);
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(2);
@@ -148,7 +148,12 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(templateWithoutRows, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(
+                templateWithoutRows,
+                mockModule,
+                position,
+                false,
+            );
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
@@ -164,9 +169,394 @@ describe('useTemplateOperations', () => {
                 rowSide: 'left',
             };
 
-            const updatedTemplate = result.current.updateTemplateWithModule(null, mockModule, position);
+            const updatedTemplate = result.current.updateTemplateWithModule(null, mockModule, position, false);
 
             expect(updatedTemplate).toBeNull();
+        });
+    });
+
+    describe('removeModuleFromTemplate', () => {
+        it('should remove module by moduleIndex when provided', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithMultipleModules: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:1',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                                {
+                                    urn: 'urn:li:pageModule:2',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 1, // Remove second module
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithMultipleModules,
+                'urn:li:pageModule:2',
+                position,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:1');
+        });
+
+        it('should handle duplicate URNs correctly with moduleIndex', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithDuplicateUrns: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:duplicate',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Duplicate Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                                {
+                                    urn: 'urn:li:pageModule:duplicate',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Duplicate Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                                {
+                                    urn: 'urn:li:pageModule:unique',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Unique Module',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 1, // Remove second duplicate module
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithDuplicateUrns,
+                'urn:li:pageModule:duplicate',
+                position,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules).toHaveLength(2);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:duplicate');
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.properties?.name).toBe('Duplicate Module 1');
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[1]?.urn).toBe('urn:li:pageModule:unique');
+        });
+
+        it('should fall back to URN search when moduleIndex is invalid', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithMultipleModules: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:1',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                                {
+                                    urn: 'urn:li:pageModule:2',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 10, // Invalid index, should fall back to URN search
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithMultipleModules,
+                'urn:li:pageModule:2',
+                position,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:1');
+        });
+
+        it('should fall back to URN search when moduleIndex URN does not match', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithMultipleModules: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:1',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                                {
+                                    urn: 'urn:li:pageModule:2',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0, // Points to module 1, but we're looking for module 2
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithMultipleModules,
+                'urn:li:pageModule:2',
+                position,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:1');
+        });
+
+        it('should remove entire row when last module is removed', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithSingleModule: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:1',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:2',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithSingleModule,
+                'urn:li:pageModule:1',
+                position,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(1);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:2');
+        });
+
+        it('should return original template when module is not found', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                mockTemplate,
+                'urn:li:pageModule:nonexistent',
+                position,
+            );
+
+            expect(updatedTemplate).toBe(mockTemplate);
+        });
+
+        it('should return original template when rowIndex is invalid', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const position: ModulePositionInput = {
+                rowIndex: 5, // Invalid index
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                mockTemplate,
+                'urn:li:pageModule:1',
+                position,
+            );
+
+            expect(updatedTemplate).toBe(mockTemplate);
+        });
+
+        it('should return original template when rowIndex is undefined', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const position: ModulePositionInput = {
+                rowIndex: undefined,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                mockTemplate,
+                'urn:li:pageModule:1',
+                position,
+            );
+
+            expect(updatedTemplate).toBe(mockTemplate);
+        });
+
+        it('should return original template when template is null', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(null, 'urn:li:pageModule:1', position);
+
+            expect(updatedTemplate).toBeNull();
+        });
+
+        it('should handle edge case with no modules in row', () => {
+            const { result } = renderHook(() => useTemplateOperations());
+
+            const templateWithEmptyRow: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithEmptyRow,
+                'urn:li:pageModule:1',
+                position,
+            );
+
+            expect(updatedTemplate).toBe(templateWithEmptyRow);
         });
     });
 

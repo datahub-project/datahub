@@ -86,8 +86,11 @@ const mockSetPersonalTemplate = vi.fn();
 const mockSetGlobalTemplate = vi.fn();
 const mockSetTemplate = vi.fn();
 const mockAddModule = vi.fn();
-const mockCreateModule = vi.fn();
+const mockRemoveModule = vi.fn();
+const mockUpsertModule = vi.fn();
+const mockMoveModule = vi.fn();
 const mockUpdateTemplateWithModule = vi.fn();
+const mockRemoveModuleFromTemplate = vi.fn();
 const mockUpsertTemplate = vi.fn();
 
 describe('PageTemplateContext', () => {
@@ -108,12 +111,15 @@ describe('PageTemplateContext', () => {
 
         mockUseTemplateOperations.mockReturnValue({
             updateTemplateWithModule: mockUpdateTemplateWithModule,
+            removeModuleFromTemplate: mockRemoveModuleFromTemplate,
             upsertTemplate: mockUpsertTemplate,
         });
 
         mockUseModuleOperations.mockReturnValue({
             addModule: mockAddModule,
-            createModule: mockCreateModule,
+            removeModule: mockRemoveModule,
+            upsertModule: mockUpsertModule,
+            moveModule: mockMoveModule,
         });
     });
 
@@ -177,7 +183,9 @@ describe('PageTemplateContext', () => {
                 mockSetPersonalTemplate,
                 mockSetGlobalTemplate,
                 mockUpdateTemplateWithModule,
+                mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
+                false,
             );
         });
 
@@ -274,7 +282,9 @@ describe('PageTemplateContext', () => {
                 mockSetPersonalTemplate,
                 mockSetGlobalTemplate,
                 mockUpdateTemplateWithModule,
+                mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
+                false,
             );
         });
 
@@ -322,7 +332,13 @@ describe('PageTemplateContext', () => {
             expect(result.current.setGlobalTemplate).toBe(mockSetGlobalTemplate);
             expect(result.current.setTemplate).toBe(mockSetTemplate);
             expect(result.current.addModule).toBe(mockAddModule);
-            expect(result.current.createModule).toBe(mockCreateModule);
+            expect(result.current.upsertModule).toBe(mockUpsertModule);
+            expect(result.current.moduleModalState).toMatchObject({
+                isOpen: false,
+                isEditing: false,
+                open: expect.any(Function),
+                close: expect.any(Function),
+            });
         });
 
         it('should throw error when used outside provider', () => {
@@ -366,7 +382,7 @@ describe('PageTemplateContext', () => {
             expect(mockAddModule).toHaveBeenCalledWith(moduleInput);
         });
 
-        it('should provide working createModule function', () => {
+        it('should provide working upsertModule function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
                 wrapper: ({ children }) => (
                     <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
@@ -375,7 +391,7 @@ describe('PageTemplateContext', () => {
                 ),
             });
 
-            const createModuleInput = {
+            const upsertModuleInput = {
                 name: 'New Module',
                 type: DataHubPageModuleType.Link,
                 scope: PageModuleScope.Personal,
@@ -387,10 +403,10 @@ describe('PageTemplateContext', () => {
             };
 
             act(() => {
-                result.current.createModule(createModuleInput);
+                result.current.upsertModule(upsertModuleInput);
             });
 
-            expect(mockCreateModule).toHaveBeenCalledWith(createModuleInput);
+            expect(mockUpsertModule).toHaveBeenCalledWith(upsertModuleInput);
         });
 
         it('should provide working setIsEditingGlobalTemplate function', () => {

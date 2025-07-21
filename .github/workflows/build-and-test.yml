@@ -57,7 +57,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup
     steps:
@@ -107,14 +107,13 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test \
-            --parallel
+            -x :metadata-integration:java:datahub-schematron:cli:test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
+          ./gradlew :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle compile (jdk8) for legacy Spark

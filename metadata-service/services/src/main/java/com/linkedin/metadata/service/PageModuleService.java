@@ -1,11 +1,13 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubPageModuleKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -193,6 +195,11 @@ public class PageModuleService {
       throw new IllegalArgumentException(
           String.format(
               "Attempted to delete a page module that does not exist with urn %s", moduleUrn));
+    }
+
+    if (properties.getVisibility().getScope().equals(PageModuleScope.GLOBAL)
+        && AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException("User is unauthorized to delete global modules.");
     }
 
     if (properties.getVisibility().getScope().equals(PageModuleScope.PERSONAL)
