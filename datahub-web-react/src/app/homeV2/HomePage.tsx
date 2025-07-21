@@ -21,6 +21,7 @@ import {
     V2_SEARCH_BAR_VIEWS,
 } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchablePage } from '@app/searchV2/SearchablePage';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -62,11 +63,13 @@ export const HomePage = () => {
                 ]}
             />
             <SearchablePage>
-                <Container data-testid="home-page-content-container" $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    <LeftSidebar />
-                    <CenterContent />
-                    <RightSidebar />
-                </Container>
+                <ErrorBoundary>
+                    <Container data-testid="home-page-content-container" $isShowNavBarRedesign={isShowNavBarRedesign}>
+                        <LeftSidebar />
+                        <CenterContent />
+                        <RightSidebar />
+                    </Container>
+                </ErrorBoundary>
             </SearchablePage>
             <PersonalizationLoadingModal />
         </>

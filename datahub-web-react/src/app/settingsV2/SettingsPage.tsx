@@ -23,6 +23,7 @@ import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { useSubscriptionsEnabled } from '@app/settingsV2/personal/notifications/utils';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -320,14 +321,16 @@ export const SettingsPage = () => {
             </NavBarContainer>
             {/* Main Content */}
             <ContentContainer>
-                <Switch>
-                    <Route exact path={path}>
-                        <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
-                    </Route>
-                    {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
-                    ))}
-                </Switch>
+                <ErrorBoundary resetKeys={[pathname]} variant="tab">
+                    <Switch>
+                        <Route exact path={path}>
+                            <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
+                        </Route>
+                        {PATHS.map((p) => (
+                            <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
+                        ))}
+                    </Switch>
+                </ErrorBoundary>
             </ContentContainer>
         </PageContainer>
     );

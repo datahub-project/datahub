@@ -11,6 +11,7 @@ import FormsTab from '@app/govern/Dashboard/Forms/FormsTab';
 import { useGetFormsData } from '@app/govern/Dashboard/Forms/useGetFormsData';
 import { MissingPermissions } from '@app/govern/Dashboard/charts/AuxViews';
 import { Header, Layout } from '@app/govern/Dashboard/components';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
@@ -177,7 +178,9 @@ export const TabLayout = () => {
                     {documentationTabs.map((tab) => {
                         return (
                             <TabPane tab={tab.name} key={tab.key}>
-                                {tab.component}
+                                <ErrorBoundary variant="tab" resetKeys={[tab.key]}>
+                                    {tab.component}
+                                </ErrorBoundary>
                             </TabPane>
                         );
                     })}

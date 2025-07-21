@@ -319,6 +319,14 @@ type HomePageConfig {
 }
 
 """
+Configurations related to the Datahub server
+"""
+type DataHubConfig {
+  serverType: String
+  serverEnv: String!
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -344,6 +352,11 @@ type AppConfig {
   policiesConfig: PoliciesConfig!
 
   actionRequestsConfig: ActionRequestsConfig!
+
+  """
+  Configurations related to the Datahub server
+  """
+  dataHubConfig: DataHubConfig!
 
   """
   Configurations related to the User & Group management

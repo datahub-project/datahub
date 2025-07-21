@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { colors } from '@src/alchemy-components/theme';
 
 const StyledTabsPrimary = styled(AntTabs)<{
@@ -263,7 +264,9 @@ export function Tabs({
             {tabs.map((tab) => {
                 return (
                     <TabPane tab={<TabView tab={tab} />} key={tab.key} disabled={tab.disabled}>
-                        {tab.component}
+                        <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+                            {tab.component}
+                        </ErrorBoundary>
                     </TabPane>
                 );
             })}

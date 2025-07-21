@@ -83,6 +83,9 @@ query appConfig {
         homePageConfig {
             firstInPersonalSidebar
         }
+        dataHubConfig {
+            serverEnv
+        }
         classificationConfig {
             enabled
             automations {

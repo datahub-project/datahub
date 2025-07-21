@@ -32,6 +32,7 @@ const Content = styled.div`
     }
     color: #262626;
     display: flex;
+    flex: 1;
     flex-direction: column;
     overflow: auto;
 

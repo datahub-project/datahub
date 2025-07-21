@@ -5,6 +5,8 @@ import { Redirect, useHistory } from 'react-router';
 import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+
 const { TabPane } = Tabs;
 
 interface Props extends TabsProps {
@@ -70,16 +72,18 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
                 </Route>
-                <RouteContainer>
-                    {tabs.map((tab) => (
-                        <Route
-                            exact
-                            path={`${path}/${tab.path.replace('/', '')}`}
-                            render={() => tab.content}
-                            key={tab.path}
-                        />
-                    ))}
-                </RouteContainer>
+                <ErrorBoundary resetKeys={[activePath]} variant="tab">
+                    <RouteContainer>
+                        {tabs.map((tab) => (
+                            <Route
+                                exact
+                                path={`${path}/${tab.path.replace('/', '')}`}
+                                render={() => tab.content}
+                                key={tab.path}
+                            />
+                        ))}
+                    </RouteContainer>
+                </ErrorBoundary>
             </Switch>
         </RoutedTabsStyle>
     );

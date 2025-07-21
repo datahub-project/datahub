@@ -7,6 +7,7 @@ import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sideb
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 export const StyledEntitySidebarContainer = styled.div<{
@@ -153,18 +154,20 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed} data-testid="entity-profile-sidebar-container">
-                    <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
-                    <Body>
-                        {selectedTab && (
-                            <Content>
-                                <selectedTab.component
-                                    properties={selectedTab.properties}
-                                    renderType={TabRenderType.COMPACT}
-                                    contextType={contextType}
-                                />
-                            </Content>
-                        )}
-                    </Body>
+                    <ErrorBoundary variant="sidebar" resetKeys={[selectedTab?.name || '']}>
+                        <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
+                        <Body>
+                            {selectedTab && (
+                                <Content>
+                                    <selectedTab.component
+                                        properties={selectedTab.properties}
+                                        renderType={TabRenderType.COMPACT}
+                                        contextType={contextType}
+                                    />
+                                </Content>
+                            )}
+                        </Body>
+                    </ErrorBoundary>
                 </ContentContainer>
                 <TabsContainer>
                     <Tabs>

@@ -61,6 +61,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
+    dataHubConfig: {
+        serverEnv: 'cloud',
+    },
     classificationConfig: {
         enabled: false,
         automations: {
