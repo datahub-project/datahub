@@ -1,3 +1,4 @@
+import { useDndContext } from '@dnd-kit/core';
 import React, { memo } from 'react';
 
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
@@ -13,12 +14,21 @@ interface Props {
 
 function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
     const { modulePositions, shouldDisableDropZones, isSmallRow } = useTemplateRowLogic(row, rowIndex);
+    const { active } = useDndContext();
+    const isActiveModuleSmall = active?.data?.current?.isSmall;
+
+    const isDropAllowed =
+        !active ||
+        isSmallRow == null || // empty row
+        isActiveModuleSmall === isSmallRow;
+
+    const isDropZoneDisabled = shouldDisableDropZones || !isDropAllowed;
 
     return (
         <RowLayout
             rowIndex={rowIndex}
             modulePositions={modulePositions}
-            shouldDisableDropZones={shouldDisableDropZones}
+            shouldDisableDropZones={isDropZoneDisabled}
             modulesAvailableToAdd={modulesAvailableToAdd}
             isSmallRow={isSmallRow}
         />

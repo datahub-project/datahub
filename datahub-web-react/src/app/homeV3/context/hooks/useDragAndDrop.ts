@@ -22,6 +22,7 @@ export interface DroppableData {
 export interface ActiveDragModule {
     module: PageModuleFragment;
     position: ModulePositionInput;
+    isSmall: boolean;
 }
 
 export function useDragAndDrop() {
@@ -35,6 +36,7 @@ export function useDragAndDrop() {
             | {
                   module?: PageModuleFragment;
                   position?: ModulePositionInput;
+                  isSmall: boolean;
               }
             | undefined;
 
@@ -42,6 +44,7 @@ export function useDragAndDrop() {
             setActiveModule({
                 module: draggedData.module,
                 position: draggedData.position,
+                isSmall: draggedData.isSmall,
             });
         }
     }, []);

@@ -41,7 +41,7 @@ export function useTemplateRowLogic(row: WrappedRow, rowIndex: number) {
     );
 
     const isSmallRow = useMemo(
-        () => (row.modules.length > 0 ? SMALL_MODULE_TYPES.includes(row.modules[0].properties.type) : undefined),
+        () => (row.modules.length > 0 ? SMALL_MODULE_TYPES.includes(row.modules[0].properties.type) : null),
         [row.modules],
     );
 

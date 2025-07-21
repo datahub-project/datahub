@@ -26,7 +26,7 @@ interface Props {
     modulePositions: ModulePosition[];
     shouldDisableDropZones: boolean;
     modulesAvailableToAdd: ModulesAvailableToAdd;
-    isSmallRow?: boolean;
+    isSmallRow: boolean | null;
 }
 
 interface ModuleWrapperProps {

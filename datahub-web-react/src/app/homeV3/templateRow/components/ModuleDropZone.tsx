@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import React, { memo } from 'react';
 import styled from 'styled-components';
 
-const DropZone = styled.div<{ $isOver?: boolean; $canDrop?: boolean; $isSmall?: boolean }>`
+const DropZone = styled.div<{ $isOver?: boolean; $canDrop?: boolean; $isSmall?: boolean | null }>`
     height: ${(props) => (props.$isSmall ? '64px' : '316px')};
     transition: all 0.2s ease;
 
@@ -24,7 +24,7 @@ interface Props {
     rowIndex: number;
     moduleIndex?: number;
     disabled?: boolean;
-    isSmall?: boolean;
+    isSmall: boolean | null;
 }
 
 function ModuleDropZone({ rowIndex, moduleIndex, disabled, isSmall }: Props) {
