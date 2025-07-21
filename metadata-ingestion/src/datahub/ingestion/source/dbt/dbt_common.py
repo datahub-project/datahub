@@ -515,7 +515,7 @@ class DBTNode:
     raw_code: Optional[str]
 
     dbt_adapter: str
-    dbt_name: str
+    dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
@@ -1039,7 +1039,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         message="We found a dbt model and dbt source with the same name. To ensure reliable lineage generation, the source node was ignored. "
                         "If you associated documentation/tags/other metadata with the source, it will be lost. "
                         "To avoid this, you should remove the source node from your dbt project and replace any `source()` calls with `ref()`.",
-                        context=node.get_db_fqn(),
+                        context=f"{node.dbt_name} (called {node.get_db_fqn()} in {self.config.target_platform})",
                     )
                 else:
                     nodes.append(node)
