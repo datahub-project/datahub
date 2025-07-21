@@ -346,7 +346,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
-                                totalPages={totalSecrets}
+                                total={totalSecrets}
                                 onPageChange={onChangePage}
                             />
                         </PaginationContainer>

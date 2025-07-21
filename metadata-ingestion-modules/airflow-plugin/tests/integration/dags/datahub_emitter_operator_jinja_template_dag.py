@@ -29,7 +29,6 @@ with DAG(
     schedule_interval=None,
     tags=["example_tag"],
     catchup=False,
-    default_view="tree",
 ):
     add_custom_properties = DatahubEmitterOperator(
         task_id="datahub_emitter_operator_jinja_template_dag_task",

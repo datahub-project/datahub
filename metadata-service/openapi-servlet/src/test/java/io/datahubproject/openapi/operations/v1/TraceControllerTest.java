@@ -20,7 +20,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;
 import io.datahubproject.openapi.v1.models.TraceResponseV1;
@@ -239,10 +239,10 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-      TraceContext traceContext = mock(TraceContext.class);
+      SystemTelemetryContext systemTelemetryContext = mock(SystemTelemetryContext.class);
       return TestOperationContexts.systemContextTraceNoSearchAuthorization(
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-          () -> traceContext);
+          () -> systemTelemetryContext);
     }
 
     @Bean
@@ -253,9 +253,9 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
     }
 
     @Bean

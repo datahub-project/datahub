@@ -271,14 +271,25 @@ public interface AspectDao {
     return runInTransactionWithRetry(block, maxTransactionRetry);
   }
 
-  default void incrementWriteMetrics(String aspectName, long count, long bytes) {
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)))
-        .inc(count);
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)))
-        .inc(bytes);
+  default void incrementWriteMetrics(
+      OperationContext opContext, String aspectName, long count, long bytes) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)),
+                    count));
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
+                    bytes));
   }
 }

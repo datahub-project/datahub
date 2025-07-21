@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHubPageModule
+ */
+@Aspect = {
+  "name": "dataHubPageModuleKey",
+}
+record DataHubPageModuleKey {
+  /**
+  * Unique id for the module.
+  */
+  id: string
+}

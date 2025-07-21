@@ -60,7 +60,7 @@ def test_create_list_get_domain(auth_session):
               }\n
             }\n
         }""",
-        "variables": {"input": {"start": "0", "count": "20"}},
+        "variables": {"input": {"start": 0, "count": 20}},
     }
 
     response = auth_session.post(

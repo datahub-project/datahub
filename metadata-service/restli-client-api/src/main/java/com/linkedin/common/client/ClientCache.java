@@ -1,17 +1,15 @@
 package com.linkedin.common.client;
 
-import com.codahale.metrics.Gauge;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
-import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.linkedin.metadata.config.cache.client.ClientCacheConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -57,7 +55,7 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
       return null;
     }
 
-    public ClientCache<K, V, C> build(Class<?> metricClazz) {
+    public ClientCache<K, V, C> build(MetricUtils metricUtils, Class<?> metricClazz) {
       // loads data from entity client
       CacheLoader<K, V> loader =
           new CacheLoader<K, V>() {
@@ -109,35 +107,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
 
       LoadingCache<K, V> cache = caffeine.build(loader);
 
-      if (config.isStatsEnabled()) {
-        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
-        executor.scheduleAtFixedRate(
-            () -> {
-              CacheStats cacheStats = cache.stats();
-
-              MetricUtils.gauge(metricClazz, "hitRate", () -> (Gauge<Double>) cacheStats::hitRate);
-              MetricUtils.gauge(
-                  metricClazz,
-                  "loadFailureRate",
-                  () -> (Gauge<Double>) cacheStats::loadFailureRate);
-              MetricUtils.gauge(
-                  metricClazz, "evictionCount", () -> (Gauge<Long>) cacheStats::evictionCount);
-              MetricUtils.gauge(
-                  metricClazz,
-                  "loadFailureCount",
-                  () -> (Gauge<Long>) cacheStats::loadFailureCount);
-              MetricUtils.gauge(
-                  metricClazz,
-                  "averageLoadPenalty",
-                  () -> (Gauge<Double>) cacheStats::averageLoadPenalty);
-              MetricUtils.gauge(
-                  metricClazz, "evictionWeight", () -> (Gauge<Long>) cacheStats::evictionWeight);
-
-              log.debug(metricClazz.getSimpleName() + ": " + cacheStats);
-            },
-            0,
-            config.getStatsIntervalSeconds(),
-            TimeUnit.SECONDS);
+      if (config.isStatsEnabled() && metricUtils != null) {
+        MicrometerMetricsRegistry.registerCacheMetrics(
+            config.getName(), cache, metricUtils.getRegistry().orElse(null));
       }
 
       return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction);

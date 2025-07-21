@@ -9,7 +9,7 @@ import styled from 'styled-components/macro';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -124,7 +124,7 @@ function LastIngested({ lastIngested }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const lastIngestedColor = getLastIngestedColor(lastIngested);
-    const platformName = getPlatformName(entityData);
+    const platformName = getPlatformNameFromEntityData(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
 
     return (

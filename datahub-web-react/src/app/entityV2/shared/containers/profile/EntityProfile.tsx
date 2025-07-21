@@ -30,13 +30,7 @@ import {
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
-import {
-    EntitySidebarSection,
-    EntitySidebarTab,
-    EntityTab,
-    TabContextType,
-    TabRenderType,
-} from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import LineageExplorer from '@app/lineage/LineageExplorer';
@@ -155,6 +149,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    padding-top: 12px;
     background-color: #ffffff;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -167,15 +162,6 @@ const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
             : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
     height: 100%;
     overflow: hidden;
-`;
-
-const TabsWrapper = styled.div``;
-
-const TabContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: auto;
 `;
 
 const StyledAlert = styled(Alert)`
@@ -406,20 +392,7 @@ export const EntityProfile = <T, U>({
                                     )}
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                                            {!isTabFullsize && (
-                                                <TabsWrapper>
-                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                </TabsWrapper>
-                                            )}
-                                            <TabContent>
-                                                {routedTab && (
-                                                    <routedTab.component
-                                                        properties={routedTab.properties}
-                                                        contextType={TabContextType.PROFILE}
-                                                        renderType={TabRenderType.DEFAULT}
-                                                    />
-                                                )}
-                                            </TabContent>
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                         </BodyContent>
                                     </Body>
                                 </HeaderAndTabsFlex>

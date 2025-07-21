@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
-import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
@@ -35,7 +34,6 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformIcon = properties?.platform?.properties?.logoUrl;
 
-    const { contentRef, isContentTruncated } = useContentTruncation(properties);
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);
 
     return (
@@ -45,17 +43,14 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
             <TextWrapper>
                 <Text size="lg">{entityRegistry.getDisplayName(entity.type, entity)}</Text>
                 <ContextPath
-                    instanceId={properties?.dataPlatformInstance?.instanceId}
                     entityType={entity.type}
-                    type={displayedEntityType}
+                    displayedEntityType={displayedEntityType}
                     browsePaths={properties?.browsePathV2}
                     parentEntities={
                         properties?.parentContainers?.containers ||
                         properties?.parentDomains?.domains ||
                         properties?.parentNodes?.nodes
                     }
-                    contentRef={contentRef}
-                    isContentTruncated={isContentTruncated}
                     linksDisabled
                 />
             </TextWrapper>

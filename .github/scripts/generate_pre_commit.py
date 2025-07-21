@@ -195,7 +195,7 @@ class HookGenerator:
             "name": f"{project.path} Lint Fix",
             "entry": f"./gradlew {project.gradle_path}:lintFix",
             "language": "system",
-            "files": f"^{project.path}/.*\\.py$",
+            "files": f"^{project.path}/.*\\.(py|toml)$",
             "pass_filenames": False,
         }
 

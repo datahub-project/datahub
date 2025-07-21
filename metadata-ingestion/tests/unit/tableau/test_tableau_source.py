@@ -612,13 +612,8 @@ def test_tableau_upstream_reference():
     assert ref.table == "TABLE1"
     assert ref.connection_type == "snowflake"
 
-    try:
-        ref = TableauUpstreamReference.create(None)  # type: ignore[arg-type]
-        raise AssertionError(
-            "TableauUpstreamReference.create with None should have raised exception"
-        )
-    except ValueError:
-        assert True
+    with pytest.raises(ValueError):
+        TableauUpstreamReference.create(None)  # type: ignore[arg-type]
 
 
 class TestTableauPageSizeConfig:

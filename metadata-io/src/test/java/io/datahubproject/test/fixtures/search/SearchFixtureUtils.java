@@ -127,7 +127,7 @@ public class SearchFixtureUtils {
   private void reindexTestFixtureData() throws IOException {
     ESBulkProcessor bulkProcessor =
         ESBulkProcessor.builder(
-                new RestHighLevelClient(SearchTestUtils.environmentRestClientBuilder()))
+                new RestHighLevelClient(SearchTestUtils.environmentRestClientBuilder()), null)
             .async(true)
             .bulkRequestsLimit(1000)
             .retryInterval(1L)

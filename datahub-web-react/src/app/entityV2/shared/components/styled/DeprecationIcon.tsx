@@ -75,16 +75,6 @@ const IconGroup = styled.div`
     }
 `;
 
-const StyledDeprecatedIcon = styled(DeprecatedIcon)`
-    color: inherit;
-    path {
-        fill: currentColor;
-    }
-    && {
-        fill: currentColor;
-    }
-`;
-
 type Props = {
     urn: string;
     subResource?: string | null;
@@ -218,7 +208,7 @@ export const DeprecationIcon = ({
             }
         >
             <DeprecatedContainer>
-                <StyledDeprecatedIcon />
+                <DeprecatedIcon />
                 {showText ? 'Deprecated' : null}
             </DeprecatedContainer>
         </StructuredPopover>

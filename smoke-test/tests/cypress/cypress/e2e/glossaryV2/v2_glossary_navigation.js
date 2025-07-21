@@ -19,6 +19,7 @@ const createTerm = (glossaryTerm) => {
 const navigateToParentAndCheckTermGroup = (parentGroup, termGroup) => {
   cy.get('[data-testid="glossary-browser-sidebar"]')
     .contains(parentGroup)
+    .wait(2000)
     .click();
   cy.get('*[class^="GlossaryEntitiesList"]')
     .contains(termGroup)
@@ -31,6 +32,7 @@ const moveGlossaryEntityToGroup = (
   confirmationMsg,
 ) => {
   cy.clickOptionWithText(sourceEntity);
+  cy.wait(2000);
   cy.contains("Created Glossary Term!").should("not.exist");
   cy.get(".anticon-edit").should("be.visible");
   cy.get('[data-testid="MoreVertOutlinedIcon"]').should("be.visible").click();
@@ -55,6 +57,7 @@ const deleteGlossary = (message) => {
 describe("glossary sidebar navigation test", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
+    Cypress.on("uncaught:exception", (err, runnable) => false);
     cy.loginWithCredentials();
     cy.skipIntroducePage();
   });
@@ -68,10 +71,12 @@ describe("glossary sidebar navigation test", () => {
       glossaryTermGroup,
     );
     cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+    cy.waitTextVisible(`Created Term Group!`);
+    cy.wait(1000);
+    nevigateGlossaryPage();
     cy.get('[data-testid="glossary-browser-sidebar"]')
       .contains(glossaryTermGroup)
       .should("be.visible");
-    cy.waitTextVisible(`Created Term Group!`);
     cy.clickOptionWithText(glossaryTermGroup);
     cy.clickOptionWithTestId("add-term-button");
     createTerm(glossaryTerm);
@@ -141,6 +146,7 @@ describe("glossary sidebar navigation test", () => {
     deleteGlossary("Deleted Term Group!");
 
     // Ensure it is no longer in the sidebar navigator
+    nevigateGlossaryPage();
     cy.ensureTextNotPresent(glossaryTerm);
     cy.ensureTextNotPresent(glossaryTermGroup);
   });

@@ -71,6 +71,7 @@ public class EntitiesController {
   private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
+  @Nullable private final MetricUtils metricUtils;
 
   public EntitiesController(
       OperationContext systemOperationContext,
@@ -78,6 +79,7 @@ public class EntitiesController {
       ObjectMapper _objectMapper,
       AuthorizerChain _authorizerChain) {
     this.systemOperationContext = systemOperationContext;
+    this.metricUtils = systemOperationContext.getMetricUtils().orElse(null);
     this._entityService = _entityService;
     this._objectMapper = _objectMapper;
     this._authorizerChain = _authorizerChain;
@@ -161,10 +163,12 @@ public class EntitiesController {
               entityUrns, projectedAspects),
           e);
     } finally {
-      if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+      if (metricUtils != null) {
+        if (exceptionally != null) {
+          metricUtils.increment(MetricRegistry.name("getEntities", "failed"), 1);
+        } else {
+          metricUtils.increment(MetricRegistry.name("getEntities", "success"), 1);
+        }
       }
     }
   }
@@ -336,10 +340,12 @@ public class EntitiesController {
       throw new RuntimeException(
           String.format("Failed to batch delete entities with urns: %s", Arrays.asList(urns)), e);
     } finally {
-      if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+      if (metricUtils != null) {
+        if (exceptionally != null) {
+          metricUtils.increment(MetricRegistry.name("getEntities", "failed"), 1);
+        } else {
+          metricUtils.increment(MetricRegistry.name("getEntities", "success"), 1);
+        }
       }
     }
   }

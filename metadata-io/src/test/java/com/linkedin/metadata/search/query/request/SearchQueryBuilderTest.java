@@ -6,8 +6,10 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -15,6 +17,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
@@ -22,14 +25,19 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.FieldConfiguration;
+import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
@@ -39,7 +47,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.mockito.Mockito;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
@@ -436,7 +443,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         Optional.of(1.0F));
 
     EntitySpec mockEntitySpec = mock(EntitySpec.class);
-    Mockito.when(mockEntitySpec.getSearchableFieldSpecs())
+    when(mockEntitySpec.getSearchableFieldSpecs())
         .thenReturn(
             List.of(
                 new SearchableFieldSpec(
@@ -576,5 +583,309 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .stream()
             .allMatch(SearchFieldConfig::isQueryByDefault),
         "Expect all search fields to be queryByDefault.");
+  }
+
+  @Test
+  public void testSearchFieldConfigurationInSimpleQuery() {
+    // Create a custom configuration with field configurations
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "minimal",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder()
+                                .replace(List.of("keyPart1", "textFieldOverride"))
+                                .build())
+                        .build()))
+            .queryConfigurations(
+                List.of(QueryConfiguration.builder().queryRegex(".*").simpleQuery(true).build()))
+            .build();
+
+    SearchQueryBuilder builderWithFieldConfig =
+        new SearchQueryBuilder(testQueryConfig, customConfig);
+
+    // Create operation context with field configuration
+    OperationContext opContextWithFieldConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFulltext(true).setFieldConfiguration("minimal");
+
+    when(opContextWithFieldConfig.getEntityRegistry())
+        .thenReturn(operationContext.getEntityRegistry());
+    when(opContextWithFieldConfig.getObjectMapper()).thenReturn(operationContext.getObjectMapper());
+    when(opContextWithFieldConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            builderWithFieldConfig.buildQuery(
+                opContextWithFieldConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                true);
+
+    BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+    BoolQueryBuilder shouldQuery = (BoolQueryBuilder) mainQuery.should().get(0);
+    SimpleQueryStringBuilder simpleQuery =
+        (SimpleQueryStringBuilder)
+            shouldQuery.should().stream()
+                .filter(q -> q instanceof SimpleQueryStringBuilder)
+                .findFirst()
+                .orElse(null);
+
+    assertNotNull(simpleQuery);
+    Map<String, Float> fields = simpleQuery.fields();
+
+    // Should only contain the replaced fields
+    assertTrue(fields.containsKey("keyPart1"));
+    assertTrue(fields.containsKey("textFieldOverride"));
+    assertFalse(fields.containsKey("customProperties"));
+    assertFalse(fields.containsKey("textArrayField"));
+  }
+
+  @Test
+  public void testSearchFieldConfigurationWithAddRemove() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "custom",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder()
+                                .add(List.of("nestedForeignKey"))
+                                .remove(List.of("customProperties", "textArrayField"))
+                                .build())
+                        .build()))
+            .queryConfigurations(
+                List.of(QueryConfiguration.builder().queryRegex(".*").simpleQuery(true).build()))
+            .build();
+
+    SearchQueryBuilder builderWithFieldConfig =
+        new SearchQueryBuilder(testQueryConfig, customConfig);
+
+    // Create operation context with field configuration
+    OperationContext opContextWithFieldConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFulltext(true).setFieldConfiguration("custom");
+
+    when(opContextWithFieldConfig.getEntityRegistry())
+        .thenReturn(operationContext.getEntityRegistry());
+    when(opContextWithFieldConfig.getObjectMapper()).thenReturn(operationContext.getObjectMapper());
+    when(opContextWithFieldConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            builderWithFieldConfig.buildQuery(
+                opContextWithFieldConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                true);
+
+    BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+    BoolQueryBuilder shouldQuery = (BoolQueryBuilder) mainQuery.should().get(0);
+
+    // Collect all fields from simple query string builders
+    Set<String> allFields =
+        shouldQuery.should().stream()
+            .filter(q -> q instanceof SimpleQueryStringBuilder)
+            .flatMap(q -> ((SimpleQueryStringBuilder) q).fields().keySet().stream())
+            .collect(Collectors.toSet());
+
+    // nestedForeignKey should be added (it's not queryByDefault normally)
+    assertTrue(allFields.contains("nestedForeignKey"));
+    // customProperties and textArrayField should be removed
+    assertFalse(allFields.contains("customProperties"));
+    assertFalse(allFields.contains("textArrayField"));
+    // Other fields should still be present
+    assertTrue(allFields.contains("keyPart1"));
+    assertTrue(allFields.contains("urn"));
+  }
+
+  @Test
+  public void testSearchFieldConfigurationWithWildcardPatterns() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "wildcard",
+                    FieldConfiguration.builder()
+                        .searchFields(SearchFields.builder().add(List.of("nestedArray.*")).build())
+                        .build()))
+            .queryConfigurations(
+                List.of(QueryConfiguration.builder().queryRegex(".*").simpleQuery(true).build()))
+            .build();
+
+    SearchQueryBuilder builderWithFieldConfig =
+        new SearchQueryBuilder(testQueryConfig, customConfig);
+
+    // Mock context with field configuration
+    OperationContext opContextWithFieldConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags = new SearchFlags().setFulltext(true).setFieldConfiguration("wildcard");
+
+    when(opContextWithFieldConfig.getEntityRegistry())
+        .thenReturn(operationContext.getEntityRegistry());
+    when(opContextWithFieldConfig.getObjectMapper()).thenReturn(operationContext.getObjectMapper());
+    when(opContextWithFieldConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Get the fields that would be configured
+    Set<SearchFieldConfig> baseFields =
+        builderWithFieldConfig.getStandardFields(
+            operationContext.getEntityRegistry(),
+            ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+
+    // The pattern should match fields starting with "nestedArray."
+    assertTrue(baseFields.stream().anyMatch(f -> f.fieldName().equals("nestedArrayStringField")));
+    assertTrue(baseFields.stream().anyMatch(f -> f.fieldName().equals("nestedArrayArrayField")));
+  }
+
+  @Test
+  public void testSearchFieldConfigurationWithInvalidLabel() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "valid",
+                    FieldConfiguration.builder()
+                        .searchFields(SearchFields.builder().replace(List.of("keyPart1")).build())
+                        .build()))
+            .queryConfigurations(
+                List.of(QueryConfiguration.builder().queryRegex(".*").simpleQuery(true).build()))
+            .build();
+
+    SearchQueryBuilder builderWithFieldConfig =
+        new SearchQueryBuilder(testQueryConfig, customConfig);
+
+    // Test with invalid field configuration label
+    OperationContext opContextWithInvalidConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags =
+        new SearchFlags().setFulltext(true).setFieldConfiguration("nonexistent");
+
+    when(opContextWithInvalidConfig.getEntityRegistry())
+        .thenReturn(operationContext.getEntityRegistry());
+    when(opContextWithInvalidConfig.getObjectMapper())
+        .thenReturn(operationContext.getObjectMapper());
+    when(opContextWithInvalidConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Should use default fields when label doesn't exist
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            builderWithFieldConfig.buildQuery(
+                opContextWithInvalidConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                true);
+
+    BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+    BoolQueryBuilder shouldQuery = (BoolQueryBuilder) mainQuery.should().get(0);
+
+    // Should have all default fields since invalid label falls back to defaults
+    Set<String> allFields =
+        shouldQuery.should().stream()
+            .filter(q -> q instanceof SimpleQueryStringBuilder)
+            .flatMap(q -> ((SimpleQueryStringBuilder) q).fields().keySet().stream())
+            .collect(Collectors.toSet());
+
+    assertTrue(allFields.contains("customProperties"));
+    assertTrue(allFields.contains("textArrayField"));
+    assertTrue(allFields.contains("keyPart1"));
+  }
+
+  @Test
+  public void testSearchFieldConfigurationNullSafety() {
+    SearchQueryBuilder builderWithNullConfig = new SearchQueryBuilder(testQueryConfig, null);
+
+    // Test with null field configuration in search flags
+    OperationContext opContextNullConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags =
+        new SearchFlags().setFulltext(true).setFieldConfiguration(null, SetMode.REMOVE_IF_NULL);
+
+    when(opContextNullConfig.getEntityRegistry()).thenReturn(operationContext.getEntityRegistry());
+    when(opContextNullConfig.getObjectMapper()).thenReturn(operationContext.getObjectMapper());
+    when(opContextNullConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Should not throw and should use default behavior
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            builderWithNullConfig.buildQuery(
+                opContextNullConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                true);
+
+    assertNotNull(result);
+
+    // Test with null search flags
+    when(searchContext.getSearchFlags()).thenReturn(null);
+
+    FunctionScoreQueryBuilder resultNullFlags =
+        (FunctionScoreQueryBuilder)
+            builderWithNullConfig.buildQuery(
+                opContextNullConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                true);
+
+    assertNotNull(resultNullFlags);
+  }
+
+  @Test
+  public void testFieldConfigurationWithStructuredQuery() {
+    CustomSearchConfiguration customConfig =
+        CustomSearchConfiguration.builder()
+            .fieldConfigurations(
+                Map.of(
+                    "structured",
+                    FieldConfiguration.builder()
+                        .searchFields(
+                            SearchFields.builder().replace(List.of("keyPart1", "urn")).build())
+                        .build()))
+            .queryConfigurations(
+                List.of(
+                    QueryConfiguration.builder().queryRegex(".*").structuredQuery(true).build()))
+            .build();
+
+    SearchQueryBuilder builderWithFieldConfig =
+        new SearchQueryBuilder(testQueryConfig, customConfig);
+
+    OperationContext opContextWithFieldConfig = mock(OperationContext.class);
+    SearchContext searchContext = mock(SearchContext.class);
+    SearchFlags searchFlags =
+        new SearchFlags().setFulltext(false).setFieldConfiguration("structured");
+
+    when(opContextWithFieldConfig.getEntityRegistry())
+        .thenReturn(operationContext.getEntityRegistry());
+    when(opContextWithFieldConfig.getObjectMapper()).thenReturn(operationContext.getObjectMapper());
+    when(opContextWithFieldConfig.getSearchContext()).thenReturn(searchContext);
+    when(searchContext.getSearchFlags()).thenReturn(searchFlags);
+
+    // Note: Current implementation doesn't apply field configuration to structured queries
+    // This test documents that behavior
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            builderWithFieldConfig.buildQuery(
+                opContextWithFieldConfig,
+                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+                "testQuery",
+                false);
+
+    BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+    List<QueryBuilder> shouldQueries = mainQuery.should();
+
+    // Structured query should still use all fields (field configuration not applied)
+    QueryStringQueryBuilder structuredQuery = (QueryStringQueryBuilder) shouldQueries.get(0);
+    Map<String, Float> fields = structuredQuery.fields();
+
+    // Should contain all standard fields, not just the replaced ones
+    assertTrue(fields.size() > 2);
+    assertTrue(fields.containsKey("customProperties"));
   }
 }

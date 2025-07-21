@@ -158,7 +158,6 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testCustomHighlights() {
-    EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
             operationContext,
@@ -180,7 +179,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             List.of());
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertNotNull(sourceBuilder.highlighter());
-    assertEquals(4, sourceBuilder.highlighter().fields().size());
+    assertEquals(sourceBuilder.highlighter().fields().size(), 8);
     assertTrue(
         sourceBuilder.highlighter().fields().stream()
             .map(HighlightBuilder.Field::name)

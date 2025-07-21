@@ -129,6 +129,7 @@ export const user1 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     properties: null,
@@ -201,6 +202,7 @@ const user2 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     info: null,
@@ -3737,6 +3739,8 @@ export const mocks = [
                         manageBusinessAttributes: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
+                        manageApplications: true,
+                        manageFeatures: true,
                     },
                 },
             },
@@ -4021,6 +4025,8 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageApplications: true,
+    manageFeatures: true,
 };
 
 export const DomainMock1 = {

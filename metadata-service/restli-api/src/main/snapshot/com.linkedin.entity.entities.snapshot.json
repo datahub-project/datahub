@@ -6191,6 +6191,12 @@
       "doc" : "Include only latest versions in version sets, default true",
       "default" : true,
       "optional" : true
+    }, {
+      "name" : "fieldConfiguration",
+      "type" : "string",
+      "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
+      "default" : "default",
+      "optional" : true
     } ]
   }, {
     "type" : "enum",

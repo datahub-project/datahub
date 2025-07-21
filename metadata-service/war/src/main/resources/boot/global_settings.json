@@ -4,5 +4,8 @@
   "docPropagation": {
     "enabled": true,
     "columnPropagationEnabled": true
+  },
+  "homePage": {
+    "defaultTemplate": "urn:li:dataHubPageTemplate:home_default_1"
   }
 }

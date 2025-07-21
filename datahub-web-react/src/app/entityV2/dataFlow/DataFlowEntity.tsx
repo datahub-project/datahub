@@ -1,5 +1,5 @@
 import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, WarningCircle } from '@phosphor-icons/react';
+import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -22,8 +22,8 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
+import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -99,6 +99,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     icon: FileText,
                 },
                 {
+                    name: 'Lineage',
+                    component: DAGTab,
+                    icon: TreeStructure,
+                    supportsFullsize: true,
+                },
+                {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
                     icon: Share,
@@ -110,9 +116,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, dataFlow, loading) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataFlow) => {
+                        return dataFlow?.dataFlow?.activeIncidents?.total;
                     },
                 },
                 {
@@ -235,6 +240,15 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 subTypes={genericProperties?.subTypes}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataFlow) => {
+        return {
+            urn: entity?.urn,
+            type: EntityType.DataFlow,
+            name: this.displayName(entity),
+            icon: entity?.platform?.properties?.logoUrl || undefined,
+        };
     };
 
     displayName = (data: DataFlow) => {

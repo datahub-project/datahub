@@ -16,6 +16,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.object_store import (
@@ -82,7 +83,14 @@ class GCSSourceReport(DataLakeSourceReport):
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.GCS_BUCKET,
+        SourceCapabilityModifier.FOLDER,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
 class GCSSource(StatefulIngestionSourceBase):
@@ -112,6 +120,7 @@ class GCSSource(StatefulIngestionSourceBase):
             env=self.config.env,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
         )
         return s3_config
 
@@ -138,7 +147,9 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        s3_source = S3Source(config, PipelineContext(ctx.run_id))
+        # Create a new context for S3 source without graph to avoid duplicate checkpointer registration
+        s3_ctx = PipelineContext(run_id=ctx.run_id, pipeline_name=ctx.pipeline_name)
+        s3_source = S3Source(config, s3_ctx)
         return self.s3_source_overrides(s3_source)
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:

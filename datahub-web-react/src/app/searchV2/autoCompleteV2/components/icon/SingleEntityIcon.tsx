@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@src/app/entityV2/Entity';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
 
@@ -12,6 +12,10 @@ const ImageIcon = styled(Image)<{ $size: number }>`
     width: ${(props) => props.$size}px;
     object-fit: contain;
     background-color: transparent;
+`;
+
+const EntityIcon = styled.div`
+    display: flex;
 `;
 
 interface Props {
@@ -25,7 +29,7 @@ export function SingleEntityIcon({ entity, size }: Props) {
 
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = properties?.platform?.properties?.logoUrl;
-    const platformName = getPlatformName(properties);
+    const platformName = getPlatformNameFromEntityData(properties);
 
     return (
         (platformLogoUrl && !isBrokenPlatformLogoUrl && (
@@ -36,7 +40,6 @@ export function SingleEntityIcon({ entity, size }: Props) {
                 $size={size}
                 onError={() => setIsBrokenPlatformLogoUrl(true)}
             />
-        )) ||
-        entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT)
+        )) || <EntityIcon>{entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT)}</EntityIcon>
     );
 }

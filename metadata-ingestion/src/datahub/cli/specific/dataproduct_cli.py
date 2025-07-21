@@ -23,7 +23,6 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -130,7 +129,6 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def update(file: Path, validate_assets: bool, external_url: str) -> None:
     """Create or Update a Data Product in DataHub. Use upsert if you want to apply partial updates."""
 
@@ -146,7 +144,6 @@ def update(file: Path, validate_assets: bool, external_url: str) -> None:
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
     """Upsert attributes to a Data Product in DataHub."""
 
@@ -159,7 +156,6 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option("--update", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def diff(file: Path, update: bool) -> None:
     """Diff a Data Product file with its twin in DataHub"""
 
@@ -206,7 +202,6 @@ def diff(file: Path, update: bool) -> None:
 )
 @click.option("--hard/--soft", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def delete(urn: str, file: Path, hard: bool) -> None:
     """Delete a Data Product in DataHub. Defaults to a soft-delete. Use --hard to completely erase metadata."""
 
@@ -242,7 +237,6 @@ def delete(urn: str, file: Path, hard: bool) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get a Data Product from DataHub"""
 
@@ -279,7 +273,6 @@ def get(urn: str, to_file: str) -> None:
     help="A markdown file that contains documentation for this data product",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def set_description(urn: str, description: str, md_file: Path) -> None:
     """Set description for a Data Product in DataHub"""
 
@@ -330,7 +323,6 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
     default=OwnershipTypeClass.TECHNICAL_OWNER,
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def add_owner(urn: str, owner: str, owner_type: str) -> None:
     """Add owner for a Data Product in DataHub"""
 
@@ -353,7 +345,6 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
 @click.option("--urn", required=True, type=str)
 @click.argument("owner_urn", required=True, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def remove_owner(urn: str, owner_urn: str) -> None:
     """Remove owner for a Data Product in DataHub"""
 
@@ -375,7 +366,6 @@ def remove_owner(urn: str, owner_urn: str) -> None:
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Add asset for a Data Product in DataHub"""
 
@@ -402,7 +392,6 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Remove asset for a Data Product in DataHub"""
 

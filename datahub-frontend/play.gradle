@@ -64,7 +64,6 @@ dependencies {
   implementation externalDependency.akkaSlf4j
   implementation externalDependency.akkaJackson
   implementation externalDependency.akkaParsing
-  implementation externalDependency.akkaProtobuf
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava

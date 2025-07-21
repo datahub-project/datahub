@@ -47,7 +47,6 @@ with DAG(
     start_date=datetime(2022, 1, 1),
     schedule_interval=timedelta(days=1),
     catchup=False,
-    default_view="tree",
 ) as dag:
     # While it is also possible to use the PythonOperator, we recommend using
     # the PythonVirtualenvOperator to ensure that there are no dependency

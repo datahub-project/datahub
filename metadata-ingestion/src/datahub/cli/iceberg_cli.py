@@ -16,6 +16,7 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import SystemMetadataClass
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,7 @@ def validate_warehouse(data_root: str) -> None:
     help=f"Expiration duration for temporary credentials used for role. Defaults to {DEFAULT_CREDS_EXPIRY_DURATION_SECONDS} seconds if unspecified",
 )
 @telemetry.with_telemetry(capture_kwargs=["duration_seconds"])
+@upgrade.check_upgrade
 def create(
     warehouse: str,
     description: Optional[str],
@@ -317,6 +319,7 @@ def create(
     help=f"Expiration duration for temporary credentials used for role. Defaults to {DEFAULT_CREDS_EXPIRY_DURATION_SECONDS} seconds if unspecified",
 )
 @telemetry.with_telemetry(capture_kwargs=["duration_seconds"])
+@upgrade.check_upgrade
 def update(
     warehouse: str,
     data_root: str,
@@ -403,6 +406,7 @@ def update(
 
 @iceberg.command()
 @telemetry.with_telemetry()
+@upgrade.check_upgrade
 def list() -> None:
     """
     List iceberg warehouses
@@ -419,6 +423,7 @@ def list() -> None:
     "-w", "--warehouse", required=True, type=str, help="The name of the warehouse"
 )
 @telemetry.with_telemetry()
+@upgrade.check_upgrade
 def get(warehouse: str) -> None:
     """Fetches the details of the specified iceberg warehouse"""
     client = get_default_graph(ClientMode.CLI)

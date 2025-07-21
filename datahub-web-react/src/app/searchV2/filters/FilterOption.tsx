@@ -113,6 +113,7 @@ const ArrowButton = styled(Button)<{ isOpen: boolean }>`
 
 const ParentWrapper = styled.div`
     max-width: 220px;
+    font-size: 12px;
 `;
 
 const LabelWrapper = styled.div`

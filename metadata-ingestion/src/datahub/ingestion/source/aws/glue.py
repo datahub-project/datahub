@@ -269,7 +269,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on.",
+    "Enabled by default via stateful ingestion.",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(

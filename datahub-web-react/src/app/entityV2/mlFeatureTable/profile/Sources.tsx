@@ -68,8 +68,7 @@ export default function SourcesView() {
                 </ViewRawButtonContainer>
             </div>
             <List
-                style={{ marginTop: '24px', padding: '16px 32px' }}
-                bordered
+                style={{ padding: '0 32px 16px 32px' }}
                 dataSource={sources}
                 header={<Typography.Title level={3}>Sources</Typography.Title>}
                 renderItem={(item) => (

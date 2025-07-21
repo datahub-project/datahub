@@ -272,8 +272,11 @@ class SQLAlchemyQueryCombiner:
                     self.report.uncombined_queries_issued += 1
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
-        with _sa_execute_method_patching_lock, unittest.mock.patch(
-            "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+        with (
+            _sa_execute_method_patching_lock,
+            unittest.mock.patch(
+                "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+            ),
         ):
             yield self
 

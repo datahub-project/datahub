@@ -98,7 +98,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(TEST_ES_SEARCH_CONFIG, getSearchClient(), getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),

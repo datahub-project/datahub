@@ -32,6 +32,7 @@ dependencies {
   implementation externalDependency.kafkaAvroSerde
   compileOnly externalDependency.lombok
   implementation externalDependency.servletApi
+  implementation externalDependency.graphqlJava
   api externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springBootStarterCache
@@ -40,6 +41,8 @@ dependencies {
   api externalDependency.springKafka
   api externalDependency.springWeb
   api externalDependency.httpClient
+  implementation externalDependency.springActuator
+  implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
   implementation(externalDependency.mixpanel) {

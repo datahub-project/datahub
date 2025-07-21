@@ -12,7 +12,7 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
-from datahub.metadata.schema_classes import ChangeTypeClass, SystemMetadataClass
+from datahub.metadata.schema_classes import SystemMetadataClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
@@ -374,7 +374,6 @@ class DataHubDatabaseReader:
                 entityUrn=row["urn"],
                 aspect=ASPECT_MAP[row["aspect"]].from_obj(json_aspect),
                 systemMetadata=system_metadata,
-                changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
             logger.warning(

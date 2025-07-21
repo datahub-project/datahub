@@ -39,7 +39,6 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { ChartDashboardsTab } from '@app/entityV2/shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '@app/entityV2/shared/tabs/Entity/InputFieldsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -197,9 +196,8 @@ export class ChartEntity implements Entity<Chart> {
                 },
                 {
                     name: 'Incidents',
-                    getDynamicName: (_, chart, loading) => {
-                        const activeIncidentCount = chart?.chart?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, chart, loading) => {
+                        return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                     },
                     icon: WarningOutlined,
                     component: IncidentTab,

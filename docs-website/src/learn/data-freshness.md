@@ -83,7 +83,7 @@ While manual investigation and communication using tools like Slack can help tri
 DataHub offers comprehensive features designed to tackle data freshness challenges:
 
 
-**[End-To-End Data Lineage](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide) and [Impact Analysis](https://docs.datahub.com/docs/act-on-metadata/impact-analysis):** Easily track the flow of data through your organization to identify, debug, and resolve delays quickly.
+**[End-To-End Data Lineage](https://docs.datahub.com/docs/features/feature-guides/lineage) and [Impact Analysis](https://docs.datahub.com/docs/act-on-metadata/impact-analysis):** Easily track the flow of data through your organization to identify, debug, and resolve delays quickly.
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>
  <br />

@@ -13,6 +13,10 @@ services:
         condition: service_healthy
       mysqldb:
         condition: service_healthy
+      postgresdb:
+        condition: service_healthy
+      sqlserverdb:
+        condition: service_healthy
       mongo:
         condition: service_healthy
     ports:
@@ -43,7 +47,9 @@ services:
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5 || { echo "Failed to install JDBC connector"; exit 1; }
         confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1 || { echo "Failed to install transforms"; exit 1; }
         confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0 || { echo "Failed to install datagen"; exit 1; }
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0 || { echo "Failed to install Debezium"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0 || { echo "Failed to install Debezium MySQL"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.7.0 || { echo "Failed to install Debezium PostgreSQL"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-sqlserver:1.7.0 || { echo "Failed to install Debezium SQL Server"; exit 1; }
         confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8 || { echo "Failed to install BigQuery"; exit 1; }
         confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1 || { echo "Failed to install MongoDB"; exit 1; }
         confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1 || { echo "Failed to install S3"; exit 1; }
@@ -112,10 +118,17 @@ services:
     container_name: "test_postgres"
     environment:
       POSTGRES_PASSWORD: datahub
+      # POSTGRES_DB: postgres  # Connectors use the default value: postgres
     volumes:  
       - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/postgres_setup.sql
     ports:
       - "5432:5432"
+    # Debezium doesn't poll tables - it reads the PostgreSQL Write-Ahead Log (WAL) to capture changes in real-time. This is called Change Data Capture (CDC).
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_replication_slots=4
+      -c max_wal_senders=4
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -129,6 +142,35 @@ services:
           memory: 256M
         reservations:
           memory: 128M
+
+  sqlserverdb:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: "test_sqlserver"
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: Password123!
+      # Developer edition because CDC (Change Data Capture) is required for Debezium
+      MSSQL_PID: Developer
+      MSSQL_AGENT_ENABLED: true
+    volumes:
+      - ./../kafka-connect/setup/sqlserver-setup.sql:/usr/src/app/sqlserver-setup.sql
+      - ./../kafka-connect/setup/init-sqlserver.sh:/usr/src/app/init-sqlserver.sh
+    ports:
+      - "1433:1433"
+    entrypoint: ["/bin/bash", "/usr/src/app/init-sqlserver.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Password123!' -C -d TestDB -Q 'SELECT COUNT(*) FROM dbo.test_table' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    restart: on-failure:3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
 
   mongo:
     hostname: mongo

@@ -9,6 +9,8 @@ import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.ebean.Database;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +31,11 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ConfigEntityRegistry configEntityRegistry;
+
+  @Bean
+  public MeterRegistry meterRegistry() {
+    return new SimpleMeterRegistry();
+  }
 
   @Bean
   public SchemaRegistryService schemaRegistryService() {

@@ -7,6 +7,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.client.Client;
 import java.net.URI;
 import javax.inject.Singleton;
@@ -28,7 +29,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     final Client restClient;
     if (gmsUri != null) {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
@@ -36,7 +38,7 @@ public class RestliEntityClientFactory {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
-    return new RestliEntityClient(restClient, entityClientConfig);
+    return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
 
   @Bean("systemEntityClient")
@@ -48,7 +50,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       final EntityClientCacheConfig entityClientCacheConfig,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
 
     final Client restClient;
     if (gmsUri != null) {
@@ -57,6 +60,7 @@ public class RestliEntityClientFactory {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
-    return new SystemRestliEntityClient(restClient, entityClientConfig, entityClientCacheConfig);
+    return new SystemRestliEntityClient(
+        restClient, entityClientConfig, entityClientCacheConfig, metricUtils);
   }
 }

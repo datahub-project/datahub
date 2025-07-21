@@ -1,0 +1,150 @@
+extend type Mutation {
+  """
+  Batch update the state for a set of steps.
+  """
+  upsertPageTemplate(input: UpsertPageTemplateInput!): DataHubPageTemplate!
+}
+
+"""
+A Page Template used for rendering custom or default layouts in the UI
+"""
+type DataHubPageTemplate implements Entity {
+  """
+  A primary key associated with the Page Template
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The main properties of a DataHub page template
+  """
+  properties: DataHubPageTemplateProperties!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+The main properties of a DataHub page template
+"""
+type DataHubPageTemplateProperties {
+  """
+  The rows of modules contained in this template
+  """
+  rows: [DataHubPageTemplateRow!]!
+
+  """
+  Info about the surface area of the product that this template is deployed in
+  """
+  surface: DataHubPageTemplateSurface!
+
+  """
+  Info about the visibility of this template
+  """
+  visibility: DataHubPageTemplateVisibility!
+
+  """
+  Audit stamp for when and by whom this template was created
+  """
+  created: ResolvedAuditStamp!
+
+  """
+  Audit stamp for when and by whom this template was last updated
+  """
+  lastModified: ResolvedAuditStamp!
+}
+
+"""
+A row of modules contained in a template
+"""
+type DataHubPageTemplateRow {
+  """
+  The modules that exist in this template row
+  """
+  modules: [DataHubPageModule!]!
+}
+
+"""
+Info about the surface area of the product that this template is deployed in
+"""
+type DataHubPageTemplateSurface {
+  """
+  Where exactly is this template bing used
+  """
+  surfaceType: PageTemplateSurfaceType
+}
+
+"""
+Different surface areas for a page template
+"""
+enum PageTemplateSurfaceType {
+  """
+  This template applies to what to display on the home page for users.
+  """
+  HOME_PAGE
+}
+
+"""
+Info about the visibility of this template
+"""
+type DataHubPageTemplateVisibility {
+  """
+  The scope of this template and who can use/see it
+  """
+  scope: PageTemplateScope
+}
+
+"""
+Different scopes for where this template is relevant
+"""
+enum PageTemplateScope {
+  """
+  This template is used for individual use only
+  """
+  PERSONAL
+  """
+  This template is used across users
+  """
+  GLOBAL
+}
+
+"""
+Input for adding or updating a DataHubPageTemplate entity
+"""
+input UpsertPageTemplateInput {
+  """
+  The urn of the page template if updating, empty if creating a new page template
+  """
+  urn: String
+
+  """
+  The rows of a page template
+  """
+  rows: [PageTemplateRowInput!]!
+
+  """
+  The scope of the template ie. is it personal or global
+  """
+  scope: PageTemplateScope!
+
+  """
+  The area that this template is used in
+  """
+  surfaceType: PageTemplateSurfaceType!
+}
+
+"""
+Input a row of a page template
+"""
+input PageTemplateRowInput {
+  """
+  A list of Page Module urns that comprise this row
+  """
+  modules: [String!]!
+}

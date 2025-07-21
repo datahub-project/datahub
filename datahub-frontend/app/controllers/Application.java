@@ -3,9 +3,6 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
-import akka.actor.ActorSystem;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
@@ -16,13 +13,13 @@ import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,31 +29,27 @@ import org.slf4j.LoggerFactory;
 import play.Environment;
 import play.http.HttpEntity;
 import play.libs.Json;
-import play.libs.ws.InMemoryBodyWritable;
-import play.libs.ws.StandaloneWSClient;
-import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Http.Cookie;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Security;
-import play.shaded.ahc.org.asynchttpclient.AsyncHttpClient;
-import play.shaded.ahc.org.asynchttpclient.AsyncHttpClientConfig;
-import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClient;
-import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
 import utils.ConfigUtil;
 
 public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
+  private static final Set<String> RESTRICTED_HEADERS =
+      Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
+  private final HttpClient httpClient =
+      HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+
   private final Config config;
-  private final StandaloneWSClient ws;
   private final Environment environment;
 
   @Inject
   public Application(Environment environment, @Nonnull Config config) {
     this.config = config;
-    ws = createWsClient();
     this.environment = environment;
   }
 
@@ -99,8 +92,7 @@ public class Application extends Controller {
    * <p>TODO: Investigate using mutual SSL authentication to call Metadata Service.
    */
   @Security.Authenticated(Authenticator.class)
-  public CompletableFuture<Result> proxy(String path, Http.Request request)
-      throws ExecutionException, InterruptedException {
+  public CompletableFuture<Result> proxy(String path, Http.Request request) {
     final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy(request);
     final String resolvedUri = mapPath(request.uri());
 
@@ -119,56 +111,46 @@ public class Application extends Controller {
             config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
-
-    // TODO: Fully support custom internal SSL.
     final String protocol = metadataServiceUseSsl ? "https" : "http";
-
-    final Map<String, List<String>> headers = request.getHeaders().toMap();
-
+    final String targetUrl =
+        String.format(
+            "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
+    HttpRequest.Builder httpRequestBuilder =
+        HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
+    httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
+    Map<String, List<String>> headers = request.getHeaders().toMap();
     if (headers.containsKey(Http.HeaderNames.HOST)
         && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
       headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
     }
-
     if (!headers.containsKey(Http.HeaderNames.X_FORWARDED_PROTO)) {
       final String schema =
           Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
       headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
     }
-
-    // Get the current time to measure the duration of the request
+    headers.entrySet().stream()
+        .filter(
+            entry ->
+                !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
+                    && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
+                        entry.getKey())
+                    && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
+                    && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
+        .forEach(
+            entry -> entry.getValue().forEach(v -> httpRequestBuilder.header(entry.getKey(), v)));
+    if (!authorizationHeaderValue.isEmpty()) {
+      httpRequestBuilder.header(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue);
+    }
+    httpRequestBuilder.header(
+        AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
+    request
+        .contentType()
+        .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
     Instant start = Instant.now();
-
-    return ws.url(
-            String.format(
-                "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))
-        .setMethod(request.method())
-        .setHeaders(
-            headers.entrySet().stream()
-                // Remove X-DataHub-Actor to prevent malicious delegation.
-                .filter(
-                    entry ->
-                        !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
-                            entry.getKey()))
-                .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
-                .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
-                .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
-                // Remove Host s.th. service meshes do not route to wrong host
-                .filter(entry -> !Http.HeaderNames.HOST.equalsIgnoreCase(entry.getKey()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
-        .addHeader(
-            AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request))
-        .setBody(
-            new InMemoryBodyWritable(
-                ByteString.fromByteBuffer(request.body().asBytes().asByteBuffer()),
-                request.contentType().orElse("application/json")))
-        .setRequestTimeout(Duration.ofSeconds(120))
-        .execute()
+    return httpClient
+        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
         .thenApply(
             apiResponse -> {
-              // Log the query if it takes longer than the configured threshold and verbose logging
-              // is enabled
               boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
               int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
               Instant finish = Instant.now();
@@ -176,11 +158,10 @@ public class Application extends Controller {
               if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
                 logSlowQuery(request, resolvedUri, timeElapsed);
               }
-
               final ResponseHeader header =
                   new ResponseHeader(
-                      apiResponse.getStatus(),
-                      apiResponse.getHeaders().entrySet().stream()
+                      apiResponse.statusCode(),
+                      apiResponse.headers().map().entrySet().stream()
                           .filter(
                               entry ->
                                   !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
@@ -191,11 +172,30 @@ public class Application extends Controller {
                           .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
               final HttpEntity body =
                   new HttpEntity.Strict(
-                      apiResponse.getBodyAsBytes(),
-                      Optional.ofNullable(apiResponse.getContentType()));
+                      ByteString.fromArray(apiResponse.body()),
+                      apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
               return new Result(header, body);
             })
-        .toCompletableFuture();
+        .exceptionally(
+            ex -> {
+              Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+              if (cause instanceof java.net.http.HttpTimeoutException) {
+                return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
+              } else if (cause instanceof java.net.ConnectException) {
+                return status(BAD_GATEWAY, "Proxy connection failed: " + cause.getMessage());
+              } else {
+                return internalServerError("Proxy error: " + cause.getMessage());
+              }
+            });
+  }
+
+  private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
+    if (request.body().asBytes() != null) {
+      return HttpRequest.BodyPublishers.ofByteArray(request.body().asBytes().toArray());
+    } else if (request.body().asText() != null) {
+      return HttpRequest.BodyPublishers.ofString(request.body().asText());
+    }
+    return HttpRequest.BodyPublishers.noBody();
   }
 
   /**
@@ -294,22 +294,6 @@ public class Application extends Controller {
     trackingConfig.set("trackers", trackers);
     trackingConfig.put("isEnabled", true);
     return trackingConfig;
-  }
-
-  private StandaloneWSClient createWsClient() {
-    final String name = "proxyClient";
-    ActorSystem system = ActorSystem.create(name);
-    system.registerOnTermination(() -> System.exit(0));
-    Materializer materializer = ActorMaterializer.create(system);
-    AsyncHttpClientConfig asyncHttpClientConfig =
-        new DefaultAsyncHttpClientConfig.Builder()
-            .setDisableUrlEncodingForBoundRequests(true)
-            .setMaxRequestRetry(0)
-            .setShutdownQuietPeriod(0)
-            .setShutdownTimeout(0)
-            .build();
-    AsyncHttpClient asyncHttpClient = new DefaultAsyncHttpClient(asyncHttpClientConfig);
-    return new StandaloneAhcWSClient(asyncHttpClient, materializer);
   }
 
   /**

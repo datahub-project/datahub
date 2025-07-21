@@ -54,7 +54,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -100,7 +101,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -142,7 +144,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -188,7 +191,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -230,7 +234,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -280,7 +285,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(

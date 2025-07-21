@@ -225,11 +225,16 @@ module.exports = {
           type: "category",
           link: {
             type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
+            id: "docs/features/feature-guides/lineage",
           },
           items: [
             {
-              label: "Lineage Impact analysis",
+              label: "Automatic Lineage Extraction",
+              type: "doc",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
+            },
+            {
+              label: "Lineage Impact Analysis",
               type: "doc",
               id: "docs/act-on-metadata/impact-analysis",
             },
@@ -859,6 +864,7 @@ module.exports = {
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/assertions",
         "docs/api/tutorials/custom-assertions",
+        "docs/api/tutorials/sdk/bulk-assertions-sdk",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
         "docs/api/tutorials/data-contracts",
