@@ -554,12 +554,21 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
 });
 
 Cypress.on("uncaught:exception", (err) => {
-  const resizeObserverLoopErrMessage = "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopLimitErrMessage =
+    "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopErrMessage =
+    "ResizeObserver loop completed with undelivered notifications.";
 
   /* returning false here prevents Cypress from failing the test */
-  if (err.message.includes(resizeObserverLoopErrMessage)) {
+  if (
+    err.message.includes(resizeObserverLoopLimitErrMessage) ||
+    err.message.includes(resizeObserverLoopErrMessage)
+  ) {
     return false;
   }
+
+  // Allow other uncaught exceptions to fail the test
+  return true;
 });
 
 //
