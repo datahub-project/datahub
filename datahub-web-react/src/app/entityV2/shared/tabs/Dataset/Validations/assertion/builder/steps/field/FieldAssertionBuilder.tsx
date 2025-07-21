@@ -41,13 +41,21 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
-    isEditMode?: boolean;
-};
+} & (
+    | {
+          isEditMode: true;
+          onCloseDrawer?: undefined;
+      }
+    | {
+          isEditMode?: false;
+          onCloseDrawer: (skipConfirmation?: boolean) => void;
+      }
+);
 
 /**
  * Step for defining the Dataset Field assertion
  */
-export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode }: Props) => {
+export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode, onCloseDrawer }: Props) => {
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
     const isFieldValuesAssertion = fieldAssertion?.type === FieldAssertionType.FieldValues;
@@ -81,7 +89,13 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode
             {/* Do not allow editing after assertion is created */}
             <FieldTypeBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
             {/* Do not allow editing after assertion is created */}
-            <FieldColumnBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
+            <FieldColumnBuilder
+                value={state}
+                onChange={updateState}
+                disabled={disabled || isEditMode}
+                isEditMode={isEditMode}
+                onCloseDrawer={onCloseDrawer}
+            />
 
             {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
                 <>
@@ -92,8 +106,7 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode
             {isFieldMetricAssertion && fieldAssertion?.fieldMetricAssertion?.field?.path && (
                 <FieldMetricBuilder value={state} onChange={updateState} disabled={disabled} isEditMode={isEditMode} />
             )}
-            {/* Do not allow editing after assertion is created */}
-            <FieldRowCheckBuilder value={state} onChange={updateState} disabled={disabled || isEditMode} />
+            <FieldRowCheckBuilder value={state} onChange={updateState} disabled={disabled} />
             <Section>
                 <Collapse>
                     <Collapse.Panel

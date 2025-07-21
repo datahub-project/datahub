@@ -53,7 +53,12 @@ export const AssertionMonitorBuilderDrawer = ({
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Assertion Monitor' : 'New Assertion Monitor';
 
-    const modalClosePopup = () => {
+    const modalClosePopup = (skipConfirmation?: boolean) => {
+        if (skipConfirmation) {
+            onCancel?.();
+            return;
+        }
+
         Modal.confirm({
             title: 'Exit Editor',
             content: `Are you sure you want to exit the editor? All changes will be lost`,
@@ -84,7 +89,7 @@ export const AssertionMonitorBuilderDrawer = ({
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
                 visible
-                onClose={modalClosePopup}
+                onClose={() => modalClosePopup(false)}
                 width={600}
             >
                 <AssertionMonitorBuilder
@@ -94,6 +99,7 @@ export const AssertionMonitorBuilderDrawer = ({
                     initialState={initialState}
                     onSubmit={onSubmit}
                     onCancel={onCancel}
+                    onCloseDrawer={modalClosePopup}
                     predefinedType={predefinedType}
                 />
             </Drawer>

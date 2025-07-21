@@ -54,7 +54,9 @@ export const FieldMetricParameterBuilder = ({ value, onChange, disabled, isEditM
     const isHardDisabled = isEditMode && isAiInferenceSelected;
 
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
-    const options = getFieldMetricOperatorOptions({ disableAiInferred: isEditMode || !onlineSmartAssertionsEnabled });
+    const options = getFieldMetricOperatorOptions({
+        disableAiInferred: (isEditMode || !onlineSmartAssertionsEnabled) && !isAiInferenceSelected,
+    });
     const selectedOption = getSelectedFieldMetricOperatorOption(operator);
 
     const renderInput = () => {

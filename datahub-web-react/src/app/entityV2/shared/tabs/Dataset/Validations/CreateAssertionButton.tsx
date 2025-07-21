@@ -26,6 +26,7 @@ const SiblingSelectionDropdownLink = styled.div`
     align-items: center;
     color: black;
     border-radius: 8px;
+    height: fit-content;
     // &:hover {
     //     color: black;
     //     background-color: ${getColor('gray', 1000)};
@@ -35,6 +36,10 @@ const SiblingSelectionDropdownLink = styled.div`
         opacity: 0.6;
         background-color: transparent;
     }
+`;
+
+const DefaultButton = styled(Button)`
+    height: fit-content;
 `;
 
 type RenderButtonProps = {
@@ -147,9 +152,9 @@ export const CreateAssertionButton = ({
     }));
 
     const renderDefaultButton = (props: RenderButtonProps) => (
-        <Button {...props}>
+        <DefaultButton {...props}>
             <PlusOutlined /> Create
-        </Button>
+        </DefaultButton>
     );
 
     const renderButton = renderCustomButton || renderDefaultButton;

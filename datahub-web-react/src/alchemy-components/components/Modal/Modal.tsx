@@ -57,7 +57,7 @@ export interface ModalButton extends ButtonProps {
 
 export interface ModalProps {
     buttons?: ModalButton[];
-    title: string;
+    title: React.ReactNode;
     subtitle?: string;
     children?: React.ReactNode;
     onCancel: () => void;

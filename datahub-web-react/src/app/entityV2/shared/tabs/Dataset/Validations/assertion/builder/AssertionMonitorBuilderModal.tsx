@@ -49,7 +49,12 @@ export const AssertionMonitorBuilderModal = ({
 
     const [modalExpanded, setModalExpanded] = useState(false);
 
-    const modalClosePopup = () => {
+    const modalClosePopup = (skipConfirmation?: boolean) => {
+        if (skipConfirmation) {
+            onCancel?.();
+            return;
+        }
+
         Modal.confirm({
             title: 'Exit Editor',
             content: `Are you sure you want to exit the editor? All changes will be lost`,
@@ -89,6 +94,7 @@ export const AssertionMonitorBuilderModal = ({
                     initialState={initialState}
                     onSubmit={onSubmit}
                     onCancel={onCancel}
+                    onCloseDrawer={modalClosePopup}
                 />
             </Modal>
         </ClickOutside>

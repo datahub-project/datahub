@@ -256,7 +256,12 @@ export const SimpleSelect = ({
                                                 )}
 
                                                 {!!option.description && (
-                                                    <Text color="gray" weight="normal" size="sm">
+                                                    <Text
+                                                        color="gray"
+                                                        weight="normal"
+                                                        size="sm"
+                                                        style={{ maxWidth: props.descriptionMaxWidth }}
+                                                    >
                                                         {option.description}
                                                     </Text>
                                                 )}

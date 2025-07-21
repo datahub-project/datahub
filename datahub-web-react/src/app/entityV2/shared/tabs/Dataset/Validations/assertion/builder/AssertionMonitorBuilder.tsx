@@ -41,6 +41,7 @@ type Props = {
     initialState?: AssertionMonitorBuilderState;
     onSubmit?: (assertion: Assertion) => void;
     onCancel?: () => void;
+    onCloseDrawer: (skipConfirmation?: boolean) => void;
     predefinedType?: AssertionType;
 };
 
@@ -51,6 +52,7 @@ export const AssertionMonitorBuilder = ({
     initialState,
     onSubmit,
     onCancel,
+    onCloseDrawer,
     predefinedType,
 }: Props) => {
     const [form] = Form.useForm();
@@ -177,6 +179,8 @@ export const AssertionMonitorBuilder = ({
                     prev={stepStack.length > 1 ? prev : undefined}
                     submit={handleSubmit}
                     cancel={cancel}
+                    isUpdate={false}
+                    onCloseDrawer={onCloseDrawer}
                 />
             </StyledForm>
         </MainContent>

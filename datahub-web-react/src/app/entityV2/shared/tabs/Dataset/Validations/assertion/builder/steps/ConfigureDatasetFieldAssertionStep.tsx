@@ -38,7 +38,14 @@ const ControlsGroup = styled.div`
 /**
  * Step for defining the Dataset Field assertion
  */
-export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
+export const ConfigureDatasetFieldAssertionStep = ({
+    state,
+    updateState,
+    goTo,
+    prev,
+    isUpdate,
+    onCloseDrawer,
+}: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
     const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(
         state.entityUrn ?? '',
@@ -50,7 +57,13 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
     return (
         <Step>
             <div>
-                <FieldAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <FieldAssertionBuilder
+                    state={state}
+                    updateState={updateState}
+                    disabled={false}
+                    isEditMode={isUpdate}
+                    onCloseDrawer={onCloseDrawer}
+                />
                 <AssertionActionsSection state={state} updateState={updateState} />
             </div>
             <Controls>

@@ -9,6 +9,8 @@ type Props = {
     onChange: (value: number) => void;
 };
 
+export const DEFAULT_SMART_ASSERTION_TRAINING_LOOKBACK_WINDOW_DAYS = 60;
+
 export const LookBackWindowAdjuster = (props: Props) => {
     const { trainingDataLookbackWindowDays, disabled, onChange } = props;
     return (
@@ -21,7 +23,7 @@ export const LookBackWindowAdjuster = (props: Props) => {
                 />
             }
             name="trainingDataLookbackWindowDays"
-            initialValue={trainingDataLookbackWindowDays || 60}
+            initialValue={trainingDataLookbackWindowDays || DEFAULT_SMART_ASSERTION_TRAINING_LOOKBACK_WINDOW_DAYS}
             labelCol={{ span: 24 }}
             wrapperCol={{ span: 24 }}
             style={{ marginBottom: 8 }}

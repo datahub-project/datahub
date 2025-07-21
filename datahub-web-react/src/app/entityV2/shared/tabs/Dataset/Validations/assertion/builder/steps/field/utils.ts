@@ -42,7 +42,14 @@ export const getFieldAssertionTypeKey = (fieldAssertionType?: FieldAssertionType
     }
 };
 
-export const getEligibleFieldColumns = (fields: SchemaField[]) => {
+export type EligibleFieldColumn = {
+    path: string;
+    type: SchemaFieldDataType;
+    nativeType: string;
+    kind?: FreshnessFieldKind;
+};
+
+export const getEligibleFieldColumns = (fields: SchemaField[]): EligibleFieldColumn[] => {
     // Keep allowedColumnTypes in sync with ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION in acryl-cloud/src/acryl_datahub_cloud/sdk/assertion_input/smart_column_metric_assertion_input.py
     const allowedColumnTypes = [
         SchemaFieldDataType.String,
@@ -574,7 +581,11 @@ export const getSelectedFieldMetricOperatorOption = (operator?: FieldMetricAsser
 export const getFieldMetricTypeOptions = (
     fieldType?: SchemaFieldDataType | null,
     sourceType?: DatasetFieldAssertionSourceType | null,
-) => {
+): {
+    value: FieldMetricType;
+    label: string;
+    requiresConnection?: boolean;
+}[] => {
     if (!fieldType) return [];
     const isDatasetProfileSupported = sourceType !== DatasetFieldAssertionSourceType.DatahubDatasetProfile;
     return FIELD_METRIC_TYPE_CONFIG[fieldType].filter((o) => !o.requiresConnection || isDatasetProfileSupported);

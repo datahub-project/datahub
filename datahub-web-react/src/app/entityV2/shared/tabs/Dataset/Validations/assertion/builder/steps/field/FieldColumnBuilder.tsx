@@ -1,17 +1,27 @@
+import { Button, Tooltip } from '@components';
 import { Form } from 'antd';
 import Typography from 'antd/lib/typography';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { useConnectionForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionDatasetFieldBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
 import {
     getEligibleFieldColumns,
     getFieldAssertionTypeKey,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { CreateBulkFieldSmartAssertionsModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/CreateBulkFieldSmartAssertionsModal';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
-import { SchemaField } from '@types';
+import { FieldAssertionType, SchemaField } from '@types';
+
+const MultiCreateCTAWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+`;
 
 const Section = styled.div`
     margin: 16px 0;
@@ -21,9 +31,15 @@ type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
+    onCloseDrawer?: (skipConfirmation?: boolean) => void;
 };
 
-export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
+export const FieldColumnBuilder = ({ value, onChange, disabled, isEditMode, onCloseDrawer }: Props) => {
+    const isOnlineSmartAssertionsEnabled = useAppConfig().config.featureFlags.onlineSmartAssertionsEnabled;
+    const connectionForEntityExists = useConnectionForEntityExists(value.entityUrn || '');
+    const [isBulkSmartAssertionsModalOpen, setIsBulkSmartAssertionsModalOpen] = useState(false);
+
     const form = Form.useFormInstance();
     const fieldAssertionType = value.assertion?.fieldAssertion?.type;
     const fieldAssertionTypeKey = getFieldAssertionTypeKey(fieldAssertionType);
@@ -63,6 +79,9 @@ export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
         form.setFieldValue('fieldColumn', fieldColumn);
     }, [form, fieldColumn]);
 
+    const canMultiCreateSmartAssertion =
+        !isEditMode && fieldAssertionType === FieldAssertionType.FieldMetric && isOnlineSmartAssertionsEnabled;
+
     return (
         <Section>
             <Typography.Title level={5}>Column</Typography.Title>
@@ -75,6 +94,43 @@ export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
                 onChange={updateColumnSpec}
                 disabled={disabled}
                 showSearch
+            />
+
+            {canMultiCreateSmartAssertion && (
+                <MultiCreateCTAWrapper>
+                    <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+                        Or
+                    </Typography.Paragraph>
+                    <Tooltip
+                        title={
+                            !connectionForEntityExists
+                                ? 'Could not find a valid connection to this platform.'
+                                : undefined
+                        }
+                    >
+                        <div>
+                            <Button
+                                type="button"
+                                variant="text"
+                                onClick={() => setIsBulkSmartAssertionsModalOpen(true)}
+                                style={{ paddingLeft: 2, paddingRight: 2, marginLeft: 4 }}
+                                disabled={!connectionForEntityExists}
+                            >
+                                Bulk-Create Smart Assertions
+                            </Button>
+                        </div>
+                    </Tooltip>
+                </MultiCreateCTAWrapper>
+            )}
+            <CreateBulkFieldSmartAssertionsModal
+                entityUrn={value.entityUrn || ''}
+                open={isBulkSmartAssertionsModalOpen}
+                onClose={() => setIsBulkSmartAssertionsModalOpen(false)}
+                columns={columnOptions}
+                onSuccess={() => {
+                    setIsBulkSmartAssertionsModalOpen(false);
+                    onCloseDrawer?.(true);
+                }}
             />
         </Section>
     );

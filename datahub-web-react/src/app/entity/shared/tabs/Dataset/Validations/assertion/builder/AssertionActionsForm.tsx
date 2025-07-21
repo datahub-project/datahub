@@ -15,7 +15,7 @@ const Form = styled.div``;
 const Section = styled.div`
     display: flex;
     flex-direction: column;
-    padding-bottom: 20px;
+    padding-bottom: 16px;
 `;
 
 const StyledCheckbox = styled(Checkbox)`

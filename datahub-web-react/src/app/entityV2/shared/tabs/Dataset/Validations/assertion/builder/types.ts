@@ -902,6 +902,8 @@ export type StepProps = {
     prev?: () => void;
     submit: () => Promise<void>;
     cancel: () => void;
+    isUpdate?: false;
+    onCloseDrawer: (skipConfirmation?: boolean) => void;
 };
 
 /**

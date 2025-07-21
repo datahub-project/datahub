@@ -50,7 +50,7 @@ export const FieldChangedRowsBuilder = ({ value, onChange, disabled }: Props) =>
                 name="changedRowsColumn"
                 fields={columnOptions}
                 onChange={updateChangedRows}
-                width="240px"
+                width="260px"
                 required={sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery}
                 disabled={disabled || sourceType !== DatasetFieldAssertionSourceType.ChangedRowsQuery}
                 placeholder="Select a High Watermark column"
