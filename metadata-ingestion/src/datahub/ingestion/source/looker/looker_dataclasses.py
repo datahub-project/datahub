@@ -133,9 +133,6 @@ class LookerModel:
 
             resolved_project_name = project_name
             resolved_project_folder = str(base_projects_folder[project_name])
-            logger.debug(
-                f"Processing include '{inc}' with initial project_name='{project_name}'"
-            )
 
             # Massage the looker include into a valid glob wildcard expression
             if inc.startswith("//"):
@@ -145,12 +142,9 @@ class LookerModel:
                     resolved_project_folder = str(base_projects_folder[remote_project])
                     glob_expr = f"{resolved_project_folder}/{project_local_path}"
                     resolved_project_name = remote_project
-                    logger.debug(
-                        f"Remote include '{inc}' resolved to project='{remote_project}', path='{project_local_path}'"
-                    )
                 else:
                     logger.warning(
-                        f"Resolving {inc} failed. Could not find a locally checked out reference for {remote_project}. Available projects: {list(base_projects_folder.keys())}"
+                        f"Resolving {inc} failed. Could not find a locally checked out reference for {remote_project}"
                     )
                     continue
             elif inc.startswith("/"):
@@ -257,14 +251,12 @@ class LookerModel:
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
 
-            project_includes = [
-                ProjectInclude(project=resolved_project_name, include=f)
-                for f in included_files
-            ]
-            logger.debug(
-                f"Created {len(project_includes)} ProjectInclude objects with project='{resolved_project_name}' from include '{inc}'"
+            resolved.extend(
+                [
+                    ProjectInclude(project=resolved_project_name, include=f)
+                    for f in included_files
+                ]
             )
-            resolved.extend(project_includes)
         return resolved
 
 

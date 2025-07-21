@@ -621,34 +621,23 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
         # In this case view_context.datahub_transformed_sql_table_name() refers to derived view name
-        sql_table_name = self.view_context.datahub_transformed_sql_table_name()
-        qualified_table_name = _generate_fully_qualified_name(
-            sql_table_name,
-            self.view_context.view_connection,
-            self.view_context.reporter,
-            self.view_context.name(),
-        )
-
-        logger.debug(
-            f"DotSqlTableNameViewUpstream.__get_upstream_dataset_urn for view '{self.view_context.name()}': sql_table_name='{sql_table_name}', qualified_table_name='{qualified_table_name}'"
-        )
-
         looker_view_id = get_derived_looker_view_id(
-            qualified_table_name=qualified_table_name,
+            qualified_table_name=_generate_fully_qualified_name(
+                self.view_context.datahub_transformed_sql_table_name(),
+                self.view_context.view_connection,
+                self.view_context.reporter,
+                self.view_context.name(),
+            ),
             base_folder_path=self.view_context.base_folder_path,
             looker_view_id_cache=self.looker_view_id_cache,
         )
 
         if looker_view_id is not None:
-            generated_urn = looker_view_id.get_urn(config=self.config)
-            logger.debug(
-                f"DotSqlTableNameViewUpstream.__get_upstream_dataset_urn resolved view '{self.view_context.name()}' to upstream URN: '{generated_urn}'"
-            )
-            self.upstream_dataset_urn = [generated_urn]
-        else:
-            logger.debug(
-                f"DotSqlTableNameViewUpstream.__get_upstream_dataset_urn could not resolve view '{self.view_context.name()}' - no upstream URN generated"
-            )
+            self.upstream_dataset_urn = [
+                looker_view_id.get_urn(
+                    config=self.config,
+                )
+            ]
 
         return self.upstream_dataset_urn
 

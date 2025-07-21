@@ -1012,41 +1012,6 @@ class LookerExplore:
         try:
             explore = client.lookml_model_explore(model, explore_name)
 
-            # Debug logging for specific explores we're investigating
-            if explore_name == "dm_group_comm" and model == "group_commercial_finance":
-                logger.debug(f"Raw Looker API response for {model}.{explore_name}:")
-                logger.debug(f"  explore.name: {explore.name}")
-                logger.debug(f"  explore.view_name: {explore.view_name}")
-                logger.debug(f"  explore.project_name: {explore.project_name}")
-                logger.debug(f"  explore.source_file: {explore.source_file}")
-
-                # Log ALL field information to see source_file for each field
-                field_count = 0
-                logger.debug(
-                    f"  explore.fields: {explore.fields} (type: {type(explore.fields)})"
-                )
-                if explore.fields is not None:
-                    for field_type in ["dimensions", "measures", "dimension_groups"]:
-                        if hasattr(explore.fields, field_type):
-                            fields = getattr(explore.fields, field_type)
-                            if fields:
-                                logger.debug(f"  {field_type} ({len(fields)} fields):")
-                                for field in fields:  # Log ALL fields
-                                    logger.debug(
-                                        f"    {field.name}: source_file='{field.source_file}'"
-                                    )
-                                    field_count += 1
-                            else:
-                                logger.debug(f"  {field_type} is empty or None")
-                        else:
-                            logger.debug(
-                                f"  explore.fields has no attribute '{field_type}'"
-                            )
-                else:
-                    logger.debug("  explore.fields is None")
-
-                logger.debug(f"  Total fields examined: {field_count}")
-
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
@@ -1200,17 +1165,6 @@ class LookerExplore:
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
 
-            # Create upstream_views list with logging
-            upstream_views_list = []
-            for view_name in views:
-                project_name = view_project_map.get(view_name, BASE_PROJECT_NAME)
-                logger.debug(
-                    f"LookerExplore.from_api adding upstream view for explore '{explore_name}' (model='{model}', project_name='{explore.project_name}'): view_name='{view_name}', resolved_project='{project_name}'"
-                )
-                upstream_views_list.append(
-                    ProjectInclude(project=project_name, include=view_name)
-                )
-
             # form upstream of fields as all information is now available
             for view_field in view_fields:
                 measure_upstream_field: ExploreUpstreamViewField = (
@@ -1240,7 +1194,13 @@ class LookerExplore:
                 label=explore.label,
                 description=explore.description,
                 fields=view_fields,
-                upstream_views=upstream_views_list,
+                upstream_views=list(
+                    ProjectInclude(
+                        project=view_project_map.get(view_name, BASE_PROJECT_NAME),
+                        include=view_name,
+                    )
+                    for view_name in views
+                ),
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
@@ -1365,26 +1325,16 @@ class LookerExplore:
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
 
-                resolved_project_name = (
-                    view_ref.project
-                    if view_ref.project != BASE_PROJECT_NAME
-                    else self.project_name
-                )
-
-                logger.debug(
-                    f"LookerExplore upstream lineage creation for explore '{self.name}' (model='{self.model_name}', self.project_name='{self.project_name}'): view_ref.include='{view_ref.include}', view_ref.project='{view_ref.project}', BASE_PROJECT_NAME='{BASE_PROJECT_NAME}', resolved_project_name='{resolved_project_name}'"
-                )
-
                 view_urn = LookerViewId(
-                    project_name=resolved_project_name,
+                    project_name=(
+                        view_ref.project
+                        if view_ref.project != BASE_PROJECT_NAME
+                        else self.project_name
+                    ),
                     model_name=self.model_name,
                     view_name=view_ref.include,
                     file_path=file_path,
                 ).get_urn(config)
-
-                logger.debug(
-                    f"LookerExplore upstream lineage generated view_urn: '{view_urn}' for view '{view_ref.include}'"
-                )
 
                 upstreams.append(
                     UpstreamClass(
