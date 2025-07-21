@@ -1,11 +1,14 @@
 package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.mxe.SystemMetadata;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,8 +29,9 @@ public class SystemMetadataUtils {
             .setLastObserved(System.currentTimeMillis()));
   }
 
-  public static SystemMetadata generateSystemMetadataIfEmpty(
-      @Nullable SystemMetadata systemMetadata) {
+  // Entry point for all MCPItem construction, if this assumption changes then logic for setting aspectModified
+  // needs propagation to retain auditability.
+  public static SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
     SystemMetadata result = systemMetadata == null ? new SystemMetadata() : systemMetadata;
     if (result.getRunId() == null) {
       result.setRunId(DEFAULT_RUN_ID);
@@ -36,6 +40,14 @@ public class SystemMetadataUtils {
       result.setLastObserved(System.currentTimeMillis());
     }
     return result;
+  }
+
+  public static SystemMetadata setAspectModified(@Nonnull SystemMetadata systemMetadata,
+      @Nullable AuditStamp auditStamp) {
+    if (auditStamp != null && !SYSTEM_ACTOR.equals(auditStamp.getActor().toString())) {
+      systemMetadata.setAspectModified(auditStamp);
+    }
+    return systemMetadata;
   }
 
   public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {

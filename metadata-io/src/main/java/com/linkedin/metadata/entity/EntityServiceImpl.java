@@ -231,6 +231,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       SystemMetadata changeSystemMetadata =
           new SystemMetadata(changeMCP.getSystemMetadata().copy().data());
       changeSystemMetadata.setVersion(String.valueOf(rowNextVersion));
+      if (rowNextVersion == 1) {
+        // First version, we copy over modified audit stamp from where we have set it in initial MCPItem generation
+        changeSystemMetadata.setAspectCreated(changeMCP.getSystemMetadata().getAspectModified(), SetMode.IGNORE_NULL);
+      }
       changeMCP.setSystemMetadata(changeSystemMetadata);
 
       if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
@@ -261,6 +265,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setRecordTemplate(changeMCP.getRecordTemplate());
           latestSystemMetadata.setVersion(changeSystemMetadata.getVersion());
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
+          latestSystemMetadata.setAspectModified(changeSystemMetadata.getAspectModified(), SetMode.IGNORE_NULL);
+          latestSystemMetadata.setAspectCreated(changeSystemMetadata.getAspectCreated(), SetMode.IGNORE_NULL);
         } else {
           // Do not increment version with the incoming change (match existing version)
           long matchVersion =
