@@ -1276,19 +1276,33 @@ def _normalize_db_or_schema(
 def _simplify_impala_insert_columns(sql: str) -> str:
     """
     예시 변환:
-    INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
-    -> INSERT OVERWRITE TABLE table_name SELECT ...
+    - INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
+      -> INSERT OVERWRITE TABLE table_name SELECT ...
+    - UPSERT INTO table_name (col1, col2) SELECT ...
+      -> INSERT INTO TABLE table_name SELECT ...
     """
     # INSERT OVERWRITE 테이블명 (컬럼리스트) 패턴 매칭
     # 대소문자 구분 없이, 공백 처리도 유연하게
     patterns = [
+        # INSERT OVERWRITE|INTO + 컬럼 + PARTITION + SELECT|VALUES
         (
-            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\(.+?\))\s+SELECT",
-            r"INSERT \1 TABLE \2 \4 SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(\s*([^)]+?)\s*\)\s+(PARTITION\s*\(.+?\))\s+(SELECT|VALUES)",
+            r"INSERT \1 TABLE \2 \4 \5",
         ),
+        # INSERT OVERWRITE|INTO + 컬럼 + SELECT|VALUES
         (
-            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
-            r"INSERT \1 TABLE \2 SELECT",
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(\s*([^)]+?)\s*\)\s+(SELECT|VALUES)",
+            r"INSERT \1 TABLE \2 \4",
+        ),
+        # UPSERT INTO + 컬럼 + SELECT|VALUES
+        (
+            r"UPSERT\s+INTO\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(\s*([^)]+?)\s*\)\s+(SELECT|VALUES)",
+            r"INSERT INTO TABLE \1 \3",
+        ),
+        # UPSERT INTO + SELECT|VALUES (컬럼 없음)
+        (
+            r"UPSERT\s+INTO\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s+(SELECT|VALUES)",
+            r"INSERT INTO TABLE \1 \2",
         ),
     ]
     try:
