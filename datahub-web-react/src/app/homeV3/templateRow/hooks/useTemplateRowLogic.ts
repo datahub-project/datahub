@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
@@ -39,11 +40,17 @@ export function useTemplateRowLogic(row: WrappedRow, rowIndex: number) {
         [row.modules, rowIndex],
     );
 
+    const isSmallRow = useMemo(
+        () => (row.modules.length > 0 ? SMALL_MODULE_TYPES.includes(row.modules[0].properties.type) : undefined),
+        [row.modules],
+    );
+
     return {
         // Row state
         isRowFull,
         currentModuleCount,
         maxModulesPerRow,
+        isSmallRow,
 
         // Drag state
         isDraggingFromSameRow,

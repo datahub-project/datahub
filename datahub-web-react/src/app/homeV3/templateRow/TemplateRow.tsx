@@ -12,7 +12,7 @@ interface Props {
 }
 
 function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
-    const { modulePositions, shouldDisableDropZones } = useTemplateRowLogic(row, rowIndex);
+    const { modulePositions, shouldDisableDropZones, isSmallRow } = useTemplateRowLogic(row, rowIndex);
 
     return (
         <RowLayout
@@ -20,6 +20,7 @@ function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
             modulePositions={modulePositions}
             shouldDisableDropZones={shouldDisableDropZones}
             modulesAvailableToAdd={modulesAvailableToAdd}
+            isSmallRow={isSmallRow}
         />
     );
 }
