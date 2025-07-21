@@ -113,6 +113,7 @@ class LookerViewIdCache:
                         view_name=view_name,
                         file_path=file_path,
                     )
+
                     self.looker_view_id_cache[view_name] = looker_view_id
                     return looker_view_id
 
