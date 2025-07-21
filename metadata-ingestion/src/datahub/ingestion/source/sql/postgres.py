@@ -329,7 +329,7 @@ class PostgresSource(SQLAlchemySource):
                 self.report.failure(
                     title="Failed to list stored procedures for schema",
                     message="An error occurred while listing procedures for the schema.",
-                    context="f"{database}.{schema}",
+                    context=f"{database}.{schema}",
                     exc=e,
                 )
 
