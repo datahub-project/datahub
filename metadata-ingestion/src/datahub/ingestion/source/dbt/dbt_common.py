@@ -370,6 +370,12 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
+    drop_conflicting_sources: bool = Field(
+        default=True,
+        description="When enabled, drops sources that have the same name in the target platform as a model. "
+        "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
+    )
+
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -1000,7 +1006,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return self.config.node_name_pattern.allowed(key)
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
-        nodes = []
+        nodes: List[DBTNode] = []
         for node in all_nodes:
             key = node.dbt_name
 
@@ -1009,6 +1015,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             nodes.append(node)
+
+        if self.config.drop_conflicting_sources:
+            # Try to detect cases where a model and source have the same name.
+            # In these cases, we don't want to generate both because they'll have the same
+            # urn and hence overwrite each other. Instead, we should drop the source.
+            # The risk here is that the source might have documentation that'd be lost,
+            # which is why we maintain optionality with a config flag.
+            original_nodes = nodes
+            warehouse_model_names = set()
+            for node in original_nodes:
+                if node.node_type == "model" and node.exists_in_target_platform:
+                    warehouse_model_names.add(node.get_db_fqn())
+            nodes = []
+            for node in original_nodes:
+                if (
+                    node.node_type == "source"
+                    and node.exists_in_target_platform
+                    and node.get_db_fqn() in warehouse_model_names
+                ):
+                    self.report.warning(
+                        title="Conflicting source and model detected",
+                        message="We found a dbt model and source with the same name. To ensure reliable lineage generation, the source node was ignored. "
+                        "If you associate documentation with the source, it will be lost. "
+                        "To avoid this, you should remove the source node from your dbt project and replace any `source()` calls with `ref()`.",
+                        context=node.get_db_fqn(),
+                    )
+                else:
+                    nodes.append(node)
 
         return nodes
 
