@@ -18,6 +18,11 @@ const StyledFormItem = styled(Form.Item)`
     margin: 0;
 `;
 
+const OptionItemWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
@@ -70,10 +75,20 @@ export const FieldMetricBuilder = ({ value, onChange, disabled, isEditMode }: Pr
                 <Select
                     placeholder="Select a metric"
                     onChange={(newMetricType) => updateMetricType(newMetricType)}
-                    options={options}
                     // Do not allow editing after assertion is created
                     disabled={disabled || isEditMode}
-                />
+                >
+                    {options.map((option) => (
+                        <Select.Option key={option.value} value={option.value} label={option.label}>
+                            <OptionItemWrapper title={option.description}>
+                                <Typography.Text>{option.label}</Typography.Text>
+                                {option.description && (
+                                    <Typography.Text type="secondary">{option.description}</Typography.Text>
+                                )}
+                            </OptionItemWrapper>
+                        </Select.Option>
+                    ))}
+                </Select>
             </StyledFormItem>
             {metricType && (
                 <FieldMetricParameterBuilder

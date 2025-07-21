@@ -42,7 +42,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '@types';
 
-const SUBTYPES = {
+export const DATASET_SUBTYPES = {
     VIEW: 'view',
 };
 
@@ -129,7 +129,7 @@ export class DatasetEntity implements Entity<Dataset> {
                             !!dataset?.dataset?.viewProperties?.logic ||
                             !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                                .includes(DATASET_SUBTYPES.VIEW.toLocaleLowerCase()),
                         enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },

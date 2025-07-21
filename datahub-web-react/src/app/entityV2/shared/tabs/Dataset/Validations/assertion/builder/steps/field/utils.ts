@@ -331,37 +331,45 @@ export const FIELD_METRIC_TYPE_CONFIG = {
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
         {
             label: 'Max length',
             value: FieldMetricType.MaxLength,
+            description: 'The maximum length of the string values in the column',
             requiresConnection: true,
         },
         {
             label: 'Min length',
             value: FieldMetricType.MinLength,
+            description: 'The minimum length of the string values in the column',
             requiresConnection: true,
         },
         {
             label: 'Empty count',
             value: FieldMetricType.EmptyCount,
+            description: 'The number of rows where the string is empty',
             requiresConnection: true,
         },
         {
             label: 'Empty percentage',
             value: FieldMetricType.EmptyPercentage,
+            description: 'The percentage of rows where the string is empty (0-100)',
             requiresConnection: true,
         },
     ],
@@ -369,130 +377,159 @@ export const FIELD_METRIC_TYPE_CONFIG = {
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
         {
             label: 'Max',
             value: FieldMetricType.Max,
+            description: 'The maximum value in the column',
         },
         {
             label: 'Min',
             value: FieldMetricType.Min,
+            description: 'The minimum value in the column',
         },
         {
             label: 'Average',
             value: FieldMetricType.Mean,
+            description: 'The average value in the column',
         },
         {
             label: 'Median',
             value: FieldMetricType.Median,
+            description: 'The median value in the column',
         },
         {
             label: 'Std dev',
             value: FieldMetricType.Stddev,
+            description: 'The standard deviation of the values in the column',
         },
         {
             label: 'Negative count',
             value: FieldMetricType.NegativeCount,
             requiresConnection: true,
+            description: 'The number of rows where the value is negative',
         },
         {
             label: 'Negative percentage',
             value: FieldMetricType.NegativePercentage,
             requiresConnection: true,
+            description: 'The percentage of rows where the value is negative (0-100)',
         },
         {
             label: 'Zero count',
             value: FieldMetricType.ZeroCount,
             requiresConnection: true,
+            description: 'The number of rows where the value is zero',
         },
         {
             label: 'Zero percentage',
             value: FieldMetricType.ZeroPercentage,
             requiresConnection: true,
+            description: 'The percentage of rows where the value is zero (0-100)',
         },
     ],
     [SchemaFieldDataType.Boolean]: [
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
     ],
     [SchemaFieldDataType.Date]: [
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
     ],
     [SchemaFieldDataType.Time]: [
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
     ],
     [SchemaFieldDataType.Null]: [
         {
             label: 'Null count',
             value: FieldMetricType.NullCount,
+            description: 'The number of rows where the column is null',
         },
         {
             label: 'Null percentage',
             value: FieldMetricType.NullPercentage,
+            description: 'The percentage of rows where the column is null (0-100)',
         },
         {
             label: 'Unique count',
             value: FieldMetricType.UniqueCount,
+            description: 'The number of unique values in the column',
         },
         {
             label: 'Unique percentage',
             value: FieldMetricType.UniquePercentage,
+            description: 'The percentage of unique values in the column (0-100)',
         },
     ],
 };

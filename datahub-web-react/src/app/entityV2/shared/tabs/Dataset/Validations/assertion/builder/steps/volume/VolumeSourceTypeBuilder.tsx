@@ -1,8 +1,9 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Select, Typography } from 'antd';
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
+import { DATASET_SUBTYPES } from '@app/entity/dataset/DatasetEntity';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { useConnectionForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
@@ -11,6 +12,7 @@ import {
     getVolumeSourceTypeOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
 
+import { useGetDatasetQuery } from '@graphql/dataset.generated';
 import { DatasetVolumeSourceType } from '@types';
 
 const StyledSelect = styled(Select)`
@@ -57,8 +59,20 @@ type Props = {
 
 export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChange, disabled }: Props) => {
     const connectionForEntityExists = useConnectionForEntityExists(entityUrn);
-    const sourceOptions = getVolumeSourceTypeOptions(platformUrn, connectionForEntityExists);
+    const entityData = useGetDatasetQuery({ variables: { urn: entityUrn } });
+    const isView =
+        entityData.data?.dataset?.subTypes?.typeNames?.some(
+            (type) => type.toLowerCase() === DATASET_SUBTYPES.VIEW.toLowerCase(),
+        ) ?? false;
+    const sourceOptions = getVolumeSourceTypeOptions(platformUrn, connectionForEntityExists, isView);
     const sourceDetails = getVolumeSourceTypeDetails(platformUrn, value);
+
+    useEffect(() => {
+        if (!sourceOptions.includes(value)) {
+            onChange(sourceOptions[0] ?? DatasetVolumeSourceType.DatahubDatasetProfile);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, sourceOptions]);
 
     return (
         <Section>

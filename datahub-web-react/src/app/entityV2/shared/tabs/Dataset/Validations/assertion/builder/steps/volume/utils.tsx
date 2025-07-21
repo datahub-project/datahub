@@ -366,9 +366,13 @@ export const getDefaultVolumeParameters = (operator: AssertionStdOperator) => {
 export const getVolumeSourceTypeOptions = (
     platformUrn: string,
     connectionForEntityExists: boolean,
+    isView: boolean,
 ): DatasetVolumeSourceType[] => {
+    // Views don't support Information Schema
     return connectionForEntityExists
-        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes?.filter((sourceType) =>
+              isView ? sourceType !== DatasetVolumeSourceType.InformationSchema : true,
+          ) ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
         : [DatasetVolumeSourceType.DatahubDatasetProfile];
 };
 
