@@ -6,7 +6,9 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
 import com.linkedin.datahub.graphql.generated.PageTemplateRowInput;
 import com.linkedin.datahub.graphql.generated.PageTemplateScope;
@@ -44,7 +46,10 @@ public class UpsertPageTemplateResolver
     PageTemplateScope scope = input.getScope();
     PageTemplateSurfaceType surfaceType = input.getSurfaceType();
 
-    // TODO: check permissions if the scope is GLOBAL
+    if (input.getScope().equals(PageTemplateScope.GLOBAL)
+        && !AuthorizationUtils.canManageHomePageTemplates(context)) {
+      throw new AuthorizationException("User does not have permission to update global templates.");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

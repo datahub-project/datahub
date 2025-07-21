@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { LARGE_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
@@ -40,8 +41,18 @@ export default function useAddModuleMenu(
     modulesAvailableToAdd: ModulesAvailableToAdd,
     position: ModulePositionInput,
     closeMenu: () => void,
-): MenuProps {
-    const { addModule } = usePageTemplateContext();
+) {
+    const {
+        addModule,
+        moduleModalState: { open: openModal },
+        template,
+    } = usePageTemplateContext();
+
+    const isRowWithLargeModule =
+        position.rowIndex !== undefined &&
+        template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
+            LARGE_MODULE_TYPES.includes(module.properties.type),
+        );
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -54,20 +65,15 @@ export default function useAddModuleMenu(
         [addModule, position, closeMenu],
     );
 
-    // TODO: use this commented out code later once we implement creating new modules
-    // const handleCreateNewModule = useCallback(
-    //     (type: DataHubPageModuleType, name: string) => {
-    //         createModule({
-    //             name,
-    //             type,
-    //             position,
-    //         });
-    //         closeMenu();
-    //     },
-    //     [createModule, position, closeMenu],
-    // );
+    const handleOpenCreateModuleModal = useCallback(
+        (type: DataHubPageModuleType) => {
+            openModal(type, position);
+            closeMenu();
+        },
+        [openModal, position, closeMenu],
+    );
 
-    return useMemo(() => {
+    const menu = useMemo(() => {
         const items: MenuProps['items'] = [];
 
         const quickLink = {
@@ -75,8 +81,9 @@ export default function useAddModuleMenu(
             key: 'quick-link',
             label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
             onClick: () => {
-                // TODO: open up modal to add a quick link
+                handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
+            disabled: isRowWithLargeModule,
         };
 
         const documentation = {
@@ -84,7 +91,7 @@ export default function useAddModuleMenu(
             key: 'documentation',
             label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
             onClick: () => {
-                // TODO: open up modal to add documentation
+                handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
         };
 
@@ -113,11 +120,26 @@ export default function useAddModuleMenu(
             },
         };
 
+        const assetCollection = {
+            title: 'Asset Collection',
+            key: 'asset-collection',
+            label: (
+                <MenuItem
+                    description="A curated list of assets of your choosing"
+                    title="Asset Collection"
+                    icon="Stack"
+                />
+            ),
+            onClick: () => {
+                handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
+            },
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Custom Large" />,
             type: 'group',
-            children: [yourAssets, domains],
+            children: [yourAssets, domains, assetCollection],
         });
 
         // Add admin created modules if available
@@ -147,5 +169,12 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [modulesAvailableToAdd, handleAddExistingModule]);
+    }, [
+        isRowWithLargeModule,
+        modulesAvailableToAdd.adminCreatedModules,
+        handleOpenCreateModuleModal,
+        handleAddExistingModule,
+    ]);
+
+    return menu;
 }

@@ -52,3 +52,24 @@ def test_table_naming_helper_is_valid_table_name():
     """Test table name validation."""
     assert TableNamingHelper.is_valid_table_name("hops_2_f_3_h1_t0") is True
     assert TableNamingHelper.is_valid_table_name("invalid_name") is False
+
+
+def test_table_naming_helper_with_prefix():
+    """Test table name generation with prefix."""
+    # Test with prefix
+    table_name = TableNamingHelper.generate_table_name(
+        lineage_hops=2, lineage_fan_out=3, level=1, table_index=0, prefix="test_"
+    )
+    assert table_name == "test_hops_2_f_3_h1_t0"
+
+    # Test without prefix (empty string)
+    table_name = TableNamingHelper.generate_table_name(
+        lineage_hops=2, lineage_fan_out=3, level=1, table_index=0, prefix=""
+    )
+    assert table_name == "hops_2_f_3_h1_t0"
+
+    # Test with default (no prefix parameter)
+    table_name = TableNamingHelper.generate_table_name(
+        lineage_hops=2, lineage_fan_out=3, level=1, table_index=0
+    )
+    assert table_name == "hops_2_f_3_h1_t0"

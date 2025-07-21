@@ -2,12 +2,16 @@ package com.linkedin.datahub.graphql.resolvers.module;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
 import com.linkedin.datahub.graphql.generated.DataHubPageModuleType;
+import com.linkedin.datahub.graphql.generated.LinkModuleParamsInput;
 import com.linkedin.datahub.graphql.generated.PageModuleScope;
 import com.linkedin.datahub.graphql.generated.UpsertPageModuleInput;
 import com.linkedin.datahub.graphql.types.module.PageModuleMapper;
@@ -16,7 +20,9 @@ import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.module.DataHubPageModuleParams;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +46,10 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
     PageModuleScope scope = input.getScope();
     com.linkedin.datahub.graphql.generated.PageModuleParamsInput paramsInput = input.getParams();
 
-    // TODO: check permissions if the scope is GLOBAL
+    if (input.getScope().equals(PageModuleScope.GLOBAL)
+        && !AuthorizationUtils.canManageHomePageTemplates(context)) {
+      throw new AuthorizationException("User does not have permission to update global modules.");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -79,8 +88,18 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
     DataHubPageModuleParams gmsParams = new DataHubPageModuleParams();
 
     if (paramsInput.getLinkParams() != null) {
+      LinkModuleParamsInput inputValues = paramsInput.getLinkParams();
       com.linkedin.module.LinkModuleParams linkParams = new com.linkedin.module.LinkModuleParams();
-      linkParams.setLinkUrn(UrnUtils.getUrn(paramsInput.getLinkParams().getLinkUrn()));
+
+      linkParams.setLinkUrl(inputValues.getLinkUrl());
+
+      if (inputValues.getImageUrl() != null) {
+        linkParams.setImageUrl(inputValues.getImageUrl());
+      }
+      if (inputValues.getDescription() != null) {
+        linkParams.setDescription(inputValues.getDescription());
+      }
+
       gmsParams.setLinkParams(linkParams);
     }
 
@@ -91,6 +110,20 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       gmsParams.setRichTextParams(richTextParams);
     }
 
+    if (paramsInput.getAssetCollectionParams() != null) {
+      com.linkedin.module.AssetCollectionModuleParams assetCollectionParams =
+          new com.linkedin.module.AssetCollectionModuleParams();
+
+      List<Urn> urns =
+          paramsInput.getAssetCollectionParams().getAssetUrns().stream()
+              .map(UrnUtils::getUrn)
+              .collect(Collectors.toList());
+
+      UrnArray urnArray = new UrnArray(urns);
+
+      assetCollectionParams.setAssetUrns(urnArray);
+      gmsParams.setAssetCollectionParams(assetCollectionParams);
+    }
     return gmsParams;
   }
 
@@ -105,6 +138,11 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
     } else if (type.equals(com.linkedin.module.DataHubPageModuleType.LINK)) {
       if (params.getLinkParams() == null) {
         throw new IllegalArgumentException("Did not provide link params for link module");
+      }
+    } else if (type.equals(com.linkedin.module.DataHubPageModuleType.ASSET_COLLECTION)) {
+      if (params.getAssetCollectionParams() == null) {
+        throw new IllegalArgumentException(
+            "Did not provide asset collection params for asset collection module");
       }
     } else {
       // TODO: add more blocks to this check as we support creating more types of modules to this

@@ -10,9 +10,11 @@ import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 
 // Mock the PageTemplateContext
 const mockRemoveModule = vi.fn();
+const mockOpenToEdit = vi.fn();
 vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: () => ({
         removeModule: mockRemoveModule,
+        moduleModalState: { openToEdit: mockOpenToEdit },
     }),
 }));
 
@@ -24,6 +26,9 @@ vi.mock('@components', () => ({
         </div>
     )),
     colors: {
+        gray: {
+            600: '#4B5563',
+        },
         red: {
             500: '#ef4444',
         },
@@ -60,7 +65,7 @@ describe('ModuleMenu', () => {
 
         // Check that menu items are rendered
         expect(screen.getByText('Edit')).toBeInTheDocument();
-        expect(screen.getByText('Duplicate')).toBeInTheDocument();
+        // expect(screen.getByText('Duplicate')).toBeInTheDocument();
         expect(screen.getByText('Delete')).toBeInTheDocument();
     });
 
@@ -234,7 +239,7 @@ describe('ModuleMenu', () => {
         });
     });
 
-    it('should handle edit and duplicate options (placeholder functionality)', () => {
+    it('should handle edit option (placeholder functionality)', () => {
         render(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
@@ -243,14 +248,14 @@ describe('ModuleMenu', () => {
 
         // Check that edit and duplicate options are present
         const editButton = screen.getByText('Edit');
-        const duplicateButton = screen.getByText('Duplicate');
+        // const duplicateButton = screen.getByText('Duplicate');
 
         expect(editButton).toBeInTheDocument();
-        expect(duplicateButton).toBeInTheDocument();
+        // expect(duplicateButton).toBeInTheDocument();
 
         // Click edit and duplicate (should not throw errors)
         fireEvent.click(editButton);
-        fireEvent.click(duplicateButton);
+        // fireEvent.click(duplicateButton);
 
         // These are placeholder implementations, so we just verify they don't crash
         expect(mockRemoveModule).not.toHaveBeenCalled();

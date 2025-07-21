@@ -33,6 +33,14 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assetUrns
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
         }
     }
 }

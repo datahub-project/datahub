@@ -52,11 +52,25 @@ export function useTemplateOperations() {
             templateToUpdate: PageTemplateFragment | null,
             module: PageModuleFragment,
             position: ModulePositionInput,
+            isEditingModule: boolean,
         ): PageTemplateFragment | null => {
             if (!templateToUpdate) return null;
 
             const newTemplate = { ...templateToUpdate };
-            const newRows = [...(newTemplate.properties?.rows || [])];
+            let newRows = [...(newTemplate.properties?.rows || [])];
+
+            // Update the existing module in-place for Optimistic UI changes
+            if (isEditingModule && module.urn) {
+                newRows = newRows.map((row) => ({
+                    ...row,
+                    modules: (row.modules || []).map((mod) => (mod.urn === module.urn ? { ...mod, ...module } : mod)),
+                }));
+                newTemplate.properties = {
+                    ...newTemplate.properties,
+                    rows: newRows,
+                };
+                return newTemplate;
+            }
 
             if (position.rowIndex === undefined) {
                 // Add to new row at the end

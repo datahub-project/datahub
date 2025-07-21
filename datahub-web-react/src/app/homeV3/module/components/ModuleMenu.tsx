@@ -4,6 +4,7 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
@@ -14,13 +15,25 @@ const StyledIcon = styled(Icon)`
     }
 ` as typeof Icon;
 
+const DropdownWrapper = styled.div``;
+
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
 }
 
 export default function ModuleMenu({ module, position }: Props) {
-    const { removeModule } = usePageTemplateContext();
+    const { type } = module.properties;
+    const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
+
+    const {
+        removeModule,
+        moduleModalState: { openToEdit },
+    } = usePageTemplateContext();
+
+    const handleEditModule = useCallback(() => {
+        openToEdit(type, module);
+    }, [module, openToEdit, type]);
 
     const handleDelete = useCallback(() => {
         removeModule({
@@ -29,40 +42,45 @@ export default function ModuleMenu({ module, position }: Props) {
         });
     }, [removeModule, module.urn, position]);
 
+    const handleMenuClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+    }, []);
+
     return (
-        <Dropdown
-            trigger={['click']}
-            menu={{
-                items: [
-                    {
-                        title: 'Edit',
-                        key: 'edit',
-                        label: 'Edit',
-                        onClick: () => {
-                            // TODO: Implement edit functionality
+        <DropdownWrapper onClick={handleMenuClick}>
+            <Dropdown
+                trigger={['click']}
+                menu={{
+                    items: [
+                        ...(canEdit
+                            ? [
+                                  {
+                                      title: 'Edit',
+                                      key: 'edit',
+                                      label: 'Edit',
+                                      style: {
+                                          color: colors.gray[600],
+                                          fontSize: '14px',
+                                      },
+                                      onClick: handleEditModule,
+                                  },
+                              ]
+                            : []),
+                        {
+                            title: 'Delete',
+                            label: 'Delete',
+                            key: 'delete',
+                            style: {
+                                color: colors.red[500],
+                                fontSize: '14px',
+                            },
+                            onClick: handleDelete,
                         },
-                    },
-                    {
-                        title: 'Duplicate',
-                        label: 'Duplicate',
-                        key: 'duplicate',
-                        onClick: () => {
-                            // TODO: Implement duplicate functionality
-                        },
-                    },
-                    {
-                        title: 'Delete',
-                        label: 'Delete',
-                        key: 'delete',
-                        style: {
-                            color: colors.red[500],
-                        },
-                        onClick: handleDelete,
-                    },
-                ],
-            }}
-        >
-            <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
-        </Dropdown>
+                    ],
+                }}
+            >
+                <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
+            </Dropdown>
+        </DropdownWrapper>
     );
 }
