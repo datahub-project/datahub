@@ -89,3 +89,5 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
 ];
+
+export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];
