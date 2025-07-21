@@ -15,12 +15,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.data_classes import (
     FolderInfo,
     SessionMappingEdge,
+    SourceField,
     SourceQualifierWidget,
     SourceWidget,
     Synonyms,
     TargetWidget,
     WidgetLineage,
-    WorkflowInfo, SourceField,
+    WorkflowInfo,
 )
 from datahub.ingestion.source.informatica.informatica_config import (
     InformaticaConfig,
@@ -30,18 +31,27 @@ from datahub.ingestion.source.informatica.mappers.dataflow_mapper import (
     make_dataflow_workunit,
 )
 from datahub.ingestion.source.informatica.mappers.datajob_mapper import (
-    make_datajob_workunit, make_datajob_query_workunit,
+    make_datajob_query_workunit,
+    make_datajob_workunit,
 )
 from datahub.ingestion.source.informatica.mappers.dataset_mapper import (
-    make_dataset_snapshot_workunit, make_schema_metadata_workunit,
+    make_dataset_snapshot_workunit,
+    make_schema_metadata_workunit,
 )
 from datahub.ingestion.source.informatica.mappers.lineage_mapper import (
     make_dataset_lineage_mcp,
     make_synonym_lineage_mcp,
 )
 from datahub.ingestion.source.informatica.sql_loader import load_sql
-from datahub.metadata.schema_classes import MetadataChangeProposalClass, StringTypeClass, NumberTypeClass, \
-    BooleanTypeClass, DateTypeClass, SchemaFieldClass, SchemaFieldDataTypeClass
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    DateTypeClass,
+    MetadataChangeProposalClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 SQL_DIR = Path(__file__).parent / "sql"
@@ -101,13 +111,15 @@ class InformaticaSource(Source):
                     )
 
                     if datajob_id and datajob_id not in datajob_ids:
-                        logger.debug(f"find lineage flow_id={flow_id}, datajob_name={datajob_name}, to_mapping_id={workflow_lineage_element.to_mapping_id}, to_session_id={workflow_lineage_element.to_session_id}")
+                        logger.debug(
+                            f"find lineage flow_id={flow_id}, datajob_name={datajob_name}, to_mapping_id={workflow_lineage_element.to_mapping_id}, to_session_id={workflow_lineage_element.to_session_id}"
+                        )
                         wu_list = self.build_dataset_lineages(
                             flow_id,
                             datajob_name,
                             workflow_lineage_element.to_mapping_id,
                             workflow_lineage_element.to_session_id,
-                            workflow_lineage_element.to_mapping_desc
+                            workflow_lineage_element.to_mapping_desc,
                         )
                         for wu in wu_list:
                             yield wu
@@ -219,7 +231,13 @@ class InformaticaSource(Source):
             for field in field_list:
                 nullable = field.nulltype == 0
                 is_key = field.keytype == 1
-                col = self.to_schema_field(field.col_name, field.datatype_name, nullable, is_key, field.col_desc)
+                col = self.to_schema_field(
+                    field.col_name,
+                    field.datatype_name,
+                    nullable,
+                    is_key,
+                    field.col_desc,
+                )
                 if field.widget_id not in field_map:
                     field_map[field.widget_id] = []
                 field_map[field.widget_id].append(col)
@@ -297,7 +315,12 @@ class InformaticaSource(Source):
             return []
 
     def build_dataset_lineages(
-        self, flow_id: str, job_name: str, mapping_id: int, session_id: int, to_mapping_desc: str = None
+        self,
+        flow_id: str,
+        job_name: str,
+        mapping_id: int,
+        session_id: int,
+        to_mapping_desc: str = None,
     ) -> list[MetadataWorkUnit]:
         lineage_list: list[WidgetLineage] = self.get_widget_lineage(mapping_id)
 
@@ -308,7 +331,9 @@ class InformaticaSource(Source):
         targets: dict[int, TargetWidget] = self.get_target_widgets(
             mapping_id, session_id
         )
-        sources_fields: dict[int, list[SchemaFieldClass]] = self.get_source_fields(mapping_id)
+        sources_fields: dict[int, list[SchemaFieldClass]] = self.get_source_fields(
+            mapping_id
+        )
 
         ## lineage_list에서 to_instance_id 기준으로 묶어서 list[int, list[any]] 형태로 저장
         lineage_grouped = defaultdict(list)
@@ -317,8 +342,6 @@ class InformaticaSource(Source):
             if lineage.to_instance_id:
                 lineage_grouped[lineage.to_instance_id].append(lineage)
         logger.debug(f"lineage_grouped length : {len(lineage_grouped)}")
-
-
 
         for _key, group in lineage_grouped.items():
             sorted_group = sorted(
@@ -347,7 +370,10 @@ class InformaticaSource(Source):
                 cluster=self.config.env,
             )
             yield make_datajob_workunit(
-                job_urn=job_urn, job_id=datajob_id, job_name=datajob_name, description=to_mapping_desc
+                job_urn=job_urn,
+                job_id=datajob_id,
+                job_name=datajob_name,
+                description=to_mapping_desc,
             )
 
             # 타겟 테이블 URN
@@ -363,10 +389,12 @@ class InformaticaSource(Source):
 
             processed_source = {}
             for edge in sorted_group:
-                    processed_source[edge.from_instance_id] = False
+                processed_source[edge.from_instance_id] = False
 
             for edge in sorted_group:
-                if edge.from_widget_type == "3" or edge.from_widget_type == "45":  # Source Qualifier
+                if (
+                    edge.from_widget_type == "3" or edge.from_widget_type == "45"
+                ):  # Source Qualifier
                     if processed_source[edge.from_instance_id]:
                         continue
 
@@ -381,7 +409,9 @@ class InformaticaSource(Source):
                             source_qualifier.full_query,
                             f"{target.schema_name}.{target_table_name}",
                         )
-                        yield make_datajob_query_workunit(job_urn,html.unescape(source_qualifier.full_query))
+                        yield make_datajob_query_workunit(
+                            job_urn, html.unescape(source_qualifier.full_query)
+                        )
 
                         for table in source_tables:
                             if "." not in table:
@@ -417,7 +447,9 @@ class InformaticaSource(Source):
                         if source_fields:
                             yield make_schema_metadata_workunit(from_urn, source_fields)
                         yield make_dataset_snapshot_workunit(
-                            from_urn, f"{source.db_name}.{source.source_name}".lower(), source.description
+                            from_urn,
+                            f"{source.db_name}.{source.source_name}".lower(),
+                            source.description,
                         )
 
                         logger.debug(
@@ -430,7 +462,14 @@ class InformaticaSource(Source):
                 logger.debug(f"send lineage, {job_urn}")
                 yield make_dataset_lineage_mcp(inlets, to_urn, job_urn)
 
-    def to_schema_field(self, col_name: str, data_type: str, nullable: bool, is_key: bool, comment: str = None) -> SchemaFieldClass:
+    def to_schema_field(
+        self,
+        col_name: str,
+        data_type: str,
+        nullable: bool,
+        is_key: bool,
+        comment: str = None,
+    ) -> SchemaFieldClass:
         type_class = self.map_to_datahub_type(data_type)
 
         return SchemaFieldClass(
@@ -445,15 +484,43 @@ class InformaticaSource(Source):
     def map_to_datahub_type(self, native_type: str):
         t = native_type.lower()
 
-        if any(keyword in t for keyword in
-               ["char", "varchar", "text", "string", "enum", "json", "xml", "name", "ntext", "uuid"]):
+        if any(
+            keyword in t
+            for keyword in [
+                "char",
+                "varchar",
+                "text",
+                "string",
+                "enum",
+                "json",
+                "xml",
+                "name",
+                "ntext",
+                "uuid",
+            ]
+        ):
             return StringTypeClass()
-        elif any(keyword in t for keyword in
-                 ["int", "number", "decimal", "float", "double", "numeric", "smallint", "real", "money"]):
+        elif any(
+            keyword in t
+            for keyword in [
+                "int",
+                "number",
+                "decimal",
+                "float",
+                "double",
+                "numeric",
+                "smallint",
+                "real",
+                "money",
+            ]
+        ):
             return NumberTypeClass()
         elif any(keyword in t for keyword in ["bool", "bit"]):
             return BooleanTypeClass()
-        elif any(keyword in t for keyword in ["date", "time", "timestamp", "interval", "datetime"]):
+        elif any(
+            keyword in t
+            for keyword in ["date", "time", "timestamp", "interval", "datetime"]
+        ):
             return DateTypeClass()
         else:
             return StringTypeClass()  # fallback for complex or unknown types
@@ -468,13 +535,16 @@ class InformaticaSource(Source):
             return "postgres"
         elif any(keyword in t for keyword in ["my-sql", "sap_mysql"]):
             return "mysql"
-        elif any(keyword in t for keyword in ["oracle", "oracledb", "odbc", "DataTransformation"]):
+        elif any(
+            keyword in t
+            for keyword in ["oracle", "oracledb", "odbc", "DataTransformation"]
+        ):
             return "oracle"
-        elif any(keyword in t for keyword in ["sf","sf_mc","sf_ac","connex"]):
+        elif any(keyword in t for keyword in ["sf", "sf_mc", "sf_ac", "connex"]):
             return "salesforce"
-        elif any(keyword in t for keyword in ["mssql", "microsoft sql server"]):
-            return "mssql"
-        elif any(keyword in t for keyword in ["db2"]):
+        elif any(keyword in t for keyword in ["mssql", "microsoft sql server"]) or any(
+            keyword in t for keyword in ["db2"]
+        ):
             return "mssql"
         elif any(keyword in t for keyword in ["sap r/3"]):
             return "sap"

@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 from collections import defaultdict
 from typing import (
@@ -28,6 +29,7 @@ import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
+from sqlglot import exp
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -77,7 +79,7 @@ SQL_PARSE_RESULT_CACHE_SIZE = 1000
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
-SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_LINEAGE_TIMEOUT_SECONDS = 30  # SQL에 대한 리니지 생성 timeout 시간 ( 10 -> 30 )
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
@@ -143,6 +145,7 @@ class DownstreamColumnRef(_ParserBaseModel):
 class ColumnTransformation(_ParserBaseModel):
     is_direct_copy: bool
     column_logic: str
+    # is_auxiliary: bool = False
 
 
 class _ColumnLineageInfo(_ParserBaseModel):
@@ -298,7 +301,7 @@ def _table_level_lineage(
     if isinstance(statement, sqlglot.exp.Update):
         tables = tables | modified
 
-    return tables, modified
+    return tables, modified  # in_tables, out_tables
 
 
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
@@ -610,6 +613,61 @@ def _select_statement_cll(
     return column_lineage
 
 
+def _add_join_condition_lineage(
+    column_lineage: List[_ColumnLineageInfo],
+    joins: List[_JoinInfo],
+) -> List[_ColumnLineageInfo]:
+    """
+    JOIN 조건에 참여하는 컬럼들을 기존 column_lineage에 추가하는 함수
+
+    예시: SELECT Y.A, X.C, Y.D FROM Y JOIN X ON X.A=Y.A AND X.B=Y.B
+    - Y.A의 upstream에 X.A 추가 (JOIN 조건 때문에)
+    - X.C, Y.D는 JOIN 조건에 참여하지 않으므로 변경 없음
+    """
+    if not joins or not column_lineage:
+        return column_lineage
+
+    # JOIN으로 인해 포함되는 모든 컬럼들 수집
+    join_columns = set()
+    for join_info in joins:
+        for col_ref in join_info.columns_involved:
+            if col_ref.column:
+                join_columns.add(col_ref.column)
+
+    updated_lineage = []  # 기존 column_lineage + join시 추가되는 리니지
+    for lineage_info in column_lineage:
+        downstream_col = lineage_info.downstream.column
+
+        # SELECT된 컬럼이 JOIN 조건에 참여하는 경우
+        if downstream_col and downstream_col in join_columns:
+            new_upstreams = list(lineage_info.upstreams)
+            existing_upstream_keys = {
+                (up.table, up.column) for up in lineage_info.upstreams if up.column
+            }
+
+            for join_info in joins:
+                for col_ref in join_info.columns_involved:
+                    if (
+                        col_ref.column == downstream_col
+                        and (col_ref.table, col_ref.column)
+                        not in existing_upstream_keys
+                    ):
+                        new_upstreams.append(col_ref)
+                        existing_upstream_keys.add((col_ref.table, col_ref.column))
+            logger.debug(f"new upstreams: {new_upstreams}")
+            updated_lineage.append(
+                _ColumnLineageInfo(
+                    downstream=lineage_info.downstream,
+                    upstreams=new_upstreams,
+                    logic=lineage_info.logic,
+                )
+            )
+        else:
+            # JOIN 조건에 참여하지 않는 컬럼은 그대로
+            updated_lineage.append(lineage_info)
+    return updated_lineage
+
+
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
     joins: Optional[List[_JoinInfo]] = None
@@ -691,6 +749,17 @@ def _column_level_lineage(
     except Exception as e:
         # This is a non-fatal error, so we can continue.
         logger.debug("Failed to list joins: %s", e)
+
+    # ADD : Column level lineage with Join Condition
+    if joins:
+        try:
+            column_lineage = _add_join_condition_lineage(
+                column_lineage=column_lineage,
+                joins=joins,
+            )
+        except Exception as e:
+            # This is a non-fatal error, so we can continue.
+            logger.debug("Failed to add joins condition lineage : %s", e)
 
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,
@@ -1204,6 +1273,36 @@ def _normalize_db_or_schema(
     return db_or_schema
 
 
+def _simplify_impala_insert_columns(sql: str) -> str:
+    """
+    예시 변환:
+    INSERT OVERWRITE table_name (col1, col2, col3) SELECT ...
+    -> INSERT OVERWRITE TABLE table_name SELECT ...
+    """
+    # INSERT OVERWRITE 테이블명 (컬럼리스트) 패턴 매칭
+    # 대소문자 구분 없이, 공백 처리도 유연하게
+    patterns = [
+        (
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+(PARTITION\s*\(.+?\))\s+SELECT",
+            r"INSERT \1 TABLE \2 \4 SELECT",
+        ),
+        (
+            r"INSERT\s+(OVERWRITE|INTO)\s+(?:TABLE\s+)?(\w+(?:\.\w+)?)\s*\(([^)]+)\)\s+SELECT",
+            r"INSERT \1 TABLE \2 SELECT",
+        ),
+    ]
+    try:
+        processed_sql = sql
+        for pattern, replacement in patterns:
+            processed_sql = re.sub(
+                pattern, replacement, processed_sql, flags=re.IGNORECASE | re.DOTALL
+            )
+        return processed_sql
+    except Exception as e:
+        logger.warning(f"INSERT OVERWRITE + (Columns) rewrite failed: {e}")
+        return sql
+
+
 def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
     """
     Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
@@ -1224,6 +1323,49 @@ def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expr
         expression=statement,
     )
     return create
+
+
+def _simplify_impala_cte_insert(statement: exp.Expression) -> exp.Expression:
+    if not isinstance(statement, exp.Insert):  # insert에서만 작동
+        return statement
+
+    with_clause = statement.find(exp.With)
+    if not with_clause:
+        return statement
+
+    cte_defs = {}
+    # 1. CTE 정의 수집
+    for cte in with_clause.expressions:
+        name = cte.alias_or_name
+        cte_defs[name] = cte.this
+
+    # 2. WITH 절 제거
+    statement.set("with", None)
+
+    # 3. 재귀적으로 CTE 참조를 서브쿼리로 교체
+    def replace_cte_refs(expr: exp.Expression) -> exp.Expression:
+        if isinstance(expr, exp.Table) and expr.name in cte_defs:
+            # 재귀적으로 CTE 내부의 다른 CTE 참조도 교체
+            subquery_expr = cte_defs[expr.name].copy().transform(replace_cte_refs)
+
+            # 서브쿼리 생성 시 별명 보존
+            alias = expr.alias or expr.name
+            return exp.Subquery(
+                this=subquery_expr, alias=exp.TableAlias(this=exp.to_identifier(alias))
+            )
+        return expr
+
+    try:
+        insert_expr = statement.args.get("expression")
+        if insert_expr:
+            insert_expr = insert_expr.transform(replace_cte_refs)
+            statement.set("expression", insert_expr)
+    except Exception as e:
+        logger.warning(f"CTE inlining failed: {e}")
+        # 실패 시 원본 statement 그대로 반환
+        return statement
+
+    return statement
 
 
 def _sqlglot_lineage_inner(
@@ -1249,8 +1391,9 @@ def _sqlglot_lineage_inner(
         # default_schema = "public"
         # TODO: Re-enable this.
         pass
-
     logger.debug("Parsing lineage from sql statement: %s", sql)
+
+    sql = _simplify_impala_insert_columns(sql)
     statement = parse_statement(sql, dialect=dialect)
 
     if isinstance(statement, sqlglot.exp.Command):
@@ -1269,6 +1412,7 @@ def _sqlglot_lineage_inner(
     # )
 
     statement = _simplify_select_into(statement)
+    statement = _simplify_impala_cte_insert(statement)
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,
