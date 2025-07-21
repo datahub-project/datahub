@@ -1022,11 +1022,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # urn and hence overwrite each other. Instead, we drop the source.
             # The risk here is that the source might have documentation that'd be lost,
             # which is why we maintain optionality with a config flag.
-            original_nodes = nodes
             warehouse_model_names = set()
-            for node in original_nodes:
+            for node in nodes:
                 if node.node_type == "model" and node.exists_in_target_platform:
                     warehouse_model_names.add(node.get_db_fqn())
+            original_nodes = nodes
             nodes = []
             for node in original_nodes:
                 if (
