@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,20 +16,18 @@ from datahub.metadata.schema_classes import (
 
 
 class TestAddPartitionColumnsToSchema:
-    """Tests for the add_partition_columns_to_schema utility function."""
-
     def create_mock_path_spec(
         self, partition_result: Optional[List[Tuple[str, str]]] = None
     ) -> PathSpec:
-        """Create a mock PathSpec that returns the given partition result."""
         mock_path_spec = MagicMock(spec=PathSpec)
         mock_path_spec.get_partition_from_path.return_value = partition_result
         return mock_path_spec
 
     def create_schema_field(
-        self, field_path: str, field_type=StringTypeClass()
+        self,
+        field_path: str,
+        field_type: Union[StringTypeClass, NumberTypeClass] = StringTypeClass(),
     ) -> SchemaFieldClass:
-        """Create a SchemaField for testing."""
         return SchemaFieldClass(
             fieldPath=field_path,
             nativeDataType="string",
@@ -58,7 +56,6 @@ class TestAddPartitionColumnsToSchema:
         ],
     )
     def test_add_partition_columns_basic(self, partition_keys, expected_field_paths):
-        """Test basic partition column addition with various partition configurations."""
         # Setup
         path_spec = self.create_mock_path_spec(partition_keys)
         fields = [
@@ -97,18 +94,14 @@ class TestAddPartitionColumnsToSchema:
         ],
     )
     def test_fieldpath_version_detection(self, existing_fields, expected_v2_format):
-        """Test that v2 fieldPath format is detected and used correctly."""
-        # Setup
         path_spec = self.create_mock_path_spec([("year", "2023")])
         fields = [
             self.create_schema_field(field_path) for field_path in existing_fields
         ]
         original_field_count = len(fields)
 
-        # Execute
         add_partition_columns_to_schema(path_spec, "/test/path", fields)
 
-        # Assert
         if expected_v2_format:
             partition_field = fields[original_field_count]
             assert partition_field.fieldPath == "[version=2.0].[type=string].year"
@@ -124,8 +117,6 @@ class TestAddPartitionColumnsToSchema:
         ],
     )
     def test_no_partitions_detected(self, partition_result):
-        """Test that no fields are added when no partitions are detected."""
-        # Setup
         path_spec = self.create_mock_path_spec(partition_result)
         fields = [
             self.create_schema_field("existing_field1"),
@@ -133,50 +124,38 @@ class TestAddPartitionColumnsToSchema:
         ]
         original_fields = fields.copy()
 
-        # Execute
         add_partition_columns_to_schema(path_spec, "/test/path", fields)
 
-        # Assert no changes
         assert fields == original_fields
 
     def test_preserves_existing_fields(self):
-        """Test that existing fields are preserved and not modified."""
-        # Setup
         path_spec = self.create_mock_path_spec([("year", "2023")])
         original_field = self.create_schema_field("existing_field", NumberTypeClass())
         original_field.isPartitioningKey = False
         fields = [original_field]
 
-        # Execute
         add_partition_columns_to_schema(path_spec, "/test/path", fields)
 
-        # Assert existing field is unchanged
         assert fields[0] == original_field
         assert fields[0].fieldPath == "existing_field"
         assert isinstance(fields[0].type.type, NumberTypeClass)
         assert fields[0].isPartitioningKey is False
 
-        # Assert partition field was added
         assert len(fields) == 2
         assert fields[1].fieldPath == "year"
         assert fields[1].isPartitioningKey is True
 
     def test_empty_fields_list(self):
-        """Test that partition columns are added even when fields list is initially empty."""
-        # Setup
         path_spec = self.create_mock_path_spec([("year", "2023")])
-        fields = []
+        fields: List[SchemaFieldClass] = []
 
-        # Execute
         add_partition_columns_to_schema(path_spec, "/test/path", fields)
 
-        # Assert
         assert len(fields) == 1
         assert fields[0].fieldPath == "year"
         assert fields[0].isPartitioningKey is True
 
     def test_real_world_complex_partition_scenario(self):
-        """Test the specific scenario from the user's path spec."""
         # This simulates the user's path spec:
         # /{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/{partition_key[2]}={partition[2]}/
         partition_keys = [
@@ -193,17 +172,14 @@ class TestAddPartitionColumnsToSchema:
         ]
         original_field_count = len(fields)
 
-        # Execute
         add_partition_columns_to_schema(
             path_spec,
             "https://odedmdatacataloggold.blob.core.windows.net/settler/transactions/partitioned/date=2023-12-01/region=us-east/category=sales/data.parquet",
             fields,
         )
 
-        # Assert
         assert len(fields) == original_field_count + 3
 
-        # Check partition fields
         partition_fields = fields[original_field_count:]
         expected_partitions = ["date", "region", "category"]
 
