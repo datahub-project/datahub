@@ -352,7 +352,6 @@ def _maybe_print_upgrade_message(
             if version_stats.client.latest
             else None
         )
-        # Skip client-server compatibility check for cloud servers
         client_server_compat = 0
         if version_stats.server.current_server_type != "cloud":
             client_server_compat = is_client_server_compatible(
