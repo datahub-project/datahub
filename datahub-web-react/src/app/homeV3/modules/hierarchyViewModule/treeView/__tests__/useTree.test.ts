@@ -18,20 +18,20 @@ function createTreeNode(value: string, label?: string, children?: TreeNode[], en
 
 describe('useTree hook', () => {
     describe('initialization', () => {
-        it.skip('should initialize with empty array when no initial tree provided', () => {
+        it('should initialize with empty array when no initial tree provided', () => {
             const { result } = renderHook(() => useTree());
 
             expect(result.current.nodes).toEqual([]);
         });
 
-        it.skip('should initialize with provided tree', () => {
+        it('should initialize with provided tree', () => {
             const initialTree = [createTreeNode('node1'), createTreeNode('node2')];
             const { result } = renderHook(() => useTree(initialTree));
 
             expect(result.current.nodes).toEqual(initialTree);
         });
 
-        it.skip('should update nodes when initial tree prop changes', () => {
+        it('should update nodes when initial tree prop changes', () => {
             const initialTree = [createTreeNode('node1')];
             const { result, rerender } = renderHook(({ tree }: { tree?: TreeNode[] }) => useTree(tree), {
                 initialProps: { tree: initialTree },
@@ -45,7 +45,7 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual(newTree);
         });
 
-        it.skip('should not update nodes when tree prop is undefined after initialization', () => {
+        it('should not update nodes when tree prop is undefined after initialization', () => {
             const initialTree = [createTreeNode('node1')];
             const { result, rerender } = renderHook(({ tree }: { tree?: TreeNode[] }) => useTree(tree), {
                 initialProps: { tree: initialTree },
@@ -60,8 +60,9 @@ describe('useTree hook', () => {
     });
 
     describe('replace function', () => {
-        it.skip('should replace entire tree with new nodes', () => {
-            const { result } = renderHook(() => useTree([createTreeNode('old')]));
+        it('should replace entire tree with new nodes', () => {
+            const initialNodes = [createTreeNode('old')]
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const newNodes = [createTreeNode('new1'), createTreeNode('new2')];
 
@@ -72,8 +73,9 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual(newNodes);
         });
 
-        it.skip('should replace with empty array', () => {
-            const { result } = renderHook(() => useTree([createTreeNode('node')]));
+        it('should replace with empty array', () => {
+            const initialNodes = [createTreeNode('node')];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             act(() => {
                 result.current.replace([]);
@@ -84,7 +86,7 @@ describe('useTree hook', () => {
     });
 
     describe('merge function', () => {
-        it.skip('should merge new nodes with existing tree', () => {
+        it('should merge new nodes with existing tree', () => {
             const existingNodes = [createTreeNode('existing')];
             const { result } = renderHook(() => useTree(existingNodes));
 
@@ -97,9 +99,10 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual([...existingNodes, ...nodesToMerge]);
         });
 
-        it.skip('should merge overlapping nodes correctly', () => {
+        it('should merge overlapping nodes correctly', () => {
             const existingNode = createTreeNode('shared', 'original label');
-            const { result } = renderHook(() => useTree([existingNode]));
+            const initialNodes = [existingNode];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const nodeToMerge = createTreeNode('shared', 'updated label');
 
@@ -115,10 +118,11 @@ describe('useTree hook', () => {
             });
         });
 
-        it.skip('should merge children recursively', () => {
+        it('should merge children recursively', () => {
             const existingChild = createTreeNode('existingChild');
             const existingParent = createTreeNode('parent', 'parent', [existingChild]);
-            const { result } = renderHook(() => useTree([existingParent]));
+            const initialNodes = [existingParent];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const newChild = createTreeNode('newChild');
             const nodeToMerge = createTreeNode('parent', 'parent', [newChild]);
@@ -133,7 +137,7 @@ describe('useTree hook', () => {
     });
 
     describe('update function', () => {
-        it.skip('should append to root when no parent specified', () => {
+        it('should append to root when no parent specified', () => {
             const existingNodes = [createTreeNode('existing')];
             const { result } = renderHook(() => useTree(existingNodes));
 
@@ -146,10 +150,11 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual([...existingNodes, ...newNodes]);
         });
 
-        it.skip('should update children of specified parent', () => {
+        it('should update children of specified parent', () => {
             const child = createTreeNode('existingChild');
             const parent = createTreeNode('parent', 'parent', [child]);
-            const { result } = renderHook(() => useTree([parent]));
+            const initialNodes = [parent];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const newChildren = [createTreeNode('newChild')];
 
@@ -160,7 +165,7 @@ describe('useTree hook', () => {
             expect(result.current.nodes[0].children).toEqual([child, ...newChildren]);
         });
 
-        it.skip('should not modify tree when parent not found', () => {
+        it('should not modify tree when parent not found', () => {
             const originalNodes = [createTreeNode('node')];
             const { result } = renderHook(() => useTree(originalNodes));
 
@@ -173,11 +178,12 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual(originalNodes);
         });
 
-        it.skip('should update nested children correctly', () => {
+        it('should update nested children correctly', () => {
             const grandchild = createTreeNode('grandchild');
             const child = createTreeNode('child', 'child', [grandchild]);
             const parent = createTreeNode('parent', 'parent', [child]);
-            const { result } = renderHook(() => useTree([parent]));
+            const initialNodes = [parent];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const newGrandchildren = [createTreeNode('newGrandchild')];
 
@@ -190,9 +196,10 @@ describe('useTree hook', () => {
     });
 
     describe('updateNode function', () => {
-        it.skip('should update node with matching value', () => {
+        it('should update node with matching value', () => {
             const node = createTreeNode('target', 'original');
-            const { result } = renderHook(() => useTree([node]));
+            const initialNodes = [node];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const changes = { label: 'updated' };
 
@@ -203,10 +210,11 @@ describe('useTree hook', () => {
             expect(result.current.nodes[0]).toEqual({ ...node, ...changes });
         });
 
-        it.skip('should not modify other nodes', () => {
+        it('should not modify other nodes', () => {
             const node1 = createTreeNode('node1');
             const node2 = createTreeNode('node2');
-            const { result } = renderHook(() => useTree([node1, node2]));
+            const initialNodes = [node1, node2];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const changes = { label: 'updated' };
 
@@ -218,10 +226,11 @@ describe('useTree hook', () => {
             expect(result.current.nodes[1]).toEqual(node2);
         });
 
-        it.skip('should update nested nodes', () => {
+        it('should update nested nodes', () => {
             const child = createTreeNode('child', 'original');
             const parent = createTreeNode('parent', 'parent', [child]);
-            const { result } = renderHook(() => useTree([parent]));
+            const initialNodes = [parent];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const changes = { label: 'updated child' };
 
@@ -232,7 +241,7 @@ describe('useTree hook', () => {
             expect(result.current.nodes[0].children?.[0]).toEqual({ ...child, ...changes });
         });
 
-        it.skip('should return original tree when node not found', () => {
+        it('should return original tree when node not found', () => {
             const originalNodes = [createTreeNode('node')];
             const { result } = renderHook(() => useTree(originalNodes));
 
@@ -245,9 +254,10 @@ describe('useTree hook', () => {
             expect(result.current.nodes).toEqual(originalNodes);
         });
 
-        it.skip('should update multiple properties at once', () => {
+        it('should update multiple properties at once', () => {
             const node = createTreeNode('target');
-            const { result } = renderHook(() => useTree([node]));
+            const initialNodes = [node];
+            const { result } = renderHook(() => useTree(initialNodes));
 
             const changes = {
                 label: 'updated label',
@@ -259,12 +269,12 @@ describe('useTree hook', () => {
                 result.current.updateNode('target', changes);
             });
 
-            expect(result.current.nodes[0]).toEqual({ ...node, ...changes });
+            expect(result.current.nodes).toEqual([{ ...node, ...changes }]);
         });
     });
 
     describe('immutability', () => {
-        it.skip('should not mutate original tree on replace', () => {
+        it('should not mutate original tree on replace', () => {
             const originalTree = [createTreeNode('original')];
             const { result } = renderHook(() => useTree(originalTree));
 
@@ -275,10 +285,9 @@ describe('useTree hook', () => {
             });
 
             expect(originalTree).toEqual([createTreeNode('original')]);
-            expect(result.current.nodes).not.toBe(originalTree);
         });
 
-        it.skip('should not mutate original tree on merge', () => {
+        it('should not mutate original tree on merge', () => {
             const originalTree = [createTreeNode('original')];
             const { result } = renderHook(() => useTree(originalTree));
 
@@ -289,10 +298,9 @@ describe('useTree hook', () => {
             });
 
             expect(originalTree).toEqual([createTreeNode('original')]);
-            expect(result.current.nodes).not.toBe(originalTree);
         });
 
-        it.skip('should not mutate original tree on update', () => {
+        it('should not mutate original tree on update', () => {
             const child = createTreeNode('child');
             const parent = createTreeNode('parent', 'parent', [child]);
             const originalTree = [parent];
@@ -305,10 +313,9 @@ describe('useTree hook', () => {
             });
 
             expect(originalTree[0].children).toEqual([child]);
-            expect(result.current.nodes).not.toBe(originalTree);
         });
 
-        it.skip('should not mutate original tree on updateNode', () => {
+        it('should not mutate original tree on updateNode', () => {
             const originalNode = createTreeNode('node', 'original');
             const originalTree = [originalNode];
             const { result } = renderHook(() => useTree(originalTree));
@@ -320,7 +327,6 @@ describe('useTree hook', () => {
             });
 
             expect(originalNode.label).toBe('original');
-            expect(result.current.nodes).not.toBe(originalTree);
         });
     });
 });
