@@ -11,7 +11,7 @@ interface Props {
 }
 
 function TemplateRow({ row, rowIndex }: Props) {
-    const { modulePositions, shouldDisableDropZones, isSmallRow } = useTemplateRowLogic(row, rowIndex);
+    const { modulePositions, isSmallRow } = useTemplateRowLogic(row, rowIndex);
     const { active } = useDndContext();
     const isActiveModuleSmall = active?.data?.current?.isSmall;
 
@@ -20,7 +20,7 @@ function TemplateRow({ row, rowIndex }: Props) {
         isSmallRow == null || // empty row
         isActiveModuleSmall === isSmallRow;
 
-    const isDropZoneDisabled = shouldDisableDropZones || !isDropAllowed;
+    const isDropZoneDisabled = !isDropAllowed;
 
     return (
         <RowLayout
