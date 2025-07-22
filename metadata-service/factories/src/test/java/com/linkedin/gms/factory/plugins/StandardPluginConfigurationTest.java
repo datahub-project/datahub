@@ -2,7 +2,9 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
+import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -16,6 +18,7 @@ import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import java.util.List;
@@ -211,5 +214,69 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(validator.getConfig().getClassName(), CreateIfNotExistsValidator.class.getName());
     assertEquals(
         validator.getConfig().getSupportedOperations(), List.of("CREATE", "CREATE_ENTITY"));
+  }
+
+  @Test
+  public void testConditionalWriteValidatorBeanCreation() {
+    assertTrue(context.containsBean("conditionalWriteValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("conditionalWriteValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof ConditionalWriteValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), ConditionalWriteValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "DELETE", "UPSERT", "UPDATE", "PATCH"));
+  }
+
+  @Test
+  public void testFieldPathMutatorBeanCreation() {
+    assertTrue(context.containsBean("fieldPathMutator"));
+    MutationHook mutator = context.getBean("fieldPathMutator", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof FieldPathMutator);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(mutator.getConfig().getClassName(), FieldPathMutator.class.getName());
+    assertEquals(
+        mutator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
+  }
+
+  @Test
+  public void testOwnershipOwnerTypesBeanCreation() {
+    assertTrue(context.containsBean("ownershipOwnerTypes"));
+    MutationHook mutator = context.getBean("ownershipOwnerTypes", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof OwnershipOwnerTypes);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(mutator.getConfig().getClassName(), OwnershipOwnerTypes.class.getName());
+    assertEquals(
+        mutator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
+  }
+
+  @Test
+  public void testStructuredPropertiesSoftDeleteBeanCreation() {
+    assertTrue(context.containsBean("structuredPropertiesSoftDelete"));
+    MutationHook mutator = context.getBean("structuredPropertiesSoftDelete", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof StructuredPropertiesSoftDelete);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(
+        mutator.getConfig().getClassName(), StructuredPropertiesSoftDelete.class.getName());
+    // Note: This plugin doesn't define supportedOperations, only supportedEntityAspectNames
   }
 }

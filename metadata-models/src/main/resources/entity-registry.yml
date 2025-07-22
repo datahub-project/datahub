@@ -742,18 +742,7 @@ plugins:
         - entityName: '*'
           aspectName: structuredProperties
 
-    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - DELETE
-        - UPSERT
-        - UPDATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
+
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
       enabled: true
       spring:
@@ -779,37 +768,9 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - UPDATE
-        - RESTATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - UPDATE
-        - RESTATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'ownership'
+
+
+
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true
       spring:
