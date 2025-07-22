@@ -55,15 +55,15 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {displayedDescription && [
+                        {displayedDescription && (
                             <DescriptionSection
                                 description={displayedDescription}
                                 isExpandable
                                 lineLimit={LINE_LIMIT}
-                            />,
-                        ]}
+                            />
+                        )}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
-                        {!hasContent && [<EmptySectionText message={EMPTY_MESSAGES.documentation.title} />]}
+                        {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>
                 }
                 extra={
