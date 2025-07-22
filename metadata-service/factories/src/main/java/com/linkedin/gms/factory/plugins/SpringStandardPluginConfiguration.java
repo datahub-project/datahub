@@ -26,9 +26,12 @@ import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
+import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import java.util.List;
@@ -464,6 +467,65 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator propertyDefinitionValidator() {
+    return new PropertyDefinitionValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PropertyDefinitionValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator structuredPropertiesValidator() {
+    return new StructuredPropertiesValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(StructuredPropertiesValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect propertyDefinitionDeleteSideEffect() {
+    return new PropertyDefinitionDeleteSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PropertyDefinitionDeleteSideEffect.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
                             .build()))
                 .build());
   }

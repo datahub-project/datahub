@@ -717,30 +717,8 @@ entities:
 events:
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - UPSERT
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
+
+
 
 
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
@@ -750,17 +728,7 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedOperations:
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
+
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
       enabled: true
       spring:
