@@ -153,12 +153,19 @@ export default function AutoCompleteEntityItem({
     return (
         <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
             <ContentContainer>
-                <Icons>
-                    {dragIconRenderer && dragIconRenderer()}
+                {dragIconRenderer ? (
+                    <Icons>
+                        {dragIconRenderer()}
+                        <IconContainer $variant={variant}>
+                            <EntityIcon entity={entity} siblings={siblings} />
+                        </IconContainer>
+                    </Icons>
+                ) : (
                     <IconContainer $variant={variant}>
                         <EntityIcon entity={entity} siblings={siblings} />
                     </IconContainer>
-                </Icons>
+                )}
+
                 <DescriptionContainer>
                     <HoverEntityTooltip
                         placement="bottom"
