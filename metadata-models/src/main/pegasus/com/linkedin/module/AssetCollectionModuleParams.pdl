@@ -1,0 +1,10 @@
+namespace com.linkedin.module
+
+import com.linkedin.common.Urn
+
+/**
+ * The params required if the module is type ASSET_COLLECTION
+ */
+record AssetCollectionModuleParams {
+  assetUrns: array[Urn]
+}

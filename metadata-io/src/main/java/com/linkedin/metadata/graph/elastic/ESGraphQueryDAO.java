@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
+import static com.linkedin.metadata.search.utils.ESUtils.queryOptimize;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
@@ -14,6 +15,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
@@ -30,6 +34,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -44,6 +49,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -68,15 +75,9 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.SearchHit;
-import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.opensearch.search.aggregations.bucket.filter.ParsedFilter;
-import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
-import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.opensearch.search.aggregations.metrics.ParsedTopHits;
-import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
+import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
 
 /** A search DAO for Elasticsearch backend. */
@@ -87,12 +88,13 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
-
-  private final GraphQueryConfiguration graphQueryConfiguration;
+  @Getter private final GraphServiceConfiguration graphServiceConfig;
+  @Getter private final ElasticSearchConfiguration config;
+  private final MetricUtils metricUtils;
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
-  static final String RELATIONSHIP_TYPE = "relationshipType";
+  public static final String RELATIONSHIP_TYPE = "relationshipType";
   static final String SOURCE_TYPE = SOURCE + ".entityType";
   static final String SOURCE_URN = SOURCE + ".urn";
   static final String DESTINATION_TYPE = DESTINATION + ".entityType";
@@ -103,13 +105,7 @@ public class ESGraphQueryDAO {
   static final String UPDATED_ON = "updatedOn";
   static final String UPDATED_ACTOR = "updatedActor";
   static final String PROPERTIES = "properties";
-  static final String SCORE_FIELD = "_score";
   static final String UI = "UI";
-  static final String FILTER_BY_SOURCE_RELATIONSHIP = "filter_by_source_relationship";
-  static final String FILTER_BY_DESTINATION_RELATIONSHIP = "filter_by_destination_relationship";
-  static final String GROUP_BY_SOURCE_AGG = "group_by_source";
-  static final String GROUP_BY_DESTINATION_AGG = "group_by_destination";
-  static final String TOP_DOCUMENTS_AGG = "top_documents";
 
   private static void addFilterToQueryBuilder(
       @Nonnull Filter filter, @Nullable String node, BoolQueryBuilder rootQuery) {
@@ -140,7 +136,7 @@ public class ESGraphQueryDAO {
       @Nonnull OperationContext opContext,
       @Nonnull final QueryBuilder query,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, count);
@@ -153,7 +149,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -165,100 +162,17 @@ public class ESGraphQueryDAO {
   }
 
   private SearchSourceBuilder sharedSourceBuilder(
-      @Nonnull final QueryBuilder query, final int offset, final int count) {
+      @Nonnull final QueryBuilder query, final int offset, @Nullable Integer count) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     searchSourceBuilder.from(offset);
-    searchSourceBuilder.size(count);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
 
     searchSourceBuilder.query(query);
-    if (graphQueryConfiguration.isBoostViaNodes()) {
+    if (config.getSearch().getGraph().isBoostViaNodes()) {
       addViaNodeBoostQuery(searchSourceBuilder);
     }
     return searchSourceBuilder;
-  }
-
-  private SearchResponse executeGroupByLineageSearchQuery(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final QueryBuilder query,
-      final int offset,
-      final int count,
-      final LineageGraphFilters lineageGraphFilters) {
-    SearchRequest searchRequest = new SearchRequest();
-
-    SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, 0);
-
-    // We have to group by both Source AND Destination because edge types may go in different
-    // directions for lineage
-    // set up filters for each relationship type in the correct direction to limit buckets
-    BoolQueryBuilder sourceFilterQuery = QueryBuilders.boolQuery();
-
-    lineageGraphFilters
-        .streamEdgeInfo()
-        .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
-        .forEach(
-            pair ->
-                sourceFilterQuery.should(
-                    getAggregationFilter(pair, RelationshipDirection.OUTGOING)));
-    if (!sourceFilterQuery.should().isEmpty()) {
-      sourceFilterQuery.minimumShouldMatch(1);
-    }
-
-    BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
-    lineageGraphFilters
-        .streamEdgeInfo()
-        .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
-        .forEach(
-            pair ->
-                destFilterQuery.should(getAggregationFilter(pair, RelationshipDirection.INCOMING)));
-    if (!destFilterQuery.should().isEmpty()) {
-      destFilterQuery.minimumShouldMatch(1);
-    }
-
-    FilterAggregationBuilder sourceRelationshipTypeFilters =
-        AggregationBuilders.filter(FILTER_BY_SOURCE_RELATIONSHIP, sourceFilterQuery);
-    FilterAggregationBuilder destRelationshipTypeFilters =
-        AggregationBuilders.filter(FILTER_BY_DESTINATION_RELATIONSHIP, destFilterQuery);
-    TermsAggregationBuilder sourceAgg =
-        AggregationBuilders.terms(GROUP_BY_SOURCE_AGG)
-            .field(SOURCE + ".urn")
-            .size(
-                graphQueryConfiguration
-                    .getBatchSize()); // Number of buckets can be up to batch size per query for
-    // each
-
-    TermsAggregationBuilder destAgg =
-        AggregationBuilders.terms(GROUP_BY_DESTINATION_AGG)
-            .field(DESTINATION + ".urn")
-            .size(graphQueryConfiguration.getBatchSize());
-
-    TopHitsAggregationBuilder topHitsAgg =
-        AggregationBuilders.topHits(TOP_DOCUMENTS_AGG)
-            .size(count)
-            .sort(SCORE_FIELD, SortOrder.DESC);
-    sourceAgg.subAggregation(topHitsAgg);
-    destAgg.subAggregation(topHitsAgg);
-
-    sourceRelationshipTypeFilters.subAggregation(sourceAgg);
-    destRelationshipTypeFilters.subAggregation(destAgg);
-    searchSourceBuilder.aggregation(sourceRelationshipTypeFilters);
-    searchSourceBuilder.aggregation(destRelationshipTypeFilters);
-    searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
-
-    return opContext.withSpan(
-        "esLineageGroupByQuery",
-        () -> {
-          try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
-            return client.search(searchRequest, RequestOptions.DEFAULT);
-          } catch (Exception e) {
-            log.error("Search query failed", e);
-            throw new ESQueryException("Search query failed:", e);
-          }
-        },
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(this.getClass(), "esLineageGroupByQuery"));
   }
 
   private static BoolQueryBuilder getAggregationFilter(
@@ -266,7 +180,7 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder subFilter = QueryBuilders.boolQuery();
     TermQueryBuilder relationshipTypeTerm =
         QueryBuilders.termQuery(RELATIONSHIP_TYPE, pair.getValue().getType()).caseInsensitive(true);
-    subFilter.must(relationshipTypeTerm);
+    subFilter.filter(relationshipTypeTerm);
 
     String sourceType;
     String destinationType;
@@ -280,10 +194,10 @@ public class ESGraphQueryDAO {
 
     TermQueryBuilder sourceTypeTerm =
         QueryBuilders.termQuery(SOURCE_TYPE, sourceType).caseInsensitive(true);
-    subFilter.must(sourceTypeTerm);
+    subFilter.filter(sourceTypeTerm);
     TermQueryBuilder destinationTypeTerm =
         QueryBuilders.termQuery(DESTINATION_TYPE, destinationType).caseInsensitive(true);
-    subFilter.must(destinationTypeTerm);
+    subFilter.filter(destinationTypeTerm);
     return subFilter;
   }
 
@@ -291,8 +205,9 @@ public class ESGraphQueryDAO {
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count) {
-    BoolQueryBuilder finalQuery = buildQuery(opContext, graphQueryConfiguration, graphFilters);
+      @Nullable Integer count) {
+    BoolQueryBuilder finalQuery =
+        buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
     return executeLineageSearchQuery(opContext, finalQuery, offset, count);
   }
@@ -348,6 +263,7 @@ public class ESGraphQueryDAO {
                   relationshipQuery.should(
                       QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
       relationshipQuery.minimumShouldMatch(1);
+
       finalQuery.filter(relationshipQuery);
     }
 
@@ -373,12 +289,13 @@ public class ESGraphQueryDAO {
       @Nonnull Urn entityUrn,
       LineageGraphFilters lineageGraphFilters,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
     Map<Urn, LineageRelationship> result = new HashMap<>();
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
     long currentTime = System.currentTimeMillis();
-    long remainingTime = graphQueryConfiguration.getTimeoutSeconds() * 1000;
-    boolean exploreMultiplePaths = graphQueryConfiguration.isEnableMultiPathSearch();
+    long remainingTime = config.getSearch().getGraph().getTimeoutSeconds() * 1000;
+    boolean exploreMultiplePaths = config.getSearch().getGraph().isEnableMultiPathSearch();
     long timeoutTime = currentTime + remainingTime;
 
     // Do a Level-order BFS
@@ -449,6 +366,8 @@ public class ESGraphQueryDAO {
       Map<Urn, LineageRelationship> result,
       int i) {
 
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+
     // Do one hop on the lineage graph
     int numHops = i + 1; // Zero indexed for loop counter, one indexed count
     int remainingHops = maxHops - numHops;
@@ -465,8 +384,6 @@ public class ESGraphQueryDAO {
             existingPaths,
             exploreMultiplePaths);
 
-    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
-
     for (LineageRelationship oneHopRelnship : oneHopRelationships) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
         log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
@@ -479,8 +396,8 @@ public class ESGraphQueryDAO {
     }
     Stream<Urn> intermediateStream =
         oneHopRelationships.stream().map(LineageRelationship::getEntity);
-    if (lineageFlags != null) {
 
+    if (lineageFlags != null) {
       // Recursively increase the size of the list and append
       if (lineageFlags.getIgnoreAsHops() != null) {
         List<Urn> additionalCurrentLevel = new ArrayList<>();
@@ -586,7 +503,8 @@ public class ESGraphQueryDAO {
       long remainingTime,
       Map<Urn, UrnArrayArray> existingPaths,
       boolean exploreMultiplePaths) {
-    List<List<Urn>> batches = Lists.partition(entityUrns, graphQueryConfiguration.getBatchSize());
+    List<List<Urn>> batches =
+        Lists.partition(entityUrns, config.getSearch().getGraph().getBatchSize());
     return ConcurrencyUtils.getAllCompleted(
             batches.stream()
                 .map(
@@ -633,27 +551,23 @@ public class ESGraphQueryDAO {
 
     SearchResponse response;
     if (lineageFlags != null && lineageFlags.getEntitiesExploredPerHopLimit() != null) {
-      response =
-          executeGroupByLineageSearchQuery(
-              opContext,
-              finalQuery,
-              0,
-              lineageFlags.getEntitiesExploredPerHopLimit(),
-              lineageGraphFilters);
-      return extractRelationshipsGroupByQuery(
+      // Visualization path
+
+      return relationshipsGroupQuery(
+          opContext,
           entityUrnSet,
-          response,
+          finalQuery,
           lineageGraphFilters,
           visitedEntities,
           viaEntities,
           numHops,
-          remainingHops,
           existingPaths,
-          exploreMultiplePaths);
+          exploreMultiplePaths,
+          lineageFlags.getEntitiesExploredPerHopLimit());
     } else {
       response =
           executeLineageSearchQuery(
-              opContext, finalQuery, 0, graphQueryConfiguration.getMaxResult());
+              opContext, finalQuery, 0, graphServiceConfig.getLimit().getResults().getApiDefault());
       return extractRelationships(
           entityUrnSet,
           response,
@@ -664,6 +578,24 @@ public class ESGraphQueryDAO {
           remainingHops,
           existingPaths,
           exploreMultiplePaths);
+    }
+  }
+
+  /**
+   * Executes a search request against the graph index. This method is exposed for use by other
+   * graph service methods that need direct search access.
+   *
+   * @param searchRequest The search request to execute
+   * @return The search response from Elasticsearch
+   * @throws ESQueryException if the search fails
+   */
+  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
+    try {
+      if (metricUtils != null) metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
     }
   }
 
@@ -745,7 +677,7 @@ public class ESGraphQueryDAO {
             QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
                 .boostMode(CombineFunction.REPLACE));
     queryRescorerBuilder.windowSize(
-        graphQueryConfiguration.getMaxResult()); // Will rescore all results
+        graphServiceConfig.getLimit().getResults().getApiDefault()); // Will rescore all results
     sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
@@ -900,10 +832,13 @@ public class ESGraphQueryDAO {
     index++;
     // Extract fields
     final Map<String, Object> document = hit.getSourceAsMap();
+
+    // Extract source and destination URNs using utility class
     final Urn sourceUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
     final Urn destinationUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
     final String type = document.get(RELATIONSHIP_TYPE).toString();
     if (sourceUrn.equals(destinationUrn)) {
       log.debug("Skipping a self-edge of type {} on {}", type, sourceUrn);
@@ -1185,97 +1120,91 @@ public class ESGraphQueryDAO {
     return relationship;
   }
 
+  /**
+   * Extracts lineage relationships for a batch of entities.
+   *
+   * <p>This method performs the lineage query for a set of entity URNs and extracts all
+   * relationships matching the specified filters. It uses the streaming pagination approach to
+   * efficiently process large result sets.
+   *
+   * @param opContext The operation context, containing request metadata and search configuration.
+   * @param entityUrns The set of entity URNs representing the current level in the lineage
+   *     traversal. These entities serve as the source points for finding outgoing or incoming
+   *     edges.
+   * @param baseQuery The Elasticsearch query that defines the base query conditions, including any
+   *     filtering by entity type and relationship type.
+   * @param lineageGraphFilters Filters specifying which edge types and directions are valid for the
+   *     lineage traversal (incoming/outgoing edges, valid relationship types).
+   * @param visitedEntities Set of entities that have already been processed in the lineage
+   *     traversal, used to prevent cycles and duplicate processing.
+   * @param viaEntities Set of "via" entities that have already been processed. "Via" entities are
+   *     intermediate entities that connect other entities in a lineage path.
+   * @param numHops The current number of hops from the origin entity in the lineage traversal, used
+   *     to track the traversal depth.
+   * @param existingPaths Map of entity URN to arrays of paths leading to that entity. Each path is
+   *     an ordered array of URNs representing the traversal from the origin to the entity.
+   * @param exploreMultiplePaths If true, multiple paths to the same entity will be explored. If
+   *     false, only the first discovered path to an entity is explored.
+   * @return A list of LineageRelationship objects representing the relationships extracted from the
+   *     query. Each relationship includes the entity URN, degree (hop count), relationship type,
+   *     and paths to reach the entity.
+   */
   @WithSpan
-  private static List<LineageRelationship> extractRelationshipsGroupByQuery(
+  private List<LineageRelationship> relationshipsGroupQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
-      @Nonnull SearchResponse searchResponse,
+      @Nonnull QueryBuilder baseQuery,
       LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
-      int remainingHops,
       Map<Urn, UrnArrayArray> existingPaths,
-      boolean exploreMultiplePaths) {
-    try {
-      Map<Urn, LineageRelationship> lineageRelationshipMap = new HashMap<>();
-      ParsedFilter sourceFilterAgg =
-          searchResponse.getAggregations().get(FILTER_BY_SOURCE_RELATIONSHIP);
-      ParsedStringTerms sourceTermsAgg = sourceFilterAgg.getAggregations().get(GROUP_BY_SOURCE_AGG);
-      SearchHit[] hits = new SearchHit[0];
-      List<? extends ParsedStringTerms.ParsedBucket> sourceBuckets =
-          (List<? extends ParsedStringTerms.ParsedBucket>) sourceTermsAgg.getBuckets();
-      int index = -1;
-      for (ParsedStringTerms.ParsedBucket bucket : sourceBuckets) {
-        ParsedTopHits topHits = bucket.getAggregations().get(TOP_DOCUMENTS_AGG);
-        SearchHit[] topHitsArray = topHits.getHits().getHits();
-        boolean truncatedChildren = topHits.getHits().getTotalHits().value > topHitsArray.length;
-        for (SearchHit hit : topHitsArray) {
-          processSearchHit(
-              hit,
-              entityUrns,
-              index,
-              exploreMultiplePaths,
-              visitedEntities,
-              lineageGraphFilters,
-              existingPaths,
-              numHops,
-              truncatedChildren,
-              lineageRelationshipMap,
-              viaEntities);
-        }
-      }
+      boolean exploreMultiplePaths,
+      @Nullable final Integer entitiesPerHopLimit) {
 
-      ParsedFilter destFilterAgg =
-          searchResponse.getAggregations().get(FILTER_BY_DESTINATION_RELATIONSHIP);
-      ParsedStringTerms destTermsAgg =
-          destFilterAgg.getAggregations().get(GROUP_BY_DESTINATION_AGG);
-      List<? extends ParsedStringTerms.ParsedBucket> destBuckets =
-          (List<? extends ParsedStringTerms.ParsedBucket>) destTermsAgg.getBuckets();
-      for (ParsedStringTerms.ParsedBucket bucket : destBuckets) {
-        ParsedTopHits topHits = bucket.getAggregations().get(TOP_DOCUMENTS_AGG);
-        SearchHit[] topHitsArray = topHits.getHits().getHits();
-        boolean truncatedChildren = topHits.getHits().getTotalHits().value > topHitsArray.length;
-        for (SearchHit hit : topHitsArray) {
-          processSearchHit(
-              hit,
-              entityUrns,
-              index,
-              exploreMultiplePaths,
-              visitedEntities,
-              lineageGraphFilters,
-              existingPaths,
-              numHops,
-              truncatedChildren,
-              lineageRelationshipMap,
-              viaEntities);
-        }
-      }
-      log.debug("numHits: {}, numHops {}, remainingHops {}", hits.length, numHops, remainingHops);
+    Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
 
-      List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
-      log.debug("Number of lineage relationships in list: {}", result.size());
-      return result;
-    } catch (Exception e) {
-      // This exception handler merely exists to log the exception at an appropriate point and
-      // rethrow
-      log.error("Caught exception", e);
-      throw e;
+    if (config.getSearch().getGraph().isQueryOptimization()) {
+      queryOptimize(baseQuery, false);
     }
+
+    // Get search responses as a stream with pagination
+    Stream<SearchResponse> responseStream =
+        executeGroupByLineageSearchQuery(
+            opContext,
+            baseQuery,
+            lineageGraphFilters,
+            graphServiceConfig.getLimit().getResults().getApiDefault(),
+            exploreMultiplePaths,
+            entitiesPerHopLimit,
+            entityUrns);
+
+    // Process the stream of responses to extract relationships
+    return extractRelationshipsFromSearchResponses(
+        entityUrnSet,
+        responseStream,
+        lineageGraphFilters,
+        visitedEntities,
+        viaEntities,
+        numHops,
+        existingPaths,
+        exploreMultiplePaths,
+        entitiesPerHopLimit);
   }
 
   private static BoolQueryBuilder getOutGoingEdgeQuery(
       @Nonnull Set<Urn> urns, @Nonnull Set<EdgeInfo> outgoingEdges) {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
-    outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
-    outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
+    outgoingEdgeQuery.filter(buildUrnFilters(urns, SOURCE));
+    outgoingEdgeQuery.filter(buildEdgeFilters(outgoingEdges));
     return outgoingEdgeQuery;
   }
 
   private static BoolQueryBuilder getIncomingEdgeQuery(
       @Nonnull Set<Urn> urns, Set<EdgeInfo> incomingEdges) {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
-    incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
-    incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
+    incomingEdgeQuery.filter(buildUrnFilters(urns, DESTINATION));
+    incomingEdgeQuery.filter(buildEdgeFilters(incomingEdges));
     return incomingEdgeQuery;
   }
 
@@ -1311,9 +1240,10 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count) {
+      @Nullable Integer count) {
 
-    BoolQueryBuilder finalQuery = buildQuery(opContext, graphQueryConfiguration, graphFilters);
+    BoolQueryBuilder finalQuery =
+        buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
     return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
   }
@@ -1323,7 +1253,7 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      final int count) {
+      @Nullable Integer count) {
 
     Object[] sort = null;
     if (scrollId != null) {
@@ -1335,7 +1265,7 @@ public class ESGraphQueryDAO {
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    searchSourceBuilder.size(count);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
@@ -1347,7 +1277,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -1468,5 +1399,711 @@ public class ESGraphQueryDAO {
 
       return Optional.of(mainQuery);
     }
+  }
+
+  /**
+   * Executes lineage graph search queries in parallel for both incoming and outgoing relationships.
+   *
+   * <p>This method creates and executes Elasticsearch queries to find lineage relationships,
+   * supporting both incoming and outgoing edges in parallel. It uses search_after pagination to
+   * efficiently process large result sets, returning a combined stream of search responses.
+   *
+   * @param opContext The operation context, containing request metadata and tracing information.
+   *     Used for creating spans and accessing search configuration.
+   * @param query The base Elasticsearch query to which direction-specific filters will be added.
+   *     This typically includes entity type and relationship type filters.
+   * @param lineageGraphFilters Filters that define valid edge types and directions for lineage
+   *     traversal. Used to determine which relationships to include in the results.
+   * @param pageSize The number of documents to retrieve in each pagination request. Controls the
+   *     batch size for each Elasticsearch query.
+   * @param entitiesPerHopLimit Optional limit on the total number of entities to explore per hop.
+   * @return A stream of SearchResponse objects containing the lineage relationships. The stream
+   *     includes results from both incoming and outgoing edges, paginated using the search_after
+   *     mechanism.
+   * @throws ESQueryException If there is an error executing the Elasticsearch queries or if the
+   *     queries time out based on the configured timeout.
+   */
+  @WithSpan
+  private Stream<SearchResponse> executeGroupByLineageSearchQuery(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final QueryBuilder query,
+      final LineageGraphFilters lineageGraphFilters,
+      final int pageSize,
+      boolean exploreMultiplePaths,
+      @Nullable final Integer entitiesPerHopLimit,
+      Set<Urn> originalEntityUrns) {
+
+    if (entitiesPerHopLimit != null && entitiesPerHopLimit == 0) {
+      log.warn("Requested 0 entities to explore per hop?");
+      return Stream.empty();
+    }
+
+    // Create source filter for outgoing relationships
+    BoolQueryBuilder sourceFilterQuery = QueryBuilders.boolQuery();
+    lineageGraphFilters
+        .streamEdgeInfo()
+        .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
+        .forEach(
+            pair ->
+                sourceFilterQuery.should(
+                    getAggregationFilter(pair, RelationshipDirection.OUTGOING)));
+
+    if (!sourceFilterQuery.should().isEmpty()) {
+      sourceFilterQuery.minimumShouldMatch(1);
+    }
+
+    // Create destination filter for incoming relationships
+    BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
+    lineageGraphFilters
+        .streamEdgeInfo()
+        .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
+        .forEach(
+            pair ->
+                destFilterQuery.should(getAggregationFilter(pair, RelationshipDirection.INCOMING)));
+
+    if (!destFilterQuery.should().isEmpty()) {
+      destFilterQuery.minimumShouldMatch(1);
+    }
+
+    // Combine filters with the main query
+    BoolQueryBuilder outgoingQuery;
+    if (!sourceFilterQuery.should().isEmpty()) {
+      outgoingQuery = QueryBuilders.boolQuery();
+      outgoingQuery.filter(query);
+      outgoingQuery.filter(sourceFilterQuery);
+    } else {
+      outgoingQuery = null;
+    }
+
+    BoolQueryBuilder incomingQuery;
+    if (!destFilterQuery.should().isEmpty()) {
+      incomingQuery = QueryBuilders.boolQuery();
+      incomingQuery.filter(query);
+      incomingQuery.filter(destFilterQuery);
+    } else {
+      incomingQuery = null;
+    }
+
+    // Use CompletableFutures to run queries in parallel
+    List<CompletableFuture<List<SearchResponse>>> futures = new ArrayList<>();
+
+    // Add outgoing query future if applicable
+    if (outgoingQuery != null) {
+      CompletableFuture<List<SearchResponse>> outgoingFuture =
+          CompletableFuture.supplyAsync(
+              () -> {
+                log.debug("Starting parallel outgoing query execution");
+                return executeQueryWithLimit(
+                    opContext,
+                    outgoingQuery,
+                    pageSize,
+                    exploreMultiplePaths,
+                    entitiesPerHopLimit,
+                    "outgoing",
+                    originalEntityUrns);
+              });
+      futures.add(outgoingFuture);
+    }
+
+    // Add incoming query future if applicable
+    if (incomingQuery != null) {
+      CompletableFuture<List<SearchResponse>> incomingFuture =
+          CompletableFuture.supplyAsync(
+              () -> {
+                log.debug("Starting parallel incoming query execution");
+                return executeQueryWithLimit(
+                    opContext,
+                    incomingQuery,
+                    pageSize,
+                    exploreMultiplePaths,
+                    entitiesPerHopLimit,
+                    "incoming",
+                    originalEntityUrns);
+              });
+      futures.add(incomingFuture);
+    }
+
+    // No queries to execute
+    if (futures.isEmpty()) {
+      return Stream.empty();
+    }
+
+    try {
+      // Wait for all futures to complete
+      CompletableFuture<Void> allFutures =
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+
+      // Add timeout based on configuration
+      CompletableFuture<Void> futureWithTimeout =
+          allFutures.orTimeout(config.getSearch().getGraph().getTimeoutSeconds(), TimeUnit.SECONDS);
+
+      // Block until all futures complete or timeout
+      futureWithTimeout.join();
+
+      // Collect all results from all futures
+      List<SearchResponse> allResults =
+          futures.stream()
+              .map(CompletableFuture::join)
+              .flatMap(List::stream)
+              .collect(Collectors.toList());
+
+      log.debug("All parallel queries completed, collected {} total results", allResults.size());
+
+      // Return stream of results
+      return allResults.stream();
+
+    } catch (Exception e) {
+      log.error("Error executing parallel lineage queries", e);
+      throw new ESQueryException("Failed to execute lineage queries", e);
+    }
+  }
+
+  /**
+   * Executes a search query with adaptive pagination, dynamically adjusting page size to
+   * efficiently discover lineage relationships while respecting entity exploration limits.
+   *
+   * <p>This method implements an intelligent pagination strategy that:
+   *
+   * <ul>
+   *   <li>Starts with an initial page size calculated based on the number of input entities and the
+   *       desired entities per hop limit
+   *   <li>Dynamically increases page size to explore more relationships
+   *   <li>Stops when all input entities have reached their exploration limits
+   * </ul>
+   *
+   * @param opContext The operation context containing metadata and configuration for the search
+   * @param query The base Elasticsearch query builder to execute
+   * @param pageSize The max page size if different then global max
+   * @param exploreMultiplePaths Flag to determine if multiple paths to the same entity should be
+   *     explored
+   * @param entitiesPerHopLimit Optional limit on the number of entities to discover per input
+   *     entity
+   * @param direction A descriptive string indicating the relationship direction (for logging)
+   * @param originalEntityUrns The set of input entity URNs to explore relationships from
+   * @return A list of SearchResponse objects containing the discovered lineage relationships
+   * @throws ESQueryException if there are issues executing the Elasticsearch search requests
+   *     <p>Pagination Strategy Details:
+   *     <ul>
+   *       <li>Initial page size = min(2 * entitiesPerHopLimit * number of input URNs, max page
+   *           size)
+   *       <li>Page size increases exponentially when more entities need to be discovered
+   *       <li>Ensures no single request exceeds the maximum configured page size
+   *     </ul>
+   *     <p>Example scenarios:
+   *     <pre>
+   * // Scenario 1: Multiple input entities with hop limit
+   * executeQueryWithLimit(context, query, 10, false, 5, "outgoing", inputUrns)
+   *
+   * // Scenario 2: Single input entity without hop limit
+   * executeQueryWithLimit(context, query, 100, true, null, "incoming", singleInputUrn)
+   * </pre>
+   *
+   * @see #processResponseForEntityLimits Processing method for entity limit tracking
+   * @see #createSearchAfterRequest Search request creation method
+   */
+  private List<SearchResponse> executeQueryWithLimit(
+      OperationContext opContext,
+      QueryBuilder query,
+      int pageSize,
+      boolean exploreMultiplePaths,
+      Integer entitiesPerHopLimit,
+      String direction,
+      Set<Urn> originalEntityUrns) {
+
+    // Determine maximum page size
+    int maxPageSize =
+        Math.min(pageSize, graphServiceConfig.getLimit().getResults().getApiDefault());
+
+    // Initial page size calculation
+    int currentPageSize = maxPageSize;
+    if (entitiesPerHopLimit != null) {
+      // Calculate initial page size: 2 * entitiesPerHopLimit * number of original entity URNs
+      currentPageSize = Math.min(2 * entitiesPerHopLimit * originalEntityUrns.size(), maxPageSize);
+      log.debug(
+          "{} direction: initial page size calculated as {} (limit: {}, input urns: {})",
+          direction,
+          currentPageSize,
+          entitiesPerHopLimit,
+          originalEntityUrns.size());
+    }
+
+    List<SearchResponse> results = new ArrayList<>();
+
+    // Track count of entities discovered per input entity
+    Map<Urn, Set<Urn>> entitiesPerInputUrn = new HashMap<>();
+    originalEntityUrns.forEach(urn -> entitiesPerInputUrn.put(urn, new HashSet<>()));
+
+    // Track which input URNs have reached their limit
+    Map<Urn, Boolean> inputUrnLimitReached = new HashMap<>();
+    originalEntityUrns.forEach(urn -> inputUrnLimitReached.put(urn, false));
+
+    // Initial request with calculated page size
+    SearchRequest nextRequest = createSearchAfterRequest(query, currentPageSize, null);
+    Object[] searchAfter = null;
+    int iterationCount = 0;
+
+    while (nextRequest != null) {
+      // Check if all input URNs have reached their limit
+      if (inputUrnLimitReached.values().stream().allMatch(Boolean::booleanValue)) {
+        log.debug(
+            "{} direction: all input URNs have reached their limits, stopping pagination",
+            direction);
+        break;
+      }
+
+      try {
+        // Execute the current request
+        SearchResponse response = executeSearchRequest(opContext, nextRequest);
+        results.add(response);
+
+        // Process entities in this response
+        processResponseForEntityLimits(
+            response,
+            originalEntityUrns,
+            entitiesPerInputUrn,
+            inputUrnLimitReached,
+            exploreMultiplePaths,
+            entitiesPerHopLimit);
+
+        // Check if we should continue
+        SearchHit[] hits = response.getHits().getHits();
+        if (hits.length == 0) {
+          log.debug("{} direction: no more results, stopping pagination", direction);
+          break;
+        }
+
+        // Prepare for the next page
+        SearchHit lastHit = hits[hits.length - 1];
+        searchAfter = lastHit.getSortValues();
+
+        if (hits.length < currentPageSize) {
+          log.debug("{} direction: no more results, incomplete page", direction);
+          break;
+        }
+
+        // Adaptive page size strategy for scenarios with entitiesPerHopLimit
+        if (entitiesPerHopLimit != null && currentPageSize <= maxPageSize) {
+          boolean needMoreEntities =
+              inputUrnLimitReached.values().stream().noneMatch(Boolean::booleanValue)
+                  && entitiesPerInputUrn.values().stream()
+                      .anyMatch(set -> set.size() < entitiesPerHopLimit);
+
+          // Increase page size exponentially, but not beyond max
+          if (needMoreEntities) {
+            iterationCount++;
+            currentPageSize =
+                Math.min(
+                    maxPageSize,
+                    Math.max(
+                        currentPageSize * 2, // Double the current page size
+                        entitiesPerHopLimit * originalEntityUrns.size() * (1 << iterationCount)));
+            log.debug(
+                "{} direction: increasing page size to {} (iteration: {})",
+                direction,
+                currentPageSize,
+                iterationCount);
+          }
+        }
+
+        nextRequest = createSearchAfterRequest(query, currentPageSize, searchAfter);
+
+      } catch (Exception e) {
+        log.error("{} direction: error executing search request", direction, e);
+        throw new ESQueryException("Failed to execute search request", e);
+      }
+    }
+
+    // Log final results and entity discovery
+    log.debug("{} direction: completed, collected {} results", direction, results.size());
+    log.debug(
+        "{} direction: entities discovered per input urn: {}",
+        direction,
+        entitiesPerInputUrn.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size())));
+
+    return results;
+  }
+
+  private void processResponseForEntityLimits(
+      SearchResponse response,
+      Set<Urn> originalEntityUrns,
+      Map<Urn, Set<Urn>> entitiesPerInputUrn,
+      Map<Urn, Boolean> inputUrnLimitReached,
+      boolean exploreMultiplePaths,
+      Integer entitiesPerHopLimit) {
+
+    SearchHit[] hits = response.getHits().getHits();
+
+    for (SearchHit hit : hits) {
+      Map<String, Object> document = hit.getSourceAsMap();
+
+      // Extract source and destination URNs using utility class
+      Urn sourceUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
+      Urn destinationUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
+      // Skip if either URN extraction failed
+      if (sourceUrn == null || destinationUrn == null) {
+        continue;
+      }
+
+      // Skip self-edges
+      if (sourceUrn.equals(destinationUrn)) {
+        log.debug("Skipping a self-edge on {}", sourceUrn);
+        continue;
+      }
+
+      // Determine which input entity this relationship belongs to
+      Urn inputUrn = null;
+      Urn newEntityUrn = null;
+
+      if (originalEntityUrns.contains(sourceUrn)) {
+        inputUrn = sourceUrn;
+
+        // This is an outgoing relationship from an input entity
+        if (!originalEntityUrns.contains(destinationUrn)) {
+          newEntityUrn = destinationUrn;
+        }
+      } else if (originalEntityUrns.contains(destinationUrn)) {
+        inputUrn = destinationUrn;
+
+        // This is an incoming relationship to an input entity
+        if (!originalEntityUrns.contains(sourceUrn)) {
+          newEntityUrn = sourceUrn;
+        }
+      }
+
+      // If we found a new entity and have an input entity it relates to
+      if (inputUrn != null && newEntityUrn != null) {
+        Set<Urn> discoveredEntities =
+            entitiesPerInputUrn.computeIfAbsent(inputUrn, k -> new HashSet<>());
+
+        // If we're not exploring multiple paths and we've already seen this entity for this input,
+        // skip
+        if (!exploreMultiplePaths && discoveredEntities.contains(newEntityUrn)) {
+          continue;
+        }
+
+        // Add the new entity to the set for this input
+        discoveredEntities.add(newEntityUrn);
+
+        // Check if this input entity has reached its limit
+        if (entitiesPerHopLimit != null && discoveredEntities.size() >= entitiesPerHopLimit) {
+          inputUrnLimitReached.put(inputUrn, true);
+          log.debug(
+              "Input urn {} has reached the entity limit of {}", inputUrn, entitiesPerHopLimit);
+        }
+      }
+    }
+
+    // Log progress
+    log.debug(
+        "Current entity counts per input urn: {}",
+        entitiesPerInputUrn.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size())));
+
+    log.debug(
+        "Input urns that reached their limits: {}",
+        inputUrnLimitReached.entrySet().stream()
+            .filter(Map.Entry::getValue)
+            .map(e -> e.getKey().toString())
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Creates an Elasticsearch search request with search_after pagination parameters.
+   *
+   * <p>This method constructs a search request configured for efficient pagination using
+   * Elasticsearch's search_after feature. The request is set up with a two-level sort: first by
+   * document score (descending) to prioritize more relevant results, then by document ID
+   * (ascending) to ensure stable pagination order even when scores are equal.
+   *
+   * <p>The search_after parameter, when provided, allows the request to fetch the next page of
+   * results after the last document from the previous page, enabling deep pagination without the
+   * performance issues of traditional offset-based pagination.
+   *
+   * @param query The Elasticsearch query to execute. This should be a fully-formed query with all
+   *     necessary filters already applied.
+   * @param pageSize The number of documents to retrieve in this search request. Controls the size
+   *     of each page in the pagination process.
+   * @param searchAfter The sort values from the last document of the previous page, used to specify
+   *     where this search should continue from. Should be null for the first page of results.
+   * @return A configured SearchRequest object ready to be executed against Elasticsearch. The
+   *     request includes the query, sort order, pagination parameters, and is targeted at the graph
+   *     index.
+   */
+  private SearchRequest createSearchAfterRequest(
+      QueryBuilder query, int pageSize, Object[] searchAfter) {
+
+    SearchRequest searchRequest = new SearchRequest();
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    searchSourceBuilder.query(query);
+    searchSourceBuilder.size(pageSize);
+
+    // Sort by `via` existence first, then by unique edge for stable pagination
+    searchSourceBuilder.sort(
+        SortBuilders.fieldSort(EDGE_FIELD_VIA).order(SortOrder.ASC).missing("_last"));
+    searchSourceBuilder.sort(
+        SortBuilders.fieldSort(EDGE_FIELD_UPDATED_ON).order(SortOrder.DESC).missing("_first"));
+    searchSourceBuilder.sort(
+        SortBuilders.fieldSort(EDGE_FIELD_CREATED_ON).order(SortOrder.DESC).missing("_first"));
+    KEY_SORTS.forEach(
+        sort -> {
+          if (Objects.requireNonNull(sort.getValue())
+              == com.linkedin.metadata.query.filter.SortOrder.DESCENDING) {
+            searchSourceBuilder.sort(SortBuilders.fieldSort(sort.getFirst()).order(SortOrder.DESC));
+          } else {
+            searchSourceBuilder.sort(SortBuilders.fieldSort(sort.getFirst()).order(SortOrder.ASC));
+          }
+        });
+
+    // Add search_after if provided
+    if (searchAfter != null) {
+      searchSourceBuilder.searchAfter(searchAfter);
+    }
+
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    return searchRequest;
+  }
+
+  private SearchResponse executeSearchRequest(OperationContext opContext, SearchRequest request) {
+    return opContext.withSpan(
+        "esLineageGroupByQuery",
+        () -> {
+          try {
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
+            return client.search(request, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "esLineageGroupByQuery"));
+  }
+
+  /** Extracts lineage relationships from search responses, respecting per-entity hop limits */
+  @WithSpan
+  private static List<LineageRelationship> extractRelationshipsFromSearchResponses(
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull Stream<SearchResponse> searchResponses,
+      LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      Map<Urn, UrnArrayArray> existingPaths,
+      boolean exploreMultiplePaths,
+      @Nullable Integer entitiesPerHopLimit) {
+
+    try {
+      Map<Urn, LineageRelationship> lineageRelationshipMap = new ConcurrentHashMap<>();
+
+      // Track count of entities discovered per input entity
+      Map<Urn, Set<Urn>> entitiesPerInputUrn = new HashMap<>();
+      entityUrns.forEach(urn -> entitiesPerInputUrn.put(urn, new HashSet<>()));
+
+      // Process all search responses first to gather all possible edges
+      Map<Urn, Set<SearchHit>> hitsPerInputEntity = new HashMap<>();
+      entityUrns.forEach(urn -> hitsPerInputEntity.put(urn, new HashSet<>()));
+
+      // Organize hits by which input entity they relate to
+      searchResponses.forEach(
+          searchResponse -> {
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            for (SearchHit hit : hits) {
+              Map<String, Object> document = hit.getSourceAsMap();
+
+              // Extract source and destination URNs
+              String sourceUrnStr =
+                  ((Map<String, Object>) document.get(SOURCE)).get("urn").toString();
+              String destinationUrnStr =
+                  ((Map<String, Object>) document.get(DESTINATION)).get("urn").toString();
+              Urn sourceUrn = UrnUtils.getUrn(sourceUrnStr);
+              Urn destinationUrn = UrnUtils.getUrn(destinationUrnStr);
+
+              // Assign hit to input entity it relates to
+              if (entityUrns.contains(sourceUrn)) {
+                hitsPerInputEntity.get(sourceUrn).add(hit);
+              }
+
+              if (entityUrns.contains(destinationUrn)) {
+                hitsPerInputEntity.get(destinationUrn).add(hit);
+              }
+            }
+          });
+
+      // Now process hits per input entity, respecting individual limits
+      for (Urn inputUrn : entityUrns) {
+        Set<SearchHit> hits = hitsPerInputEntity.get(inputUrn);
+        Set<Urn> discoveredEntities = entitiesPerInputUrn.get(inputUrn);
+
+        // Process hits for this input entity
+        int index = -1;
+        for (SearchHit hit : hits) {
+          index++;
+          Map<String, Object> document = hit.getSourceAsMap();
+
+          // Extract source and destination URNs
+          String sourceUrnStr = ((Map<String, Object>) document.get(SOURCE)).get("urn").toString();
+          String destinationUrnStr =
+              ((Map<String, Object>) document.get(DESTINATION)).get("urn").toString();
+          Urn sourceUrn = UrnUtils.getUrn(sourceUrnStr);
+          Urn destinationUrn = UrnUtils.getUrn(destinationUrnStr);
+
+          // Determine which entity is the "new" entity in this relationship
+          Urn newEntityUrn = null;
+          boolean isOutgoing = false;
+
+          if (sourceUrn.equals(inputUrn) && !entityUrns.contains(destinationUrn)) {
+            // Outgoing edge to a new entity
+            newEntityUrn = destinationUrn;
+            isOutgoing = true;
+          } else if (destinationUrn.equals(inputUrn) && !entityUrns.contains(sourceUrn)) {
+            // Incoming edge from a new entity
+            newEntityUrn = sourceUrn;
+            isOutgoing = false;
+          }
+
+          // If we found a new entity and haven't reached the limit yet
+          if (newEntityUrn != null
+              && (entitiesPerHopLimit == null || discoveredEntities.size() < entitiesPerHopLimit)) {
+
+            // Add to discovered entities for this input
+            discoveredEntities.add(newEntityUrn);
+
+            // Process the hit to extract the relationship
+            boolean truncatedResults = false; // We'll handle truncation separately
+
+            // Process the search hit based on direction
+            if (isOutgoing) {
+              processOutgoingEdge(
+                  entityUrns,
+                  sourceUrn,
+                  index,
+                  exploreMultiplePaths,
+                  visitedEntities,
+                  destinationUrn,
+                  lineageGraphFilters,
+                  document.get(RELATIONSHIP_TYPE).toString(),
+                  existingPaths,
+                  extractViaEntity(document),
+                  numHops,
+                  extractCreatedOn(document),
+                  extractCreatedActor(document),
+                  extractUpdatedOn(document),
+                  extractUpdatedActor(document),
+                  isManual(document),
+                  truncatedResults,
+                  lineageRelationshipMap,
+                  viaEntities);
+            } else {
+              processIncomingEdge(
+                  entityUrns,
+                  sourceUrn,
+                  exploreMultiplePaths,
+                  visitedEntities,
+                  destinationUrn,
+                  lineageGraphFilters,
+                  document.get(RELATIONSHIP_TYPE).toString(),
+                  existingPaths,
+                  extractViaEntity(document),
+                  numHops,
+                  extractCreatedOn(document),
+                  extractCreatedActor(document),
+                  extractUpdatedOn(document),
+                  extractUpdatedActor(document),
+                  isManual(document),
+                  truncatedResults,
+                  lineageRelationshipMap,
+                  viaEntities);
+            }
+          }
+        }
+
+        // Mark relationships as truncated if we hit the limit
+        if (entitiesPerHopLimit != null && discoveredEntities.size() >= entitiesPerHopLimit) {
+          for (LineageRelationship relationship : lineageRelationshipMap.values()) {
+            // Check if this relationship belongs to the current input entity
+            if (isRelationshipConnectedToInput(relationship, inputUrn, existingPaths)) {
+              relationship.setTruncatedChildren(true);
+            }
+          }
+        }
+      }
+
+      List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
+      log.debug("Number of lineage relationships in list: {}", result.size());
+      return result;
+    } catch (Exception e) {
+      log.error("Caught exception while processing search responses", e);
+      throw e;
+    }
+  }
+
+  // Helper methods for extracting fields from documents
+  private static Urn extractViaEntity(Map<String, Object> document) {
+    String viaContent = (String) document.getOrDefault(EDGE_FIELD_VIA, null);
+    if (viaContent != null) {
+      try {
+        return Urn.createFromString(viaContent);
+      } catch (Exception e) {
+        log.warn("Failed to parse urn from via entity {}", viaContent);
+      }
+    }
+    return null;
+  }
+
+  private static Long extractCreatedOn(Map<String, Object> document) {
+    Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
+    return createdOnNumber != null ? createdOnNumber.longValue() : null;
+  }
+
+  private static Urn extractCreatedActor(Map<String, Object> document) {
+    String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
+    return createdActorString == null ? null : UrnUtils.getUrn(createdActorString);
+  }
+
+  private static Long extractUpdatedOn(Map<String, Object> document) {
+    Number updatedOnNumber = (Number) document.getOrDefault(UPDATED_ON, null);
+    return updatedOnNumber != null ? updatedOnNumber.longValue() : null;
+  }
+
+  private static Urn extractUpdatedActor(Map<String, Object> document) {
+    String updatedActorString = (String) document.getOrDefault(UPDATED_ACTOR, null);
+    return updatedActorString == null ? null : UrnUtils.getUrn(updatedActorString);
+  }
+
+  private static boolean isManual(Map<String, Object> document) {
+    Map<String, Object> properties;
+    if (document.containsKey(PROPERTIES) && document.get(PROPERTIES) instanceof Map) {
+      properties = (Map<String, Object>) document.get(PROPERTIES);
+    } else {
+      properties = Collections.emptyMap();
+    }
+    return properties.containsKey(SOURCE) && properties.get(SOURCE).equals(UI);
+  }
+
+  // Check if a relationship is connected to a specific input entity
+  private static boolean isRelationshipConnectedToInput(
+      LineageRelationship relationship, Urn inputUrn, Map<Urn, UrnArrayArray> existingPaths) {
+
+    // Check if the relationship's paths include the input URN
+    UrnArrayArray paths = existingPaths.get(relationship.getEntity());
+    if (paths == null) {
+      return false;
+    }
+
+    for (UrnArray path : paths) {
+      if (path.contains(inputUrn)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

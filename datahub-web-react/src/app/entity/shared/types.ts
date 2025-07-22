@@ -4,12 +4,14 @@ import React from 'react';
 import { FetchedEntity } from '@app/lineage/types';
 
 import {
+    ApplicationAssociation,
     BrowsePathV2,
     Container,
     CustomPropertiesEntry,
     DataJobInputOutput,
     DataPlatform,
     DataPlatformInstance,
+    DataProcessInstance,
     DataProcessRunEvent,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
@@ -91,6 +93,7 @@ export type GenericEntityProperties = {
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    application?: Maybe<ApplicationAssociation>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
@@ -138,7 +141,8 @@ export type GenericEntityProperties = {
     notes?: Maybe<EntityRelationshipsResult>;
     versionProperties?: Maybe<VersionProperties>;
 
-    // Data process instance
+    // Data job / data process instance
+    lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
 };
 

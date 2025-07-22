@@ -26,7 +26,6 @@ class CockroachDBConfig(PostgresConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class CockroachDBSource(PostgresSource):
     config: CockroachDBConfig
 

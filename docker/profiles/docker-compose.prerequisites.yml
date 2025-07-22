@@ -231,7 +231,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     command:
       - /bin/bash
       - -c
@@ -387,9 +387,9 @@ services:
     volumes:
       - localstackdata:/var/lib/localstack
     healthcheck:
-      test: ["CMD", "awslocal", "s3", "ls"]
-      interval: 5s
-      timeout: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
       retries: 3
       start_period: 30s
 

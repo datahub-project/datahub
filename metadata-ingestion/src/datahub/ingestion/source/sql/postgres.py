@@ -131,7 +131,6 @@ class PostgresConfig(BasePostgresConfig):
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:

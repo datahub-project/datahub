@@ -19,8 +19,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -35,8 +35,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -55,8 +55,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Downstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -76,8 +76,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
                 entitiesToRemove={[dataset4WithLineage.upstream.relationships[1].entity]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 
@@ -98,8 +98,8 @@ describe('LineageEdges', () => {
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[dataset1]}
                 entitiesToRemove={[]}
-                setEntitiesToAdd={vi.fn}
-                setEntitiesToRemove={vi.fn}
+                setEntitiesToAdd={vi.fn()}
+                setEntitiesToRemove={vi.fn()}
             />,
         );
 

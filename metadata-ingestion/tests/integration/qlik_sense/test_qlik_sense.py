@@ -992,10 +992,13 @@ def mock_websocket_response(*args, **kwargs):
 
 @pytest.fixture(scope="module")
 def mock_websocket_send_request():
-    with patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
-    ) as mock_websocket_send_request, patch(
-        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+    with (
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
+        ) as mock_websocket_send_request,
+        patch(
+            "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+        ),
     ):
         mock_websocket_send_request.side_effect = mock_websocket_response
         yield mock_websocket_send_request

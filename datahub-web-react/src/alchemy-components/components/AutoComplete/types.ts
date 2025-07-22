@@ -35,4 +35,6 @@ export interface AutoCompleteProps {
     style?: React.CSSProperties;
     dropdownStyle?: React.CSSProperties;
     dropdownMatchSelectWidth?: boolean | number;
+
+    clickOutsideWidth?: string;
 }

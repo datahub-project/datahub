@@ -1,14 +1,12 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Modal, Pagination, Typography, message } from 'antd';
-import { debounce } from 'lodash';
+import { Icon, Pagination, SearchBar, Table, colors } from '@components';
+import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import EmptySources from '@app/ingestV2/EmptySources';
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,
@@ -16,11 +14,8 @@ import {
     updateSecretInListSecretsCache,
 } from '@app/ingestV2/secret/cacheUtils';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
-import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import {
     useCreateSecretMutation,
@@ -29,24 +24,67 @@ import {
     useUpdateSecretMutation,
 } from '@graphql/ingestion.generated';
 
-const DeleteButtonContainer = styled.div`
+const ButtonsContainer = styled.div`
     display: flex;
-    justify-content: right;
-`;
+    justify-content: end;
+    gap: 8px;
 
-const SourcePaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-`;
+    button {
+        border: 1px solid ${colors.gray[100]};
+        border-radius: 20px;
+        width: 24px;
+        height: 24px;
+        padding: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        color: ${colors.gray[1800]};
 
-const StyledTableWithNavBarRedesign = styled(StyledTable)`
-    overflow: hidden;
-
-    &&& .ant-table-body {
-        overflow-y: auto;
-        height: calc(100vh - 450px);
+        :hover {
+            cursor: pointer;
+        }
     }
-` as typeof StyledTable;
+`;
+
+const SecretsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: auto;
+`;
+
+const StyledTabToolbar = styled(TabToolbar)`
+    padding: 0 20px 16px 0;
+    height: auto;
+    box-shadow: none;
+    border-bottom: none;
+`;
+
+const SearchContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const StyledSearchBar = styled(SearchBar)`
+    width: 400px;
+`;
+
+const TableContainer = styled.div`
+    flex: 1;
+    overflow: auto;
+`;
+
+const TextContainer = styled(Typography.Text)`
+    color: ${colors.gray[1700]};
+`;
+
+type TableDataType = {
+    urn: string;
+    name: string;
+    description: string | null;
+};
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -56,8 +94,6 @@ interface Props {
 }
 
 export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateModal: setIsCreatingSecret }: Props) => {
-    const isShowNavBarRedesign = useShowNavBarRedesign();
-    const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -70,6 +106,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const start = (page - 1) * pageSize;
 
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
+    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
@@ -102,6 +139,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
                 }
             });
+        setShowConfirmDelete(false);
+        refetch();
     };
 
     const onChangePage = (newPage: number) => {
@@ -109,9 +148,10 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
         setPage(newPage);
     };
 
-    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
-        setQuery(newQuery);
-    }, ONE_SECOND_IN_MS);
+    const handleSearch = (value: string) => {
+        setPage(1);
+        setQuery(value);
+    };
 
     const onSubmit = (state: SecretBuilderState, resetBuilderState: () => void) => {
         createSecretMutation({
@@ -190,18 +230,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             });
     };
 
-    const onDeleteSecret = (urn: string) => {
-        Modal.confirm({
-            title: `Confirm Secret Removal`,
-            content: `Are you sure you want to remove this secret? Sources that use it may no longer work as expected.`,
-            onOk() {
-                deleteSecret(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+    const handleDeleteClose = () => {
+        setShowConfirmDelete(false);
     };
 
     const onEditSecret = (urnData: any) => {
@@ -217,101 +247,123 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const tableColumns = [
         {
             title: 'Name',
-            dataIndex: 'name',
             key: 'name',
-            render: (name: string) => <Typography.Text strong>{name}</Typography.Text>,
+            render: (record: TableDataType) => (
+                <TextContainer
+                    ellipsis={{
+                        tooltip: {
+                            title: record.name,
+                            color: 'white',
+                            overlayInnerStyle: { color: colors.gray[1700] },
+                            showArrow: false,
+                        },
+                    }}
+                >
+                    {record.name}
+                </TextContainer>
+            ),
+            sorter: (a: TableDataType, b: TableDataType) => a.name.localeCompare(b.name),
         },
         {
             title: 'Description',
-            dataIndex: 'description',
             key: 'description',
-            render: (description: any) => {
-                return <>{description || <Typography.Text type="secondary">No description</Typography.Text>}</>;
+            render: (record: TableDataType) => {
+                return (
+                    <TextContainer
+                        ellipsis={{
+                            tooltip: {
+                                title: record.description,
+                                color: 'white',
+                                overlayInnerStyle: { color: colors.gray[1700] },
+                                showArrow: false,
+                            },
+                        }}
+                    >
+                        {record.description || 'No description'}
+                    </TextContainer>
+                );
             },
+            width: '75%',
         },
         {
             title: '',
-            dataIndex: '',
-            key: 'x',
-            render: (_, record: any) => (
-                <DeleteButtonContainer>
-                    <Button style={{ marginRight: 16 }} onClick={() => onEditSecret(record)}>
-                        EDIT
-                    </Button>
-                    <Button onClick={() => onDeleteSecret(record.urn)} type="text" shape="circle" danger>
-                        <DeleteOutlined />
-                    </Button>
-                </DeleteButtonContainer>
+            key: 'actions',
+            render: (record: TableDataType) => (
+                <>
+                    <ButtonsContainer>
+                        <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
+                            <Icon icon="PencilSimpleLine" source="phosphor" />
+                        </button>
+                        <button
+                            type="button"
+                            className="delete-action"
+                            onClick={() => setShowConfirmDelete(true)}
+                            aria-label="Delete secret"
+                            data-test-id="delete-secret-action"
+                            data-icon="delete"
+                        >
+                            <Icon icon="Trash" source="phosphor" color="red" />
+                        </button>
+                    </ButtonsContainer>
+                    <ConfirmationModal
+                        isOpen={showConfirmDelete}
+                        modalTitle="Confirm Secret Removal"
+                        modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
+                        handleConfirm={() => deleteSecret(record.urn)}
+                        handleClose={handleDeleteClose}
+                    />
+                </>
             ),
+            width: '100px',
         },
     ];
 
-    const tableData = secrets?.map((secret) => ({
-        urn: secret.urn,
-        name: secret.name,
-        description: secret.description,
-    }));
-
-    const FinalStyledTable = isShowNavBarRedesign ? StyledTableWithNavBarRedesign : StyledTable;
+    const tableData =
+        secrets?.map((secret) => ({
+            urn: secret.urn,
+            name: secret.name,
+            description: secret.description || null,
+        })) || [];
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading secrets..." />}
             {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
-            <div>
-                <TabToolbar>
-                    <div>
-                        <Button
-                            data-testid="create-secret-button"
-                            type="text"
-                            onClick={() => setIsCreatingSecret(true)}
-                        >
-                            <PlusOutlined /> Create new secret
-                        </Button>
-                    </div>
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search secrets..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => {
-                            setPage(1);
-                            debouncedSetQuery(q);
-                        }}
-                        entityRegistry={entityRegistry}
-                        hideRecommendations
-                    />
-                </TabToolbar>
-                <FinalStyledTable
-                    columns={tableColumns}
-                    dataSource={tableData}
-                    scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
-                    rowKey="urn"
-                    locale={{
-                        emptyText: <Empty description="No Secrets found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    pagination={false}
-                />
-                <SourcePaginationContainer>
-                    <Pagination
-                        style={{ margin: 40 }}
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalSecrets}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
-                    />
-                </SourcePaginationContainer>
-            </div>
+            <SecretsContainer>
+                <StyledTabToolbar>
+                    <SearchContainer>
+                        <StyledSearchBar
+                            placeholder="Search..."
+                            value={query || ''}
+                            onChange={(value) => handleSearch(value)}
+                        />
+                    </SearchContainer>
+                </StyledTabToolbar>
+                {!loading && totalSecrets === 0 ? (
+                    <EmptySources sourceType="secrets" isEmptySearchResult={!!query} />
+                ) : (
+                    <>
+                        <TableContainer>
+                            <Table
+                                columns={tableColumns}
+                                data={tableData}
+                                rowKey="urn"
+                                isScrollable
+                                style={{ tableLayout: 'fixed' }}
+                                isLoading={loading}
+                            />
+                        </TableContainer>
+                        <Pagination
+                            currentPage={page}
+                            itemsPerPage={pageSize}
+                            total={totalSecrets}
+                            showLessItems
+                            onChange={onChangePage}
+                            showSizeChanger={false}
+                            hideOnSinglePage
+                        />
+                    </>
+                )}
+            </SecretsContainer>
             <SecretBuilderModal
                 open={isCreatingSecret}
                 editSecret={editSecret}
