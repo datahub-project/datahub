@@ -46,7 +46,6 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.profile.ProfileManager;
@@ -308,12 +307,6 @@ public class AuthModule extends AbstractModule {
         metadataServiceUseSsl,
         systemAuthentication,
         httpClient);
-  }
-
-  @Provides
-  @Singleton
-  protected CloseableHttpClient provideHttpClient() {
-    return HttpClients.createDefault();
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
