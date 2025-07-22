@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Domains?
 
 Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
-For more information about domains, refer to [About DataHub Domains](/docs/features/feature-guides/domains.md).
+For more information about domains, refer to [About DataHub Domains](/docs/domains.md).
 
 ### Goal Of This Guide
 
