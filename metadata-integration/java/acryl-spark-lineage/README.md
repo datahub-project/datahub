@@ -2,7 +2,7 @@
 
 To integrate Spark with DataHub, we provide a lightweight Java agent that listens for Spark application and job events
 and pushes metadata out to DataHub in real-time. The agent listens to events such as application start/end, and
-SQLExecution start/end to create pipelines (i.e. DataJob) and tasks (i.e. DataFlow) in Datahub along with lineage to
+SQLExecution start/end to create pipelines (i.e. DataFlow) and tasks (i.e. DataJob) in DataHub along with lineage to
 datasets that are being read from and written to. Read on to learn how to configure this for different Spark scenarios.
 
 ## Configuring Spark agent
@@ -18,13 +18,25 @@ available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:acryl-spark-lineage) for the latest
 released version.
 
+**Note**: Starting from version 0.2.18, we provide separate jars for different Scala versions:
+- For Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
+- For Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
+
 ### Configuration Instructions: spark-submit
 
 When running jobs using spark-submit, the agent needs to be configured in the config file.
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.17
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.12:0.2.18
+spark.extraListeners                         datahub.spark.DatahubSparkListener
+spark.datahub.rest.server                    http://localhost:8080
+```
+
+For Scala 2.13:
+```text
+#Configuring DataHub spark agent jar for Scala 2.13
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.13:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +44,12 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.17 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage_2.12:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+```
+
+For Scala 2.13:
+```sh
+spark-submit --packages io.acryl:acryl-spark-lineage_2.13:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions: Amazon EMR
@@ -41,7 +58,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.17
+spark.jars.packages                          io.acryl:acryl-spark-lineage_2.12:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +73,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.17")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage_2.12:0.2.18")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
@@ -79,7 +96,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.17")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage_2.12:0.2.18")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -159,47 +176,48 @@ information like tokens.
 
 ## Configuration Options
 
-| Field                                                  | Required | Default               | Description                                                                                                                                                                               |
-| ------------------------------------------------------ | -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| spark.jars.packages                                    | ✅       |                       | Set with latest/required version io.acryl:acryl-spark-lineage:0.2.15                                                                                                                      |
-| spark.extraListeners                                   | ✅       |                       | datahub.spark.DatahubSparkListener                                                                                                                                                        |
-| spark.datahub.emitter                                  |          | rest                  | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                               |
-| spark.datahub.rest.server                              |          | http://localhost:8080 | Datahub server url eg:<http://localhost:8080>                                                                                                                                             |
-| spark.datahub.rest.token                               |          |                       | Authentication token.                                                                                                                                                                     |
-| spark.datahub.rest.disable_ssl_verification            |          | false                 | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                |
-| spark.datahub.rest.disable_chunked_encoding            |          | false                 | Disable Chunked Transfer Encoding. In some environment chunked encoding causes issues. With this config option it can be disabled.                                                        |     |
-| spark.datahub.rest.max_retries                         |          | 0                     | Number of times a request retried if failed                                                                                                                                               |
-| spark.datahub.rest.retry_interval                      |          | 10                    | Number of seconds to wait between retries                                                                                                                                                 |
-| spark.datahub.file.filename                            |          |                       | The file where metadata will be written if file emitter is set                                                                                                                            |
-| spark.datahub.kafka.bootstrap                          |          |                       | The Kafka bootstrap server url to use if the Kafka emitter is set                                                                                                                         |
-| spark.datahub.kafka.schema_registry_url                |          |                       | The Schema registry url to use if the Kafka emitter is set                                                                                                                                |
-| spark.datahub.kafka.schema_registry_config.            |          |                       | Additional config to pass in to the Schema Registry Client                                                                                                                                |
-| spark.datahub.kafka.producer_config.                   |          |                       | Additional config to pass in to the Kafka producer. For example: `--conf "spark.datahub.kafka.producer_config.client.id=my_client_id"`                                                    |
-| spark.datahub.metadata.pipeline.platformInstance       |          |                       | Pipeline level platform instance                                                                                                                                                          |
-| spark.datahub.metadata.dataset.platformInstance        |          |                       | dataset level platform instance (it is usefult to set if you have it in your glue ingestion)                                                                                              |
-| spark.datahub.metadata.dataset.env                     |          | PROD                  | [Supported values](https://docs.datahub.com/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD                                                                     |
-| spark.datahub.metadata.dataset.hivePlatformAlias       |          | hive                  | By default, datahub assigns Hive-like tables to the Hive platform. If you are using Glue as your Hive metastore, set this config flag to `glue`                                           |
-| spark.datahub.metadata.include_scheme                  |          | true                  | Include scheme from the path URI (e.g. hdfs://, s3://) in the dataset URN. We recommend setting this value to false, it is set to true for backwards compatibility with previous versions |
-| spark.datahub.metadata.remove_partition_pattern        |          |                       | Remove partition pattern. (e.g. /partition=\d+) It change database/table/partition=123 to database/table                                                                                  |
-| spark.datahub.coalesce_jobs                            |          | true                  | Only one datajob(task) will be emitted containing all input and output datasets for the spark application                                                                                 |
-| spark.datahub.parent.datajob_urn                       |          |                       | Specified dataset will be set as upstream dataset for datajob created. Effective only when spark.datahub.coalesce_jobs is set to true                                                     |
-| spark.datahub.metadata.dataset.materialize             |          | false                 | Materialize Datasets in DataHub                                                                                                                                                           |
-| spark.datahub.platform.s3.path_spec_list               |          |                       | List of pathspec per platform                                                                                                                                                             |
-| spark.datahub.metadata.dataset.include_schema_metadata | false    |                       | Emit dataset schema metadata based on the spark execution. It is recommended to get schema information from platform specific DataHub sources as this is less reliable                    |
-| spark.datahub.flow_name                                |          |                       | If it is set it will be used as the DataFlow name otherwise it uses spark app name as flow_name                                                                                           |
-| spark.datahub.file_partition_regexp                    |          |                       | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
-| spark.datahub.tags                                     |          |                       | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
-| spark.datahub.domains                                  |          |                       | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
-| spark.datahub.stage_metadata_coalescing                |          |                       | Normally it coalesces and sends metadata at the onApplicationEnd event which is never called on Databricks or on Glue. You should enable this on Databricks if you want coalesced run.    |
-| spark.datahub.patch.enabled                            |          | false                 | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default, it is disabled.                                             |
-| spark.datahub.metadata.dataset.lowerCaseUrns           |          | false                 | Set this to true to lowercase dataset urns. By default, it is disabled.                                                                                                                   |
-| spark.datahub.disableSymlinkResolution                 |          | false                 | Set this to true if you prefer using the s3 location instead of the Hive table. By default, it is disabled.                                                                               |
-| spark.datahub.s3.bucket                                |          |                       | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                |
-| spark.datahub.s3.prefix                                |          |                       | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                         |
-| spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
-| spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
-| spark.datahub.log.mcps                                 |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
-| spark.datahub.legacyLineageCleanup.enabled             |          | false                 | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.          |
+| Field                                                            | Required | Default                 | Description                                                                                                                                                                                                  |
+| ---------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage_2.12:0.2.18 (or io.acryl:acryl-spark-lineage_2.13:0.2.18 for Scala 2.13)                                                                          |
+| spark.extraListeners                                             | ✅       |                         | datahub.spark.DatahubSparkListener                                                                                                                                                                           |
+| spark.datahub.emitter                                            |          | rest                    | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                                                  |
+| spark.datahub.rest.server                                        |          | <http://localhost:8080> | Datahub server url eg: <http://localhost:8080>                                                                                                                                                               |
+| spark.datahub.rest.token                                         |          |                         | Authentication token.                                                                                                                                                                                        |
+| spark.datahub.rest.disable_ssl_verification                      |          | false                   | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                                   |
+| spark.datahub.rest.disable_chunked_encoding                      |          | false                   | Disable Chunked Transfer Encoding. In some environment chunked encoding causes issues. With this config option it can be disabled.                                                                           |
+| spark.datahub.rest.max_retries                                   |          | 0                       | Number of times a request retried if failed                                                                                                                                                                  |
+| spark.datahub.rest.retry_interval                                |          | 10                      | Number of seconds to wait between retries                                                                                                                                                                    |
+| spark.datahub.file.filename                                      |          |                         | The file where metadata will be written if file emitter is set                                                                                                                                               |
+| spark.datahub.kafka.bootstrap                                    |          |                         | The Kafka bootstrap server url to use if the Kafka emitter is set                                                                                                                                            |
+| spark.datahub.kafka.schema_registry_url                          |          |                         | The Schema registry url to use if the Kafka emitter is set                                                                                                                                                   |
+| spark.datahub.kafka.schema_registry_config.                      |          |                         | Additional config to pass in to the Schema Registry Client                                                                                                                                                   |
+| spark.datahub.kafka.producer_config.                             |          |                         | Additional config to pass in to the Kafka producer. For example: `--conf "spark.datahub.kafka.producer_config.client.id=my_client_id"`                                                                       |
+| spark.datahub.metadata.pipeline.platformInstance                 |          |                         | Pipeline level platform instance                                                                                                                                                                             |
+| spark.datahub.metadata.dataset.platformInstance                  |          |                         | Dataset level platform instance (useful when you need to match dataset URNs with those created by other ingestion sources)                                                                                   |
+| spark.datahub.metadata.dataset.env                               |          | PROD                    | [Supported values](https://docs.datahub.com/docs/graphql/enums#fabrictype). In all other cases, will fall back to PROD                                                                                       |
+| spark.datahub.metadata.dataset.hivePlatformAlias                 |          | hive                    | By default, DataHub assigns Hive-like tables to the Hive platform. If you are using Glue as your Hive metastore, set this config flag to `glue`                                                              |
+| spark.datahub.metadata.include_scheme                            |          | true                    | Include scheme from the path URI (e.g. hdfs://, s3://) in the dataset URN. We recommend setting this value to false, but it is set to true for backwards compatibility with previous versions                |
+| spark.datahub.metadata.remove_partition_pattern                  |          |                         | Remove partition pattern (e.g. /partition=\d+). It changes database/table/partition=123 to database/table                                                                                                    |
+| spark.datahub.coalesce_jobs                                      |          | true                    | Only one DataJob (task) will be emitted containing all input and output datasets for the Spark application                                                                                                   |
+| spark.datahub.parent.datajob_urn                                 |          |                         | Specified dataset will be set as upstream dataset for DataJob created. Effective only when spark.datahub.coalesce_jobs is set to true                                                                        |
+| spark.datahub.metadata.dataset.materialize                       |          | false                   | Materialize Datasets in DataHub                                                                                                                                                                              |
+| spark.datahub.platform.s3.path_spec_list                         |          |                         | List of path specs per platform                                                                                                                                                                              |
+| spark.datahub.metadata.dataset.include_schema_metadata           |          | false                   | Emit dataset schema metadata based on the Spark execution. It is recommended to get schema information from platform-specific DataHub sources as this is less reliable                                       |
+| spark.datahub.flow_name                                          |          |                         | If set, it will be used as the DataFlow name; otherwise, it uses the Spark app name as flow_name                                                                                                             |
+| spark.datahub.file_partition_regexp                              |          |                         | Strip partition part from the path if the path end matches the specified regexp. Example: `year=.*/month=.*/day=.*`                                                                                          |
+| spark.datahub.tags                                               |          |                         | Comma-separated list of tags to attach to the DataFlow                                                                                                                                                       |
+| spark.datahub.domains                                            |          |                         | Comma-separated list of domain URNs to attach to the DataFlow                                                                                                                                                |
+| spark.datahub.stage_metadata_coalescing                          |          | false                   | Normally metadata is coalesced and sent at the onApplicationEnd event, which is never called on Databricks or on Glue. Enable this on Databricks if you want coalesced runs.                                 |
+| spark.datahub.patch.enabled                                      |          | false                   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default, it is disabled.                                                                |
+| spark.datahub.metadata.dataset.lowerCaseUrns                     |          | false                   | Set this to true to lowercase dataset URNs. By default, it is disabled.                                                                                                                                      |
+| spark.datahub.disableSymlinkResolution                           |          | false                   | Set this to true if you prefer using the S3 location instead of the Hive table. By default, it is disabled.                                                                                                  |
+| spark.datahub.s3.bucket                                          |          |                         | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                                   |
+| spark.datahub.s3.prefix                                          |          |                         | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                                            |
+| spark.datahub.s3.filename                                        |          |                         | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                                                 |
+| spark.datahub.log.mcps                                           |          | true                    | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                                          |
+| spark.datahub.legacyLineageCleanup.enabled                       |          | false                   | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.                             |
+| spark.datahub.capture_spark_plan                                 |          | false                   | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                                      |
+| spark.datahub.metadata.dataset.enableEnhancedMergeIntoExtraction |          | false                   | Set this to true to enable enhanced table name extraction for Delta Lake MERGE INTO commands. This improves lineage tracking by including the target table name in the job name. By default, it is disabled. |
 
 ## What to Expect: The Metadata Model
 
@@ -223,6 +241,10 @@ The following custom properties in pipelines and tasks relate to the Spark UI:
 - Other custom properties of pipelines and tasks capture the start and end times of execution etc.
 
 For Spark on Databricks, pipeline start time is the cluster start time.
+
+### Column-level Lineage and Transformation Types
+
+The Spark agent captures fine-grained lineage information, including column-level lineage with transformation types. When available, OpenLineage's [transformation types](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type) are captured and mapped to DataHub's FinegrainedLineage `TransformOption`, providing detailed insights into how data transformations occur at the column level.
 
 ### Spark versions supported
 
@@ -253,7 +275,10 @@ Hdfs-based platforms supported explicitly:
 
 - AWS S3 (s3)
 - Google Cloud Storage (gcs)
-- local ( local file system) (local)
+- Azure Storage:
+  - Azure Blob Storage (abs) - supports wasb/wasbs protocols
+  - Azure Data Lake Storage Gen2 (abs) - supports abfs/abfss protocols
+- Local file system (file)
   All other platforms will have "hdfs" as a platform.
 
 **Name**:
@@ -312,6 +337,25 @@ spark.datahub.platform.s3.path2.path_spec_list: s3://bucket2/*/{table}
 - For HDFS sources, the folder (name) is regarded as the dataset (name) to align with typical storage of parquet/csv
   formats.
 
+### Delta Lake MERGE INTO Commands
+
+When working with Delta Lake MERGE INTO commands, the default behavior creates generic job names based on the internal Spark task names.
+To improve lineage tracking, you can enable the enhanced table name extraction feature:
+
+```
+spark.datahub.metadata.dataset.enableEnhancedMergeIntoExtraction=true
+```
+
+When enabled, the agent will:
+
+1. Detect Delta Lake MERGE INTO commands
+2. Extract the target table name from the SQL query, dataset names, or symlinks
+3. Include the table name in the job name, making it easier to trace operations against specific tables
+4. Generate more meaningful lineage in DataHub
+
+For example, a job named `execute_merge_into_command_edge` will be enhanced to `execute_merge_into_command_edge.database_table_name`,
+making it clear which table was being modified.
+
 ### Debugging
 
 - Following info logs are generated
@@ -363,6 +407,21 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 -
 
 ## Changelog
+
+### Version 0.2.18
+
+- _Changes_:
+  - OpenLineage 1.33.0 upgrade
+  - Add `spark.datahub.capture_spark_plan` option to capture the Spark plan. By default, it is disabled.
+  - Add proper support for Spark Streaming
+  - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
+  - Option for Enhanced Merge Into Extraction
+  - Fix rdd map detection to correctly handle map transformations in the lineage.
+  - **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
+    - Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
+    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
+  - **Column-level Lineage Enhancement**: OpenLineage's transformation types are now captured and mapped to DataHub's FinegrainedLineage `TransformOption` as per the [OpenLineage column lineage specification](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type)
+  - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
 
 ### Version 0.2.17
 
