@@ -757,6 +757,16 @@ type FeatureFlagsConfig {
   Enables the redesign of the lineage v2 graph
   """
   lineageGraphV3: Boolean!
+
+  """
+  Enables logical models feature
+  """
+  logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
 }
 
 """

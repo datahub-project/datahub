@@ -139,6 +139,18 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
+# Install a cacheble layer that installs external dependencies and does not get invalidated due to changes in ingestion or actions code
+# Copy just enough to enable pip compile to work. Other code changes wont invalidate this layer.
+COPY --chown=datahub:datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub:datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
+COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
+COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
+
+USER datahub
+RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+USER 0
+
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 # Add other default configurations into this!

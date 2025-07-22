@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import abc
 from typing import (
+    TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Iterator,
@@ -15,7 +17,10 @@ from typing import (
 import pydantic
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+from datahub.configuration.pydantic_migration_helpers import (
+    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    PYDANTIC_VERSION_2,
+)
 from datahub.ingestion.graph.client import flexible_entity_type_to_graphql
 from datahub.ingestion.graph.filters import (
     FilterOperator,
@@ -24,7 +29,7 @@ from datahub.ingestion.graph.filters import (
     _get_status_filter,
 )
 from datahub.metadata.schema_classes import EntityTypeName
-from datahub.metadata.urns import DataPlatformUrn, DomainUrn
+from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, DomainUrn
 
 _AndSearchFilterRule = TypedDict(
     "_AndSearchFilterRule", {"and": List[SearchFilterRule]}
@@ -42,11 +47,28 @@ class _BaseFilter(ConfigModel):
             populate_by_name = True
 
     @abc.abstractmethod
-    def compile(self) -> _OrFilters:
-        pass
+    def compile(self) -> _OrFilters: ...
 
     def dfs(self) -> Iterator[_BaseFilter]:
         yield self
+
+    @classmethod
+    def _field_discriminator(cls) -> str:
+        if cls is _BaseFilter:
+            raise ValueError("Cannot get discriminator for _BaseFilter")
+        if PYDANTIC_VERSION_2:
+            fields: dict = cls.model_fields  # type: ignore
+        else:
+            fields = cls.__fields__  # type: ignore
+
+        # Assumes that there's only one field name per filter.
+        # If that's not the case, this method should be overridden.
+        if len(fields.keys()) != 1:
+            raise ValueError(
+                f"Found multiple fields that could be the discriminator for this filter: {list(fields.keys())}"
+            )
+        name, field = next(iter(fields.items()))
+        return field.alias or name  # type: ignore
 
 
 class _EntityTypeFilter(_BaseFilter):
@@ -74,15 +96,19 @@ class _EntityTypeFilter(_BaseFilter):
 
 
 class _EntitySubtypeFilter(_BaseFilter):
-    entity_subtype: str = pydantic.Field(
+    entity_subtype: List[str] = pydantic.Field(
         description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
     )
+
+    @pydantic.validator("entity_subtype", pre=True)
+    def validate_entity_subtype(cls, v: str) -> List[str]:
+        return [v] if not isinstance(v, list) else v
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
             field="typeNames",
             condition="EQUAL",
-            values=[self.entity_subtype],
+            values=self.entity_subtype,
         )
 
     def compile(self) -> _OrFilters:
@@ -148,6 +174,39 @@ class _DomainFilter(_BaseFilter):
         return [{"and": [self._build_rule()]}]
 
 
+class _ContainerFilter(_BaseFilter):
+    container: List[str]
+    direct_descendants_only: bool = pydantic.Field(
+        default=False,
+        description="If true, only entities that are direct descendants of the container will be returned.",
+    )
+
+    @pydantic.validator("container", each_item=True)
+    def validate_container(cls, v: str) -> str:
+        return str(ContainerUrn.from_string(v))
+
+    @classmethod
+    def _field_discriminator(cls) -> str:
+        return "container"
+
+    def _build_rule(self) -> SearchFilterRule:
+        if self.direct_descendants_only:
+            return SearchFilterRule(
+                field="container",
+                condition="EQUAL",
+                values=self.container,
+            )
+        else:
+            return SearchFilterRule(
+                field="browsePathV2",
+                condition="CONTAIN",
+                values=self.container,
+            )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
 class _EnvFilter(_BaseFilter):
     # Note that not all entity types have an env (e.g. dashboards / charts).
     # If the env filter is specified, these will be excluded.
@@ -195,6 +254,10 @@ class _CustomCondition(_BaseFilter):
             values=self.values,
         )
         return [{"and": [rule]}]
+
+    @classmethod
+    def _field_discriminator(cls) -> str:
+        return "_custom"
 
 
 class _And(_BaseFilter):
@@ -302,31 +365,73 @@ class _Not(_BaseFilter):
         yield from self.not_.dfs()
 
 
-# TODO: With pydantic 2, we can use a RootModel with a
-# discriminated union to make the error messages more informative.
-Filter = Union[
-    _And,
-    _Or,
-    _Not,
-    _EntityTypeFilter,
-    _EntitySubtypeFilter,
-    _StatusFilter,
-    _PlatformFilter,
-    _DomainFilter,
-    _EnvFilter,
-    _CustomCondition,
-]
+def _filter_discriminator(v: Any) -> Optional[str]:
+    if isinstance(v, _BaseFilter):
+        return v._field_discriminator()
+
+    if not isinstance(v, dict):
+        return None
+
+    keys = list(v.keys())
+    if len(keys) == 1:
+        return keys[0]
+    elif set(keys).issuperset({"container"}):
+        return _ContainerFilter._field_discriminator()
+    elif set(keys).issuperset({"field", "condition"}):
+        return _CustomCondition._field_discriminator()
+
+    return None
 
 
-# Required to resolve forward references to "Filter"
-if PYDANTIC_VERSION_2:
-    _And.model_rebuild()  # type: ignore
-    _Or.model_rebuild()  # type: ignore
-    _Not.model_rebuild()  # type: ignore
-else:
+if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
+    # The `not TYPE_CHECKING` bit is required to make the linter happy,
+    # since we currently only run mypy with pydantic v1.
+    Filter = Union[
+        _And,
+        _Or,
+        _Not,
+        _EntityTypeFilter,
+        _EntitySubtypeFilter,
+        _StatusFilter,
+        _PlatformFilter,
+        _DomainFilter,
+        _ContainerFilter,
+        _EnvFilter,
+        _CustomCondition,
+    ]
+
     _And.update_forward_refs()
     _Or.update_forward_refs()
     _Not.update_forward_refs()
+else:
+    from pydantic import Discriminator, Tag
+
+    # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
+    # That way we'd be able to attach methods to the Filter type.
+    # e.g. replace load_filters(...) with Filter.load(...)
+    Filter = Annotated[
+        Union[
+            Annotated[_And, Tag(_And._field_discriminator())],
+            Annotated[_Or, Tag(_Or._field_discriminator())],
+            Annotated[_Not, Tag(_Not._field_discriminator())],
+            Annotated[_EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())],
+            Annotated[
+                _EntitySubtypeFilter, Tag(_EntitySubtypeFilter._field_discriminator())
+            ],
+            Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
+            Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
+            Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
+            Annotated[_ContainerFilter, Tag(_ContainerFilter._field_discriminator())],
+            Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
+            Annotated[_CustomCondition, Tag(_CustomCondition._field_discriminator())],
+        ],
+        Discriminator(_filter_discriminator),
+    ]
+
+    # Required to resolve forward references to "Filter"
+    _And.model_rebuild()  # type: ignore
+    _Or.model_rebuild()  # type: ignore
+    _Not.model_rebuild()  # type: ignore
 
 
 def load_filters(obj: Any) -> Filter:
@@ -399,6 +504,18 @@ class FilterDsl:
     @staticmethod
     def domain(domain: Union[str, Sequence[str]], /) -> _DomainFilter:
         return _DomainFilter(domain=[domain] if isinstance(domain, str) else domain)
+
+    @staticmethod
+    def container(
+        container: Union[str, Sequence[str]],
+        /,
+        *,
+        direct_descendants_only: bool = False,
+    ) -> _ContainerFilter:
+        return _ContainerFilter(
+            container=[container] if isinstance(container, str) else container,
+            direct_descendants_only=direct_descendants_only,
+        )
 
     @staticmethod
     def env(env: Union[str, Sequence[str]], /) -> _EnvFilter:

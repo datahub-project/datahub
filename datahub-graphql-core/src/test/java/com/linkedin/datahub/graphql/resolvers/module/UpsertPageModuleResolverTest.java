@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.module;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -15,6 +16,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
 import com.linkedin.datahub.graphql.generated.DataHubPageModuleType;
 import com.linkedin.datahub.graphql.generated.LinkModuleParamsInput;
@@ -136,7 +138,7 @@ public class UpsertPageModuleResolverTest {
 
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
@@ -157,6 +159,64 @@ public class UpsertPageModuleResolverTest {
     assertEquals(result.getUrn(), TEST_MODULE_URN);
     verify(mockService, times(1)).upsertPageModule(any(), any(), any(), any(), any(), any());
     verify(mockService, times(1)).getPageModuleEntityResponse(any(), eq(moduleUrn));
+  }
+
+  @Test
+  public void testUpsertGlobalPageModuleSuccessWithPermission() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.RICH_TEXT);
+    input.setScope(PageModuleScope.GLOBAL);
+
+    RichTextModuleParamsInput richTextParams = new RichTextModuleParamsInput();
+    richTextParams.setContent(TEST_RICH_TEXT_CONTENT);
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setRichTextParams(richTextParams);
+    input.setParams(paramsInput);
+
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    EntityResponse mockResponse = createMockEntityResponse(moduleUrn);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
+    when(mockService.upsertPageModule(any(), eq(null), any(), any(), any(), any()))
+        .thenReturn(moduleUrn);
+    when(mockService.getPageModuleEntityResponse(any(), eq(moduleUrn))).thenReturn(mockResponse);
+
+    // Act
+    CompletableFuture<DataHubPageModule> future = resolver.get(mockEnvironment);
+    DataHubPageModule result = future.get();
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(result.getUrn(), TEST_MODULE_URN);
+    assertEquals(result.getType().toString(), "DATAHUB_PAGE_MODULE");
+    verify(mockService, times(1)).upsertPageModule(any(), eq(null), any(), any(), any(), any());
+    verify(mockService, times(1)).getPageModuleEntityResponse(any(), eq(moduleUrn));
+  }
+
+  @Test
+  public void testUpsertGlobalPageModuleFailureWithoutPermission() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.RICH_TEXT);
+    input.setScope(PageModuleScope.GLOBAL);
+
+    RichTextModuleParamsInput richTextParams = new RichTextModuleParamsInput();
+    richTextParams.setContent(TEST_RICH_TEXT_CONTENT);
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setRichTextParams(richTextParams);
+    input.setParams(paramsInput);
+
+    QueryContext mockDenyContext = getMockDenyContext();
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockDenyContext);
+
+    // Act & Assert
+    assertThrows(AuthorizationException.class, () -> resolver.get(mockEnvironment).get());
   }
 
   @Test
@@ -226,7 +286,7 @@ public class UpsertPageModuleResolverTest {
     // Set link params instead of rich text params
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     when(mockEnvironment.getArgument("input")).thenReturn(input);

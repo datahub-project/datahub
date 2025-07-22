@@ -29,6 +29,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 1.2.0
+
+### Breaking Changes
+
 - All DataHub Python packages now require Python 3.9+. This affects the following packages:
   - `acryl-datahub` (DataHub CLI and SDK)
   - `acryl-datahub-actions`
@@ -42,6 +54,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
   - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
 - #14059: The `acryl-datahub-gx-plugin` now requires pydantic v2, which means the effective minimum supported version of GX is 0.17.15 (from Sept 2023).
+- #13601: The `use_queries_v2` flag is now enabled by default for Snowflake and BigQuery ingestion. This improves the quality of lineage and quantity of queries extracted.
 
 ### Known Issues
 
@@ -54,6 +67,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
+- #14123: Adds a new environment variable `DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES` to control batch size limits when using the RestEmitter in ingestions. Default is 15MB but configurable.
 
 ## 1.1.0
 

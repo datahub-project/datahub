@@ -49,7 +49,9 @@ export const Checkbox = ({
                 </Label>
             ) : null}
             <CheckboxBase
-                onClick={() => {
+                onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
