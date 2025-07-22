@@ -82,9 +82,18 @@ export default function useAddModuleMenu(
         const items: MenuProps['items'] = [];
 
         const quickLink = {
-            title: 'Quick Link',
+            name: 'Quick Link',
             key: 'quick-link',
-            label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
+            label: (
+                <MenuItem
+                    description="Choose links that are important"
+                    title="Quick Link"
+                    icon="LinkSimple"
+                    isDisabled={isLargeModuleRow}
+                    isSmallModule
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
@@ -92,9 +101,18 @@ export default function useAddModuleMenu(
         };
 
         const documentation = {
-            title: 'Documentation',
+            name: 'Documentation',
             key: 'documentation',
-            label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
+            label: (
+                <MenuItem
+                    description="Pin docs for your DataHub users"
+                    title="Documentation"
+                    icon="TextT"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
@@ -109,9 +127,18 @@ export default function useAddModuleMenu(
         });
 
         const yourAssets = {
-            title: 'Your Assets',
+            name: 'Your Assets',
             key: 'your-assets',
-            label: <MenuItem description="Assets the current user owns" title="Your Assets" icon="Database" />,
+            label: (
+                <MenuItem
+                    description="Assets the current user owns"
+                    title="Your Assets"
+                    icon="Database"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
@@ -119,9 +146,18 @@ export default function useAddModuleMenu(
         };
 
         const domains = {
-            title: 'Domains',
+            name: 'Domains',
             key: 'domains',
-            label: <MenuItem description="Most used domains in your organization" title="Domains" icon="Globe" />,
+            label: (
+                <MenuItem
+                    description="Most used domains in your organization"
+                    title="Domains"
+                    icon="Globe"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
@@ -129,13 +165,15 @@ export default function useAddModuleMenu(
         };
 
         const assetCollection = {
-            title: 'Asset Collection',
+            name: 'Asset Collection',
             key: 'asset-collection',
             label: (
                 <MenuItem
                     description="A curated list of assets of your choosing"
                     title="Asset Collection"
                     icon="Stack"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
                 />
             ),
             onClick: () => {
@@ -154,7 +192,7 @@ export default function useAddModuleMenu(
         // Add admin created modules if available
         if (modulesAvailableToAdd.adminCreatedModules.length) {
             const adminModuleItems = modulesAvailableToAdd.adminCreatedModules.map((module) => ({
-                title: module.properties.name,
+                name: module.properties.name,
                 key: module.urn,
                 label: <ModuleMenuItem module={convertModuleToModuleInfo(module)} />,
                 onClick: () => handleAddExistingModule(module),
