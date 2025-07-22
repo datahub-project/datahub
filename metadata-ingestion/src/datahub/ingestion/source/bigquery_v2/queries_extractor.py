@@ -120,12 +120,7 @@ class BigQueryQueriesExtractor(Closeable):
     """
     Extracts query audit log and generates usage/lineage/operation workunits.
 
-    Some notable differences in this wrt older usage extraction method are:
-    1. For every lineage/operation workunit, corresponding query id is also present
-    2. Operation aspect for a particular query is emitted at max once(last occurence) for a day
-    3. "DROP" operation accounts for usage here
-    4. userEmail is not populated in datasetUsageStatistics aspect, only user urn
-
+    parent_config: The main BigQueryV2Config, used for options like convert_urns_to_lowercase and lineage_sql_parser_use_raw_names.
     """
 
     def __init__(
@@ -139,9 +134,9 @@ class BigQueryQueriesExtractor(Closeable):
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[Collection[str]] = None,
+        parent_config=None,  # <-- new parameter
     ):
         self.connection = connection
-
         self.config = config
         self.filters = filters
         self.identifiers = identifiers
@@ -157,8 +152,8 @@ class BigQueryQueriesExtractor(Closeable):
             if discovered_tables
             else None
         )
-
         self.structured_report = structured_report
+        self.parent_config = parent_config
 
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
@@ -182,8 +177,14 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
+            normalize_case=(
+                "lower"
+                if self.parent_config
+                and self.parent_config.convert_urns_to_lowercase
+                and not self.parent_config.lineage_sql_parser_use_raw_names
+                else None
+            ),
         )
-
         self.report.sql_aggregator = self.aggregator.report
         self.report.num_discovered_tables = (
             len(self.discovered_tables) if self.discovered_tables else None

@@ -713,6 +713,12 @@ class BigqueryLineageExtractor:
                     query,
                     schema_resolver=self.schema_resolver,
                     default_db=e.project_id,
+                    normalize_case=(
+                        "lower"
+                        if self.config.convert_urns_to_lowercase
+                        and not self.config.lineage_sql_parser_use_raw_names
+                        else None
+                    ),
                 )
                 logger.debug(
                     f"Input tables: {raw_lineage.in_tables}, Output tables: {raw_lineage.out_tables}"
