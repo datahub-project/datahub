@@ -713,7 +713,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 if not external_ref.has_permission or not external_ref.path:
                     self.report.num_external_upstreams_lacking_permissions += 1
                     logger.warning(
-                        f"Lacking permissions for external file upstream on {table.ref}"
+                        f"Lacking permissions for external file upstream on {table.ref} for dataset {dataset_urn}. External reference fields: | path: {external_ref.path} | has_permissions: {external_ref.has_permission} |"
                     )
                 elif external_ref.path.startswith("s3://"):
                     upstreams.append(
