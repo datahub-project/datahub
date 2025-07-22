@@ -12,8 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CustomHttpClientFactoryTest {
 
-    // Provide valid test truststore details here.
-    // You can generate a test truststore with keytool for real integration testing.
+    //Generated a test truststore with keytool for real integration testing.
     private static final String VALID_TRUSTSTORE_PATH = "test/resources/test-truststore.p12";
     private static final String VALID_TRUSTSTORE_PASSWORD = "testpassword";
     private static final String VALID_TRUSTSTORE_TYPE = "PKCS12";
