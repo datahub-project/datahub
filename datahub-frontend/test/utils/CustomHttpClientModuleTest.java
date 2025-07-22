@@ -8,27 +8,20 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpClient;
-import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CustomHttpClientModuleTest {
 
-    private static String getTruststorePathFromClasspath() {
-        URL url = CustomHttpClientModuleTest.class.getClassLoader().getResource("test-truststore.p12");
-        return url != null ? url.getPath() : null;
-    }
-
     @Test
     void testProvideClientsWithValidTruststore() {
-        String truststorePath = getTruststorePathFromClasspath();
+        // Only run if test truststore is present
+        String truststorePath = "test/resources/test-truststore.p12";
         String truststorePassword = "testpassword";
         String truststoreType = "PKCS12";
-
-        if (truststorePath == null) {
-            System.out.println("Truststore not found on classpath, skipping test.");
-            return;
-        }
+        if (!Files.exists(Path.of(truststorePath))) return;
 
         Config config = ConfigFactory.parseString(
                 "metadata.service.ssl.trust-store-path=\"" + truststorePath + "\"\n" +
