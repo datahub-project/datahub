@@ -42,7 +42,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
@@ -71,7 +71,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
@@ -247,6 +247,18 @@
       "json": {
         "error": "Invalid urn!: urn:li:FOOBAR:(urn:li:dataPlatform:test,InvalidExceptions,PROD)"
       }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll?query=*&count=99999",
+      "description": "Test count too high, no error limited by max limit transparently.",
+      "json": {}
+    },
+    "response": {
+      "status_codes": [
+        200
+      ]
     }
   }
 ]

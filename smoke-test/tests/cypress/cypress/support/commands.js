@@ -206,6 +206,10 @@ Cypress.Commands.add("goToDomain", (urn) => {
   cy.visit(`/domain/${urn}`);
 });
 
+Cypress.Commands.add("goToApplication", (urn) => {
+  cy.visit(`/application/${urn}`);
+});
+
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
   cy.contains("Data Landscape Summary", { timeout: 10000 });
@@ -295,6 +299,10 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
 
 Cypress.Commands.add("ensureElementPresent", (element) => {
   cy.get(element).should("be.visible");
+});
+
+Cypress.Commands.add("ensureElementWithTestIdPresent", (testId) => {
+  cy.get(selectorWithtestId(testId)).should("be.visible");
 });
 
 Cypress.Commands.add("waitTextPresent", (text) => {
@@ -436,6 +444,15 @@ Cypress.Commands.add(
   },
 );
 
+Cypress.Commands.add(
+  "removeApplicationFromDataset",
+  (urn, dataset_name, application_urn) => {
+    cy.goToDataset(urn, dataset_name);
+    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.clickOptionWithText("Yes");
+  },
+);
+
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = `div[id$="${tab}"]:nth-child(1)`;
   cy.get(selector).click();
@@ -541,12 +558,21 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
 });
 
 Cypress.on("uncaught:exception", (err) => {
-  const resizeObserverLoopErrMessage = "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopLimitErrMessage =
+    "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopErrMessage =
+    "ResizeObserver loop completed with undelivered notifications.";
 
   /* returning false here prevents Cypress from failing the test */
-  if (err.message.includes(resizeObserverLoopErrMessage)) {
+  if (
+    err.message.includes(resizeObserverLoopLimitErrMessage) ||
+    err.message.includes(resizeObserverLoopErrMessage)
+  ) {
     return false;
   }
+
+  // Allow other uncaught exceptions to fail the test
+  return true;
 });
 
 //

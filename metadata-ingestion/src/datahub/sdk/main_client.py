@@ -7,15 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
-from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
-
-try:
-    from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
-        AssertionsClient,
-    )
-except ImportError:
-    AssertionsClient = None
 
 
 class DataHubClient:
@@ -74,7 +66,12 @@ class DataHubClient:
         self._graph.test_connection()
 
     @classmethod
-    def from_env(cls) -> "DataHubClient":
+    def from_env(
+        cls,
+        *,
+        client_mode: ClientMode = ClientMode.SDK,
+        datahub_component: Optional[str] = None,
+    ) -> "DataHubClient":
         """Initialize a DataHubClient from the environment variables or ~/.datahubenv file.
 
         This will first check DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN. If not present,
@@ -84,6 +81,10 @@ class DataHubClient:
         If you're looking to specify the server/token in code, use the
         DataHubClient(server=..., token=...) constructor instead.
 
+        Args:
+            client_mode: [internal] The client mode to use. Defaults to "SDK".
+            datahub_component: [internal] The DataHub component name to include in the user agent.
+
         Returns:
             A DataHubClient instance.
         """
@@ -91,7 +92,10 @@ class DataHubClient:
         # Inspired by the DockerClient.from_env() method.
         # TODO: This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
         # That file is part of the "environment", but is not a traditional "env variable".
-        graph = get_default_graph(ClientMode.SDK)
+        graph = get_default_graph(
+            client_mode=client_mode,
+            datahub_component=datahub_component,
+        )
 
         return cls(graph=graph)
 
@@ -100,7 +104,15 @@ class DataHubClient:
         return EntityClient(self)
 
     @property
-    def resolve(self) -> ResolverClient:
+    def resolve(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
+        try:
+            from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
+                ResolverClient,
+            )
+        except ImportError:
+            from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+                ResolverClient,
+            )
         return ResolverClient(self)
 
     @property
@@ -112,9 +124,27 @@ class DataHubClient:
         return LineageClient(self)
 
     @property
-    def assertions(self) -> AssertionsClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
-        if AssertionsClient is None:
-            raise SdkUsageError(
-                "AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`"
-            )
+    def assertions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
+        try:
+            from acryl_datahub_cloud.sdk import AssertionsClient
+        except ImportError as e:
+            if "acryl_datahub_cloud" in str(e):
+                raise SdkUsageError(
+                    "AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`"
+                ) from e
+            else:
+                raise e
         return AssertionsClient(self)
+
+    @property
+    def subscriptions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
+        try:
+            from acryl_datahub_cloud.sdk import SubscriptionClient
+        except ImportError as e:
+            if "acryl_datahub_cloud" in str(e):
+                raise SdkUsageError(
+                    "SubscriptionClient is not installed, please install it with `pip install acryl-datahub-cloud`"
+                ) from e
+            else:
+                raise e
+        return SubscriptionClient(self)

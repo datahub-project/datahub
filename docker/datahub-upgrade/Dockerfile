@@ -52,7 +52,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
-COPY datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh

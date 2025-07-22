@@ -120,6 +120,10 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 - **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
 - **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
 
+Additionally, you can configure notification preferences:
+
+- **Send notifications to assignees when this form is published:** Check this option to automatically notify assignees when the Form becomes available. If enabled, assignees will receive notifications through their configured channels (email and/or Slack in DataHub Cloud) in addition to seeing the task in their DataHub Task Center (DataHub Cloud only).
+
 <p align="center">
   <img 
        width="90%"  
@@ -129,7 +133,13 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 
 ### Step 5: Publish your Form
 
-After defining the Questions, assigning Assets, and selecting the Assignees, your Form is ready to be published. Once published, Assignees will be notified to complete the Form for the Assets they are responsible for.
+After defining the Questions, assigning Assets, and selecting the Assignees, your Form is ready to be published.
+
+Once published:
+
+- Assignees will have a task waiting in their **DataHub Task Center** (DataHub Cloud only)
+- If you enabled notifications and assignees have configured email and/or Slack notifications (DataHub Cloud only), they will be notified through those channels
+- As new assets become eligible for the Form over time, net-new owners will automatically be notified and assigned the Form
 
 To publish a Form, simply click **Publish**.
 
@@ -168,7 +178,11 @@ You sure can! Please keep in mind that an Asset will only be considered Document
 
 **How will DataHub Users know that a Compliance Form has been assigned to them?**
 
-They have to check the Inbox on the navigation bar. There are no off-platform notifications for Compliance Forms at this time.
+Assignees will be notified in multiple ways:
+
+- A task will appear in their **DataHub Task Center** (DataHub Cloud only)
+- If notifications were enabled when the Form was published and assignees have configured email and/or Slack notifications (DataHub Cloud only), they will receive notifications through those channels
+- As new assets become eligible for existing Forms, net-new owners will automatically be notified and assigned the Form
 
 **How do I track the progress of Form completion?**
 

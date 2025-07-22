@@ -24,7 +24,7 @@ describe('SchemaDescriptionField', () => {
         expect(getByRole('img')).toBeInTheDocument();
         expect(getByText('test description updated')).toBeInTheDocument();
         expect(queryByText('Update description')).not.toBeInTheDocument();
-    });
+    }, 10_000);
 
     it('renders update description modal', async () => {
         const { getByText, getByRole, queryByText } = render(

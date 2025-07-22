@@ -67,9 +67,10 @@ class TestConfigUtils:
         assert config == test_config
 
         # Test with malformed YAML
-        with patch(
-            "builtins.open", mock_open(read_data="invalid: yaml: content:")
-        ), patch("click.secho") as mock_secho:
+        with (
+            patch("builtins.open", mock_open(read_data="invalid: yaml: content:")),
+            patch("click.secho") as mock_secho,
+        ):
             config = get_raw_client_config()
             mock_secho.assert_called_once()
             assert config is None
@@ -100,9 +101,10 @@ class TestConfigUtils:
             assert token is None
 
         # Test with host only (backward compatibility)
-        with patch.dict(
-            os.environ, {"DATAHUB_GMS_HOST": "test-host"}, clear=True
-        ), patch.object(config_utils.logger, "warning") as mock_warning:
+        with (
+            patch.dict(os.environ, {"DATAHUB_GMS_HOST": "test-host"}, clear=True),
+            patch.object(config_utils.logger, "warning") as mock_warning,
+        ):
             url, token = config_utils._get_config_from_env()
             assert url == "test-host"
             assert token is None
@@ -125,8 +127,11 @@ class TestConfigUtils:
             assert token is None
 
         # Test with no host (should raise error)
-        with patch.dict(os.environ, {}, clear=True), pytest.raises(
-            MissingConfigError, match="No GMS host was provided in env variables."
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            pytest.raises(
+                MissingConfigError, match="No GMS host was provided in env variables."
+            ),
         ):
             require_config_from_env()
 
@@ -151,10 +156,13 @@ class TestConfigUtils:
         }
 
         # Mock both environment check and file loading
-        with patch.dict(os.environ, {}, clear=True), patch.object(
-            config_utils, "_should_skip_config", return_value=False
-        ), patch.object(config_utils, "_ensure_datahub_config"), patch.object(
-            config_utils, "get_raw_client_config", return_value=test_config
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=test_config
+            ),
         ):
             config = load_client_config()
             assert config.server == "http://localhost:8080"
@@ -163,26 +171,34 @@ class TestConfigUtils:
     def test_load_client_config_missing(self):
         """Test loading client config when missing."""
         # When skip config is true and no env variables
-        with patch.dict(os.environ, {}, clear=True), patch.object(
-            config_utils, "_should_skip_config", return_value=True
-        ), pytest.raises(MissingConfigError, match="You have set the skip config flag"):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=True),
+            pytest.raises(
+                MissingConfigError, match="You have set the skip config flag"
+            ),
+        ):
             load_client_config()
 
         # When config file is missing
-        with patch.dict(os.environ, {}, clear=True), patch.object(
-            config_utils, "_should_skip_config", return_value=False
-        ), patch.object(
-            config_utils,
-            "_ensure_datahub_config",
-            side_effect=MissingConfigError("No config"),
-        ), pytest.raises(MissingConfigError, match="No config"):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(
+                config_utils,
+                "_ensure_datahub_config",
+                side_effect=MissingConfigError("No config"),
+            ),
+            pytest.raises(MissingConfigError, match="No config"),
+        ):
             load_client_config()
 
     def test_ensure_datahub_config(self):
         """Test ensuring datahub config exists."""
         # Test when file doesn't exist
-        with patch.object(os.path, "isfile", return_value=False), pytest.raises(
-            MissingConfigError, match="No ~/.datahubenv file found"
+        with (
+            patch.object(os.path, "isfile", return_value=False),
+            pytest.raises(MissingConfigError, match="No ~/.datahubenv file found"),
         ):
             config_utils._ensure_datahub_config()
 
@@ -194,11 +210,15 @@ class TestConfigUtils:
     def test_write_gms_config(self):
         """Test writing GMS config."""
         # Test with merge=True but no previous config
-        with patch.object(
-            config_utils, "get_raw_client_config", side_effect=Exception("No config")
-        ), patch.object(
-            config_utils, "persist_raw_datahub_config"
-        ) as mock_persist, patch.object(config_utils.logger, "debug") as mock_debug:
+        with (
+            patch.object(
+                config_utils,
+                "get_raw_client_config",
+                side_effect=Exception("No config"),
+            ),
+            patch.object(config_utils, "persist_raw_datahub_config") as mock_persist,
+            patch.object(config_utils.logger, "debug") as mock_debug,
+        ):
             write_gms_config("http://test-host:8080", "test-token")
             mock_persist.assert_called_once()
             mock_debug.assert_called_once()  # Should log debug message about failure
@@ -218,6 +238,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
@@ -237,12 +258,16 @@ class TestConfigUtils:
                 "retry_max_times": None,
                 "retry_status_codes": None,
                 "timeout_sec": None,
+                "server_config_refresh_interval": None,
             },
             "other": {"setting": "value"},
         }
-        with patch.object(
-            config_utils, "get_raw_client_config", return_value=previous_config
-        ), patch.object(config_utils, "persist_raw_datahub_config") as mock_persist:
+        with (
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=previous_config
+            ),
+            patch.object(config_utils, "persist_raw_datahub_config") as mock_persist,
+        ):
             write_gms_config("http://test-host:8080", "test-token")
             mock_persist.assert_called_once()
 
@@ -261,6 +286,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 },
                 "other": {"setting": "value"},
             }
@@ -288,6 +314,7 @@ class TestConfigUtils:
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
+                    "server_config_refresh_interval": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config

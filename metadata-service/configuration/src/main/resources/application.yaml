@@ -8,7 +8,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*
+  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -68,15 +68,19 @@ ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
+  batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
+  scheduler:
+    refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
-  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
+  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false} # whether mixpanel tracking is enabled.
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
+  v1AlgorithmEnabled: "${SECRET_SERVICE_V1_ALGORITHM_ENABLED:true}" # Force only v2 algorithm, invalidates all existing v1 encrypted secrets
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -113,6 +117,11 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  limit:
+    results:
+      max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${GRAPH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${GRAPH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
@@ -131,12 +140,29 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+  limit:
+    results:
+      max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+  limit:
+    results:
+      max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
+
+systemMetadataService:
+  limit:
+    results:
+      max: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -147,7 +173,7 @@ platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
   usageExport:
     enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
-    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent,DeletePolicyEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
     aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
     userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
@@ -167,6 +193,9 @@ visualConfig:
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
+  application:
+    # DEPRECATED: This is now controlled via the UI settings.
+    showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
@@ -221,6 +250,14 @@ elasticsearch:
     keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
     keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
     keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  bulkDelete:
+    batchSize: ${ES_BULK_DELETE_BATCH_SIZE:5000}
+    slices: ${ES_BULK_DELETE_SLICES:auto}
+    pollInterval: ${ES_BULK_DELETE_POLL_INTERVAL:30}
+    pollIntervalUnit: ${ES_BULK_DELETE_POLL_UNIT:SECONDS}
+    timeout: ${ES_BULK_DELETE_TIMEOUT:30}
+    timeoutUnit: ${ES_BULK_DELETE_TIMEOUT_UNIT:MINUTES}
+    numRetries: ${ES_BULK_DELETE_NUM_RETRIES:3}
   bulkProcessor:
     async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
@@ -234,7 +271,7 @@ elasticsearch:
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:1} # increase to 30 if expected indexing rates to be greater than 100/s
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
@@ -253,8 +290,9 @@ elasticsearch:
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
+    reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
   search:
-    maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:20}
+    maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
@@ -274,13 +312,18 @@ elasticsearch:
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
+      searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
+      autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
-      maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
       enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
       graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
+      lineageMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS:20} # the maximum hops to traverse lineage graph visualization
+      impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
+      queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
 kafka:
@@ -321,6 +364,8 @@ kafka:
       autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
     mcl:
       autoOffsetReset: ${KAFKA_CONSUMER_MCL_AUTO_OFFSET_RESET:earliest}
+      fineGrainedLoggingEnabled: ${KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED:false}
+      aspectsToDrop: ${KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP:}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
 
@@ -371,9 +416,60 @@ spring:
   kafka:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
+  autoconfigure:
+    exclude:
+      # We don't use these
+      - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearchRestHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jms.JmsHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.ldap.LdapHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mail.MailHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mongo.MongoHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.mongo.MongoReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.neo4j.Neo4jHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.redis.RedisHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.redis.RedisReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.tracing.OpenTelemetryTracingAutoConfiguration
+      # These are overridden with more complex configuration
+      - org.springframework.boot.actuate.autoconfigure.tracing.otlp.OtlpAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.metrics.export.otlp.OtlpMetricsExportAutoConfiguration
+
+management:
+  health:
+    defaults:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,info,healthcheck,metrics
+    jmx:
+      enabled: true
+  # Opentelemetry
+  tracing:
+    enabled: true
+    propagation:
+      type: W3C
+  otlp:
+    tracing:
+      export:
+        enabled: false
+  # Micrometer Configuration
+  metrics:
+    cache:
+      enabled: false
+    export:
+      jmx:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_JMX_ENABLED:true} # Enable jmx metrics export
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true} # Enable prometheus metrics export
+    tags:
+      application: ${spring.application.name}
 
 # Useful to debug low-level Spring errors such as class version mismatches
-#server:
+server:
+  server-header: false
 #  error:
 #    include-message: always
 #    include-binding-errors: always
@@ -387,6 +483,9 @@ springdoc:
     urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
+    # Do not change this even though some APIs are using 3.1
+    # Serialization of enum types will break
+    version: openapi_3_0
   groups:
     enabled: true
 
@@ -486,7 +585,10 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
-      
+  removeQueryEdges:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
+    numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
+
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
@@ -519,7 +621,7 @@ featureFlags:
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
-  themeV2Default: ${THEME_V2_DEFAULT:false} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
@@ -536,6 +638,11 @@ featureFlags:
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
+  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -549,7 +656,7 @@ searchBar:
   apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
 
 homePage:
-  firstInPersonalSidebar: ${SEARCH_BAR_API_VARIANT:YOUR_ASSETS}
+  firstInPersonalSidebar: ${FIRST_IN_PERSONAL_SIDEBAR:YOUR_ASSETS}
 
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
@@ -639,6 +746,46 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+  metrics:
+    # Master switch for all GraphQL metrics collection via Micrometer
+    # When false, no GraphQL metrics are collected (request-level or field-level)
+    enabled: ${GRAPHQL_METRICS_ENABLED:true}
+    percentiles: ${GRAPHQL_PERCENTILES:0.5,0.75,0.95,0.98,0.99,0.999} # set to legacy percentiles by default
+
+    # Enable field-level resolver metrics collection
+    # When true, timing metrics are collected for individual GraphQL field resolvers
+    # This can add overhead for queries with many fields, so consider enabling selectively
+    # Metrics include: graphql.field.duration, graphql.field.errors
+    fieldLevelEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_ENABLED:false}
+
+    # Comma-delimited list of GraphQL operation names to instrument at field level
+    # When specified, only these operations will have field-level metrics collected
+    # Empty or unset means all operations are instrumented (if fieldLevelEnabled=true)
+    # Example: "getSearchResultsForMultiple,searchAcrossLineageStructure"
+    # Use case: Enable detailed metrics only for known slow or critical operations
+    fieldLevelOperations: ${GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS:getSearchResultsForMultiple,searchAcrossLineageStructure}
+
+    # Include the field path as a tag in field-level metrics
+    # WARNING: Can cause high cardinality if your schema has array fields
+    # Paths are truncated to replace array indices with * (e.g., /users/0/name -> /users/*/name)
+    # Only enable for debugging specific issues, not recommended for production
+    fieldLevelPathEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED:false}
+
+    # Comma-delimited list of GraphQL field path patterns to instrument
+    # Works in conjunction with fieldLevelOperations - both conditions must match if both are set
+    # Pattern syntax:
+    #   - /user/posts/* - matches direct children of posts (e.g., /user/posts/title)
+    #   - /user/posts/** - matches posts and all descendants
+    #   - /*/comments/* - matches comments under any parent
+    # Empty or unset means all paths are instrumented (if fieldLevelEnabled=true)
+    # Example: "/user/posts/**,/search/results/*,/**/comments"
+    # Use case: Focus metrics on specific parts of your schema known to be slow
+    fieldLevelPaths: ${GRAPHQL_METRICS_FIELD_LEVEL_PATHS:}
+
+    # Include metrics for trivial data fetchers (simple property access from objects)
+    # These are usually very fast and numerous, so excluding them reduces metric volume
+    # Only enable if you suspect performance issues with object property access
+    trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
@@ -662,6 +809,8 @@ metadataChangeProposal:
       size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
+    privilegeConstraints:
+      enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
   sideEffects:
@@ -704,5 +853,5 @@ eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
-      enablePublicRead: ${ENABLE_PUBLIC_READ:false}
-      publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+  enablePublicRead: ${ENABLE_PUBLIC_READ:false}
+  publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}

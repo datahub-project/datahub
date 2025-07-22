@@ -11,12 +11,17 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Run at midnight UTC every day
   release:
     types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
 
 jobs:
   setup:
@@ -52,7 +57,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup
     steps:
@@ -102,12 +107,15 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test \
-            --parallel
+            -x :metadata-integration:java:datahub-schematron:cli:test
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
+          ./gradlew :datahub-frontend:build :datahub-web-react:build
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
@@ -130,7 +138,19 @@ jobs:
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' && github.event_name != 'release') }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: backend
+          name: ${{ matrix.command }}
+          verbose: true
+      - name: Upload backend coverage to Codecov on release
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && github.event_name == 'release' ) }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -142,8 +162,22 @@ jobs:
           name: ${{ matrix.command }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
+
       - name: Upload frontend coverage to Codecov
-        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{  (matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' && github.event_name != 'release') }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: ${{ matrix.command }}
+          verbose: true
+
+      - name: Upload frontend coverage to Codecov on Release
+        if: ${{  (matrix.command == 'frontend' &&  github.event_name == 'release') }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -156,14 +190,19 @@ jobs:
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'release'  }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release'  }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   docker-codegen-validation:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     needs: setup
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:

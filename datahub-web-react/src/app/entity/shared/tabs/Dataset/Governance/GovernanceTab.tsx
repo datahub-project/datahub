@@ -9,6 +9,7 @@ import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { TestResults } from '@app/entity/shared/tabs/Dataset/Governance/TestResults';
 import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { GOVERNANCE_TAB_NAME } from '@app/entityV2/dataset/constants';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -41,7 +42,7 @@ export const GovernanceTab = () => {
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        if (!selectedTab) {
+        if (!selectedTab && basePath.endsWith(GOVERNANCE_TAB_NAME)) {
             // Route to the default tab.
             history.replace(`${basePath}/${DEFAULT_TAB}`);
         }

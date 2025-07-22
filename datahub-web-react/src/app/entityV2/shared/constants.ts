@@ -172,6 +172,10 @@ export const EMPTY_MESSAGES = {
         title: 'No product yet',
         description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
     },
+    application: {
+        title: 'No application yet',
+        description: 'Associate entities with applications to track ownership and lifecycle.',
+    },
     contains: {
         title: 'Does not Contain any Glossary Terms',
         description: 'Terms can contain other terms to represent a "Has A" style relationship.',

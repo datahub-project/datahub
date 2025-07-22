@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -60,6 +61,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    ChangeTypeClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -93,7 +98,9 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
-INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
+INGEST_MAX_PAYLOAD_BYTES = int(
+    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES", 15 * 1024 * 1024)
+)
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
@@ -102,6 +109,22 @@ INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
     os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
 )
+
+
+def preserve_unicode_escapes(obj: Any) -> Any:
+    """Recursively convert unicode characters back to escape sequences"""
+    if isinstance(obj, dict):
+        return {k: preserve_unicode_escapes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [preserve_unicode_escapes(item) for item in obj]
+    elif isinstance(obj, str):
+        # Convert non-ASCII characters back to \u escapes
+        def escape_unicode(match: Any) -> Any:
+            return f"\\u{ord(match.group(0)):04x}"
+
+        return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
+    else:
+        return obj
 
 
 class EmitMode(ConfigEnum):
@@ -314,6 +337,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         openapi_ingestion: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
+        server_config_refresh_interval: Optional[int] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -329,6 +353,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
+        self._server_config_refresh_interval = server_config_refresh_interval
+        self._config_fetch_time: Optional[float] = None
 
         headers = {
             "X-RestLi-Protocol-Version": "2.0.0",
@@ -398,7 +424,17 @@ class DataHubRestEmitter(Closeable, Emitter):
         Raises:
             ConfigurationError: If there's an error fetching or validating the configuration
         """
-        if not hasattr(self, "_server_config") or not self._server_config:
+
+        if (
+            not hasattr(self, "_server_config")
+            or self._server_config is None
+            or (
+                self._server_config_refresh_interval is not None
+                and self._config_fetch_time is not None
+                and (time.time() - self._config_fetch_time)
+                > self._server_config_refresh_interval
+            )
+        ):
             if self._session is None or self._gms_server is None:
                 raise ConfigurationError(
                     "Session and URL are required to load configuration"
@@ -419,6 +455,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
 
                 self._server_config = RestServiceConfig(raw_config=raw_config)
+                self._config_fetch_time = time.time()
                 self._post_fetch_server_config()
 
             else:
@@ -453,6 +490,8 @@ class DataHubRestEmitter(Closeable, Emitter):
                     DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
                 )
 
+    def test_connection(self) -> None:
+        self.fetch_server_config()
         logger.debug(
             f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
@@ -460,11 +499,20 @@ class DataHubRestEmitter(Closeable, Emitter):
             f"{EmitMode.ASYNC_WAIT} {'IS' if self._should_trace(emit_mode=EmitMode.ASYNC_WAIT, warn=False) else 'IS NOT'} supported."
         )
 
-    def test_connection(self) -> None:
-        self.fetch_server_config()
-
     def get_server_config(self) -> dict:
         return self.server_config.raw_config
+
+    def invalidate_config_cache(self) -> None:
+        """Manually invalidate the configuration cache."""
+        if (
+            hasattr(self, "_server_config")
+            and self._server_config is not None
+            and self._server_config_refresh_interval is not None
+        ):
+            # Set fetch time to beyond TTL in the past to force refresh on next access
+            self._config_fetch_time = (
+                time.time() - self._server_config_refresh_interval - 1
+            )
 
     def to_graph(self) -> "DataHubGraph":
         from datahub.ingestion.graph.client import DataHubGraph
@@ -584,15 +632,27 @@ class DataHubRestEmitter(Closeable, Emitter):
                     trace_data = extract_trace_data(response) if response else None
 
         else:
-            url = f"{self._gms_server}/aspects?action=ingestProposal"
+            if mcp.changeType == ChangeTypeClass.DELETE:
+                if mcp.aspectName not in KEY_ASPECT_NAMES:
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
-            mcp_obj = pre_json_transform(mcp.to_obj())
-            payload_dict = {
-                "proposal": mcp_obj,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
-            }
+                url = f"{self._gms_server}/entities?action=delete"
+                payload_dict = {
+                    "urn": mcp.entityUrn,
+                }
+            else:
+                url = f"{self._gms_server}/aspects?action=ingestProposal"
+
+                mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
+                payload_dict = {
+                    "proposal": mcp_obj,
+                    "async": "true"
+                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+                    else "false",
+                }
 
             payload = json.dumps(payload_dict)
 
@@ -852,7 +912,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                         for aspect_name, aspect_status in aspects.items():
                             if not aspect_status["success"]:
                                 error_msg = (
-                                    f"Unable to validate async write to DataHub GMS: "
+                                    f"Unable to validate async write {trace.trace_id} ({trace.extract_timestamp()}) to DataHub GMS: "
                                     f"Persistence failure for URN '{urn}' aspect '{aspect_name}'. "
                                     f"Status: {aspect_status}"
                                 )

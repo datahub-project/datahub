@@ -21,12 +21,7 @@ class DatajobUrl(Enum):
 
 
 class DatahubLineageConfig(ConfigModel):
-    # This class is shared between the lineage backend and the Airflow plugin.
-    # The defaults listed here are only relevant for the lineage backend.
-    # The Airflow plugin's default values come from the fallback values in
-    # the get_lineage_config() function below.
-
-    enabled: bool = True
+    enabled: bool
 
     # DataHub hook connection ID.
     datahub_conn_id: str
@@ -34,51 +29,45 @@ class DatahubLineageConfig(ConfigModel):
     _datahub_connection_ids: List[str]
 
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
-    cluster: str = builder.DEFAULT_FLOW_CLUSTER
+    cluster: str
 
     # Platform instance to associate with the pipelines and tasks.
-    platform_instance: Optional[str] = None
+    platform_instance: Optional[str]
 
     # If true, the owners field of the DAG will be captured as a DataHub corpuser.
-    capture_ownership_info: bool = True
+    capture_ownership_info: bool
 
     # If true, the owners field of the DAG will instead be captured as a DataHub corpgroup.
-    capture_ownership_as_group: bool = False
+    capture_ownership_as_group: bool
 
     # If true, the tags field of the DAG will be captured as DataHub tags.
-    capture_tags_info: bool = True
+    capture_tags_info: bool
 
     # If true (default), we'll materialize and un-soft-delete any urns
     # referenced by inlets or outlets.
-    materialize_iolets: bool = True
+    materialize_iolets: bool
 
-    capture_executions: bool = False
+    capture_executions: bool
 
-    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
+    datajob_url_link: DatajobUrl
 
-    # Note that this field is only respected by the lineage backend.
-    # The Airflow plugin v2 behaves as if it were set to True.
-    graceful_exceptions: bool = True
-
-    # The remaining config fields are only relevant for the v2 plugin.
-    enable_extractors: bool = True
+    enable_extractors: bool
 
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
-    render_templates: bool = True
+    render_templates: bool
 
     # Only if true, lineage will be emitted for the DataJobs.
-    enable_datajob_lineage: bool = True
+    enable_datajob_lineage: bool
 
     dag_filter_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
         description="regex patterns for DAGs to ingest",
     )
 
-    log_level: Optional[str] = None
-    debug_emitter: bool = False
+    log_level: Optional[str]
+    debug_emitter: bool
 
-    disable_openlineage_plugin: bool = True
+    disable_openlineage_plugin: bool
 
     def make_emitter_hook(self) -> Union["DatahubGenericHook", "DatahubCompositeHook"]:
         # This is necessary to avoid issues with circular imports.
@@ -127,7 +116,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
-    dag_filter_pattern = AllowDenyPattern.parse_raw(
+    dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
