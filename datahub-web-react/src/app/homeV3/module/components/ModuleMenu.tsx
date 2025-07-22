@@ -72,6 +72,7 @@ export default function ModuleMenu({ module, position }: Props) {
                             key: 'remove',
                             style: {
                                 color: colors.red[500],
+                                fontSize: '14px',
                             },
                             onClick: handleRemove,
                         },
