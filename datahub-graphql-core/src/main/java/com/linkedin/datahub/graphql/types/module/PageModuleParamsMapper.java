@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.module;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssetCollectionModuleParams;
+import com.linkedin.datahub.graphql.generated.HierarchyViewModuleParams;
 import com.linkedin.datahub.graphql.generated.LinkModuleParams;
 import com.linkedin.datahub.graphql.generated.RichTextModuleParams;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -68,6 +69,25 @@ public class PageModuleParamsMapper
 
       assetCollectionParams.setAssetUrns(assetUrnStrings);
       result.setAssetCollectionParams(assetCollectionParams);
+    }
+
+    // Map hierarchy view params if present
+    if (params.getHierarchyViewParams() != null) {
+      HierarchyViewModuleParams hierarchyViewParams = new HierarchyViewModuleParams();
+
+      if (params.getHierarchyViewParams().getAssetUrns() != null) {
+        hierarchyViewParams.setAssetUrns(
+            params.getHierarchyViewParams().getAssetUrns().stream()
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
+      }
+
+      hierarchyViewParams.setShowRelatedEntities(
+          params.getHierarchyViewParams().isShowRelatedEntities());
+
+      // TODO: add relatedEntitiesFilter
+
+      result.setHierarchyViewParams(hierarchyViewParams);
     }
 
     return result;

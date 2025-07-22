@@ -109,6 +109,13 @@ datahub:
     auth:
       path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
 
+  metrics:
+    # measures the time from request to post-MCL hook
+    hookLatency:
+      percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
@@ -368,6 +375,10 @@ kafka:
       aspectsToDrop: ${KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP:}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+    metrics:
+      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
   # Consumer Pool - Used for Our Events API
   consumerPool:
