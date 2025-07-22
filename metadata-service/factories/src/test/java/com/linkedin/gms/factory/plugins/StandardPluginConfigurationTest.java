@@ -18,6 +18,7 @@ import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValid
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -194,5 +195,21 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         context.getBean("ExecuteIngestionAuthValidator", AspectPayloadValidator.class);
     assertNotNull(validator);
     assertTrue(validator instanceof ExecuteIngestionAuthValidator);
+  }
+
+  @Test
+  public void testCreateIfNotExistsValidatorBeanCreation() {
+    assertTrue(context.containsBean("createIfNotExistsValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("createIfNotExistsValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof CreateIfNotExistsValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), CreateIfNotExistsValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(), List.of("CREATE", "CREATE_ENTITY"));
   }
 }

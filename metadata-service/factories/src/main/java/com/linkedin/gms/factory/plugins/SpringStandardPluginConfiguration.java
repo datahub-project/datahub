@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
@@ -382,6 +383,18 @@ public class SpringStandardPluginConfiguration {
                             .entityName(EXECUTION_REQUEST_ENTITY_NAME)
                             .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
                             .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator createIfNotExistsValidator() {
+    return new CreateIfNotExistsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CreateIfNotExistsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
                 .build());
   }
 }

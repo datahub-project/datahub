@@ -741,14 +741,7 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
+
     - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
       enabled: true
       supportedOperations:
