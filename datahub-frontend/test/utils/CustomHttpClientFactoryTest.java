@@ -4,26 +4,57 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLContext;
+import java.io.File;
+import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CustomHttpClientFactoryTest {
 
-    //Generated a test truststore with keytool for real integration testing.
-    private static final String VALID_TRUSTSTORE_PATH = "test/resources/test-truststore.p12";
-    private static final String VALID_TRUSTSTORE_PASSWORD = "testpassword";
-    private static final String VALID_TRUSTSTORE_TYPE = "PKCS12";
-    private static final String INVALID_TRUSTSTORE_PATH = "src/test/resources/doesnotexist.p12";
-    private static final String INVALID_TRUSTSTORE_PASSWORD = "wrongpassword";
+    private static final String TRUSTSTORE_PASSWORD = "testpassword";
+    private static final String TRUSTSTORE_TYPE = "PKCS12";
+
+    // Helper: Generate a temp PKCS12 truststore using keytool
+    static Path generateTempTruststore() throws IOException, InterruptedException {
+        Path tempDir = Files.createTempDirectory("test-truststore");
+        Path truststorePath = tempDir.resolve("test-truststore-" + System.nanoTime() + ".p12");
+        String keytoolPath = System.getenv("KEYTOOL_PATH");
+        if (keytoolPath == null) {
+            keytoolPath = System.getProperty("java.home") + "/bin/keytool";
+        }
+        File keytoolFile = new File(keytoolPath);
+        if (!keytoolFile.exists()) {
+            keytoolPath = "keytool"; // fallback to system path
+        }
+        List<String> command = List.of(
+                keytoolPath,
+                "-genkeypair",
+                "-alias", "testcert",
+                "-keyalg", "RSA",
+                "-keysize", "2048",
+                "-storetype", "PKCS12",
+                "-keystore", truststorePath.toString(),
+                "-validity", "3650",
+                "-storepass", TRUSTSTORE_PASSWORD,
+                "-dname", "CN=Test, OU=Dev, O=Example, L=Test, S=Test, C=US"
+        );
+        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        String output = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+        if (exitCode != 0)
+            throw new RuntimeException("Could not generate truststore, exit code: " + exitCode + ", output: " + output);
+        return truststorePath;
+    }
 
     @Test
     void testCreateSslContextWithValidTruststore() throws Exception {
-        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return; // skip if not present
+        Path truststorePath = generateTempTruststore();
         SSLContext context = CustomHttpClientFactory.createSslContext(
-                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
         assertNotNull(context);
         assertEquals("TLSv1.2", context.getProtocol());
     }
@@ -31,37 +62,36 @@ class CustomHttpClientFactoryTest {
     @Test
     void testCreateSslContextWithInvalidTruststoreThrows() {
         assertThrows(Exception.class, () -> CustomHttpClientFactory.createSslContext(
-                INVALID_TRUSTSTORE_PATH, INVALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE));
+                "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE));
     }
 
     @Test
-    void testGetJavaHttpClientWithValidTruststore() {
-        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return;
+    void testGetJavaHttpClientWithValidTruststore() throws Exception {
+        Path truststorePath = generateTempTruststore();
         HttpClient client = CustomHttpClientFactory.getJavaHttpClient(
-                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
         assertNotNull(client);
     }
 
     @Test
     void testGetJavaHttpClientWithInvalidTruststoreFallsBack() {
         HttpClient client = CustomHttpClientFactory.getJavaHttpClient(
-                INVALID_TRUSTSTORE_PATH, INVALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
         assertNotNull(client);
-        // Could add more checks if needed (e.g. class type)
     }
 
     @Test
-    void testGetApacheHttpClientWithValidTruststore() {
-        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return;
+    void testGetApacheHttpClientWithValidTruststore() throws Exception {
+        Path truststorePath = generateTempTruststore();
         CloseableHttpClient client = CustomHttpClientFactory.getApacheHttpClient(
-                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
         assertNotNull(client);
     }
 
     @Test
     void testGetApacheHttpClientWithInvalidTruststoreFallsBack() {
         CloseableHttpClient client = CustomHttpClientFactory.getApacheHttpClient(
-                INVALID_TRUSTSTORE_PATH, INVALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                "doesnotexist.p12", "wrongpassword", TRUSTSTORE_TYPE);
         assertNotNull(client);
     }
 }
