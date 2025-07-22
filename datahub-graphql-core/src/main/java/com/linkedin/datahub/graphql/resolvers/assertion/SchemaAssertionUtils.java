@@ -78,7 +78,9 @@ public class SchemaAssertionUtils {
     final SchemaField result = new SchemaField();
     result.setFieldPath(field.getPath());
     result.setType(mapSchemaFieldDataType(field.getType()));
-    if (field.getNativeType() != null) {
+    if (field.getNativeType() == null) {
+      result.setNativeDataType("");
+    } else {
       result.setNativeDataType(field.getNativeType());
     }
     return result;
