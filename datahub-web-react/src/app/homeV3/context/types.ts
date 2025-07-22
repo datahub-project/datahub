@@ -19,7 +19,7 @@ export interface AddModuleInput {
 }
 
 export interface RemoveModuleInput {
-    moduleUrn: string;
+    module: PageModuleFragment;
     position: ModulePositionInput;
 }
 export interface ModuleModalState {

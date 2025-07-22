@@ -65,6 +65,13 @@ export const DEFAULT_MODULES: ModuleInfo[] = [
     // DEFAULT_MODULE_LINK,
 ];
 
+// keep this in sync with PageModuleService.java
+export const DEFAULT_MODULE_URNS = [
+    'urn:li:dataHubPageModule:your_assets',
+    'urn:li:dataHubPageModule:your_subscriptions',
+    'urn:li:dataHubPageModule:top_domains',
+];
+
 export const ADD_MODULE_MENU_SECTION_CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Link,
     DataHubPageModuleType.RichText,

@@ -8,9 +8,15 @@ import {
     validateModuleMoveConstraints,
 } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageModuleMutation,
+    useUpsertPageModuleMutation,
+} from '@graphql/template.generated';
 import { EntityType, PageModuleScope } from '@types';
 
 // Helper types for shared operations
@@ -156,6 +162,7 @@ export function useModuleOperations(
     isEditingModule: boolean,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
+    const [deletePageModule] = useDeletePageModuleMutation();
 
     // Create context object to avoid passing many parameters
     const context: TemplateUpdateContext = useMemo(
@@ -282,10 +289,10 @@ export function useModuleOperations(
                 (!context.isEditingGlobalTemplate && module.properties.visibility.scope === PageModuleScope.Global) ||
                 DEFAULT_MODULE_URNS.includes(module.urn);
             if (!shouldNotDeleteModule) {
-                // delete the module calling the mutation
+                deletePageModule({ variables: { input: { urn: module.urn } } });
             }
         },
-        [context, removeModuleFromTemplate],
+        [context, removeModuleFromTemplate, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
