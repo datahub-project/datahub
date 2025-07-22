@@ -1,7 +1,5 @@
-import { Tooltip, colors } from '@components';
+import { Icon, Tooltip, colors } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import PublicIcon from '@mui/icons-material/Public';
 import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
@@ -10,12 +8,12 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
 import {
+    CardViewLabel,
     ViewContainer,
     ViewContent,
     ViewDescription,
     ViewIcon,
     ViewIconNavBarRedesign,
-    ViewLabel,
 } from '@app/entityV2/view/select/styledComponents';
 import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
@@ -63,15 +61,7 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
 const ViewDropdownMenuContainer = styled.div`
     display: flex;
     justify-content: end;
-    align-item: center;
-`;
-
-const PublicIconStyle = styled(PublicIcon)`
-    font-size: 12px !important;
-`;
-
-const LockOutlinedIconStyle = styled(LockOutlinedIcon)`
-    font-size: 12px !important;
+    align-items: center;
 `;
 
 const FilterCenterFocusOutlinedIconStyle = styled(FilterCenterFocusOutlinedIcon)`
@@ -88,6 +78,7 @@ type Props = {
     visible?: boolean;
     isOwnedByUser?: boolean;
     selected?: boolean;
+    fixedWidth?: boolean;
     // Custom Action Handlers - useful if you do NOT want the Menu to handle Modal rendering.
     onClickEdit?: () => void;
     onClickPreview?: () => void;
@@ -109,6 +100,7 @@ export const ViewOptionName = ({
     visible,
     isOwnedByUser,
     selected,
+    fixedWidth,
     onClickEdit,
     onClickPreview,
     selectView,
@@ -181,8 +173,8 @@ export const ViewOptionName = ({
                 )}
                 <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
                     <ViewType>
-                        {type === 'GLOBAL' && <PublicIconStyle />}
-                        {type === 'PERSONAL' && <LockOutlinedIconStyle />}
+                        {type === 'GLOBAL' && <Icon icon="GlobeHemisphereEast" source="phosphor" size="lg" />}
+                        {type === 'PERSONAL' && <Icon icon="Lock" source="phosphor" size="lg" />}
                     </ViewType>
                 </Tooltip>
             </ViewIcon>
@@ -190,15 +182,20 @@ export const ViewOptionName = ({
     };
 
     return (
-        <ViewContainer role="row" $selected={selected} $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <ViewContainer
+            role="row"
+            $selected={selected}
+            $isShowNavBarRedesign={isShowNavBarRedesign}
+            $fixedWidth={fixedWidth}
+        >
             {renderViewIcon()}
             <Tooltip
                 placement="bottom"
                 showArrow
                 title={<ViewOptionTooltipTitle name={name} description={description} />}
             >
-                <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    <ViewLabel $isShowNavBarRedesign={isShowNavBarRedesign}>{name}</ViewLabel>
+                <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign} $fixedWidth={fixedWidth}>
+                    <CardViewLabel $isShowNavBarRedesign={isShowNavBarRedesign}>{name}</CardViewLabel>
                     <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>{description}</ViewDescription>
                 </ViewContent>
             </Tooltip>

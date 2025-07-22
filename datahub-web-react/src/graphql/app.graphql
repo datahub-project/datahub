@@ -106,6 +106,7 @@ query appConfig {
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
+            showHomepageUserRole
         }
         chromeExtensionConfig {
             enabled

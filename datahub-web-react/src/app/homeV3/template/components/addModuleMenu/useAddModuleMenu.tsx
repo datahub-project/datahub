@@ -4,7 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { LARGE_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { LARGE_MODULE_TYPES, SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
@@ -48,10 +48,15 @@ export default function useAddModuleMenu(
         template,
     } = usePageTemplateContext();
 
-    const isRowWithLargeModule =
+    const isLargeModuleRow =
         position.rowIndex !== undefined &&
         template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
             LARGE_MODULE_TYPES.includes(module.properties.type),
+        );
+    const isSmallModuleRow =
+        position.rowIndex !== undefined &&
+        template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
+            SMALL_MODULE_TYPES.includes(module.properties.type),
         );
 
     const handleAddExistingModule = useCallback(
@@ -83,7 +88,7 @@ export default function useAddModuleMenu(
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
-            disabled: isRowWithLargeModule,
+            disabled: isLargeModuleRow,
         };
 
         const documentation = {
@@ -93,6 +98,7 @@ export default function useAddModuleMenu(
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
+            disabled: isSmallModuleRow,
         };
 
         items.push({
@@ -109,6 +115,7 @@ export default function useAddModuleMenu(
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
+            disabled: isSmallModuleRow,
         };
 
         const domains = {
@@ -118,6 +125,7 @@ export default function useAddModuleMenu(
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
+            disabled: isSmallModuleRow,
         };
 
         const assetCollection = {
@@ -133,6 +141,7 @@ export default function useAddModuleMenu(
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
             },
+            disabled: isSmallModuleRow,
         };
 
         items.push({
@@ -170,7 +179,8 @@ export default function useAddModuleMenu(
 
         return { items };
     }, [
-        isRowWithLargeModule,
+        isLargeModuleRow,
+        isSmallModuleRow,
         modulesAvailableToAdd.adminCreatedModules,
         handleOpenCreateModuleModal,
         handleAddExistingModule,
