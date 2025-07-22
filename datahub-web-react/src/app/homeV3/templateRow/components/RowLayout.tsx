@@ -26,6 +26,7 @@ interface Props {
     modulePositions: ModulePosition[];
     shouldDisableDropZones: boolean;
     modulesAvailableToAdd: ModulesAvailableToAdd;
+    isSmallRow: boolean | null;
 }
 
 interface ModuleWrapperProps {
@@ -38,7 +39,7 @@ const ModuleWrapper = memo(({ module, position }: ModuleWrapperProps) => (
     <Module module={module} position={position} />
 ));
 
-function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesAvailableToAdd }: Props) {
+function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesAvailableToAdd, isSmallRow }: Props) {
     return (
         <RowWrapper>
             <AddModuleButton
@@ -49,7 +50,12 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesA
             />
 
             {/* Drop zone at the beginning of the row */}
-            <ModuleDropZone rowIndex={rowIndex} moduleIndex={0} disabled={shouldDisableDropZones} />
+            <ModuleDropZone
+                rowIndex={rowIndex}
+                moduleIndex={0}
+                disabled={shouldDisableDropZones}
+                isSmall={isSmallRow}
+            />
 
             {modulePositions.map(({ module, position, key }, moduleIndex) => (
                 <React.Fragment key={key}>
@@ -59,6 +65,7 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, modulesA
                         rowIndex={rowIndex}
                         moduleIndex={moduleIndex + 1}
                         disabled={shouldDisableDropZones}
+                        isSmall={isSmallRow}
                     />
                 </React.Fragment>
             ))}
