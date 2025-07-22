@@ -101,6 +101,7 @@ def suggest_description(
                     entity_type=QueryUrn.ENTITY_TYPE,
                     response_time_ms=timer.elapsed_seconds() * 1000,
                     has_entity_description=desc is not None and len(desc) > 0,
+                    entity_description=desc,
                 )
             )
 
@@ -126,6 +127,7 @@ def suggest_description(
                     has_column_descriptions=result.column_descriptions is not None
                     and len(result.column_descriptions) > 0,
                     error_msg=result.failure_reason,
+                    entity_description=result.table_description,
                 )
             )
 

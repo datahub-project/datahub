@@ -104,6 +104,7 @@ def test_suggest_description_tracks_query_event(mock_graph: DataHubGraph) -> Non
         assert response_call.entity_type == QueryUrn.ENTITY_TYPE
         assert response_call.user_urn is None
         assert response_call.has_entity_description is True
+        assert response_call.entity_description == expected_query_desc
 
 
 def test_suggest_description_with_custom_user_urn(
@@ -150,6 +151,7 @@ def test_suggest_description_with_custom_user_urn(
         assert response_call.user_urn == custom_user_urn
         assert response_call.has_entity_description is True
         assert response_call.has_column_descriptions is True
+        assert response_call.entity_description == expected_result.table_description
 
 
 def test_suggest_description_tracks_dataset_event(
@@ -195,6 +197,7 @@ def test_suggest_description_tracks_dataset_event(
         assert response_call.user_urn is None
         assert response_call.has_entity_description is True
         assert response_call.has_column_descriptions is True
+        assert response_call.entity_description == expected_result.table_description
 
 
 def test_suggest_description_tracks_error_event(mock_graph: DataHubGraph) -> None:

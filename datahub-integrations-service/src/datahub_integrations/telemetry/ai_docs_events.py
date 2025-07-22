@@ -25,3 +25,5 @@ class InferDocsApiResponseEvent(BaseEvent):
 
     has_entity_description: Optional[bool] = None
     has_column_descriptions: Optional[bool] = None
+
+    entity_description: Optional[str] = None
