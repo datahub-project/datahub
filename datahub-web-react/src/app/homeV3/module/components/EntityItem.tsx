@@ -8,11 +8,17 @@ import { Entity } from '@types';
 
 interface Props {
     entity: Entity;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
 }
 
-export default function EntityItem({ entity, customDetailsRenderer, navigateOnlyOnNameClick = false }: Props) {
+export default function EntityItem({
+    entity,
+    customDetailsRenderer,
+    navigateOnlyOnNameClick = false,
+    dragIconRenderer,
+}: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     return (
@@ -23,6 +29,7 @@ export default function EntityItem({ entity, customDetailsRenderer, navigateOnly
                     key={entity.urn}
                     customDetailsRenderer={customDetailsRenderer}
                     navigateOnlyOnNameClick
+                    dragIconRenderer={dragIconRenderer}
                 />
             ) : (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
@@ -30,6 +37,7 @@ export default function EntityItem({ entity, customDetailsRenderer, navigateOnly
                         entity={entity}
                         key={entity.urn}
                         customDetailsRenderer={customDetailsRenderer}
+                        dragIconRenderer={dragIconRenderer}
                     />
                 </Link>
             )}

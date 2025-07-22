@@ -91,14 +91,21 @@ const TypeContainer = styled.div`
     align-items: center;
 `;
 
+const Icons = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 interface EntityAutocompleteItemProps {
     entity: Entity;
     query?: string;
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
 }
 
 export default function AutoCompleteEntityItem({
@@ -109,6 +116,7 @@ export default function AutoCompleteEntityItem({
     variant,
     customDetailsRenderer,
     navigateOnlyOnNameClick,
+    dragIconRenderer,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -145,10 +153,12 @@ export default function AutoCompleteEntityItem({
     return (
         <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
             <ContentContainer>
-                <IconContainer $variant={variant}>
-                    <EntityIcon entity={entity} siblings={siblings} />
-                </IconContainer>
-
+                <Icons>
+                    {dragIconRenderer && dragIconRenderer()}
+                    <IconContainer $variant={variant}>
+                        <EntityIcon entity={entity} siblings={siblings} />
+                    </IconContainer>
+                </Icons>
                 <DescriptionContainer>
                     <HoverEntityTooltip
                         placement="bottom"

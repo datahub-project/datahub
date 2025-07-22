@@ -2,7 +2,8 @@ import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import EntityItem from '@app/homeV3/module/components/EntityItem';
+import DraggableEntityItem from '@app/homeV3/modules/assetCollection/dragAndDrop/DraggableEntityItem';
+import VerticalDragAndDrop from '@app/homeV3/modules/assetCollection/dragAndDrop/VerticalDragAndDrop';
 import { EmptyContainer, StyledIcon } from '@app/homeV3/styledComponents';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
@@ -12,6 +13,11 @@ const SelectedAssetsContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
+`;
+
+const ResultsContainer = styled.div`
+    margin: 0 -12px 0 -8px;
     height: 100%;
 `;
 
@@ -46,12 +52,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     let content;
     if (entities && entities.length > 0) {
         content = entities.map((entity) => (
-            <EntityItem
-                entity={entity}
-                key={entity.urn}
-                customDetailsRenderer={renderRemoveAsset}
-                navigateOnlyOnNameClick
-            />
+            <DraggableEntityItem entity={entity} key={entity.urn} customDetailsRenderer={renderRemoveAsset} />
         ));
     } else if (!loading && entities.length === 0) {
         content = (
@@ -66,7 +67,9 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
             <Text color="gray" weight="bold">
                 Selected Assets
             </Text>
-            {content}
+            <VerticalDragAndDrop items={selectedAssetUrns} onChange={setSelectedAssetUrns}>
+                <ResultsContainer>{content}</ResultsContainer>
+            </VerticalDragAndDrop>
         </SelectedAssetsContainer>
     );
 };
