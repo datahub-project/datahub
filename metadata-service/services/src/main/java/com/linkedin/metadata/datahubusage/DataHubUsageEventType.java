@@ -175,7 +175,12 @@ public enum DataHubUsageEventType {
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),
   CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedback"),
   INFER_DOCS_API_REQUEST_EVENT("InferDocsApiRequest"),
-  INFER_DOCS_API_RESPONSE_EVENT("InferDocsApiResponse");
+  INFER_DOCS_API_RESPONSE_EVENT("InferDocsApiResponse"),
+  WELCOME_TO_DATAHUB_MODAL_VIEW_EVENT("WelcomeToDataHubModalViewEvent"),
+  WELCOME_TO_DATAHUB_MODAL_INTERACT_EVENT("WelcomeToDataHubModalInteractEvent"),
+  WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
+  WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
+      "WelcomeToDataHubModalClickViewDocumentationEvent");
 
   private final String type;
 

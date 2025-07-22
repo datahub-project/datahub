@@ -5,7 +5,6 @@ import Tour from 'reactour';
 import { useUserContext } from '@app/context/useUserContext';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
@@ -44,9 +43,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
-    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
-
-    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
+    if (!filteredSteps.length) return null;
 
     return (
         <Tour

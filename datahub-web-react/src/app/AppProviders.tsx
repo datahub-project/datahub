@@ -5,6 +5,7 @@ import GlobalSettingsContextProvider from '@app/context/GlobalSettings/GlobalSet
 import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
 import UserContextProvider from '@app/context/UserContextProvider';
 import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';
@@ -22,11 +23,13 @@ export default function AppProviders({ children }: Props) {
                     <UserContextProvider>
                         <EntityRegistryProvider>
                             <EducationStepsProvider>
-                                <QuickFiltersProvider>
-                                    <SearchContextProvider>
-                                        <NavBarProvider>{children}</NavBarProvider>
-                                    </SearchContextProvider>
-                                </QuickFiltersProvider>
+                                <OnboardingTourProvider>
+                                    <QuickFiltersProvider>
+                                        <SearchContextProvider>
+                                            <NavBarProvider>{children}</NavBarProvider>
+                                        </SearchContextProvider>
+                                    </QuickFiltersProvider>
+                                </OnboardingTourProvider>
                             </EducationStepsProvider>
                         </EntityRegistryProvider>
                     </UserContextProvider>

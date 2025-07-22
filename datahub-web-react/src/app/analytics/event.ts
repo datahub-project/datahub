@@ -192,6 +192,10 @@ export enum EventType {
     DeleteActionEvent,
     DatasetHealthFilterEvent,
     DatasetHealthClickEvent,
+    WelcomeToDataHubModalViewEvent,
+    WelcomeToDataHubModalInteractEvent,
+    WelcomeToDataHubModalExitEvent,
+    WelcomeToDataHubModalClickViewDocumentationEvent,
 }
 
 /**
@@ -1402,6 +1406,29 @@ export interface DatasetHealthClickEvent extends BaseEvent {
     targetUrn?: string;
 }
 
+export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalViewEvent;
+}
+
+export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalInteractEvent;
+    direction: 'forward' | 'backward';
+    currentSlide: number;
+    totalSlides: number;
+}
+
+export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalExitEvent;
+    currentSlide: number;
+    totalSlides: number;
+    exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
+}
+
+export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
+    url: string;
+}
+
 export interface ClickProductUpdateEvent extends BaseEvent {
     type: EventType.ClickProductUpdate;
     id: string;
@@ -1570,4 +1597,8 @@ export type Event =
     | UpdateActionEvent
     | DeleteActionEvent
     | DatasetHealthFilterEvent
-    | DatasetHealthClickEvent;
+    | DatasetHealthClickEvent
+    | WelcomeToDataHubModalViewEvent
+    | WelcomeToDataHubModalInteractEvent
+    | WelcomeToDataHubModalExitEvent
+    | WelcomeToDataHubModalClickViewDocumentationEvent;

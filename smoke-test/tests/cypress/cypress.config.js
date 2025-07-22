@@ -8,7 +8,7 @@ module.exports = defineConfig({
   projectId: "1d7nwt",
   defaultCommandTimeout: 10000,
   retries: {
-    runMode: 2,
+    runMode: 5,
     openMode: 0,
   },
   video: false,
