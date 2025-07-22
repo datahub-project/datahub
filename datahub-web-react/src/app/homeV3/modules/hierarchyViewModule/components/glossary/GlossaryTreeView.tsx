@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -10,6 +10,7 @@ import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/
 import useGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTree';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
+import useParentValuesToLoadChildren from '../../childrenLoader/hooks/useParentValues';
 
 const Wrapper = styled.div``;
 
@@ -21,33 +22,33 @@ interface Props {
 export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
     const { tree, loading } = useGlossaryTree(assetUrns ?? []);
 
-    const [parentUrnsToFetchChildren, setParentUrnsToFetchChildren] = useState<string[]>([]);
+    const {parentValues, addParentValue, removeParentValue} = useParentValuesToLoadChildren();
 
     const onLoadFinished = useCallback(
         (newNodes: TreeNode[], metadata: ChildrenLoaderMetadata, parentDomainUrn: string) => {
-            setParentUrnsToFetchChildren((prev) => prev.filter((value) => value !== parentDomainUrn));
+            removeParentValue(parentDomainUrn);
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
                 totalChildren: (metadata.totalNumberOfChildren ?? 0) + (metadata.totalNumberOfRelatedEntities ?? 0),
             });
         },
-        [tree],
+        [tree, removeParentValue],
     );
 
     const startLoadingOfChildren = useCallback(
         (node: TreeNode) => {
-            setParentUrnsToFetchChildren((prev) => [...prev, node.value]);
+            addParentValue(node.value);
             tree.updateNode(node.value, { isChildrenLoading: true });
         },
-        [tree],
+        [tree, addParentValue],
     );
 
     return (
         <Wrapper>
             <ChildrenLoaderProvider onLoadFinished={onLoadFinished}>
                 <ChildrenLoader
-                    parentValues={parentUrnsToFetchChildren}
+                    parentValues={parentValues}
                     loadChildren={useChildrenGlossaryLoader}
                     loadRelatedEntities={shouldShowRelatedEntities ? useGlossaryRelatedEntitiesLoader : undefined}
                 />

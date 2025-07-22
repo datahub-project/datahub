@@ -28,6 +28,7 @@ export interface TreeViewContextType {
     nodes: TreeNode[];
 
     getHasParentNode: (node: TreeNode) => boolean;
+    getIsRootNode: (node: TreeNode) => boolean;
 
     // Expand
     getIsExpandable: (node: TreeNode) => boolean;

@@ -30,6 +30,7 @@ interface Props {
 export default function TreeNodeRenderer({ node, depth }: Props) {
     const {
         getHasParentNode,
+        getIsRootNode,
         renderNodeLabel,
         getIsExpandable,
         getIsExpanded,
@@ -65,6 +66,8 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
         [node, getHasAnyExpandableSiblings],
     );
 
+    const isRootNode = useMemo(() => getIsRootNode(node), [node, getIsRootNode]);
+
     const numberOfNotLoadedChildren = useMemo(
         () => getNumberOfNotLoadedChildren(node),
         [node, getNumberOfNotLoadedChildren],
@@ -87,7 +90,7 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
                 <DepthMargin depth={depth} />
 
                 {/* Expand/collapse toggler */}
-                {hasAnySiblingsExpandable && (
+                {(hasAnySiblingsExpandable || !isRootNode) && (
                     <ExpandToggler
                         expandable={isExpandable}
                         expanded={isExpanded}

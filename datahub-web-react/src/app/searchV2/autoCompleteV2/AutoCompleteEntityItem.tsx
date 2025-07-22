@@ -18,11 +18,12 @@ import { Entity, MatchedField } from '@src/types.generated';
 
 const Container = styled.div<{
     $navigateOnlyOnNameClick?: boolean;
+    $padding?: string;
 }>`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: 8px 13px 8px 8px;
+    padding: ${props => props.$padding ? props.$padding : '8px 13px 8px 8px'};
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -102,6 +103,8 @@ interface EntityAutocompleteItemProps {
 
     hideSubtitle?: boolean;
     hideMatches?: boolean;
+ 
+    padding?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -114,6 +117,7 @@ export default function AutoCompleteEntityItem({
     navigateOnlyOnNameClick,
     hideSubtitle,
     hideMatches,
+    padding,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -148,7 +152,7 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding}>
             <ContentContainer>
                 <IconContainer $variant={variant}>
                     <EntityIcon entity={entity} siblings={siblings} />

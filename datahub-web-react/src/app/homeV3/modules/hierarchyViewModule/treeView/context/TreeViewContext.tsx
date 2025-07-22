@@ -7,6 +7,7 @@ const DEFAULT_TREE_VIEW_CONTEXT: TreeViewContextType = {
     nodes: [],
 
     getHasParentNode: () => false,
+    getIsRootNode: () => false,
 
     getIsExpandable: () => false,
     getIsExpanded: () => false,

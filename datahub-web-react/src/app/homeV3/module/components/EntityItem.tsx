@@ -17,6 +17,7 @@ interface Props {
     navigateOnlyOnNameClick?: boolean;
     hideSubtitle?: boolean;
     hideMatches?: boolean;
+    padding?: string;
 }
 
 export default function EntityItem({
@@ -25,6 +26,7 @@ export default function EntityItem({
     navigateOnlyOnNameClick = false,
     hideSubtitle,
     hideMatches,
+    padding,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
@@ -37,6 +39,7 @@ export default function EntityItem({
                     customDetailsRenderer={customDetailsRenderer}
                     hideSubtitle={hideSubtitle}
                     hideMatches={hideMatches}
+                    padding={padding}
                     navigateOnlyOnNameClick
                 />
             ) : (
@@ -46,6 +49,7 @@ export default function EntityItem({
                         key={entity.urn}
                         hideSubtitle={hideSubtitle}
                         hideMatches={hideMatches}
+                        padding={padding}
                         customDetailsRenderer={customDetailsRenderer}
                     />
                 </StyledLink>

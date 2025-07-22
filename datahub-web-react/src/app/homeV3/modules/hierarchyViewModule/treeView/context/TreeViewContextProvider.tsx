@@ -58,6 +58,8 @@ export default function TreeViewContextProvider({
 
     const getHasParentNode = useCallback((node: TreeNode) => !!node.parentValue, []);
 
+    const getIsRootNode = useCallback((node: TreeNode) => !getHasParentNode(node), [getHasParentNode]);
+
     const getRootNodes = useCallback(() => flatTreeNodes.filter((node) => !node.parentValue), [flatTreeNodes]);
 
     const getAllSiblings = useCallback(
@@ -237,6 +239,7 @@ export default function TreeViewContextProvider({
             value={{
                 nodes: preprocessedNodes,
                 getHasParentNode,
+                getIsRootNode,
 
                 // Expanding
                 getIsExpandable,
