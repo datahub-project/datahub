@@ -42,7 +42,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.DataContractKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;

@@ -168,11 +168,15 @@ public class SystemMetadataUtilsTest {
 
   @Test
   public void testGenerateSystemMetadataIfEmpty_AllFieldsPopulated() {
-    AuditStamp auditStamp = new AuditStamp().setActor(
-        UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
     SystemMetadata input =
-        new SystemMetadata().setRunId("custom-run-id").setLastObserved(1234567890L).setAspectCreated(auditStamp)
-            .setAspectModified(auditStamp).setVersion("1");
+        new SystemMetadata()
+            .setRunId("custom-run-id")
+            .setLastObserved(1234567890L)
+            .setAspectCreated(auditStamp)
+            .setAspectModified(auditStamp)
+            .setVersion("1");
 
     SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
 
@@ -186,8 +190,8 @@ public class SystemMetadataUtilsTest {
 
   @Test
   public void testSetAspectModified() {
-    AuditStamp auditStamp = new AuditStamp().setActor(
-        UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
     SystemMetadata input = new SystemMetadata();
     SystemMetadata result = SystemMetadataUtils.setAspectModified(input, auditStamp);
 
@@ -196,7 +200,8 @@ public class SystemMetadataUtilsTest {
 
   @Test
   public void testSetAspectModifiedSystemUser() {
-    AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1234567890L);
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1234567890L);
     SystemMetadata input = new SystemMetadata();
     SystemMetadata result = SystemMetadataUtils.setAspectModified(input, auditStamp);
 

@@ -29,9 +29,11 @@ public class SystemMetadataUtils {
             .setLastObserved(System.currentTimeMillis()));
   }
 
-  // Entry point for all MCPItem construction, if this assumption changes then logic for setting aspectModified
+  // Entry point for all MCPItem construction, if this assumption changes then logic for setting
+  // aspectModified
   // needs propagation to retain auditability.
-  public static SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
+  public static SystemMetadata generateSystemMetadataIfEmpty(
+      @Nullable SystemMetadata systemMetadata) {
     SystemMetadata result = systemMetadata == null ? new SystemMetadata() : systemMetadata;
     if (result.getRunId() == null) {
       result.setRunId(DEFAULT_RUN_ID);
@@ -42,8 +44,8 @@ public class SystemMetadataUtils {
     return result;
   }
 
-  public static SystemMetadata setAspectModified(@Nonnull SystemMetadata systemMetadata,
-      @Nullable AuditStamp auditStamp) {
+  public static SystemMetadata setAspectModified(
+      @Nonnull SystemMetadata systemMetadata, @Nullable AuditStamp auditStamp) {
     if (auditStamp != null && !SYSTEM_ACTOR.equals(auditStamp.getActor().toString())) {
       systemMetadata.setAspectModified(auditStamp);
     }

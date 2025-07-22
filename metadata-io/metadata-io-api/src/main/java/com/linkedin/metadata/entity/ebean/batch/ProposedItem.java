@@ -121,9 +121,11 @@ public class ProposedItem implements MCPItem {
       this.metadataChangeProposal =
           ValidationApiUtils.validateMCP(entityRegistry, metadataChangeProposal);
       this.auditStamp = auditStamp;
-      SystemMetadata systemMetadata = SystemMetadataUtils.setAspectModified(
-          SystemMetadataUtils.generateSystemMetadataIfEmpty(this.metadataChangeProposal.getSystemMetadata()),
-          auditStamp);
+      SystemMetadata systemMetadata =
+          SystemMetadataUtils.setAspectModified(
+              SystemMetadataUtils.generateSystemMetadataIfEmpty(
+                  this.metadataChangeProposal.getSystemMetadata()),
+              auditStamp);
       this.metadataChangeProposal.setSystemMetadata(systemMetadata);
 
       this.urn = metadataChangeProposal.getEntityUrn(); // validation ensures existence
