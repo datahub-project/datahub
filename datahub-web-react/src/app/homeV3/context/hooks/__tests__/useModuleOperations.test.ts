@@ -1094,7 +1094,7 @@ describe('useModuleOperations', () => {
             expect(mockSetPersonalTemplate).toHaveBeenCalled();
         });
 
-        it('should prevent moving a module from another row to a row with 3 modules', () => {
+        it('should allow moving a module from another row to a full row, creating new row', () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
                     false,
@@ -1110,7 +1110,7 @@ describe('useModuleOperations', () => {
             );
 
             act(() => {
-                // Try to move module from row 1 to row 0 (which has 3 modules)
+                // Move module from row 1 to row 0 (which has 3 modules)
                 result.current.moveModule({
                     module: templateWith3ModulesInFirstRow.properties.rows[1].modules[0],
                     fromPosition: { rowIndex: 1, moduleIndex: 0 },
@@ -1118,11 +1118,9 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            // Should not call upsert template because move was prevented
-            expect(mockUpsertTemplate).not.toHaveBeenCalled();
-            expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).toHaveBeenCalled();
+            expect(mockSetPersonalTemplate).toHaveBeenCalled();
         });
-
         it('should allow moving a module from a row with 3 modules to another row', () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
