@@ -32,7 +32,7 @@ class TestAddPartitionColumnsToSchema:
             fieldPath=field_path,
             nativeDataType="string",
             type=SchemaFieldDataTypeClass(field_type),
-            nullable=True,
+            nullable=False,
             recursive=False,
         )
 
@@ -76,7 +76,7 @@ class TestAddPartitionColumnsToSchema:
             field = partition_fields[i]
             assert field.fieldPath == expected_path
             assert field.isPartitioningKey is True
-            assert field.nullable is True
+            assert field.nullable is False
             assert isinstance(field.type.type, StringTypeClass)
             assert field.nativeDataType == "string"
 
@@ -187,5 +187,5 @@ class TestAddPartitionColumnsToSchema:
             field = partition_fields[i]
             assert field.fieldPath == expected_name
             assert field.isPartitioningKey is True
-            assert field.nullable is True
+            assert field.nullable is False
             assert isinstance(field.type.type, StringTypeClass)
