@@ -113,8 +113,6 @@ export function Tabs({
     addPaddingLeft,
     hideTabsHeader,
 }: Props) {
-    const { TabPane } = AntTabs;
-
     // Create reverse mapping from URLs to tab keys if urlMap is provided
     const urlToTabMap = React.useMemo(() => {
         if (!urlMap) return {};
