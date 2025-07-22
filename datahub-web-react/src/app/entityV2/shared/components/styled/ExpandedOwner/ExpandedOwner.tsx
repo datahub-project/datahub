@@ -1,4 +1,3 @@
-
 import { Tag, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -118,6 +117,6 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 modalTitle={`Do you want to remove ${name}?`}
                 modalText={`Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`}
             />
-        </>
+        </OwnerTag>
     );
 };
