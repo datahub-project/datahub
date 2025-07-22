@@ -125,7 +125,7 @@ class AvroToMceSchemaConverter:
         self._prefix_name_stack: PrefixNameStack = [self.version_string]
         # Tracks the fields on the current path.
         self._fields_stack: FieldStack = []
-        # Tracks the record types seen so far. Used to prevent infinite recursion with recursive types.
+        # Stack of record types currently being processed. Used to prevent infinite recursion with recursive types.
         self._record_types_seen: List[str] = []
         # If part of the key-schema or value-schema.
         self._is_key_schema = is_key_schema
@@ -522,10 +522,12 @@ class AvroToMceSchemaConverter:
         # Handle recursive record definitions
         recurse: bool = True
         if isinstance(schema, avro.schema.RecordSchema):
-            if schema.fullname not in self._record_types_seen:
-                self._record_types_seen.append(schema.fullname)
-            else:
+            # Only prevent recursion if we're currently processing this record type (true recursion)
+            # Allow reuse of the same record type in different contexts
+            if schema.fullname in self._record_types_seen:
                 recurse = False
+            else:
+                self._record_types_seen.append(schema.fullname)
 
         # Adjust actual schema if needed
         actual_schema = self._get_underlying_type_if_option_as_union(schema, schema)
@@ -558,6 +560,13 @@ class AvroToMceSchemaConverter:
                 if recurse:
                     for sub_schema in self._get_sub_schemas(actual_schema):
                         yield from self._to_mce_fields(sub_schema)
+
+        # Clean up the processing stack
+        if (
+            isinstance(schema, avro.schema.RecordSchema)
+            and schema.fullname in self._record_types_seen
+        ):
+            self._record_types_seen.remove(schema.fullname)
 
     def _gen_non_nested_to_mce_fields(
         self, schema: SchemaOrField

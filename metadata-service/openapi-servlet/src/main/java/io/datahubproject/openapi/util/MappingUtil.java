@@ -28,7 +28,6 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -513,9 +512,17 @@ public class MappingUtil {
       throw e;
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "failed")).inc();
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(MetricRegistry.name("postEntity", "failed"), 1));
       } else {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "success")).inc();
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(MetricRegistry.name("postEntity", "success"), 1));
       }
     }
   }

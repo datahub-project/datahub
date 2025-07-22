@@ -127,7 +127,12 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
             }
 
           } catch (Exception e) {
-            MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+            systemOperationContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(
+                            this.getClass(), "avro_to_pegasus_conversion_failure", 1));
             log.error("Error deserializing message due to: ", e);
             log.error("Message: {}", record.toString());
             return;

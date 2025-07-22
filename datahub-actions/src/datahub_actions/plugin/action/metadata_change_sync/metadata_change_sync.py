@@ -48,7 +48,7 @@ class MetadataChangeSyncAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = MetadataChangeEmitterConfig.parse_obj(config_dict or {})
+        action_config = MetadataChangeEmitterConfig.model_validate(config_dict or {})
         return cls(action_config, ctx)
 
     def __init__(self, config: MetadataChangeEmitterConfig, ctx: PipelineContext):

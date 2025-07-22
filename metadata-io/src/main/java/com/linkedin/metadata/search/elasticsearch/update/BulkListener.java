@@ -16,18 +16,21 @@ import org.opensearch.action.support.WriteRequest;
 public class BulkListener implements BulkProcessor.Listener {
   private static final Map<WriteRequest.RefreshPolicy, BulkListener> INSTANCES = new HashMap<>();
 
-  public static BulkListener getInstance() {
-    return INSTANCES.computeIfAbsent(null, BulkListener::new);
+  public static BulkListener getInstance(MetricUtils metricUtils) {
+    return INSTANCES.computeIfAbsent(null, p -> new BulkListener(p, metricUtils));
   }
 
-  public static BulkListener getInstance(WriteRequest.RefreshPolicy refreshPolicy) {
-    return INSTANCES.computeIfAbsent(refreshPolicy, BulkListener::new);
+  public static BulkListener getInstance(
+      WriteRequest.RefreshPolicy refreshPolicy, MetricUtils metricUtils) {
+    return INSTANCES.computeIfAbsent(refreshPolicy, p -> new BulkListener(p, metricUtils));
   }
 
   private final WriteRequest.RefreshPolicy refreshPolicy;
+  private final MetricUtils metricUtils;
 
-  public BulkListener(WriteRequest.RefreshPolicy policy) {
+  public BulkListener(WriteRequest.RefreshPolicy policy, MetricUtils metricUtils) {
     refreshPolicy = policy;
+    this.metricUtils = metricUtils;
   }
 
   @Override
@@ -82,17 +85,20 @@ public class BulkListener implements BulkProcessor.Listener {
     incrementMetrics(request, failure);
   }
 
-  private static void incrementMetrics(BulkResponse response) {
-    Arrays.stream(response.getItems())
-        .map(req -> buildMetricName(req.getOpType(), req.status().name()))
-        .forEach(metricName -> MetricUtils.counter(BulkListener.class, metricName).inc());
+  private void incrementMetrics(BulkResponse response) {
+    if (metricUtils != null)
+      Arrays.stream(response.getItems())
+          .map(req -> buildMetricName(req.getOpType(), req.status().name()))
+          .forEach(metricName -> metricUtils.increment(BulkListener.class, metricName, 1));
   }
 
-  private static void incrementMetrics(BulkRequest request, Throwable failure) {
-    request.requests().stream()
-        .map(req -> buildMetricName(req.opType(), "exception"))
-        .forEach(
-            metricName -> MetricUtils.exceptionCounter(BulkListener.class, metricName, failure));
+  private void incrementMetrics(BulkRequest request, Throwable failure) {
+    if (metricUtils != null)
+      request.requests().stream()
+          .map(req -> buildMetricName(req.opType(), "exception"))
+          .forEach(
+              metricName ->
+                  metricUtils.exceptionIncrement(BulkListener.class, metricName, failure));
   }
 
   private static String buildMetricName(DocWriteRequest.OpType opType, String status) {

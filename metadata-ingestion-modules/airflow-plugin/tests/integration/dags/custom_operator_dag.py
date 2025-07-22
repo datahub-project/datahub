@@ -65,7 +65,6 @@ with DAG(
     schedule_interval=None,
     tags=["example_tag"],
     catchup=False,
-    default_view="tree",
 ) as dag:
     custom_task = CustomOperator(
         task_id="custom_task_id",

@@ -22,7 +22,6 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 
 import { useGetDomainQuery } from '@graphql/domain.generated';
@@ -111,9 +110,8 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                     name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    getCount: (entityData, _) => {
+                        return entityData?.entities?.total;
                     },
                     component: DomainEntitiesTab,
                     icon: AppstoreOutlined,
@@ -127,9 +125,8 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     id: EntityProfileTab.DATA_PRODUCTS_TAB,
                     name: 'Data Products',
-                    getDynamicName: (entityData, _, loading) => {
-                        const dataProductsCount = entityData?.dataProducts?.total;
-                        return <TabNameWithCount name="Data Products" count={dataProductsCount} loading={loading} />;
+                    getCount: (entityData, _) => {
+                        return entityData?.dataProducts?.total;
                     },
                     component: DataProductsTab,
                     icon: FileDoneOutlined,

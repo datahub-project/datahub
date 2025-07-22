@@ -66,7 +66,12 @@ class DataHubClient:
         self._graph.test_connection()
 
     @classmethod
-    def from_env(cls) -> "DataHubClient":
+    def from_env(
+        cls,
+        *,
+        client_mode: ClientMode = ClientMode.SDK,
+        datahub_component: Optional[str] = None,
+    ) -> "DataHubClient":
         """Initialize a DataHubClient from the environment variables or ~/.datahubenv file.
 
         This will first check DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN. If not present,
@@ -76,6 +81,10 @@ class DataHubClient:
         If you're looking to specify the server/token in code, use the
         DataHubClient(server=..., token=...) constructor instead.
 
+        Args:
+            client_mode: [internal] The client mode to use. Defaults to "SDK".
+            datahub_component: [internal] The DataHub component name to include in the user agent.
+
         Returns:
             A DataHubClient instance.
         """
@@ -83,7 +92,10 @@ class DataHubClient:
         # Inspired by the DockerClient.from_env() method.
         # TODO: This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
         # That file is part of the "environment", but is not a traditional "env variable".
-        graph = get_default_graph(ClientMode.SDK)
+        graph = get_default_graph(
+            client_mode=client_mode,
+            datahub_component=datahub_component,
+        )
 
         return cls(graph=graph)
 

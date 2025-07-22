@@ -7,6 +7,7 @@ from typing import Dict, Optional
 
 import click
 from docgen_types import Plugin
+from utils import should_write_json_file
 
 from datahub.ingestion.api.decorators import SupportStatus
 from datahub.ingestion.source.source_registry import source_registry
@@ -116,6 +117,9 @@ def generate_capability_summary() -> CapabilitySummary:
                         "capability": capability_name,
                         "supported": cap_setting.supported,
                         "description": cap_setting.description,
+                        "subtype_modifier": [m for m in cap_setting.subtype_modifier]
+                        if cap_setting.subtype_modifier
+                        else None,
                     }
                 )
 
@@ -160,25 +164,10 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
     summary_json = json.dumps(summary_dict, indent=2, sort_keys=True)
 
     summary_file = output_path / "capability_summary.json"
-    write_file = True
-    if summary_file.exists():
-        try:
-            with open(summary_file, "r") as f:
-                existing_data = json.load(f)
+    write_file = should_write_json_file(
+        summary_file, summary_dict, "capability summary file"
+    )
 
-            # Create copies without generated_at for comparison
-            existing_for_comparison = existing_data.copy()
-            new_for_comparison = summary_dict.copy()
-            existing_for_comparison.pop("generated_at", None)
-            new_for_comparison.pop("generated_at", None)
-
-            if json.dumps(
-                existing_for_comparison, indent=2, sort_keys=True
-            ) == json.dumps(new_for_comparison, indent=2, sort_keys=True):
-                logger.info(f"No changes detected in {summary_file}, skipping write.")
-                write_file = False
-        except Exception as e:
-            logger.warning(f"Could not read existing summary file: {e}")
     if write_file:
         with open(summary_file, "w") as f:
             f.write(summary_json)

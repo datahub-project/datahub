@@ -74,7 +74,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
@@ -431,7 +431,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     @MockBean public EntityServiceImpl entityService;
     @MockBean public SearchService searchService;
     @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public TraceContext traceContext;
+    @MockBean public SystemTelemetryContext systemTelemetryContext;
 
     @Bean
     public ObjectMapper objectMapper() {

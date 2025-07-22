@@ -1,7 +1,9 @@
-import { ButtonProps, ColorPicker, Input, Modal } from '@components';
+import { ColorPicker, Input, Modal } from '@components';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { ModalButton } from '@components/components/Modal/Modal';
 
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
@@ -22,12 +24,6 @@ interface Props {
     onClose: () => void;
     onSave?: () => void;
     isModalOpen?: boolean;
-}
-
-// Define a compatible interface for modal buttons
-interface ModalButton extends ButtonProps {
-    text: string;
-    onClick: () => void;
 }
 
 // Interface for pending owner
@@ -239,6 +235,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             variant: 'filled',
             onClick: handleSave,
             disabled: !hasChanges(),
+            buttonDataTestId: 'update-tag-button',
         },
     ];
 
@@ -251,7 +248,15 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const modalTitle = tagDisplayName ? `Edit Tag: ${tagDisplayName}` : 'Edit Tag';
 
     return (
-        <Modal title={modalTitle} onCancel={onClose} buttons={buttons} open={isModalOpen} centered width={400}>
+        <Modal
+            title={modalTitle}
+            onCancel={onClose}
+            buttons={buttons}
+            open={isModalOpen}
+            centered
+            width={400}
+            dataTestId="edit-tag-modal"
+        >
             <div>
                 <FormSection>
                     <Input
@@ -260,6 +265,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                         setValue={handleDescriptionChange}
                         placeholder="Tag description"
                         type="textarea"
+                        data-testid="tag-description-field"
                     />
                 </FormSection>
 

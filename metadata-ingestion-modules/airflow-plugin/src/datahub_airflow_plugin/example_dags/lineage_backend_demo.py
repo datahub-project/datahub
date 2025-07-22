@@ -28,7 +28,6 @@ with DAG(
     start_date=days_ago(2),
     tags=["example_tag"],
     catchup=False,
-    default_view="tree",
 ) as dag:
     task1 = BashOperator(
         task_id="run_data_task",

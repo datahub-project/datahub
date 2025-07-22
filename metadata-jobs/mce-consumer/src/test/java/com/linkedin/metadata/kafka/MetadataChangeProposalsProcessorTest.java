@@ -2,14 +2,12 @@ package com.linkedin.metadata.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -114,7 +112,8 @@ public class MetadataChangeProposalsProcessorTest {
             mockRollbackService,
             mockKafkaProducer,
             new EntityClientCacheConfig(),
-            EntityClientConfig.builder().build());
+            EntityClientConfig.builder().build(),
+            null);
 
     // Setup the processor
     processor =
@@ -131,8 +130,6 @@ public class MetadataChangeProposalsProcessorTest {
     spanMock.when(Span::current).thenReturn(mockSpan);
 
     metricUtilsMock = mockStatic(MetricUtils.class);
-    MetricRegistry mockMetricRegistry = mock(MetricRegistry.class);
-    metricUtilsMock.when(MetricUtils::get).thenReturn(mockMetricRegistry);
     metricUtilsMock
         .when(() -> MetricUtils.name(eq(MetadataChangeProposalsProcessor.class), any()))
         .thenReturn("metricName");

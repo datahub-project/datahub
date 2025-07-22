@@ -82,7 +82,7 @@ describe("glossaryTerm", () => {
   it("can apply filters on related entities", () => {
     cy.clickOptionWithText("CypressNode");
     cy.clickOptionWithText("GlossaryNewTerm");
-    cy.clickOptionWithSpecificClass(".anticon.anticon-appstore", 0);
+    cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     elementVisibility();
     cy.clickOptionWithSpecificClass(".anticon-filter", 0);
     cy.waitTextVisible("Filter");
@@ -102,7 +102,7 @@ describe("glossaryTerm", () => {
   it("can search related entities by a specific tag using advanced search", () => {
     cy.clickOptionWithText("CypressNode");
     cy.clickOptionWithText("GlossaryNewTerm");
-    cy.clickOptionWithSpecificClass(".anticon.anticon-appstore", 0);
+    cy.clickTextOptionWithClass(".ant-tabs-tab", "Related Assets");
     elementVisibility();
     applyAdvancedSearchFilter("Tag", "Cypress");
     elementVisibility();

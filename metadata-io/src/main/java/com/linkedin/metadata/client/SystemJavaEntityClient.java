@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -44,7 +45,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       RollbackService rollbackService,
       EventProducer eventProducer,
       EntityClientCacheConfig cacheConfig,
-      EntityClientConfig entityClientConfig) {
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils) {
     super(
         entityService,
         deleteEntityService,
@@ -55,9 +57,11 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         timeseriesAspectService,
         rollbackService,
         eventProducer,
-        entityClientConfig);
+        entityClientConfig,
+        metricUtils);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
-    this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
+    this.entityClientCache =
+        buildEntityClientCache(metricUtils, SystemJavaEntityClient.class, cacheConfig);
   }
 
   @Nullable

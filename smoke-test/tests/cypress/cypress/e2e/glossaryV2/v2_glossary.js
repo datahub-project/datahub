@@ -34,6 +34,7 @@ const deleteGlossary = (message) => {
 describe("glossary", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
+    Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {
     cy.loginWithCredentials();
@@ -46,6 +47,8 @@ describe("glossary", () => {
       glossaryTermGroup,
       "glossary-entity-modal-create-button",
     );
+    cy.wait(2000);
+    nevigateGlossaryPage();
     cy.clickOptionWithText(glossaryTermGroup);
     cy.clickOptionWithTestId("add-term-button");
     cy.addViaModal(

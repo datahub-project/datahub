@@ -210,14 +210,18 @@ def test_mixed_valid_and_invalid_configs(
 
     # Use local_monkeypatch for tighter control
 
-    with local_monkeypatch(
-        monkeypatch,
-        "datahub_actions.pipeline.pipeline.Pipeline.create",
-        mock_create_pipeline,
-    ), local_monkeypatch(monkeypatch, "time.sleep", mock_sleep), local_monkeypatch(
-        monkeypatch,
-        "datahub_actions.cli.actions.pipeline_manager",
-        mock_pipeline_manager,
+    with (
+        local_monkeypatch(
+            monkeypatch,
+            "datahub_actions.pipeline.pipeline.Pipeline.create",
+            mock_create_pipeline,
+        ),
+        local_monkeypatch(monkeypatch, "time.sleep", mock_sleep),
+        local_monkeypatch(
+            monkeypatch,
+            "datahub_actions.cli.actions.pipeline_manager",
+            mock_pipeline_manager,
+        ),
     ):
         result = runner.invoke(
             actions, ["run", "-c", temp_config_file, "-c", disabled_config_file]
@@ -259,14 +263,18 @@ def test_debug_mode_with_valid_config(
     runner = CliRunner()
 
     # Use local_monkeypatch for tighter control
-    with local_monkeypatch(
-        monkeypatch,
-        "datahub_actions.pipeline.pipeline.Pipeline.create",
-        mock_create_pipeline,
-    ), local_monkeypatch(monkeypatch, "time.sleep", mock_sleep), local_monkeypatch(
-        monkeypatch,
-        "datahub_actions.cli.actions.pipeline_manager",
-        mock_pipeline_manager,
+    with (
+        local_monkeypatch(
+            monkeypatch,
+            "datahub_actions.pipeline.pipeline.Pipeline.create",
+            mock_create_pipeline,
+        ),
+        local_monkeypatch(monkeypatch, "time.sleep", mock_sleep),
+        local_monkeypatch(
+            monkeypatch,
+            "datahub_actions.cli.actions.pipeline_manager",
+            mock_pipeline_manager,
+        ),
     ):
         result = runner.invoke(
             actions,

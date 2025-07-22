@@ -79,6 +79,12 @@ If you choose to `Mark as Resolved` the message will update in-place, and you wi
 
 ## @DataHub Slack Bot
 
+:::info
+
+As of DataHub Cloud v0.3.12, the DataHub Slack bot is in **private beta**. Reach out to your DataHub Cloud representative to get access.
+
+:::
+
 With the DataHub Slack bot, you can mention @DataHub in any channel and ask it questions about your metadata.
 
 Key capabilities include:
@@ -89,9 +95,9 @@ Key capabilities include:
 - Write first-drafts of SQL queries to answer specific questions.
 - Get notified about incidents and updates.
 
-:::info
+:::warning Permissions
 
-As of DataHub Cloud v0.3.12, the DataHub Slack bot is in private beta. Reach out to your DataHub Cloud representative to get access.
+The current version of the DataHub Slack bot assumes that all users have read permissions to all assets. A future version of the Slack bot will support more granular permissions.
 
 :::
 

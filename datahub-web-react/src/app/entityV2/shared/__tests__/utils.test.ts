@@ -5,7 +5,7 @@ import {
     getDataProduct,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
-    getPlatformName,
+    getPlatformNameFromEntityData,
     handleBatchError,
     isListSubset,
     isOutputPort,
@@ -73,7 +73,7 @@ describe('entity V2 utils test ->', () => {
             expect(singularizeCollectionName('posts')).toBe('post');
         });
     });
-    describe('getPlatformName ->', () => {
+    describe('getPlatformNameFromEntityData ->', () => {
         it('should return platform name with first letter capitalized', () => {
             const x: any = {
                 urn: 'urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)',
@@ -88,7 +88,7 @@ describe('entity V2 utils test ->', () => {
                     },
                 },
             };
-            expect(getPlatformName(x as any)).toBe('Clickhouse');
+            expect(getPlatformNameFromEntityData(x as any)).toBe('Clickhouse');
         });
     });
     describe('isListSubset ->', () => {
@@ -99,7 +99,7 @@ describe('entity V2 utils test ->', () => {
         });
     });
     describe('handleBatchError ->', () => {
-        it('should return entities from EntityRelationshipsResult', () => {
+        describe('should return entities from EntityRelationshipsResult', () => {
             const urns = ['urn1', 'urn2'];
             const defaultMessage = { content: 'Default message', duration: 3 };
             test('should return custom message if urns length is greater than 1 and error code is 403', () => {

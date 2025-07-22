@@ -1,0 +1,18 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Settings related to the home page for a user
+ */
+record CorpUserHomePageSettings {
+  /**
+   * The page template that will be rendered in the UI by default for this user
+   */
+  pageTemplate: optional Urn
+
+   /**
+   * The list of announcement urns that have been dismissed by the user
+   */
+  dismissedAnnouncements: optional array [Urn]
+}

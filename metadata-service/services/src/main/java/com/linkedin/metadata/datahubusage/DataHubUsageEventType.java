@@ -110,7 +110,9 @@ public enum DataHubUsageEventType {
   UPDATE_USER_EVENT("UpdateUserEvent"),
   UPDATE_ASPECT_EVENT("UpdateAspectEvent"),
   ENTITY_EVENT("EntityEvent"),
-  FAILED_LOGIN_EVENT("FailedLogInEvent");
+  FAILED_LOGIN_EVENT("FailedLogInEvent"),
+  DELETE_POLICY_EVENT("DeletePolicyEvent"),
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent");
 
   private final String type;
 

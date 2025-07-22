@@ -7,6 +7,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.Topics;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.PreDestroy;
@@ -80,8 +82,12 @@ public class KafkaTraceReaderFactory {
   private ExecutorService traceExecutorService;
 
   @Bean("traceExecutorService")
-  public ExecutorService traceExecutorService() {
+  public ExecutorService traceExecutorService(MetricUtils metricUtils) {
     traceExecutorService = Executors.newFixedThreadPool(threadPoolSize);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "api-trace", this.traceExecutorService, metricUtils.getRegistry().orElse(null));
+    }
     return traceExecutorService;
   }
 

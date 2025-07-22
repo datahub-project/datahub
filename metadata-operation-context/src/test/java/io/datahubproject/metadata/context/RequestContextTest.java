@@ -13,9 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -24,8 +22,7 @@ public class RequestContextTest {
   private HttpServletRequest mockHttpRequest;
   private ResourceContext mockResourceContext;
   private Map<String, String> mockHeaders;
-  private MockedStatic<MetricUtils> mockedMetrics;
-  private com.codahale.metrics.Counter mockCounter;
+  private MetricUtils mockMetricUtils;
 
   @BeforeMethod
   public void setup() {
@@ -47,9 +44,7 @@ public class RequestContextTest {
         .thenReturn("10.0.0.2");
 
     // Mock MetricUtils for testing captureAPIMetrics
-    mockCounter = Mockito.mock(com.codahale.metrics.Counter.class);
-    mockedMetrics = Mockito.mockStatic(MetricUtils.class);
-    mockedMetrics.when(() -> MetricUtils.counter(anyString())).thenReturn(mockCounter);
+    mockMetricUtils = Mockito.mock(MetricUtils.class);
   }
 
   @Test
@@ -61,7 +56,9 @@ public class RequestContextTest {
                 "urn:li:corpuser:testuser",
                 null, // null ResourceContext
                 "test-request",
-                "TestEntity");
+                "TestEntity")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), "urn:li:corpuser:testuser");
     assertEquals(context.getSourceIP(), ""); // Empty string since ResourceContext is null
@@ -78,7 +75,9 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetUserQuery", variables);
+            .buildGraphql(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetUserQuery", variables)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
     assertEquals(context.getSourceIP(), "192.168.1.100");
@@ -91,7 +90,9 @@ public class RequestContextTest {
   public void testBuildRestliWithAction() {
     RequestContext context =
         RequestContext.builder()
-            .buildRestli(Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata");
+            .buildRestli(Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.SYSTEM_ACTOR);
     assertEquals(context.getSourceIP(), "192.168.1.101");
@@ -104,7 +105,9 @@ public class RequestContextTest {
   public void testBuildRestliWithActionAndEntity() {
     RequestContext context =
         RequestContext.builder()
-            .buildRestli(Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata", "dataset");
+            .buildRestli(Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata", "dataset")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.SYSTEM_ACTOR);
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.RESTLI);
@@ -119,7 +122,9 @@ public class RequestContextTest {
                 Constants.SYSTEM_ACTOR,
                 mockResourceContext,
                 "GetMetadata",
-                new String[] {"dataset", "dashboard"});
+                new String[] {"dataset", "dashboard"})
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.SYSTEM_ACTOR);
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.RESTLI);
@@ -134,7 +139,9 @@ public class RequestContextTest {
                 Constants.SYSTEM_ACTOR,
                 mockResourceContext,
                 "GetMetadata",
-                Arrays.asList("dataset", "dashboard", "chart"));
+                Arrays.asList("dataset", "dashboard", "chart"))
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.SYSTEM_ACTOR);
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.RESTLI);
@@ -145,7 +152,9 @@ public class RequestContextTest {
   public void testBuildRestliWithNullResourceContext() {
     RequestContext context =
         RequestContext.builder()
-            .buildRestli(Constants.SYSTEM_ACTOR, null, "GetMetadata", "dataset");
+            .buildRestli(Constants.SYSTEM_ACTOR, null, "GetMetadata", "dataset")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.SYSTEM_ACTOR);
     assertEquals(context.getSourceIP(), "");
@@ -157,7 +166,9 @@ public class RequestContextTest {
   public void testBuildOpenapiWithEntity() {
     RequestContext context =
         RequestContext.builder()
-            .buildOpenapi(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetMetadata", "chart");
+            .buildOpenapi(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetMetadata", "chart")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
     assertEquals(context.getSourceIP(), "192.168.1.100");
@@ -174,7 +185,9 @@ public class RequestContextTest {
                 Constants.DATAHUB_ACTOR,
                 mockHttpRequest,
                 "GetMetadata",
-                Arrays.asList("dataset", "chart"));
+                Arrays.asList("dataset", "chart"))
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.OPENAPI);
@@ -185,7 +198,9 @@ public class RequestContextTest {
   public void testBuildOpenapiWithNullRequest() {
     RequestContext context =
         RequestContext.builder()
-            .buildOpenapi(Constants.DATAHUB_ACTOR, null, "GetMetadata", "chart");
+            .buildOpenapi(Constants.DATAHUB_ACTOR, null, "GetMetadata", "chart")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
     assertEquals(context.getSourceIP(), "");
@@ -198,7 +213,9 @@ public class RequestContextTest {
     RequestContext context =
         RequestContext.builder()
             .buildRestli(
-                Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata", (List<String>) null);
+                Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata", (List<String>) null)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getRequestID(), "GetMetadata");
   }
@@ -208,17 +225,16 @@ public class RequestContextTest {
     RequestContext context =
         RequestContext.builder()
             .buildRestli(
-                Constants.SYSTEM_ACTOR,
-                mockResourceContext,
-                "GetMetadata",
-                Collections.emptyList());
+                Constants.SYSTEM_ACTOR, mockResourceContext, "GetMetadata", Collections.emptyList())
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getRequestID(), "GetMetadata");
   }
 
   @Test
   public void testGetCacheKeyComponent() {
-    RequestContext context = RequestContext.TEST;
+    RequestContext context = RequestContext.TEST.build();
     assertFalse(context.getCacheKeyComponent().isPresent());
   }
 
@@ -226,7 +242,10 @@ public class RequestContextTest {
   public void testToString() {
     // Using buildRestli instead of direct build()
     RequestContext context =
-        RequestContext.builder().buildRestli("urn:li:corpuser:testuser", null, "test-request");
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     String toString = context.toString();
     assertTrue(toString.contains("actorUrn='urn:li:corpuser:testuser'"));
@@ -239,7 +258,7 @@ public class RequestContextTest {
 
   @Test
   public void testTestConstant() {
-    RequestContext test = RequestContext.TEST;
+    RequestContext test = RequestContext.TEST.build();
     assertEquals(test.getRequestID(), "test");
     assertEquals(test.getRequestAPI(), RequestContext.RequestAPI.TEST);
   }
@@ -248,30 +267,42 @@ public class RequestContextTest {
   public void testCaptureAPIMetricsForSystemUser() {
     // Using buildRestli instead of direct build()
     RequestContext context =
-        RequestContext.builder().buildRestli(Constants.SYSTEM_ACTOR, null, "test-request");
+        RequestContext.builder()
+            .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify that the counter was incremented
-    verify(mockCounter, times(1)).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
   }
 
   @Test
   public void testCaptureAPIMetricsForDatahubUser() {
     // Using buildRestli instead of direct build()
     RequestContext context =
-        RequestContext.builder().buildRestli(Constants.DATAHUB_ACTOR, null, "test-request");
+        RequestContext.builder()
+            .buildRestli(Constants.DATAHUB_ACTOR, null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify that the counter was incremented
-    verify(mockCounter, times(1)).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_admin_unknown_restli"), eq(1.0d));
   }
 
   @Test
   public void testCaptureAPIMetricsForRegularUser() {
     // Using buildRestli instead of direct build()
     RequestContext context =
-        RequestContext.builder().buildRestli("urn:li:corpuser:testuser", null, "test-request");
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify that the counter was incremented
-    verify(mockCounter, times(1)).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
   }
 
   @Test
@@ -288,13 +319,16 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildRestli("urn:li:corpuser:testuser", emptyUAResourceContext, "test-request");
+            .buildRestli("urn:li:corpuser:testuser", emptyUAResourceContext, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify that the agentClass is set to "Unknown"
     assertEquals(context.getAgentClass(), "Unknown");
 
     // Verify that a metric was captured with "unknown" agent class
-    verify(mockCounter, times(1)).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
   }
 
   @Test
@@ -310,13 +344,16 @@ public class RequestContextTest {
 
       RequestContext context =
           RequestContext.builder()
-              .buildRestli("urn:li:corpuser:testuser", nullUAResourceContext, "test-request");
+              .buildRestli("urn:li:corpuser:testuser", nullUAResourceContext, "test-request")
+              .metricUtils(mockMetricUtils)
+              .build();
 
       // Verify agent class is set to "Unknown" for null user agent
       assertEquals(context.getAgentClass(), "Unknown");
 
       // Verify a metric was captured
-      verify(mockCounter, atLeastOnce()).inc();
+      verify(mockMetricUtils, atLeastOnce())
+          .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
     } catch (NullPointerException e) {
       fail("RequestContext should handle null userAgent gracefully");
     }
@@ -327,6 +364,7 @@ public class RequestContextTest {
     // Create a direct instance of RequestContext with a browser user agent
     RequestContext context =
         new RequestContext(
+            mockMetricUtils,
             "urn:li:corpuser:testuser",
             "192.168.1.1",
             RequestContext.RequestAPI.TEST,
@@ -357,13 +395,16 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildRestli("urn:li:corpuser:testuser", browserUAResourceContext, "test-request");
+            .buildRestli("urn:li:corpuser:testuser", browserUAResourceContext, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify the agentClass is populated
     assertNotNull(context.getAgentClass());
 
     // Verify a metric was captured
-    verify(mockCounter, times(1)).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_browser_restli"), eq(1d));
   }
 
   @Test
@@ -374,13 +415,16 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getAgentClass(), "sdk");
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
-    verify(mockCounter, atLeastOnce()).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_sdk_graphql"), eq(1.0d));
   }
 
   @Test
@@ -391,13 +435,16 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getAgentClass(), "cli");
     assertEquals(context.getAgentName(), "Datahub");
 
     // Verify metrics were captured correctly
-    verify(mockCounter, atLeastOnce()).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_cli_graphql"), eq(1.0d));
   }
 
   @Test
@@ -408,13 +455,16 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     assertEquals(context.getAgentClass(), "ingestion");
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
-    verify(mockCounter, atLeastOnce()).inc();
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_ingestion_graphql"), eq(1.0d));
   }
 
   @Test
@@ -425,17 +475,12 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
 
     // Verify the counter was incremented with the appropriate metric name
     // The metric name should contain the lowercase agent class
-    mockedMetrics.verify(() -> MetricUtils.counter(matches(".*sdk.*")), times(1));
-  }
-
-  @AfterMethod
-  public void tearDown() {
-    if (mockedMetrics != null) {
-      mockedMetrics.close();
-    }
+    verify(mockMetricUtils, times(1)).increment(matches(".*sdk.*"), eq(1d));
   }
 }

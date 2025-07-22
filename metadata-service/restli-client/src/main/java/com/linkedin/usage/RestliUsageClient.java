@@ -7,6 +7,7 @@ import com.linkedin.common.WindowDuration;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
@@ -26,7 +27,8 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      UsageClientCacheConfig cacheConfig) {
+      UsageClientCacheConfig cacheConfig,
+      MetricUtils metricUtils) {
     super(
         restliClient,
         EntityClientConfig.builder().backoffPolicy(backoffPolicy).retryCount(retryCount).build());
@@ -45,7 +47,7 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
                     throw new RuntimeException(e);
                   }
                 })
-            .build();
+            .build(metricUtils);
   }
 
   /**
@@ -74,6 +76,6 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
             .resourceParam(resource)
             .durationParam(WindowDuration.DAY)
             .rangeFromEndParam(range);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 }

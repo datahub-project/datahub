@@ -6,6 +6,7 @@ import com.linkedin.common.WindowDuration;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageClientCache;
@@ -23,7 +24,8 @@ public class UsageStatsJavaClient implements UsageClient {
 
   public UsageStatsJavaClient(
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull UsageClientCacheConfig cacheConfig) {
+      @Nonnull UsageClientCacheConfig cacheConfig,
+      MetricUtils metricUtils) {
     this.timeseriesAspectService = timeseriesAspectService;
     this.operationContextMap = Caffeine.newBuilder().maximumSize(500).build();
     this.usageClientCache =
@@ -40,7 +42,7 @@ public class UsageStatsJavaClient implements UsageClient {
                     throw new RuntimeException(e);
                   }
                 })
-            .build();
+            .build(metricUtils);
   }
 
   @Nonnull

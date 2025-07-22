@@ -59,6 +59,7 @@ def snowflake_pipeline_config(tmp_path):
                 match_fully_qualified_names=True,
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_usage_stats=False,
+                use_queries_v2=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc,
                 ),

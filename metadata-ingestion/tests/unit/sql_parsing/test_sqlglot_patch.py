@@ -19,9 +19,11 @@ assert SQLGLOT_PATCHED
 
 def test_cooperative_timeout_sql() -> None:
     statement = sqlglot.parse_one("SELECT pg_sleep(3)", dialect="postgres")
-    with pytest.raises(
-        CooperativeTimeoutError
-    ), PerfTimer() as timer, cooperative_timeout(timeout=0.6):
+    with (
+        pytest.raises(CooperativeTimeoutError),
+        PerfTimer() as timer,
+        cooperative_timeout(timeout=0.6),
+    ):
         while True:
             # sql() implicitly calls copy(), which is where we check for the timeout.
             assert statement.sql() is not None

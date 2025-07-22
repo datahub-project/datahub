@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.entityregistry;
 
 import com.datahub.plugins.metadata.aspect.SpringPluginFactory;
-import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -30,9 +29,7 @@ public class ConfigEntityRegistryFactory {
 
   @Bean(name = "configEntityRegistry")
   @Nonnull
-  protected ConfigEntityRegistry getInstance(
-      SpringStandardPluginConfiguration springStandardPluginConfiguration)
-      throws IOException, EntityRegistryException {
+  protected ConfigEntityRegistry getInstance() throws IOException, EntityRegistryException {
     BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider =
         (config, loaders) -> new SpringPluginFactory(applicationContext, config, loaders);
     if (entityRegistryConfigPath != null) {
