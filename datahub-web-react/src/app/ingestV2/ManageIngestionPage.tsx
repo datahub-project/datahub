@@ -1,5 +1,5 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -112,16 +112,6 @@ export const ManageIngestionPage = () => {
         }
     }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
 
-    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
-        const preserveParams = shouldPreserveParams.current;
-        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
-        if (!preserveParams && options?.clearQueryParams) {
-            history.push({ search: '' });
-        }
-        setSelectedTab(matchingTab || selectedTab);
-        shouldPreserveParams.current = false;
-    };
-
     const tabs: Tab[] = [
         showIngestionTab && {
             component: (
@@ -160,9 +150,14 @@ export const ManageIngestionPage = () => {
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
-    const onUrlChange = (tabPath: string) => {
-        history.push(tabPath);
-    };
+    const onUrlChange = useCallback(
+        (tabPath: string) => {
+            history.push({ pathname: tabPath, search: '' });
+        },
+        [history],
+    );
+
+    const getCurrentUrl = useCallback(() => window.location.pathname, []);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);
@@ -228,11 +223,11 @@ export const ManageIngestionPage = () => {
                 <Tabs
                     tabs={tabs}
                     selectedTab={selectedTab}
-                    onChange={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+                    onChange={(tab) => setSelectedTab(tab as TabType)}
                     urlMap={tabUrlMap}
                     onUrlChange={onUrlChange}
                     defaultTab={TabType.Sources}
-                    getCurrentUrl={() => window.location.pathname}
+                    getCurrentUrl={getCurrentUrl}
                 />
             </PageContentContainer>
         </PageContainer>

@@ -174,8 +174,19 @@ yarn generate
 # Run formatting
 yarn format
 
-# Run linting
-yarn lint
+# Run linting on all files
+../gradlew yarnLint
+
+# Run lint-fix on a single file
+../gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Run linting on a single file
+# This does not run full type-check when we run for a single file
+# that should be run at the end of all changes before commit
+../gradlew -x yarnInstall -x yarnGenerate yarnLint -Pfile=src/path/to/file.tsx
+
+# Run lint-fix on all files
+../gradlew yarnLintFix
 
 # Run type checking
 yarn type-check
