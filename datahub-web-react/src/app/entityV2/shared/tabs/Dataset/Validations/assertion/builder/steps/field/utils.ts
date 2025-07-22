@@ -332,8 +332,15 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
     ],
 };
 
+type FieldMetric = {
+    value: FieldMetricType;
+    label: string;
+    description: string;
+    requiresConnection?: boolean;
+};
+
 // Keep this in sync with FIELD_METRIC_TYPE_CONFIG in acryl-cloud/src/acryl_datahub_cloud/sdk/assertion_input/smart_column_metric_assertion_input.py
-export const FIELD_METRIC_TYPE_CONFIG = {
+export const FIELD_METRIC_TYPE_CONFIG: Partial<Record<SchemaFieldDataType, FieldMetric[]>> = {
     [SchemaFieldDataType.String]: [
         {
             label: 'Null count',
@@ -581,14 +588,10 @@ export const getSelectedFieldMetricOperatorOption = (operator?: FieldMetricAsser
 export const getFieldMetricTypeOptions = (
     fieldType?: SchemaFieldDataType | null,
     sourceType?: DatasetFieldAssertionSourceType | null,
-): {
-    value: FieldMetricType;
-    label: string;
-    requiresConnection?: boolean;
-}[] => {
+): FieldMetric[] => {
     if (!fieldType) return [];
     const isDatasetProfileSupported = sourceType !== DatasetFieldAssertionSourceType.DatahubDatasetProfile;
-    return FIELD_METRIC_TYPE_CONFIG[fieldType].filter((o) => !o.requiresConnection || isDatasetProfileSupported);
+    return FIELD_METRIC_TYPE_CONFIG[fieldType]?.filter((o) => !o.requiresConnection || isDatasetProfileSupported) || [];
 };
 
 export const getSelectedFieldMetricTypeOption = (
