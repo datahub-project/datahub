@@ -223,18 +223,18 @@ export default function IngestedAssets({ id, executionResult }: Props) {
         if (!executionResult) return undefined;
         try {
             return getIngestionContents(executionResult);
-        } catch (error) {
-            console.error('Error getting ingestion contents:', error);
+        } catch (err) {
+            console.error('Error getting ingestion contents:', err);
             return undefined;
         }
     }, [executionResult]);
-    
+
     const otherIngestionContents = useMemo(() => {
         if (!executionResult) return undefined;
         try {
             return getOtherIngestionContents(executionResult);
-        } catch (error) {
-            console.error('Error getting other ingestion contents:', error);
+        } catch (err) {
+            console.error('Error getting other ingestion contents:', err);
             return undefined;
         }
     }, [executionResult]);
