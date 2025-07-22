@@ -49,11 +49,9 @@ def add_partition_columns_to_schema(
     path_spec: PathSpec, full_path: str, fields: List[SchemaFieldClass]
 ) -> None:
     # Check if using fieldPath v2 format
-    is_fieldpath_v2 = False
-    for field in fields:
-        if field.fieldPath.startswith("[version=2.0]"):
-            is_fieldpath_v2 = True
-            break
+    is_fieldpath_v2 = any(
+        field.fieldPath.startswith("[version=2.0]") for field in fields
+    )
 
     # Extract partition information from path
     partition_keys = path_spec.get_partition_from_path(full_path)
@@ -72,7 +70,7 @@ def add_partition_columns_to_schema(
                 nativeDataType="string",
                 type=SchemaFieldDataTypeClass(StringTypeClass()),
                 isPartitioningKey=True,
-                nullable=True,
+                nullable=False,
                 recursive=False,
             )
         )
