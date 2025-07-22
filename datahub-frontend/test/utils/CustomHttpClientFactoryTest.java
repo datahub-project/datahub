@@ -4,18 +4,17 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLContext;
-import java.net.URL;
 import java.net.http.HttpClient;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CustomHttpClientFactoryTest {
 
-    private static String getTruststorePathFromClasspath() {
-        URL url = CustomHttpClientFactoryTest.class.getClassLoader().getResource("test-truststore.p12");
-        return url != null ? url.getPath() : null;
-    }
-
+    // Provide valid test truststore details here.
+    // You can generate a test truststore with keytool for real integration testing.
+    private static final String VALID_TRUSTSTORE_PATH = "test/resources/test-truststore.p12";
     private static final String VALID_TRUSTSTORE_PASSWORD = "testpassword";
     private static final String VALID_TRUSTSTORE_TYPE = "PKCS12";
     private static final String INVALID_TRUSTSTORE_PATH = "src/test/resources/doesnotexist.p12";
@@ -23,13 +22,9 @@ class CustomHttpClientFactoryTest {
 
     @Test
     void testCreateSslContextWithValidTruststore() throws Exception {
-        String path = getTruststorePathFromClasspath();
-        if (path == null) {
-            System.out.println("Truststore not found on classpath, skipping test.");
-            return;
-        }
+        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return; // skip if not present
         SSLContext context = CustomHttpClientFactory.createSslContext(
-                path, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
         assertNotNull(context);
         assertEquals("TLSv1.2", context.getProtocol());
     }
@@ -42,13 +37,9 @@ class CustomHttpClientFactoryTest {
 
     @Test
     void testGetJavaHttpClientWithValidTruststore() {
-        String path = getTruststorePathFromClasspath();
-        if (path == null) {
-            System.out.println("Truststore not found on classpath, skipping test.");
-            return;
-        }
+        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return;
         HttpClient client = CustomHttpClientFactory.getJavaHttpClient(
-                path, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
         assertNotNull(client);
     }
 
@@ -57,17 +48,14 @@ class CustomHttpClientFactoryTest {
         HttpClient client = CustomHttpClientFactory.getJavaHttpClient(
                 INVALID_TRUSTSTORE_PATH, INVALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
         assertNotNull(client);
+        // Could add more checks if needed (e.g. class type)
     }
 
     @Test
     void testGetApacheHttpClientWithValidTruststore() {
-        String path = getTruststorePathFromClasspath();
-        if (path == null) {
-            System.out.println("Truststore not found on classpath, skipping test.");
-            return;
-        }
+        if (!Files.exists(Path.of(VALID_TRUSTSTORE_PATH))) return;
         CloseableHttpClient client = CustomHttpClientFactory.getApacheHttpClient(
-                path, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
+                VALID_TRUSTSTORE_PATH, VALID_TRUSTSTORE_PASSWORD, VALID_TRUSTSTORE_TYPE);
         assertNotNull(client);
     }
 
