@@ -885,6 +885,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/applications",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

@@ -22,7 +22,7 @@ What you need to create and add applications:
 
 - **Manage Features** platform privilege to control whether Applications are visible to users.
 
-You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md).
+You can create these privileges by creating a new [Metadata Policy](../../authorization/policies.md).
 
 ## Using Applications
 
