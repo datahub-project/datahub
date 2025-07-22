@@ -23,7 +23,7 @@ const Container = styled.div<{
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: ${props => props.$padding ? props.$padding : '8px 13px 8px 8px'};
+    padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -103,7 +103,7 @@ interface EntityAutocompleteItemProps {
 
     hideSubtitle?: boolean;
     hideMatches?: boolean;
- 
+
     padding?: string;
 }
 

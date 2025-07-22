@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/ChildrenLoader';
 import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderProvider';
 import useChildrenGlossaryLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenGlossarysLoader';
+import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
 import { FORM_FIELD_GLOSSARY_ASSETS } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
@@ -13,7 +14,6 @@ import useSelectableGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/c
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import { getTopLevelSelectedValuesFromTree } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
-import useParentValuesToLoadChildren from '../../childrenLoader/hooks/useParentValues';
 
 const Wrapper = styled.div``;
 
@@ -25,8 +25,8 @@ export default function GlossarySelectableTreeView() {
 
     const { tree, setSelectedValues, selectedValues, loading } = useSelectableGlossaryTree(initialSelectedValues ?? []);
 
-    const {parentValues, addParentValue, removeParentValue} = useParentValuesToLoadChildren();
-    
+    const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
+
     const updateSelectedValues = useCallback(
         (newSelectedValues: string[]) => {
             const topLevelSelectedValues = getTopLevelSelectedValuesFromTree(newSelectedValues, tree.nodes);

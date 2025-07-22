@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/ChildrenLoader';
 import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderProvider';
 import useChildrenDomainsLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenDomainsLoader';
+import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import DomainSelectableTreeNodeRenderer from '@app/homeV3/modules/hierarchyViewModule/components/domains/DomainSelectableTreeNodeRenderer';
 import useSelectableDomainTree from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useSelectableDomainTree';
@@ -12,7 +13,6 @@ import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import { getTopLevelSelectedValuesFromTree } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
-import useParentValuesToLoadChildren from '../../childrenLoader/hooks/useParentValues';
 
 const Wrapper = styled.div``;
 
@@ -22,8 +22,8 @@ export default function DomainsSelectableTreeView() {
         initialValues: { domainAssets: initialSelectedValues },
     } = useHierarchyFormContext();
 
-    const {parentValues, addParentValue, removeParentValue} = useParentValuesToLoadChildren();
-    
+    const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
+
     const { tree, selectedValues, setSelectedValues, loading } = useSelectableDomainTree(initialSelectedValues);
 
     const updateSelectedValues = useCallback(

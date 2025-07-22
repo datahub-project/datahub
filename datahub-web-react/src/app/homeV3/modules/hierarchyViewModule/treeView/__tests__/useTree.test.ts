@@ -61,7 +61,7 @@ describe('useTree hook', () => {
 
     describe('replace function', () => {
         it('should replace entire tree with new nodes', () => {
-            const initialNodes = [createTreeNode('old')]
+            const initialNodes = [createTreeNode('old')];
             const { result } = renderHook(() => useTree(initialNodes));
 
             const newNodes = [createTreeNode('new1'), createTreeNode('new2')];

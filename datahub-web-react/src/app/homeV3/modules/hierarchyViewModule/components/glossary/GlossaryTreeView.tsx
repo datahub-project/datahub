@@ -6,11 +6,11 @@ import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoad
 import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderProvider';
 import useChildrenGlossaryLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenGlossarysLoader';
 import useGlossaryRelatedEntitiesLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useGlossaryRelatedEntitiesLoader';
+import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import useGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTree';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-import useParentValuesToLoadChildren from '../../childrenLoader/hooks/useParentValues';
 
 const Wrapper = styled.div``;
 
@@ -22,7 +22,7 @@ interface Props {
 export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
     const { tree, loading } = useGlossaryTree(assetUrns ?? []);
 
-    const {parentValues, addParentValue, removeParentValue} = useParentValuesToLoadChildren();
+    const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
 
     const onLoadFinished = useCallback(
         (newNodes: TreeNode[], metadata: ChildrenLoaderMetadata, parentDomainUrn: string) => {
@@ -58,7 +58,7 @@ export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities 
                     nodes={tree.nodes}
                     loadChildren={startLoadingOfChildren}
                     renderNodeLabel={(nodeProps) => (
-                        <EntityItem entity={nodeProps.node.entity} hideSubtitle hideMatches />
+                        <EntityItem entity={nodeProps.node.entity} hideSubtitle hideMatches padding="8px 13px 8px 0" />
                     )}
                 />
             </ChildrenLoaderProvider>

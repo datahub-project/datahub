@@ -10,7 +10,6 @@ interface Props {
 }
 
 export default function ChildrenLoader({ parentValues, loadChildren, loadRelatedEntities }: Props) {
-    console.log('>>>parentValues', parentValues)
     return (
         <>
             {parentValues.map((parentValue) => (

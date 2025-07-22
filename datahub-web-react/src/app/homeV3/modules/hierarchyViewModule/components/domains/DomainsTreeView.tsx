@@ -6,11 +6,11 @@ import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoad
 import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderProvider';
 import useChildrenDomainsLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenDomainsLoader';
 import useDomainRelatedEntitiesLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useDomainRelatedEntitiesLoader';
+import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import useDomainsTree from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useDomainsTree';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-import useParentValuesToLoadChildren from '../../childrenLoader/hooks/useParentValues';
 
 const Wrapper = styled.div``;
 
@@ -21,11 +21,11 @@ interface Props {
 
 export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
     const { tree, loading } = useDomainsTree(assetUrns ?? [], shouldShowRelatedEntities);
-    const {parentValues, addParentValue, removeParentValue} = useParentValuesToLoadChildren();
+    const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
 
     const onLoadFinished = useCallback(
         (newNodes: TreeNode[], metadata: ChildrenLoaderMetadata, parentDomainUrn: string) => {
-            removeParentValue(parentDomainUrn)
+            removeParentValue(parentDomainUrn);
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
@@ -57,7 +57,7 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities }
                     nodes={tree.nodes}
                     loadChildren={startLoadingOfChildren}
                     renderNodeLabel={(nodeProps) => (
-                        <EntityItem entity={nodeProps.node.entity} hideSubtitle hideMatches padding='8px 13px 8px 0'/>
+                        <EntityItem entity={nodeProps.node.entity} hideSubtitle hideMatches padding="8px 13px 8px 0" />
                     )}
                 />
             </ChildrenLoaderProvider>
