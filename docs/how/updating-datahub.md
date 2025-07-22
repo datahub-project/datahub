@@ -29,6 +29,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 1.2.0
+
+### Breaking Changes
+
 - All DataHub Python packages now require Python 3.9+. This affects the following packages:
   - `acryl-datahub` (DataHub CLI and SDK)
   - `acryl-datahub-actions`
@@ -55,6 +67,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
+- #14123: Adds a new environment variable `DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES` to control batch size limits when using the RestEmitter in ingestions. Default is 15MB but configurable.
 
 ## 1.1.0
 

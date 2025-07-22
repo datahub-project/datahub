@@ -64,6 +64,7 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
         data: {
             module,
             position,
+            isSmall: false,
         },
     });
 
