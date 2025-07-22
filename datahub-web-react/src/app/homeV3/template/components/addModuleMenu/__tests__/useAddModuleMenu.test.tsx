@@ -98,7 +98,7 @@ describe('useAddModuleMenu', () => {
         // Check Custom Large group
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(3);
+        expect(items?.[1]?.children).toHaveLength(4);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children
