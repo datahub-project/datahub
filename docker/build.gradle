@@ -99,7 +99,8 @@ ext {
                             ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
             'quickstartStorage': [
