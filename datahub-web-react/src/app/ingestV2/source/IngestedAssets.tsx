@@ -219,14 +219,25 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
 
-    const ingestionContents = useMemo(
-        () => executionResult && getIngestionContents(executionResult),
-        [executionResult],
-    );
-    const otherIngestionContents = useMemo(
-        () => executionResult && getOtherIngestionContents(executionResult),
-        [executionResult],
-    );
+    const ingestionContents = useMemo(() => {
+        if (!executionResult) return undefined;
+        try {
+            return getIngestionContents(executionResult);
+        } catch (err) {
+            console.error('Error getting ingestion contents:', err);
+            return undefined;
+        }
+    }, [executionResult]);
+
+    const otherIngestionContents = useMemo(() => {
+        if (!executionResult) return undefined;
+        try {
+            return getOtherIngestionContents(executionResult);
+        } catch (err) {
+            console.error('Error getting other ingestion contents:', err);
+            return undefined;
+        }
+    }, [executionResult]);
 
     return (
         <>
