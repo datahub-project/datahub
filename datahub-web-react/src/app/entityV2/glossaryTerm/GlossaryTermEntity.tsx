@@ -4,15 +4,16 @@ import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import GlossaryRelatedAssetsTabHeader from '@app/entityV2/glossaryTerm/GlossaryRelatedAssetsTabHeader';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
 import GlossaryRelatedEntity from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms';
 import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
@@ -23,7 +24,6 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { FetchedEntity } from '@app/lineage/types';
 
@@ -109,7 +109,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Related Assets',
-                        getDynamicName: GlossaryRelatedAssetsTabHeader,
+                        getCount: useGlossaryRelatedAssetsTabCount,
                         component: GlossaryRelatedEntity,
                         icon: AppstoreOutlined,
                     },
@@ -129,13 +129,11 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     },
                     {
                         name: 'Related Terms',
-                        getDynamicName: (entityData, _, loading) => {
+                        getCount: (entityData, _, loading) => {
                             const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
                                 return acc + (entityData?.[curr]?.total || 0);
                             }, 0);
-                            return (
-                                <TabNameWithCount name="Related Terms" count={totalRelatedTerms} loading={loading} />
-                            );
+                            return !loading ? totalRelatedTerms : undefined;
                         },
                         component: GlossayRelatedTerms,
                         icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
@@ -171,6 +169,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             properties: {
                 hideOwnerType: true,
             },
+        },
+        {
+            component: SidebarApplicationSection,
         },
         {
             component: SidebarStructuredProperties,
@@ -239,6 +240,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

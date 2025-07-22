@@ -37,9 +37,12 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Sou
         ),
     )
 
-    with mock.patch(
-        "datahub.sql_parsing.sql_parsing_aggregator.ToolMetaExtractor.create",
-    ) as mock_checkpoint, mock.patch("snowflake.connector.connect"):
+    with (
+        mock.patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.ToolMetaExtractor.create",
+        ) as mock_checkpoint,
+        mock.patch("snowflake.connector.connect"),
+    ):
         mock_checkpoint.return_value = mock.MagicMock()
 
         yield SnowflakeV2Source(ctx=ctx, config=config)
@@ -231,11 +234,14 @@ def set_mock_last_run_time_window_usage(mocked_fn, start_time, end_time):
 def test_successful_run_creates_checkpoint(stateful_source: SnowflakeV2Source) -> None:
     assert stateful_source.lineage_extractor is not None
     assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
-    with mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
-    ) as mocked_create_checkpoint_fn, mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
-    ) as mocked_fn:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
+        ) as mocked_create_checkpoint_fn,
+        mock.patch(
+            "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
+        ) as mocked_fn,
+    ):
         set_mock_last_run_time_window(
             mocked_fn,
             last_run_start_time,
@@ -255,11 +261,14 @@ def test_failed_run_does_not_create_checkpoint(
     stateful_source.lineage_extractor.redundant_run_skip_handler.report_current_run_status(
         "some_step", False
     )
-    with mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
-    ) as mocked_create_checkpoint_fn, mock.patch(
-        "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
-    ) as mocked_fn:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.create_checkpoint"
+        ) as mocked_create_checkpoint_fn,
+        mock.patch(
+            "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
+        ) as mocked_fn,
+    ):
         set_mock_last_run_time_window(
             mocked_fn,
             last_run_start_time,

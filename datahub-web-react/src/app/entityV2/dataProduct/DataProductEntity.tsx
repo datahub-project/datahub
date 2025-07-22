@@ -17,6 +17,7 @@ import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { SidebarViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -29,7 +30,6 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
@@ -117,9 +117,8 @@ export class DataProductEntity implements Entity<DataProduct> {
                 },
                 {
                     name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    getCount: (entityData, _) => {
+                        return entityData?.entities?.total;
                     },
                     component: DataProductEntitiesTab,
                     icon: AppstoreOutlined,
@@ -153,6 +152,9 @@ export class DataProductEntity implements Entity<DataProduct> {
             properties: {
                 updateOnly: true,
             },
+        },
+        {
+            component: SidebarApplicationSection,
         },
         // TODO: Is someone actually using the below code?
         {
@@ -262,6 +264,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

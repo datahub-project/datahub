@@ -24,15 +24,14 @@ export type FiltersState = Map<string, string[]>;
 interface Props {
     onFiltersApplied?: (filters: FiltersState) => void;
     hideSystemSources: boolean;
+    shouldPreserveParams: React.MutableRefObject<boolean>;
 }
 
-export default function Filters({ onFiltersApplied, hideSystemSources }: Props) {
+export default function Filters({ onFiltersApplied, hideSystemSources, shouldPreserveParams }: Props) {
     const location = useLocation();
     const history = useHistory();
     // initialization of query params from location
-    const queryParams = useState<QueryString.ParsedQuery<string>>(
-        QueryString.parse(location.search, { arrayFormat: 'comma' }),
-    )[0];
+    const queryParams = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
     const paramFilters: Array<FacetFilterInput> = useFilters(queryParams);
     const defaultValues = useMemo(
         () => new Map<string, string[]>(paramFilters.map((item) => [item.field, item.values ?? []])),
@@ -41,6 +40,18 @@ export default function Filters({ onFiltersApplied, hideSystemSources }: Props) 
     const [valuesMap, setValuesMap] = useState<FiltersState>(defaultValues);
 
     const [isInitialized, setIsInitialised] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (shouldPreserveParams.current) {
+            setIsInitialised(false);
+        }
+    }, [location.search, shouldPreserveParams]);
+
+    useEffect(() => {
+        if (shouldPreserveParams.current) {
+            setValuesMap(defaultValues);
+        }
+    }, [defaultValues, shouldPreserveParams]);
 
     useEffect(() => {
         if (!isInitialized) {
@@ -82,6 +93,7 @@ export default function Filters({ onFiltersApplied, hideSystemSources }: Props) 
                 defaultValues={defaultValues.get(INGESTION_SOURCE_FIELD)}
                 onUpdate={(values) => onUpdate(INGESTION_SOURCE_FIELD, values)}
                 hideSystemSources={!!hideSystemSources}
+                shouldPreserveParams={shouldPreserveParams}
             />
             <ExecutorTypeFilter onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)} />
         </Container>

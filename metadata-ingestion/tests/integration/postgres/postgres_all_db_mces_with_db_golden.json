@@ -765,6 +765,180 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "postgrestest.public.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "add_row_to_metadata_aspect_v2",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE OR REPLACE PROCEDURE public.add_row_to_metadata_aspect_v2(IN urn character varying, IN aspect character varying, IN version bigint, IN metadata text, IN createdon timestamp without time zone, IN createdby character varying, IN metadata_json json)\n LANGUAGE sql\nAS $procedure$\n    insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, metadata_json) values(\n        urn,\n        aspect,\n        version,\n        metadata,\n        createdon,\n        createdby,\n        metadata_json\n    )\n$procedure$\n",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
     "changeType": "UPSERT",
@@ -976,6 +1150,38 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),add_row_to_metadata_aspect_v2_22b7c21680c08595bac1344d1d357044)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

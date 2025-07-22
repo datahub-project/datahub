@@ -21,6 +21,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import SidebarDashboardHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dashboard/Header/SidebarDashboardHeaderSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -39,7 +40,6 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/DashboardDatasetsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -181,6 +181,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
@@ -191,9 +192,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dashboard, loading) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dashboard) => {
+                        return dashboard?.dashboard?.activeIncidents?.total;
                     },
                 },
             ]}
@@ -223,6 +223,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: SidebarDomainSection,
+        },
+        {
+            component: SidebarApplicationSection,
         },
         {
             component: DataProductSection,
@@ -392,6 +395,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

@@ -257,10 +257,22 @@ export const TagActionsColumn = React.memo(
                     </MenuItem>
                 ),
             },
+            {
+                key: '1',
+                label: (
+                    <MenuItem
+                        onClick={() => {
+                            navigator.clipboard.writeText(tagUrn);
+                        }}
+                    >
+                        Copy Urn
+                    </MenuItem>
+                ),
+            },
             ...(canManageTags
                 ? [
                       {
-                          key: '1',
+                          key: '2',
                           label: (
                               <MenuItem
                                   onClick={onDelete}
@@ -278,7 +290,7 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" />
+                    <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
                 </Dropdown>
             </CardIcons>
         );

@@ -42,7 +42,7 @@ const ModalHeader = styled.div<{ hasChildren: boolean }>`
     flex-direction: column;
 `;
 
-const TitleSection = styled.div`
+const TitleRow = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -57,13 +57,16 @@ const ButtonsContainer = styled.div`
 
 export interface ModalButton extends ButtonProps {
     text: string;
+    key?: string;
     onClick: () => void;
+    buttonDataTestId?: string;
 }
 
 export interface ModalProps {
     buttons: ModalButton[];
     title: string;
     subtitle?: string;
+    titlePill?: React.ReactNode;
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
@@ -74,6 +77,7 @@ export function Modal({
     buttons,
     title,
     subtitle,
+    titlePill,
     children,
     onCancel,
     dataTestId,
@@ -87,14 +91,15 @@ export function Modal({
             onCancel={onCancel}
             closeIcon={<Icon icon="X" source="phosphor" />}
             hasChildren={!!children}
+            data-testid={dataTestId}
             title={
                 <ModalHeader hasChildren={!!children}>
-                    <TitleSection>
-                        {titleIcon && titleIcon}
+                    <TitleRow>
                         <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
                             {title}
                         </Heading>
-                    </TitleSection>
+                        {titlePill}
+                    </TitleRow>
                     {!!subtitle && (
                         <Text type="span" color="gray" colorLevel={1700} weight="medium">
                             {subtitle}
@@ -105,10 +110,10 @@ export function Modal({
             footer={
                 !!buttons.length && (
                     <ButtonsContainer>
-                        {buttons.map(({ text, variant, onClick, ...buttonProps }, index) => (
+                        {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button
-                                key={text}
-                                data-testid={dataTestId && `${dataTestId}-${variant}-${index}`}
+                                key={key || text}
+                                data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
                                 variant={variant}
                                 onClick={onClick}
                                 {...buttonProps}

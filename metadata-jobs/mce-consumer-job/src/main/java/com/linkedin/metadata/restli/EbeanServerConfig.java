@@ -2,6 +2,7 @@ package com.linkedin.metadata.restli;
 
 import static com.linkedin.gms.factory.common.LocalEbeanConfigFactory.getListenerToTrackCounts;
 
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.datasource.DataSourceConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,7 +48,8 @@ public class EbeanServerConfig {
   @Primary
   public DataSourceConfig buildDataSourceConfig(
       @Value("${ebean.url}") String dataSourceUrl,
-      @Qualifier("parseqEngineThreads") int ebeanMaxConnections) {
+      @Qualifier("parseqEngineThreads") int ebeanMaxConnections,
+      MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
@@ -59,7 +61,7 @@ public class EbeanServerConfig {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
-    dataSourceConfig.setListener(getListenerToTrackCounts("mce-consumer"));
+    dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "mce-consumer"));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
       Map<String, String> custom = new HashMap<>();

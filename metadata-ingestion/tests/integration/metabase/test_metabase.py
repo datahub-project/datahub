@@ -166,25 +166,30 @@ def test_pipeline(pytestconfig, tmp_path):
 def test_metabase_ingest_success(
     pytestconfig, tmp_path, test_pipeline, mock_datahub_graph, default_json_response_map
 ):
-    with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=MockResponse.build_mocked_requests_sucess(
-            default_json_response_map
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(
+                default_json_response_map
+            ),
         ),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.post",
-        side_effect=MockResponse.build_mocked_requests_session_post(
-            default_json_response_map
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                default_json_response_map
+            ),
         ),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.delete",
-        side_effect=MockResponse.build_mocked_requests_session_delete(
-            default_json_response_map
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                default_json_response_map
+            ),
         ),
-    ), patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         pipeline = Pipeline.create(test_pipeline)
@@ -204,21 +209,28 @@ def test_stateful_ingestion(
     test_pipeline, mock_datahub_graph, default_json_response_map
 ):
     json_response_map = default_json_response_map
-    with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=MockResponse.build_mocked_requests_sucess(json_response_map),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.post",
-        side_effect=MockResponse.build_mocked_requests_session_post(json_response_map),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.delete",
-        side_effect=MockResponse.build_mocked_requests_session_delete(
-            json_response_map
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(json_response_map),
         ),
-    ), patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         pipeline_run1 = run_and_get_pipeline(test_pipeline)
@@ -261,20 +273,24 @@ def test_stateful_ingestion(
 
 @freeze_time(FROZEN_TIME)
 def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
-    with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=MockResponse.build_mocked_requests_failure(
-            default_json_response_map
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_failure(
+                default_json_response_map
+            ),
         ),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.post",
-        side_effect=MockResponse.build_mocked_requests_session_post(
-            default_json_response_map
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                default_json_response_map
+            ),
         ),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.delete",
-        side_effect=MockResponse.build_mocked_requests_session_delete(
-            default_json_response_map
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                default_json_response_map
+            ),
         ),
     ):
         pipeline = Pipeline.create(

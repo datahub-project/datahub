@@ -15,7 +15,9 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -112,6 +114,7 @@ class TrinoUsageReport(SourceReport):
 @platform_name("Trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """

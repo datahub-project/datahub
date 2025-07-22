@@ -1,5 +1,7 @@
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 
+import { Entity, IngestionSource } from '@types';
+
 /**
  * The size of the builder modal
  */
@@ -34,6 +36,8 @@ export type StepProps = {
     cancel: () => void;
     ingestionSources: SourceConfig[];
     isEditing: boolean;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
 export type StringMapEntryInput = {
@@ -111,4 +115,8 @@ export interface SourceBuilderState {
          */
         extraArgs?: StringMapEntryInput[] | null;
     };
+    /**
+     * Owners of the Ingestion source
+     */
+    owners?: Entity[];
 }

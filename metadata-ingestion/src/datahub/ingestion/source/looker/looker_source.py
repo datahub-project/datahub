@@ -126,6 +126,7 @@ logger = logging.getLogger(__name__)
     SourceCapability.USAGE_STATS,
     "Enabled by default, configured using `extract_usage_history`",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

@@ -355,7 +355,7 @@ class DBTCommonConfig(
     # override default value to True.
     incremental_lineage: bool = Field(
         default=True,
-        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run. This would also require enabling 'incremental_lineage' in the counterpart warehouse ingestion (_e.g._ BigQuery, Redshift, etc).",
     )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
@@ -823,7 +823,9 @@ def get_column_type(
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1334,6 +1336,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
         action_processor_tag = OperationProcessor(
@@ -1705,6 +1708,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
         canonical_schema: List[SchemaField] = []

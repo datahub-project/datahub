@@ -25,22 +25,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   airflow-plugin:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
         include:
           # Note: this should be kept in sync with tox.ini.
-          - python-version: "3.8"
-            extra_pip_extras: test-airflow25
-            extra_pip_requirements: "apache-airflow~=2.5.3"
-            # extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.5.3/constraints-3.8.txt"
-          - python-version: "3.10"
-            extra_pip_requirements: "apache-airflow~=2.6.3"
-            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.6.3/constraints-3.10.txt"
+          - python-version: "3.9"
+            extra_pip_requirements: "apache-airflow~=2.7.3"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.9.txt"
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.7.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"

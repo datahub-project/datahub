@@ -6,10 +6,13 @@ import EmptyState, { EmptyReasons } from '@app/ingestV2/executions/components/Em
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import ExecutionsTable from '@app/ingestV2/executions/components/ExecutionsTable';
 import Filters from '@app/ingestV2/executions/components/Filters';
+import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import useFilters from '@app/ingestV2/executions/hooks/useFilters';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
+import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
+import { TabType } from '@app/ingestV2/types';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
@@ -51,12 +54,25 @@ const PaginationContainer = styled.div`
 
 const DEFAULT_PAGE_SIZE = 25;
 
-export const ExecutionsTab = () => {
+interface Props {
+    shouldPreserveParams: React.MutableRefObject<boolean>;
+    hideSystemSources: boolean;
+    setHideSystemSources: (show: boolean) => void;
+    selectedTab?: TabType | null;
+    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+}
+
+export const ExecutionsTab = ({
+    shouldPreserveParams,
+    hideSystemSources,
+    setHideSystemSources,
+    selectedTab,
+    setSelectedTab,
+}: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
 
-    const { page, setPage, start, count } = usePagination(DEFAULT_PAGE_SIZE);
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
     // When filters changed, reset page to 1
     useEffect(() => setPage(1), [appliedFilters, setPage]);
 
@@ -70,7 +86,7 @@ export const ExecutionsTab = () => {
         variables: {
             input: {
                 start,
-                count,
+                count: pageSize,
                 query: undefined,
                 filters,
                 systemSources: !hideSystemSources,
@@ -78,11 +94,15 @@ export const ExecutionsTab = () => {
         },
     });
 
+    const handleRollbackExecution = useRollbackExecution(refetch);
+    const handleCancelExecution = useCancelExecution(refetch);
+
     const totalExecutionRequests = data?.listExecutionRequests?.total || 0;
     const executionRequests: ExecutionRequest[] = data?.listExecutionRequests?.executionRequests || [];
+    const isLastPage = totalExecutionRequests <= pageSize * page;
 
     // refresh the data when there are some running execution requests
-    useRefresh(executionRequests, refetch);
+    useRefresh(executionRequests, refetch, loading, selectedTab);
 
     const onPageChangeHandler = useCallback(
         (newPage: number) => {
@@ -104,6 +124,7 @@ export const ExecutionsTab = () => {
                             <Filters
                                 onFiltersApplied={(newFilters) => setAppliedFilters(newFilters)}
                                 hideSystemSources={hideSystemSources}
+                                shouldPreserveParams={shouldPreserveParams}
                             />
                             <RefreshButton onClick={() => refetch()} />
                         </StyledTabToolbar>
@@ -117,14 +138,18 @@ export const ExecutionsTab = () => {
                                 <ExecutionsTable
                                     executionRequests={executionRequests || []}
                                     setFocusExecutionUrn={setExecutionRequestUrnToView}
+                                    handleRollback={handleRollbackExecution}
+                                    handleCancelExecution={handleCancelExecution}
                                     loading={loading}
+                                    isLastPage={isLastPage}
+                                    setSelectedTab={setSelectedTab}
                                 />
                             </TableContainer>
                             <PaginationContainer>
                                 <Pagination
                                     currentPage={page}
-                                    itemsPerPage={DEFAULT_PAGE_SIZE}
-                                    totalPages={totalExecutionRequests}
+                                    itemsPerPage={pageSize}
+                                    total={totalExecutionRequests}
                                     showLessItems
                                     onPageChange={onPageChangeHandler}
                                     showSizeChanger={false}
