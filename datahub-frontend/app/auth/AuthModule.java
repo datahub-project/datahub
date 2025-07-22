@@ -18,7 +18,6 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
@@ -31,15 +30,7 @@ import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ValidationContext;
-import io.micrometer.core.instrument.Clock;
-import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.config.MeterFilter;
-import io.micrometer.core.instrument.config.MeterFilterReply;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micrometer.core.instrument.util.HierarchicalNameMapper;
-import io.micrometer.jmx.JmxConfig;
-import io.micrometer.jmx.JmxMeterRegistry;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -59,6 +50,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
+import utils.CustomHttpClientFactory;
+import utils.TruststoreConfig;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
 @Slf4j
@@ -185,46 +178,6 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected MetricUtils metricUtils(final AnnotationConfigApplicationContext springContext) {
-    // Create the appropriate MeterRegistry based on configuration
-    MeterRegistry meterRegistry;
-
-    // Check if JMX metrics are enabled
-    org.springframework.core.env.Environment env = springContext.getEnvironment();
-    Boolean jmxEnabled = env.getProperty("management.metrics.export.jmx.enabled", Boolean.class);
-
-    if (jmxEnabled != null && jmxEnabled) {
-      // Create JMX registry with legacy hierarchical name mapper
-      HierarchicalNameMapper legacyMapper = (id, namingConvention) -> id.getName();
-      meterRegistry = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM, legacyMapper);
-
-      // Apply filter to only include Dropwizard metrics in JMX
-      meterRegistry
-          .config()
-          .meterFilter(
-              new MeterFilter() {
-                @Override
-                public MeterFilterReply accept(Meter.Id id) {
-                  return id.getTag(MetricUtils.DROPWIZARD_METRIC) != null
-                      ? MeterFilterReply.ACCEPT
-                      : MeterFilterReply.DENY;
-                }
-              });
-    } else {
-      // Default to simple meter registry if JMX is not enabled
-      meterRegistry = new SimpleMeterRegistry();
-    }
-
-    // Create and configure MetricUtils
-    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
-
-    meterRegistry.config().commonTags("application", "datahub-frontend");
-
-    return metricUtils;
-  }
-
-  @Provides
-  @Singleton
   @Named("systemOperationContext")
   protected OperationContext provideOperationContext(
       final Authentication systemAuthentication,
@@ -258,25 +211,17 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected ConfigurationProvider provideConfigurationProvider(
-      AnnotationConfigApplicationContext springContext) {
-    return springContext.getBean(ConfigurationProvider.class);
-  }
-
-  @Provides
-  @Singleton
-  protected AnnotationConfigApplicationContext springContext() {
+  protected ConfigurationProvider provideConfigurationProvider() {
     AnnotationConfigApplicationContext context =
         new AnnotationConfigApplicationContext(ConfigurationProvider.class);
-    return context;
+    return context.getBean(ConfigurationProvider.class);
   }
 
   @Provides
   @Singleton
   protected SystemEntityClient provideEntityClient(
       @Named("systemOperationContext") final OperationContext systemOperationContext,
-      final ConfigurationProvider configurationProvider,
-      final MetricUtils metricUtils) {
+      final ConfigurationProvider configurationProvider) {
 
     return new SystemRestliEntityClient(
         buildRestliClient(),
@@ -286,8 +231,7 @@ public class AuthModule extends AbstractModule {
             .batchGetV2Size(configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE))
             .batchGetV2Concurrency(2)
             .build(),
-        configurationProvider.getCache().getClient().getEntityClient(),
-        metricUtils);
+        configurationProvider.getCache().getClient().getEntityClient());
   }
 
   @Provides
@@ -307,6 +251,38 @@ public class AuthModule extends AbstractModule {
         metadataServiceUseSsl,
         systemAuthentication,
         httpClient);
+  }
+
+  @Provides
+  @Singleton
+  public CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getApacheHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type);
+      } else {
+        return org.apache.http.impl.client.HttpClients.createDefault();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize CloseableHttpClient", e);
+    }
+  }
+
+  @Provides
+  @Singleton
+  public HttpClient provideHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getJavaHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type);
+      } else {
+        return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize HttpClient", e);
+    }
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
