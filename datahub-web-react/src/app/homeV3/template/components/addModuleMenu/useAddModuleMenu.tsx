@@ -5,11 +5,11 @@ import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dro
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { LARGE_MODULE_TYPES, SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
+import { getCustomGlobalModules } from '@app/homeV3/template/components/addModuleMenu/utils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
@@ -37,15 +37,12 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
-export default function useAddModuleMenu(
-    modulesAvailableToAdd: ModulesAvailableToAdd,
-    position: ModulePositionInput,
-    closeMenu: () => void,
-) {
+export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
         moduleModalState: { open: openModal },
         template,
+        globalTemplate,
     } = usePageTemplateContext();
 
     const isLargeModuleRow =
@@ -151,9 +148,10 @@ export default function useAddModuleMenu(
             children: [yourAssets, domains, assetCollection],
         });
 
-        // Add admin created modules if available
-        if (modulesAvailableToAdd.adminCreatedModules.length) {
-            const adminModuleItems = modulesAvailableToAdd.adminCreatedModules.map((module) => ({
+        // Add global custom modules if available
+        const customGlobalModules: PageModuleFragment[] = getCustomGlobalModules(globalTemplate);
+        if (customGlobalModules.length > 0) {
+            const adminModuleItems = customGlobalModules.map((module) => ({
                 title: module.properties.name,
                 key: module.urn,
                 label: <ModuleMenuItem module={convertModuleToModuleInfo(module)} />,
@@ -178,13 +176,7 @@ export default function useAddModuleMenu(
         }
 
         return { items };
-    }, [
-        isLargeModuleRow,
-        isSmallModuleRow,
-        modulesAvailableToAdd.adminCreatedModules,
-        handleOpenCreateModuleModal,
-        handleAddExistingModule,
-    ]);
+    }, [isLargeModuleRow, isSmallModuleRow, globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
 
     return menu;
 }
