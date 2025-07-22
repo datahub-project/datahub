@@ -11,6 +11,12 @@ from datahub_integrations.telemetry.mcp_events import MCPServerRequestEvent
 pytestmark = pytest.mark.anyio
 _mcp_route = "/public/ai/mcp"
 
+# This is a fake token that for testing. Created with https://jwt.io/
+_fake_token = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+    "thisisafakevalue"
+)
+
 
 @pytest.fixture(scope="module")
 async def client() -> AsyncIterator[httpx.AsyncClient]:
@@ -72,11 +78,14 @@ async def test_ping_header_auth(client: httpx.AsyncClient) -> None:
     )
 
 
-async def test_telemetry_middleware_tracks_calls(client: httpx.AsyncClient) -> None:
+@pytest.mark.parametrize("is_valid_token", [True, False])
+async def test_telemetry_middleware_tracks_calls(
+    client: httpx.AsyncClient, is_valid_token: bool
+) -> None:
     with patch("datahub_integrations.mcp.mcp_telemetry.track_saas_event") as mock_track:
         # The ping method bypasses FastMCP middleware, so we use tools/list instead.
         response = await client.post(
-            f"{_mcp_route}?token=test",
+            f"{_mcp_route}?token={_fake_token if is_valid_token else 'invalid'}",
             json={"jsonrpc": "2.0", "id": "123", "method": "tools/list"},
         )
         assert response.status_code == 200
@@ -87,5 +96,10 @@ async def test_telemetry_middleware_tracks_calls(client: httpx.AsyncClient) -> N
         assert call_args.source == "client"
         assert call_args.request_type == "request"
         assert call_args.method == "tools/list"
+        assert call_args.user_urn == (
+            "urn:li:corpuser:user@example.com" if is_valid_token else None
+        )
+        assert call_args.user_agent is not None
+        assert call_args.user_agent.startswith("python-httpx")
         assert call_args.duration_seconds >= 0
         assert call_args.tool_name is None

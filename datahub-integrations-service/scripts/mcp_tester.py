@@ -105,13 +105,11 @@ async def validate_server(client: Client) -> bool:
 
             # Test basic ping
             typer.echo("🏓 Testing ping...", nl=False)
-
             await client.ping()
             typer.echo(" ✅")
 
-            # List tools (count only)
+            # Test listing tools
             typer.echo("🛠️  Listing tools...", nl=False)
-
             try:
                 tools = await client.list_tools()
                 tool_count = len(tools)
@@ -124,6 +122,16 @@ async def validate_server(client: Client) -> bool:
             except Exception as e:
                 typer.echo(f" ❌ ({e})")
                 return False
+
+            # Test search
+            assert "search" in tool_names, "Search tool not found"
+            typer.echo("🔍 Testing search...", nl=False)
+            try:
+                search_result = await client.call_tool_mcp("search", {"query": "*"})
+                typer.echo(" ✅")
+                typer.echo(f"Search result: {search_result}")
+            except Exception as e:
+                typer.echo(f" ❌ ({e})")
 
             return True
 
@@ -152,7 +160,7 @@ async def main(
         "--token-mode",
         help="How to send the token: 'header' (Authorization: Bearer) or 'param' (query parameter)",
     ),
-):
+) -> None:
     """
     Test MCP server connectivity, authentication, and transport.
     

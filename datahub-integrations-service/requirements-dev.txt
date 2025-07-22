@@ -577,7 +577,7 @@ jupyter-core==4.12.0
     #   nbformat
 kiwisolver==1.4.8
     # via matplotlib
-loguru==0.7.2
+loguru==0.7.3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)

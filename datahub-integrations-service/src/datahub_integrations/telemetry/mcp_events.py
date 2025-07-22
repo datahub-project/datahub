@@ -11,9 +11,8 @@ class MCPServerRequestEvent(BaseEvent):
     source: str
     request_type: str
     method: str | None
+    user_agent: str | None = None
     duration_seconds: float
-
-    # TODO user attribution?
 
     # Attributes set only for tool calls.
     tool_name: str | None = None
