@@ -315,7 +315,7 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  public CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
+  protected CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
     try {
       if (tsConfig.isValid()) {
@@ -331,7 +331,7 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  public HttpClient provideHttpClient(com.typesafe.config.Config config) {
+  protected HttpClient provideHttpClient(com.typesafe.config.Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
     try {
       if (tsConfig.isValid()) {
