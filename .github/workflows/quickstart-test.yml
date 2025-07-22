@@ -12,14 +12,14 @@ on:
       - "metadata-ingestion/src/datahub/cli/docker_check.py"
       - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
       - ".github/workflows/quickstart-test.yml"
-      - "docker/quickstart/docker-compose.quickstart-profile.yml"
+      - "docker/quickstart/*"
   pull_request:
     paths:
       - "metadata-ingestion/src/datahub/cli/docker_cli.py"
       - "metadata-ingestion/src/datahub/cli/docker_check.py"
       - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
       - ".github/workflows/quickstart-test.yml"
-      - "docker/quickstart/docker-compose.quickstart-profile.yml"
+      - "docker/quickstart/*"
 
 jobs:
   test-quickstart-pr:

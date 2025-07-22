@@ -57,7 +57,16 @@ export const CUSTOM_LARGE_MODULE_ASSET_COLLECTION: ModuleInfo = {
     key: 'custom_large_module_asset_collection',
 };
 
+export const DEFAULT_MODULE_HIERARCHY_VIEW: ModuleInfo = {
+    type: DataHubPageModuleType.Hierarchy,
+    name: 'Hierarchy View',
+    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.Hierarchy),
+    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.Hierarchy) ?? DEFAULT_MODULE_ICON,
+    key: 'default_module_hierarchy_view',
+};
+
 export const DEFAULT_MODULES: ModuleInfo[] = [
+    DEFAULT_MODULE_HIERARCHY_VIEW,
     DEFAULT_MODULE_YOUR_ASSETS,
     DEFAULT_MODULE_TOP_DOMAINS,
     CUSTOM_LARGE_MODULE_ASSET_COLLECTION,
@@ -89,3 +98,5 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
 ];
+
+export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];

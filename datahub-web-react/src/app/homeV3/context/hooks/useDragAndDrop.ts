@@ -9,17 +9,20 @@ import { PageModuleFragment } from '@graphql/template.generated';
 interface DraggedModuleData {
     module: PageModuleFragment;
     position: ModulePositionInput;
+    isSmall: boolean;
 }
 
 export interface DroppableData {
     rowIndex: number;
     moduleIndex?: number; // If undefined, drop at the end of the row
     insertNewRow?: boolean; // If true, create a new row at this position
+    isSmall?: boolean; // If undefined, accept any module size
 }
 
 export interface ActiveDragModule {
     module: PageModuleFragment;
     position: ModulePositionInput;
+    isSmall: boolean;
 }
 
 export function useDragAndDrop() {
@@ -33,6 +36,7 @@ export function useDragAndDrop() {
             | {
                   module?: PageModuleFragment;
                   position?: ModulePositionInput;
+                  isSmall: boolean;
               }
             | undefined;
 
@@ -40,6 +44,7 @@ export function useDragAndDrop() {
             setActiveModule({
                 module: draggedData.module,
                 position: draggedData.position,
+                isSmall: draggedData.isSmall,
             });
         }
     }, []);
@@ -54,6 +59,14 @@ export function useDragAndDrop() {
 
             const draggedData = active.data.current as DraggedModuleData;
             const droppableData = over.data.current as DroppableData;
+
+            const isDragSmall = draggedData.isSmall;
+            const isDropSmall = droppableData.isSmall;
+
+            // Check if we're dropping in mis-matched sized row
+            if (isDropSmall !== undefined && isDragSmall !== undefined && isDragSmall !== isDropSmall) {
+                return;
+            }
 
             // Check if we're dropping in the same position
             if (
