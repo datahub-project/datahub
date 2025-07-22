@@ -4,10 +4,12 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.typesafe.config.Config;
 import java.net.http.HttpClient;
+import javax.inject.Singleton;
 import org.apache.http.impl.client.CloseableHttpClient;
 
 public class CustomHttpClientModule extends AbstractModule {
   @Provides
+  @Singleton
   public CloseableHttpClient provideCloseableHttpClient(Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
     try {
@@ -23,6 +25,7 @@ public class CustomHttpClientModule extends AbstractModule {
   }
 
   @Provides
+  @Singleton
   public HttpClient provideHttpClient(Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
     try {
