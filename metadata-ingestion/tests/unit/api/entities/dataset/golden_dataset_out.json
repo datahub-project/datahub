@@ -1,158 +1,158 @@
 [
-{
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-          "name": "CustomerAnalytics",
-          "description": "Analytics data concerning customer interactions and behaviors."
-        }
+      "json": {
+        "name": "CustomerAnalytics",
+        "description": "Analytics data concerning customer interactions and behaviors."
+      }
     }
-},
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "schemaMetadata",
-        "aspect": {
-            "json": {
-                "schemaName": "CustomerAnalytics",
-                "platform": "urn:li:dataPlatform:snowflake",
-                "version": 0,
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "hash": "",
-                "platformSchema": {
-                    "com.linkedin.schema.OtherSchema": {
-                        "rawSchema": "fields:\n- description: Unique identifier for the customer\n  id: customer_id\n  type: string\n- description: Total amount spent by the customer\n  id: purchase_amount\n  type: float\n- description: Date of purchase\n  id: purchase_date\n  type: string\n"
-                    }
-                },
-                "fields": [
-                    {
-                        "fieldPath": "customer_id",
-                        "nullable": false,
-                        "description": "Unique identifier for the customer",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "string",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    },
-                    {
-                        "fieldPath": "purchase_amount",
-                        "nullable": false,
-                        "description": "Total amount spent by the customer",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    },
-                    {
-                        "fieldPath": "purchase_date",
-                        "nullable": false,
-                        "description": "Date of purchase",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "string",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                ]
-            }
-        }
-    },
-{
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "CustomerAnalytics",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": "fields:\n- description: Unique identifier for the customer\n  id: customer_id\n  type: string\n- description: Total amount spent by the customer\n  id: purchase_amount\n  type: float\n- description: Date of purchase\n  id: purchase_date\n  type: string\n"
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "customer_id",
+            "nullable": false,
+            "description": "Unique identifier for the customer",
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "purchase_amount",
+            "nullable": false,
+            "description": "Total amount spent by the customer",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "float",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "purchase_date",
+            "nullable": false,
+            "description": "Date of purchase",
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    }
+  },
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:sales"
-                }
-            ]
-        }
+      "json": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:sales"
+          }
+        ]
+      }
     }
-},
-{
+  },
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "glossaryTerms",
     "aspect": {
-        "json": {
-            "terms": [
-                {
-                    "urn": "urn:li:glossaryTerm:data-quality.high"
-                },
-                {
-                    "urn": "urn:li:glossaryTerm:data-privacy.sensitive"
-                },
-                {
-                    "urn": "urn:li:glossaryTerm:data-security.confidential"
-                }
-            ],
-            "auditStamp": {
-                "time": 1681455600000,
-                "actor": "urn:li:corpuser:datahub",
-                "message": "yaml"
-            }
+      "json": {
+        "terms": [
+          {
+            "urn": "urn:li:glossaryTerm:data-quality.high"
+          },
+          {
+            "urn": "urn:li:glossaryTerm:data-privacy.sensitive"
+          },
+          {
+            "urn": "urn:li:glossaryTerm:data-security.confidential"
+          }
+        ],
+        "auditStamp": {
+          "time": 1681455600000,
+          "actor": "urn:li:corpuser:datahub",
+          "message": "yaml"
         }
+      }
     }
-},
-{
+  },
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:jsmith",
-                    "type": "CUSTOM",
-                    "typeUrn": "urn:li:ownershipType:dataSteward"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jsmith",
+            "type": "CUSTOM",
+            "typeUrn": "urn:li:ownershipType:dataSteward"
+          }
+        ],
+        "ownerTypes": {},
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
         }
+      }
     }
-},
-{
+  },
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "json": {
-            "domains": [
-                "urn:li:domain:retail"
-            ]
-        }
+      "json": {
+        "domains": [
+          "urn:li:domain:retail"
+        ]
+      }
     }
-}
+  }
 ]
