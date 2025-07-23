@@ -417,9 +417,12 @@ describe('useLoader hook', () => {
         });
 
         it('should re-trigger effect when dependencies change', () => {
-            const { rerender } = renderHook(({ parentValue }) => useLoader(parentValue, mockLoadChildren, undefined, undefined), {
-                initialProps: { parentValue: mockParentValue },
-            });
+            const { rerender } = renderHook(
+                ({ parentValue }) => useLoader(parentValue, mockLoadChildren, undefined, undefined),
+                {
+                    initialProps: { parentValue: mockParentValue },
+                },
+            );
 
             mockLoadChildren.mockReturnValue({
                 nodes: [createTreeNode('child1')],

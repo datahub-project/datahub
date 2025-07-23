@@ -27,7 +27,7 @@ export default function HierarchyViewModal() {
         const relatedEntitiesFilterJson =
             initialState?.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson;
 
-            return {
+        return {
             name: initialState?.properties.name || '',
             assetsType: assetType,
             domainAssets: assetType === ASSET_TYPE_DOMAINS ? assetUrns : [],

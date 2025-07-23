@@ -3,9 +3,9 @@ import React from 'react';
 import Condition from '@app/sharedV2/queryBuilder/Condition';
 /* eslint-disable import/no-cycle */
 import QueryBuilder from '@app/sharedV2/queryBuilder/QueryBuilder';
+import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { isLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
-import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 
 interface Props {
     operands: (LogicalPredicate | PropertyPredicate)[];
