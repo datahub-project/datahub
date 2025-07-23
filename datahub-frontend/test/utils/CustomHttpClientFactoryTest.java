@@ -5,21 +5,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import javax.net.ssl.SSLContext;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CustomHttpClientFactoryTest {
+
+  @TempDir Path tempDir;
 
   private static final String TRUSTSTORE_PASSWORD = "testpassword";
   private static final String TRUSTSTORE_TYPE = "PKCS12";
 
   // Helper: Generate a temp PKCS12 truststore using keytool
-  static Path generateTempTruststore() throws IOException, InterruptedException {
-    Path tempDir = Files.createTempDirectory("test-truststore");
+  Path generateTempTruststore() throws IOException, InterruptedException {
     Path truststorePath = tempDir.resolve("test-truststore-" + System.nanoTime() + ".p12");
     String keytoolPath = System.getenv("KEYTOOL_PATH");
     if (keytoolPath == null) {
