@@ -8,6 +8,8 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 
+import { DataHubPageModuleType } from '@types';
+
 export default function YourAssetsModule(props: ModuleProps) {
     const { user } = useUserContext();
     const { originEntities, loading } = useGetAssetsYouOwn(user);
@@ -24,7 +26,9 @@ export default function YourAssetsModule(props: ModuleProps) {
                     onLinkClick={() => {}}
                 />
             ) : (
-                originEntities.map((entity) => <EntityItem entity={entity} key={entity.urn} />)
+                originEntities.map((entity) => (
+                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
+                ))
             )}
         </LargeModule>
     );
