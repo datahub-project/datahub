@@ -12,7 +12,7 @@ const DragIcon = styled(Icon)<{ isDragging: boolean }>`
     cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
     display: none;
     position: absolute;
-    left: 4px;
+    left: 2px;
     top: 50%;
     transform: translateY(-50%);
 `;

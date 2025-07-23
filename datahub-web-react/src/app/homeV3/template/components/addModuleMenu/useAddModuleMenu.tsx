@@ -79,9 +79,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         const items: MenuProps['items'] = [];
 
         const quickLink = {
-            title: 'Quick Link',
+            name: 'Quick Link',
             key: 'quick-link',
-            label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
+            label: (
+                <MenuItem
+                    description="Choose links that are important"
+                    title="Quick Link"
+                    icon="LinkSimple"
+                    isDisabled={isLargeModuleRow}
+                    isSmallModule
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
@@ -89,9 +98,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const documentation = {
-            title: 'Documentation',
+            name: 'Documentation',
             key: 'documentation',
-            label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
+            label: (
+                <MenuItem
+                    description="Pin docs for your DataHub users"
+                    title="Documentation"
+                    icon="TextT"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
@@ -106,9 +124,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         });
 
         const yourAssets = {
-            title: 'Your Assets',
+            name: 'Your Assets',
             key: 'your-assets',
-            label: <MenuItem description="Assets the current user owns" title="Your Assets" icon="Database" />,
+            label: (
+                <MenuItem
+                    description="Assets the current user owns"
+                    title="Your Assets"
+                    icon="Database"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
@@ -116,9 +143,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const domains = {
-            title: 'Domains',
+            name: 'Domains',
             key: 'domains',
-            label: <MenuItem description="Most used domains in your organization" title="Domains" icon="Globe" />,
+            label: (
+                <MenuItem
+                    description="Most used domains in your organization"
+                    title="Domains"
+                    icon="Globe"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
@@ -126,13 +162,15 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const assetCollection = {
-            title: 'Asset Collection',
+            name: 'Asset Collection',
             key: 'asset-collection',
             label: (
                 <MenuItem
                     description="A curated list of assets of your choosing"
                     title="Asset Collection"
                     icon="Stack"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
                 />
             ),
             onClick: () => {
