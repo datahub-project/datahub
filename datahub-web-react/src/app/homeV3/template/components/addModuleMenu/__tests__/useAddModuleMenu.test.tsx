@@ -173,11 +173,8 @@ describe('useAddModuleMenu', () => {
         // @ts-expect-error SubMenuItem should have children
         const homeDefaults = items?.[2]?.children?.[0];
         expect(homeDefaults).toHaveProperty('key', 'adminCreatedModulesGroup');
-        // @ts-expect-error SubMenuItem should have children
         expect(homeDefaults?.children).toHaveLength(2);
-        // @ts-expect-error SubMenuItem should have children
         expect(homeDefaults?.children?.[0]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin1');
-        // @ts-expect-error SubMenuItem should have children
         expect(homeDefaults?.children?.[1]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin2');
     });
 
@@ -240,7 +237,6 @@ describe('useAddModuleMenu', () => {
         // Navigate to admin module: items[2] -> children[0] (homeDefaults) -> children[0] (first admin module)
         // @ts-expect-error SubMenuItem should have children
         const homeDefaults = result.current?.items?.[2]?.children?.[0];
-        // @ts-expect-error SubMenuItem should have children
         const adminModuleItem = homeDefaults?.children?.[0];
         adminModuleItem.onClick?.({} as any); // simulate click
 

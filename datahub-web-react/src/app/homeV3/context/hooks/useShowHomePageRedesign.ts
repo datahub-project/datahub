@@ -26,6 +26,6 @@ export function loadHomePageRedesignFromLocalStorage(): boolean {
     return localStorage.getItem(HOME_PAGE_REDESIGN_KEY) === 'true';
 }
 
-function saveToLocalStorage(isThemeV2: boolean) {
-    localStorage.setItem(HOME_PAGE_REDESIGN_KEY, String(isThemeV2));
+function saveToLocalStorage(showHomePageRedesign: boolean) {
+    localStorage.setItem(HOME_PAGE_REDESIGN_KEY, String(showHomePageRedesign));
 }
