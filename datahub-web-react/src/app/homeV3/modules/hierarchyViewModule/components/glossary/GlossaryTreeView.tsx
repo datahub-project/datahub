@@ -20,7 +20,7 @@ interface Props {
 }
 
 export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
-    const { tree, loading } = useGlossaryTree(assetUrns ?? []);
+    const { tree, loading } = useGlossaryTree(assetUrns ?? [], shouldShowRelatedEntities);
 
     const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
 
