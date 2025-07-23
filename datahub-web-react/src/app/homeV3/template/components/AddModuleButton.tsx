@@ -2,7 +2,6 @@ import { Button, Dropdown, Icon, colors } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 import { ModulePositionInput, RowSide } from '@app/homeV3/template/types';
 
@@ -44,13 +43,12 @@ const StyledVisibleOnHoverButton = styled(StyledButton)`
 
 interface Props {
     orientation: AddModuleButtonOrientation;
-    modulesAvailableToAdd: ModulesAvailableToAdd;
     className?: string;
     rowIndex?: number;
     rowSide?: RowSide;
 }
 
-export default function AddModuleButton({ orientation, modulesAvailableToAdd, className, rowIndex, rowSide }: Props) {
+export default function AddModuleButton({ orientation, className, rowIndex, rowSide }: Props) {
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
@@ -63,7 +61,7 @@ export default function AddModuleButton({ orientation, modulesAvailableToAdd, cl
 
     const closeMenu = () => setIsOpened(false);
 
-    const menu = useAddModuleMenu(modulesAvailableToAdd, position, closeMenu);
+    const menu = useAddModuleMenu(position, closeMenu);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger

@@ -81,7 +81,7 @@ class _EntityTypeFilter(_BaseFilter):
     ENTITY_TYPE_FIELD: ClassVar[str] = "_entityType"
 
     entity_type: List[str] = pydantic.Field(
-        description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', etc.",
+        description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', 'dataProduct', etc.",
     )
 
     def _build_rule(self) -> SearchFilterRule:
