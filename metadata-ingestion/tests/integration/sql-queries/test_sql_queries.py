@@ -64,6 +64,10 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "input/explicit-lineage.yml",
             "golden/explicit-lineage.json",
         ),
+        (
+            "input/hex-origin.yml",
+            "golden/hex-origin.json",
+        ),
     ],
 )
 def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file):
