@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-
 import { useAppConfig } from '@app/useAppConfig';
 
 export function useShowHomePageRedesign() {

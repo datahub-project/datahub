@@ -7,7 +7,7 @@ interface Props {
 
 export default function GroupItem({ title }: Props) {
     return (
-        <Text color="gray" weight="bold" size='sm'>
+        <Text color="gray" weight="bold" size="sm">
             {title}
         </Text>
     );
