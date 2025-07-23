@@ -717,18 +717,21 @@ entities:
 events:
 plugins:
   aspectPayloadValidators:
-
-
-
-
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
+    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mcpSideEffects:
-
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
       enabled: true
       spring:
@@ -736,9 +739,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-
-
-
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true
       spring:
