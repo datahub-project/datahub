@@ -834,6 +834,421 @@
                     ]
                   }
                 }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "event_type", "nativeDataType": "VARCHAR(255)"},
+                      {"fieldPath": "user_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "timestamp", "nativeDataType": "TIMESTAMP_NTZ"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "order_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "ship_date", "nativeDataType": "DATE"},
+                      {"fieldPath": "tracking_number", "nativeDataType": "VARCHAR(255)"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "day", "nativeDataType": "DATE"},
+                      {"fieldPath": "order_count", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "total_amount", "nativeDataType": "DECIMAL(18,2)"}
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CSNOWFLAKE.DB.AUDIT_LOG%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "SNOWFLAKE.DB.AUDIT_LOG",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "event_type",
+                "nativeDataType": "VARCHAR(255)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "user_id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "timestamp",
+                "nativeDataType": "TIMESTAMP_NTZ",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.TimeType": {}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Csnowflake.db.audit_log%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "snowflake.db.audit_log",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "event_type",
+                "nativeDataType": "VARCHAR(255)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "user_id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "timestamp",
+                "nativeDataType": "TIMESTAMP_NTZ",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.TimeType": {}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CSNOWFLAKE.DB.SHIPMENTS%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "SNOWFLAKE.DB.SHIPMENTS",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "order_id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "ship_date",
+                "nativeDataType": "DATE",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.DateType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "tracking_number",
+                "nativeDataType": "VARCHAR(255)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Csnowflake.db.shipments%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "snowflake.db.shipments",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "order_id",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "ship_date",
+                "nativeDataType": "DATE",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.DateType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "tracking_number",
+                "nativeDataType": "VARCHAR(255)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.StringType": {}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CSNOWFLAKE.DB.DAILY_SUMMARY%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "SNOWFLAKE.DB.DAILY_SUMMARY",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "day",
+                "nativeDataType": "DATE",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.DateType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "order_count",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "total_amount",
+                "nativeDataType": "DECIMAL(18,2)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/aspects/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Csnowflake.db.daily_summary%2CPROD%29",
+      "queryStringParameters": {
+        "aspect": ["schemaMetadata"],
+        "version": ["0"]
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "aspect": {
+          "com.linkedin.schema.SchemaMetadata": {
+            "schemaName": "snowflake.db.daily_summary",
+            "platform": "urn:li:dataPlatform:snowflake",
+            "version": 0,
+            "hash": "",
+            "platformSchema": {
+              "com.linkedin.schema.OtherSchema": {
+                "rawSchema": ""
+              }
+            },
+            "fields": [
+              {
+                "fieldPath": "day",
+                "nativeDataType": "DATE",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.DateType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "order_count",
+                "nativeDataType": "NUMBER",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
+              },
+              {
+                "fieldPath": "total_amount",
+                "nativeDataType": "DECIMAL(18,2)",
+                "type": {
+                  "type": {
+                    "com.linkedin.schema.NumberType": {}
+                  }
+                }
               }
             ]
           }

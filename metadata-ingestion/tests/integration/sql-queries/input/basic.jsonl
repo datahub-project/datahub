@@ -4,3 +4,6 @@
 {"query": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')", "timestamp": 1609459380, "user": "system", "upstream_tables": ["snowflake.db.sessions"], "downstream_tables": ["snowflake.db.users"]}
 {"query": "SELECT id, name FROM snowflake.db.users WHERE active = true", "timestamp": 1609459440, "user": "analyst"}
 {"query": "SELECT COUNT(*) FROM snowflake.db.orders", "timestamp": 1609459500, "user": "reporter"}
+{"query": "INSERT INTO snowflake.db.audit_log SELECT 'user_login', user_id, CURRENT_TIMESTAMP FROM snowflake.db.sessions WHERE session_date = CURRENT_DATE", "timestamp": 1609459560, "user": "etl_job"}
+{"query": "UPDATE snowflake.db.orders SET status = 'shipped' WHERE id IN (SELECT order_id FROM snowflake.db.shipments WHERE ship_date = CURRENT_DATE)", "timestamp": 1609459620, "user": "fulfillment"}
+{"query": "CREATE TABLE snowflake.db.daily_summary AS SELECT DATE(order_date) as day, COUNT(*) as order_count, SUM(amount) as total_amount FROM snowflake.db.orders GROUP BY DATE(order_date)", "timestamp": 1609459680, "user": "analytics"}
