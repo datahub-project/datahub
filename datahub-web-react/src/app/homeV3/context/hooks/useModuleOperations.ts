@@ -154,6 +154,7 @@ export function useModuleOperations(
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
     isEditingModule: boolean,
+    originalModuleData: PageModuleFragment | null,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
 
@@ -293,13 +294,28 @@ export function useModuleOperations(
             const defaultScope = isEditingGlobalTemplate ? PageModuleScope.Global : PageModuleScope.Personal;
             const { name, type, scope = defaultScope, params = {}, position, urn } = input;
 
+            // Check if we need to create a new module instead of editing the original
+            // This happens when:
+            // 1. We're editing an existing module (have urn and originalModuleData)
+            // 2. The original module has Global scope
+            // 3. We're not editing the global template
+            const isEditingGlobalModuleInPersonalTemplate =
+                isEditingModule &&
+                originalModuleData &&
+                originalModuleData.properties.visibility.scope === PageModuleScope.Global &&
+                !isEditingGlobalTemplate;
+
+            // If we're editing a global module in personal template, create new module instead
+            const shouldCreateNewModule = isEditingGlobalModuleInPersonalTemplate;
+            const moduleUrnToUse = shouldCreateNewModule ? undefined : urn;
+
             // Create the module first
             const moduleInput = {
                 name: name.trim(),
                 type,
                 scope,
                 params,
-                urn,
+                urn: moduleUrnToUse, // Don't pass urn if creating new module
             };
 
             upsertPageModuleMutation({
@@ -325,18 +341,60 @@ export function useModuleOperations(
                         },
                     };
 
-                    // Now add the module to the template
-                    addModule({
-                        module: moduleFragment,
-                        position,
-                    });
+                    // If we created a new module to replace a global one, remove the old module first
+                    if (shouldCreateNewModule && originalModuleData) {
+                        const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
+
+                        if (!templateToUpdate) {
+                            console.error('No template provided to update');
+                            message.error('No template available to update');
+                            return;
+                        }
+
+                        // Remove the original global module and add the new personal module
+                        let updatedTemplate = removeModuleFromTemplate(
+                            templateToUpdate,
+                            originalModuleData.urn,
+                            position,
+                        );
+
+                        if (updatedTemplate) {
+                            updatedTemplate = updateTemplateWithModule(
+                                updatedTemplate,
+                                moduleFragment,
+                                position,
+                                false,
+                            );
+
+                            // Update local state immediately for optimistic UI
+                            updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
+
+                            // Persist changes
+                            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace global module');
+                        }
+                    } else {
+                        // Normal flow: add the module to the template
+                        addModule({
+                            module: moduleFragment,
+                            position,
+                        });
+                    }
                 })
                 .catch((error) => {
                     console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
                     message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule, isEditingModule, isEditingGlobalTemplate],
+        [
+            upsertPageModuleMutation,
+            addModule,
+            isEditingModule,
+            isEditingGlobalTemplate,
+            originalModuleData,
+            context,
+            removeModuleFromTemplate,
+            updateTemplateWithModule,
+        ],
     );
 
     // Simplified move module function with extracted validation and orchestration
