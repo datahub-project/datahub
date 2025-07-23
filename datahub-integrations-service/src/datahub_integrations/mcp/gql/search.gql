@@ -51,13 +51,13 @@ query search(
   $types: [EntityType!]
   $query: String!
   $orFilters: [AndFilterInput!]
-  $batchSize: Int!
+  $count: Int!
   $scrollId: String
 ) {
   scrollAcrossEntities(
     input: {
       query: $query
-      count: $batchSize
+      count: $count
       scrollId: $scrollId
       types: $types
       orFilters: $orFilters

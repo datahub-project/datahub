@@ -1,8 +1,21 @@
 import contextlib
 import contextvars
+import functools
+import inspect
 import pathlib
-from typing import Any, Dict, Iterator, List, Optional
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    ParamSpec,
+    TypeVar,
+)
 
+import asyncer
 import jmespath
 from datahub.errors import ItemNotFoundError
 from datahub.ingestion.graph.client import DataHubGraph
@@ -12,6 +25,23 @@ from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
 from pydantic import BaseModel
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+# See https://github.com/jlowin/fastmcp/issues/864#issuecomment-3103678258
+# for why we need to wrap sync functions with asyncify.
+def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
+    if inspect.iscoroutinefunction(fn):
+        raise RuntimeError("async_background can only be used on non-async functions")
+
+    @functools.wraps(fn)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        return await asyncer.asyncify(fn)(*args, **kwargs)
+
+    return wrapper
+
 
 mcp = FastMCP[None](name="datahub")
 
@@ -132,6 +162,7 @@ def _clean_get_entity_response(raw_response: dict) -> dict:
 
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
+@async_background
 def get_entity(urn: str) -> dict:
     client = get_datahub_client()
 
@@ -157,7 +188,7 @@ def get_entity(urn: str) -> dict:
     description="""Search across DataHub entities.
 
 Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
-To search for all entities, use the wildcard '*' as the query.
+To search for all entities, use the wildcard '*' as the query and set `filters: null`.
 
 A typical workflow will involve multiple calls to this search tool, with each call refining the filters based on the facets/aggregations returned in the previous call.
 After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
@@ -172,19 +203,19 @@ Here are some example filters:
   ]
 }
 ```
-
 - All non-Snowflake tables
 ```
 {
   "and":[
     {"entity_type": ["DATASET"]},
-    {"entity_subtype": "Table"},
+    {"entity_subtype": ["Table"]},
     {"not": {"platform": ["snowflake"]}}
   ]
 }
 ```
 """
 )
+@async_background
 def search(
     query: str = "*",
     filters: Optional[Filter] = None,
@@ -197,7 +228,7 @@ def search(
         "query": query,
         "types": types,
         "orFilters": compiled_filters,
-        "batchSize": num_results,
+        "count": max(num_results, 1),  # 0 is not a valid value for count.
     }
 
     response = _execute_graphql(
@@ -207,10 +238,16 @@ def search(
         operation_name="search",
     )["scrollAcrossEntities"]
 
+    if num_results == 0 and isinstance(response, dict):
+        # Hack to support num_results=0 without support for it in the backend.
+        response.pop("searchResults", None)
+        response.pop("count", None)
+
     return _clean_gql_response(response)
 
 
 @mcp.tool(description="Use this tool to get the SQL queries associated with a dataset.")
+@async_background
 def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> dict:
     client = get_datahub_client()
 
@@ -326,6 +363,7 @@ class AssetLineageAPI:
 Use this tool to get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc. \
 Set upstream to True for upstream lineage, False for downstream lineage."""
 )
+@async_background
 def get_lineage(urn: str, upstream: bool, max_hops: int = 1) -> dict:
     client = get_datahub_client()
     lineage_api = AssetLineageAPI(client._graph)

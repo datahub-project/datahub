@@ -25,7 +25,6 @@ fragment ownershipFields on Ownership {
     owner {
       ... on CorpUser {
         urn
-        type
         properties {
           active
           displayName
@@ -43,7 +42,6 @@ fragment ownershipFields on Ownership {
       }
       ... on CorpGroup {
         urn
-        type
         name
         properties {
           displayName
@@ -113,7 +111,6 @@ fragment ownershipFields on Ownership {
 }
 fragment nonRecursiveDataFlowFields on DataFlow {
   urn
-  type
   orchestrator
   flowId
   cluster
@@ -227,7 +224,6 @@ fragment displayPropertiesFields on DisplayProperties {
 fragment entityDomain on DomainAssociation {
   domain {
     urn
-    type
     properties {
       name
       description
@@ -297,7 +293,6 @@ fragment deprecationFields on Deprecation {
 
 fragment entityDisplayNameFields on Entity {
   urn
-  type
   ... on Dataset {
     properties {
       name
@@ -427,7 +422,6 @@ fragment entityDisplayNameFields on Entity {
 
 fragment nonConflictingPlatformFields on DataPlatform {
   urn
-  type
   name
   properties {
     displayName
@@ -505,7 +499,6 @@ fragment parentDomainsFields on ParentDomainsResult {
 
 fragment entityPreview on Entity {
   urn
-  type
   ... on Dataset {
     name
     platform {
@@ -813,8 +806,6 @@ fragment entityPreview on Entity {
     }
   }
   ... on MLFeatureTable {
-    urn
-    type
     name
     description
     featureTableProperties {
@@ -954,9 +945,39 @@ fragment entityPreview on Entity {
       description
     }
   }
-  # ... on Container {
-  #     ...entityContainer
-  # }
+  ... on Container {
+    ...entityDisplayNameFields
+    subTypes {
+      typeNames
+    }
+    ownership {
+      ...ownershipFields
+    }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    structuredProperties {
+      properties {
+        ...structuredPropertiesFields
+      }
+    }
+    platform {
+      ...platformFields
+    }
+    deprecation {
+      ...deprecationFields
+    }
+    browsePathV2 {
+      path {
+        entity {
+          ...entityDisplayNameFields
+        }
+      }
+    }
+  }
 }
 
 fragment documentationFields on Documentation {
@@ -1226,6 +1247,16 @@ fragment entityDetails on Entity {
   ... on StructuredPropertyEntity {
     ...structuredPropertyFields
     ...structuredPropertyDetailsFields
+  }
+  ... on Container {
+    properties {
+      description
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
   }
 }
 
