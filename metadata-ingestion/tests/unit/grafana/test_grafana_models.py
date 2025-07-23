@@ -35,6 +35,7 @@ def test_panel_with_datasource():
     }
 
     panel = Panel.parse_obj(panel_data)
+    assert panel.datasource_ref is not None
     assert panel.datasource_ref.type == "postgres"
     assert panel.datasource_ref.uid == "abc123"
 
