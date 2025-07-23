@@ -54,10 +54,6 @@ const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
     padding-right: 30px;
 `;
 
-const RecipeSection = styled(SectionBase)``;
-
-const LogsSection = styled(SectionBase)``;
-
 const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
@@ -134,7 +130,7 @@ export const SummaryTab = ({
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
                 )}
             </IngestedAssetsSection>
-            <LogsSection>
+            <SectionBase>
                 <SectionHeader level={5}>Logs</SectionHeader>
                 <SectionSubHeader>
                     <SubHeaderParagraph type="secondary">
@@ -156,9 +152,9 @@ export const SummaryTab = ({
                         <pre>{`${logs}${areLogsExpandable ? '...' : ''}`}</pre>
                     </Typography.Paragraph>
                 </DetailsContainer>
-            </LogsSection>
+            </SectionBase>
             {recipe && (
-                <RecipeSection>
+                <SectionBase>
                     <SectionHeader level={5}>Recipe</SectionHeader>
                     <SectionSubHeader>
                         <SubHeaderParagraph type="secondary">
@@ -180,7 +176,7 @@ export const SummaryTab = ({
                             <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>
                     </DetailsContainer>
-                </RecipeSection>
+                </SectionBase>
             )}
         </Section>
     );

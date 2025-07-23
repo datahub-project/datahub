@@ -379,7 +379,7 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = structuredReportObject.source.report.aspects_by_subtypes;
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;

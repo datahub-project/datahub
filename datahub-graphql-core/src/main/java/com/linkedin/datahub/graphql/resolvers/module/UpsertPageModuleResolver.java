@@ -124,6 +124,26 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       assetCollectionParams.setAssetUrns(urnArray);
       gmsParams.setAssetCollectionParams(assetCollectionParams);
     }
+
+    if (paramsInput.getHierarchyViewParams() != null) {
+      com.linkedin.module.HierarchyModuleParams hierarchyViewParams =
+          new com.linkedin.module.HierarchyModuleParams();
+      if (paramsInput.getHierarchyViewParams().getAssetUrns() != null) {
+        hierarchyViewParams.setAssetUrns(
+            new UrnArray(
+                paramsInput.getHierarchyViewParams().getAssetUrns().stream()
+                    .map(UrnUtils::getUrn)
+                    .collect(Collectors.toList())));
+      }
+
+      hierarchyViewParams.setShowRelatedEntities(
+          paramsInput.getHierarchyViewParams().getShowRelatedEntities());
+
+      // TODO: add filters field
+
+      gmsParams.setHierarchyViewParams(hierarchyViewParams);
+    }
+
     return gmsParams;
   }
 
@@ -143,6 +163,11 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       if (params.getAssetCollectionParams() == null) {
         throw new IllegalArgumentException(
             "Did not provide asset collection params for asset collection module");
+      }
+    } else if (type.equals(com.linkedin.module.DataHubPageModuleType.HIERARCHY)) {
+      if (params.getHierarchyViewParams() == null) {
+        throw new IllegalArgumentException(
+            "Did not provide hierarchy view params for hierarchy view module");
       }
     } else {
       // TODO: add more blocks to this check as we support creating more types of modules to this
